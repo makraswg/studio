@@ -39,8 +39,6 @@ import {
   DialogTrigger
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
@@ -77,6 +75,14 @@ export default function ResourcesPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Cleanup selection when dialog closes
+  useEffect(() => {
+    if (!isEntitlementOpen) {
+      const timer = setTimeout(() => setSelectedResource(null), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isEntitlementOpen]);
 
   const handleCreateResource = () => {
     if (!newName || !newOwner) {
@@ -293,7 +299,7 @@ export default function ResourcesPage() {
                         <div>
                           <div className="font-bold flex items-center gap-1.5">
                             {resource.name}
-                            {resource.url && <a href={resource.url} target="_blank" className="text-muted-foreground hover:text-primary"><ExternalLink className="w-3 h-3" /></a>}
+                            {resource.url && <a href={resource.url} target="_blank" className="text-muted-foreground hover:text-primary" rel="noopener noreferrer"><ExternalLink className="w-3 h-3" /></a>}
                           </div>
                           <div className="text-xs text-muted-foreground truncate max-w-[150px]">{resource.owner}</div>
                         </div>
@@ -317,7 +323,14 @@ export default function ResourcesPage() {
                           <Button variant="ghost" size="icon"><MoreHorizontal className="w-5 h-5" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="font-bold" onClick={() => { setSelectedResource(resource); setIsEntitlementOpen(true); }}>
+                          <DropdownMenuItem 
+                            className="font-bold" 
+                            onSelect={(e) => {
+                              e.preventDefault(); // Prevent dropdown from closing and locking focus before dialog opens
+                              setSelectedResource(resource);
+                              setIsEntitlementOpen(true);
+                            }}
+                          >
                             Berechtigungen verwalten
                           </DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive font-bold" onClick={() => deleteDocumentNonBlocking(doc(db, 'resources', resource.id))}>

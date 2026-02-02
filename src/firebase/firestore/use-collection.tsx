@@ -46,6 +46,7 @@ export function useCollection<T>(
   
   // Guard against state updates on unmounted components which can trigger SDK assertion errors
   const isMounted = useRef(true);
+  const activeUnsubscribe = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     isMounted.current = true;
@@ -59,6 +60,11 @@ export function useCollection<T>(
 
     setIsLoading(true);
     setError(null);
+
+    // Ensure we don't have multiple listeners if useEffect runs again before cleanup
+    if (activeUnsubscribe.current) {
+      activeUnsubscribe.current();
+    }
 
     const unsubscribe = onSnapshot(
       memoizedTargetRefOrQuery,
@@ -100,9 +106,14 @@ export function useCollection<T>(
       }
     );
 
+    activeUnsubscribe.current = unsubscribe;
+
     return () => {
       isMounted.current = false;
-      unsubscribe();
+      if (activeUnsubscribe.current) {
+        activeUnsubscribe.current();
+        activeUnsubscribe.current = null;
+      }
     };
   }, [memoizedTargetRefOrQuery, options?.includeMetadataChanges]);
 

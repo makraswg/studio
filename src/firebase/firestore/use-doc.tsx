@@ -34,6 +34,7 @@ export function useDoc<T = any>(
   const [isLoading, setIsLoading] = useState<boolean>(!!memoizedDocRef);
   const [error, setError] = useState<Error | null>(null);
   const isMounted = useRef(true);
+  const activeUnsubscribe = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     isMounted.current = true;
@@ -47,6 +48,10 @@ export function useDoc<T = any>(
 
     setIsLoading(true);
     setError(null);
+
+    if (activeUnsubscribe.current) {
+      activeUnsubscribe.current();
+    }
 
     const unsubscribe = onSnapshot(
       memoizedDocRef,
@@ -79,9 +84,14 @@ export function useDoc<T = any>(
       }
     );
 
+    activeUnsubscribe.current = unsubscribe;
+
     return () => {
       isMounted.current = false;
-      unsubscribe();
+      if (activeUnsubscribe.current) {
+        activeUnsubscribe.current();
+        activeUnsubscribe.current = null;
+      }
     };
   }, [memoizedDocRef]);
 

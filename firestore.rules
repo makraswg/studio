@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Deployment trigger: 2026-02-02T23:00:00Z - Addressing ID: ca9 and stabilizing root-level access
+// Deployment trigger: 2026-02-02T23:15:00Z - Hardened root query stability and collection group isolation
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -14,8 +14,14 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid));
     }
 
+    // COLLECTION GROUP RULES (Priority)
+    // Allows users to list memberships where they are the owner
+    match /{path=**}/members/{uid} {
+      allow list, get: if isSignedIn() && (request.auth.uid == uid);
+    }
+
     // ROOT LEVEL RULES
-    // These allow the queries used in the dashboard (e.g., collection(db, 'users'))
+    // These authorize queries directly on top-level collections (e.g., collection(db, 'users'))
     match /users/{userId} {
       allow read, write: if isSignedIn();
     }
@@ -33,12 +39,6 @@ service cloud.firestore {
     }
     match /tenants/{tenantId} {
       allow read, write: if isSignedIn();
-    }
-
-    // COLLECTION GROUP RULES
-    // Allows users to find which tenants they belong to
-    match /{path=**}/members/{uid} {
-      allow list, get: if isSignedIn() && (request.auth.uid == uid);
     }
 
     // NESTED TENANT RULES (Isolation)

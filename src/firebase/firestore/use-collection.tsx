@@ -23,17 +23,12 @@ export type WithId<T> = T & { id: string };
 export interface UseCollectionResult<T> {
   data: WithId<T>[] | null; // Document data with ID, or null.
   isLoading: boolean;       // True if loading.
-  error: FirestoreError | Error | null; // Error object, or null.
+  error: Error | null; // Error object, or null.
 }
 
 /**
  * Custom hook to listen to a Firestore collection.
- * It automatically handles loading, error, and data states, and unsubscribes on unmount.
  * @template T Type of the document data.
- * @param {Query<T, DocumentData> | CollectionReference<T, DocumentData> | null} targetRefOrQuery - The Firestore query or collection reference to listen to.
- * @param {object} [options] - Options for the snapshot listener.
- * @param {boolean} [options.includeMetadataChanges] - Whether to include metadata changes in the snapshot.
- * @returns {UseCollectionResult<T>} The state of the collection listener.
  */
 export function useCollection<T>(
   targetRefOrQuery: Query<T, DocumentData> | CollectionReference<T, DocumentData> | null,
@@ -44,10 +39,9 @@ export function useCollection<T>(
     [targetRefOrQuery]
   );
 
-  type StateDataType = WithId<T>[] | null;
-  const [data, setData] = useState<StateDataType>(null);
+  const [data, setData] = useState<WithId<T>[] | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<FirestoreError | Error | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (!memoizedTargetRefOrQuery) {
@@ -65,24 +59,23 @@ export function useCollection<T>(
       { includeMetadataChanges: options?.includeMetadataChanges },
       (snapshot: QuerySnapshot<T, DocumentData>) => {
         const docs = snapshot.docs.map((doc) => ({
-          ...doc.data(),
+          ...(doc.data() as T),
           id: doc.id,
         }));
         setData(docs);
         setIsLoading(false);
+        setError(null);
       },
       (err: FirestoreError) => {
         if (err.code === 'permission-denied') {
-          // Robust path resolution for error context
-          const path = memoizedTargetRefOrQuery instanceof CollectionReference 
-            ? memoizedTargetRefOrQuery.path 
-            : 'collectionGroup/query';
+          // Robust path resolution without relying on internal SDK properties
+          const path = (memoizedTargetRefOrQuery as any).path || 'collection-group-query';
 
           const customError = new FirestorePermissionError({
             operation: 'list',
             path: path,
           });
-          setError(customError as any);
+          setError(customError);
           errorEmitter.emit('permission-error', customError);
         } else {
           setError(err);

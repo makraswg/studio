@@ -102,6 +102,9 @@ export default function ResourcesPage() {
     addDocumentNonBlocking(collection(db, 'resources'), resourceData);
     setIsCreateOpen(false);
     toast({ title: "Ressource hinzugefügt", description: `${newName} erfolgreich katalogisiert.` });
+    setNewName('');
+    setNewOwner('');
+    setNewUrl('');
   };
 
   const handleAddEntitlement = () => {
@@ -193,69 +196,6 @@ export default function ResourcesPage() {
         </Dialog>
       </div>
 
-      <Dialog open={isEntitlementOpen} onOpenChange={setIsEntitlementOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Berechtigungen verwalten: {selectedResource?.name}</DialogTitle>
-            <DialogDescription>Definieren Sie Zugriffsebenen und Rollen für diese Ressource.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6">
-            <div className="space-y-4 p-4 border rounded-xl bg-accent/5">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Rollenname</Label>
-                  <Input value={entName} onChange={e => setEntName(e.target.value)} placeholder="z.B. Nur Lesen" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Risikostufe</Label>
-                  <Select value={entRisk} onValueChange={setEntRisk}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Niedrig</SelectItem>
-                      <SelectItem value="medium">Mittel</SelectItem>
-                      <SelectItem value="high">Hoch</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Beschreibung</Label>
-                <Input value={entDesc} onChange={e => setEntDesc(e.target.value)} placeholder="Berechtigungen beschreiben..." />
-              </div>
-              <Button onClick={handleAddEntitlement} className="w-full">Berechtigung hinzufügen</Button>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="font-bold">Vorhandene Berechtigungen</Label>
-              <div className="border rounded-xl divide-y bg-card">
-                {entitlements?.filter(e => e.resourceId === selectedResource?.id).map(e => (
-                  <div key={e.id} className="p-3 flex items-center justify-between group">
-                    <div className="flex items-center gap-3">
-                      <Shield className={cn(
-                        "w-4 h-4",
-                        e.riskLevel === 'high' ? "text-red-500" : e.riskLevel === 'medium' ? "text-orange-500" : "text-blue-500"
-                      )} />
-                      <div>
-                        <p className="text-sm font-bold">{e.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{e.description}</p>
-                      </div>
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deleteDocumentNonBlocking(doc(db, 'entitlements', e.id))}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-                {entitlements?.filter(e => e.resourceId === selectedResource?.id).length === 0 && (
-                  <p className="p-6 text-center text-xs text-muted-foreground">Noch keine Berechtigungen definiert.</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -325,7 +265,7 @@ export default function ResourcesPage() {
                           <DropdownMenuItem 
                             className="font-bold" 
                             onSelect={(e) => {
-                              e.preventDefault(); // Prevents pointer-events trap
+                              e.preventDefault();
                               setSelectedResource(resource);
                               setIsEntitlementOpen(true);
                             }}
@@ -345,6 +285,69 @@ export default function ResourcesPage() {
           </Table>
         )}
       </div>
+
+      <Dialog open={isEntitlementOpen} onOpenChange={setIsEntitlementOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Berechtigungen verwalten: {selectedResource?.name}</DialogTitle>
+            <DialogDescription>Definieren Sie Zugriffsebenen und Rollen für diese Ressource.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6">
+            <div className="space-y-4 p-4 border rounded-xl bg-accent/5">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Rollenname</Label>
+                  <Input value={entName} onChange={e => setEntName(e.target.value)} placeholder="z.B. Nur Lesen" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Risikostufe</Label>
+                  <Select value={entRisk} onValueChange={entRisk}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Niedrig</SelectItem>
+                      <SelectItem value="medium">Mittel</SelectItem>
+                      <SelectItem value="high">Hoch</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Beschreibung</Label>
+                <Input value={entDesc} onChange={e => setEntDesc(e.target.value)} placeholder="Berechtigungen beschreiben..." />
+              </div>
+              <Button onClick={handleAddEntitlement} className="w-full">Berechtigung hinzufügen</Button>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="font-bold">Vorhandene Berechtigungen</Label>
+              <div className="border rounded-xl divide-y bg-card max-h-[300px] overflow-y-auto">
+                {entitlements?.filter(e => e.resourceId === selectedResource?.id).map(e => (
+                  <div key={e.id} className="p-3 flex items-center justify-between group">
+                    <div className="flex items-center gap-3">
+                      <Shield className={cn(
+                        "w-4 h-4",
+                        e.riskLevel === 'high' ? "text-red-500" : e.riskLevel === 'medium' ? "text-orange-500" : "text-blue-500"
+                      )} />
+                      <div>
+                        <p className="text-sm font-bold">{e.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{e.description}</p>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => deleteDocumentNonBlocking(doc(db, 'entitlements', e.id))}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                {entitlements?.filter(e => e.resourceId === selectedResource?.id).length === 0 && (
+                  <p className="p-6 text-center text-xs text-muted-foreground">Noch keine Berechtigungen definiert.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

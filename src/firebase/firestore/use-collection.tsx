@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -13,28 +14,18 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useMemoFirebase } from '@/firebase';
 
-/** Utility type to add an 'id' field to a given type T. */
 export type WithId<T> = T & { id: string };
 
-/**
- * Interface for the return value of the useCollection hook.
- * @template T Type of the document data.
- */
 export interface UseCollectionResult<T> {
-  data: WithId<T>[] | null; // Document data with ID, or null.
-  isLoading: boolean;       // True if loading.
-  error: Error | null; // Error object, or null.
+  data: WithId<T>[] | null;
+  isLoading: boolean;
+  error: Error | null;
 }
 
-/**
- * Custom hook to listen to a Firestore collection.
- * @template T Type of the document data.
- */
 export function useCollection<T>(
   targetRefOrQuery: Query<T, DocumentData> | CollectionReference<T, DocumentData> | null,
   options?: { includeMetadataChanges?: boolean }
 ): UseCollectionResult<T> {
-  // Stabilize the query reference
   const memoizedTargetRefOrQuery = useMemoFirebase(
     () => targetRefOrQuery,
     [targetRefOrQuery]
@@ -44,7 +35,6 @@ export function useCollection<T>(
   const [isLoading, setIsLoading] = useState<boolean>(!!memoizedTargetRefOrQuery);
   const [error, setError] = useState<Error | null>(null);
   
-  // Guard against state updates on unmounted components which can trigger SDK assertion errors
   const isMounted = useRef(true);
   const activeUnsubscribe = useRef<(() => void) | null>(null);
 
@@ -61,7 +51,6 @@ export function useCollection<T>(
     setIsLoading(true);
     setError(null);
 
-    // Ensure we don't have multiple listeners if useEffect runs again before cleanup
     if (activeUnsubscribe.current) {
       activeUnsubscribe.current();
     }
@@ -84,12 +73,15 @@ export function useCollection<T>(
         if (!isMounted.current) return;
 
         if (err.code === 'permission-denied') {
-          // Resolve path safely
-          let path = 'collection-group-query';
-          if ('path' in memoizedTargetRefOrQuery) {
-             path = (memoizedTargetRefOrQuery as any).path;
-          } else if ('_query' in (memoizedTargetRefOrQuery as any)) {
-             path = (memoizedTargetRefOrQuery as any)._query.path.canonicalString();
+          let path = 'unknown-path';
+          try {
+            if ('path' in (memoizedTargetRefOrQuery as any)) {
+              path = (memoizedTargetRefOrQuery as any).path;
+            } else if ((memoizedTargetRefOrQuery as any)._query?.path?.canonicalString) {
+              path = (memoizedTargetRefOrQuery as any)._query.path.canonicalString();
+            }
+          } catch (e) {
+            console.warn("Failed to resolve path for error reporting", e);
           }
 
           const contextualError = new FirestorePermissionError({

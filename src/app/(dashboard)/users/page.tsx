@@ -54,20 +54,15 @@ export default function UsersPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
   
-  // Profile View State
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
-  // Form state
   const [newDisplayName, setNewDisplayName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newDepartment, setNewDepartment] = useState('');
   const [newTitle, setNewTitle] = useState('');
 
-  const usersQuery = useMemoFirebase(() => {
-    return collection(db, 'users');
-  }, [db]);
-
+  const usersQuery = useMemoFirebase(() => collection(db, 'users'), [db]);
   const { data: users, isLoading } = useCollection(usersQuery);
 
   useEffect(() => {
@@ -78,10 +73,7 @@ export default function UsersPage() {
     setIsSyncing(true);
     setTimeout(() => {
       setIsSyncing(false);
-      toast({
-        title: "Synchronisierung abgeschlossen",
-        description: "Das LDAP-Verzeichnis ist auf dem neuesten Stand.",
-      });
+      toast({ title: "Synchronisierung abgeschlossen", description: "Das LDAP-Verzeichnis ist auf dem neuesten Stand." });
     }, 2000);
   };
 
@@ -106,7 +98,6 @@ export default function UsersPage() {
     };
 
     setDocumentNonBlocking(userRef, userData, { merge: true });
-
     addDocumentNonBlocking(collection(db, 'auditEvents'), {
       actorUid: authUser?.uid || 'system',
       action: 'Benutzer erstellen',
@@ -119,8 +110,6 @@ export default function UsersPage() {
     setIsAddOpen(false);
     setNewDisplayName('');
     setNewEmail('');
-    setNewDepartment('');
-    setNewTitle('');
   };
 
   const filteredUsers = users?.filter(user => 
@@ -158,26 +147,16 @@ export default function UsersPage() {
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>Verzeichnisbenutzer hinzufügen</DialogTitle>
-                <DialogDescription>
-                  Manuelles Erstellen eines Benutzereintrags im Verzeichnis.
-                </DialogDescription>
+                <DialogDescription>Manuelles Erstellen eines Benutzereintrags.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">Name</Label>
-                  <Input id="name" value={newDisplayName} onChange={e => setNewDisplayName(e.target.value)} className="col-span-3" />
+                  <Label className="text-right">Name</Label>
+                  <Input value={newDisplayName} onChange={e => setNewDisplayName(e.target.value)} className="col-span-3" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email" className="text-right">E-Mail</Label>
-                  <Input id="email" type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="department" className="text-right">Abteilung</Label>
-                  <Input id="department" value={newDepartment} onChange={e => setNewDepartment(e.target.value)} className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="title" className="text-right">Titel</Label>
-                  <Input id="title" value={newTitle} onChange={e => setNewTitle(e.target.value)} className="col-span-3" />
+                  <Label className="text-right">E-Mail</Label>
+                  <Input value={newEmail} onChange={e => setNewEmail(e.target.value)} className="col-span-3" />
                 </div>
               </div>
               <DialogFooter>
@@ -187,51 +166,6 @@ export default function UsersPage() {
           </Dialog>
         </div>
       </div>
-
-      <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Benutzerprofil</DialogTitle>
-            <DialogDescription>Details zum Verzeichnisbenutzer und Systemstatus.</DialogDescription>
-          </DialogHeader>
-          {selectedUser && (
-            <div className="space-y-6 py-4">
-              <div className="flex items-center gap-4 p-4 rounded-2xl bg-accent/10 border">
-                <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-white text-2xl font-bold uppercase shadow-inner">
-                  {selectedUser.displayName.charAt(0)}
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold">{selectedUser.displayName}</h3>
-                  <p className="text-sm text-muted-foreground">{selectedUser.title}</p>
-                  <Badge className="mt-2 bg-green-500/10 text-green-600 border-none font-bold">AKTIV</Badge>
-                </div>
-              </div>
-              
-              <div className="grid gap-4 text-sm">
-                <div className="flex justify-between border-b pb-2">
-                  <span className="text-muted-foreground">E-Mail:</span>
-                  <span className="font-medium">{selectedUser.email}</span>
-                </div>
-                <div className="flex justify-between border-b pb-2">
-                  <span className="text-muted-foreground">Abteilung:</span>
-                  <span className="font-medium">{selectedUser.department || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between border-b pb-2">
-                  <span className="text-muted-foreground">Externe ID:</span>
-                  <span className="font-mono text-xs">{selectedUser.externalId}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Zuletzt synchronisiert:</span>
-                  <span className="font-medium">{selectedUser.lastSyncedAt ? new Date(selectedUser.lastSyncedAt).toLocaleString() : 'Nie'}</span>
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button onClick={() => setIsProfileOpen(false)}>Schließen</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="md:col-span-2 relative">
@@ -243,12 +177,6 @@ export default function UsersPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Button variant="outline" className="h-11 gap-2">
-          <Building2 className="w-4 h-4" /> Alle Abteilungen
-        </Button>
-        <Button variant="outline" className="h-11 gap-2">
-          <Filter className="w-4 h-4" /> Weitere Filter
-        </Button>
       </div>
 
       <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
@@ -264,7 +192,7 @@ export default function UsersPage() {
                 <TableHead className="w-[350px] py-4">Mitarbeiter</TableHead>
                 <TableHead>Abteilung</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Zuletzt synchronisiert</TableHead>
+                <TableHead>Synchronisiert</TableHead>
                 <TableHead className="text-right">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
@@ -273,7 +201,7 @@ export default function UsersPage() {
                 <TableRow key={user.id} className="group transition-colors hover:bg-accent/10">
                   <TableCell className="py-4">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-primary font-bold group-hover:scale-110 transition-transform uppercase">
+                      <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-primary font-bold uppercase">
                         {user.displayName.charAt(0)}
                       </div>
                       <div>
@@ -289,13 +217,7 @@ export default function UsersPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge 
-                      className={cn(
-                        "font-bold",
-                        user.enabled ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
-                      )}
-                      variant="outline"
-                    >
+                    <Badge className={cn("font-bold", user.enabled ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600")} variant="outline">
                       {user.enabled ? "AKTIVIERT" : "DEAKTIVIERT"}
                     </Badge>
                   </TableCell>
@@ -310,14 +232,14 @@ export default function UsersPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem className="font-medium" onSelect={(e) => {
-                          e.preventDefault(); // Prevents pointer-events trap
+                        <DropdownMenuItem onSelect={(e) => {
+                          e.preventDefault();
                           setSelectedUser(user);
                           setIsProfileOpen(true);
                         }}>
                           <UserCircle className="w-4 h-4 mr-2" /> Profil anzeigen
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="font-medium" asChild>
+                        <DropdownMenuItem asChild>
                           <Link href={`/assignments?search=${user.displayName}`} className="flex w-full items-center">
                             <ShieldCheck className="w-4 h-4 mr-2" /> Zuweisungen anzeigen
                           </Link>
@@ -327,17 +249,46 @@ export default function UsersPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {!isLoading && filteredUsers?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
-                    Keine Benutzer gefunden, die Ihrer Suche entsprechen.
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         )}
       </div>
+
+      <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Benutzerprofil</DialogTitle>
+            <DialogDescription>Details zum Verzeichnisbenutzer.</DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-6 py-4">
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-accent/10 border">
+                <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-white text-2xl font-bold uppercase">
+                  {selectedUser.displayName.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">{selectedUser.displayName}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedUser.title}</p>
+                  <Badge className="mt-2 bg-green-500/10 text-green-600 border-none">AKTIV</Badge>
+                </div>
+              </div>
+              <div className="grid gap-2 text-sm">
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-muted-foreground">E-Mail:</span>
+                  <span className="font-medium">{selectedUser.email}</span>
+                </div>
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-muted-foreground">Abteilung:</span>
+                  <span className="font-medium">{selectedUser.department || 'N/A'}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setIsProfileOpen(false)}>Schließen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

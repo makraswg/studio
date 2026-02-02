@@ -26,7 +26,6 @@ import {
   AlertTriangle,
   FileDown,
   FileText,
-  Network,
   ChevronRight,
   ChevronDown,
   CornerDownRight
@@ -64,7 +63,6 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { 
   useFirestore, 
   useCollection, 
@@ -101,7 +99,6 @@ export default function ResourcesPage() {
   const [entName, setEntName] = useState('');
   const [entRisk, setEntRisk] = useState('medium');
   const [entDesc, setEntDesc] = useState('');
-  const [entInheritable, setEntInheritable] = useState(false);
   const [entParentId, setEntParentId] = useState<string | null>(null);
 
   const resourcesQuery = useMemoFirebase(() => collection(db, 'resources'), [db]);
@@ -142,7 +139,6 @@ export default function ResourcesPage() {
       name: entName,
       riskLevel: entRisk,
       description: entDesc,
-      isInheritable: entInheritable,
       parentId: entParentId === "none" ? null : entParentId,
       tenantId: 't1'
     };
@@ -160,7 +156,6 @@ export default function ResourcesPage() {
     setEntName('');
     setEntDesc('');
     setEntRisk('medium');
-    setEntInheritable(false);
     setEntParentId(null);
     setEditingEntitlementId(null);
   };
@@ -209,7 +204,6 @@ export default function ResourcesPage() {
     await exportResourcesPdf(filteredResources, entitlements);
   };
 
-  // Hilfsfunktion zum Rendern des Rollenbaums
   const renderEntitlementTree = (parentId: string | null = null, depth: number = 0) => {
     const children = entitlements?.filter(e => e.resourceId === selectedResource?.id && (e.parentId === parentId || (!e.parentId && parentId === null)));
     
@@ -227,9 +221,8 @@ export default function ResourcesPage() {
               "text-[9px] uppercase font-bold",
               e.riskLevel === 'high' ? "text-red-600 border-red-200" : "text-blue-600 border-blue-200"
             )}>{e.riskLevel}</Badge>
-            <span className="text-sm font-bold flex items-center gap-2">
+            <span className="text-sm font-bold">
               {e.name}
-              {e.isInheritable && <Network className="w-3 h-3 text-muted-foreground" title="Vererbbar" />}
             </span>
           </div>
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -237,7 +230,6 @@ export default function ResourcesPage() {
               setEditingEntitlementId(e.id);
               setEntName(e.name);
               setEntRisk(e.riskLevel);
-              setEntInheritable(e.isInheritable || false);
               setEntParentId(e.parentId || "none");
             }}><Pencil className="w-3.5 h-3.5" /></Button>
             <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => {
@@ -379,7 +371,6 @@ export default function ResourcesPage() {
         )}
       </div>
 
-      {/* Dialoge und Alerts */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="max-w-md rounded-lg">
           <DialogHeader><DialogTitle>System registrieren</DialogTitle></DialogHeader>
@@ -466,18 +457,6 @@ export default function ResourcesPage() {
                       <SelectItem value="high">Hoch</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="space-y-2 flex flex-col justify-end">
-                   <div className="flex items-center space-x-2 pb-2">
-                    <Checkbox 
-                      id="inheritable" 
-                      checked={entInheritable} 
-                      onCheckedChange={(checked) => setEntInheritable(!!checked)} 
-                    />
-                    <Label htmlFor="inheritable" className="text-xs font-medium leading-none cursor-pointer">
-                      Rolle ist vererbbar
-                    </Label>
-                  </div>
                 </div>
               </div>
               <Button onClick={handleAddOrUpdateEntitlement} size="sm" className="w-full h-10 font-bold uppercase text-[10px]">

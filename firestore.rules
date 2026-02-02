@@ -48,19 +48,15 @@ service cloud.firestore {
 
     /**
      * @description Authorization for collectionGroup queries on 'members'.
-     * This allows the LoginPage to find tenants where the current user is a member.
-     * We use a recursive wildcard to match 'members' collections nested under tenants.
-     * 
-     * For collection group queries to succeed, the rule must allow list based on 
-     * the query parameters.
+     * Required for the LoginPage to find tenants where the current user is a member.
+     * The recursive wildcard {path=**} matches any collection named 'members' regardless of depth.
      */
     match /{path=**}/members/{memberId} {
-      // Allow list if the user is authenticated. 
-      // Firestore will enforce that only documents matching the query filters 
-      // are returned (e.g., filtering by userId == auth.uid).
+      // Allow listing memberships if the user is signed in.
+      // The query itself is restricted by userId filter in the code.
       allow list: if isSignedIn();
       
-      // Allow get if the user is the member (matched by doc ID) or filtering by their UID
+      // Allow access to specific membership documents for the user themselves.
       allow get: if isSignedIn() && (memberId == request.auth.uid || (resource != null && resource.data.userId == request.auth.uid));
     }
 
@@ -74,14 +70,14 @@ service cloud.firestore {
 
     match /tenants/{tenantId} {
       allow get: if isTenantMember(tenantId) || isSuperAdmin();
-      allow list: if isSignedIn(); // Allow listing tenants if the user is signed in (the CG query handles membership filtering)
+      allow list: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isExistingTenantAdmin(tenantId);
       allow delete: if isSuperAdmin();
     }
 
     match /tenants/{tenantId}/members/{uid} {
-      // Allow access to the specific member document
+      // Direct access rules (handled also by the collection group match above)
       allow get: if isSignedIn() && (request.auth.uid == uid || isTenantMember(tenantId) || isSuperAdmin());
       allow list: if isTenantMember(tenantId) || isSuperAdmin();
       allow create: if (isSignedIn() && request.auth.uid == uid) || isTenantAdmin(tenantId) || isSuperAdmin();

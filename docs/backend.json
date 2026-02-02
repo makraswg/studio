@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Tenant": {
@@ -208,6 +209,10 @@
         "riskLevel": {
           "type": "string",
           "description": "The risk level associated with the entitlement (e.g., low, medium, high)."
+        },
+        "isInheritable": {
+          "type": "boolean",
+          "description": "Indicates whether this entitlement can be inherited by other entities or hierarchical structures."
         }
       },
       "required": [

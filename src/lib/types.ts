@@ -42,6 +42,7 @@ export interface Entitlement {
   name: string;
   description: string;
   riskLevel: 'low' | 'medium' | 'high';
+  isInheritable?: boolean;
 }
 
 export interface Assignment {

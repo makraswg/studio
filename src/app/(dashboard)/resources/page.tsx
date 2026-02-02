@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -24,7 +25,8 @@ import {
   X,
   AlertTriangle,
   FileDown,
-  FileText
+  FileText,
+  Network
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -59,6 +61,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
@@ -88,6 +91,7 @@ export default function ResourcesPage() {
   const [entName, setEntName] = useState('');
   const [entRisk, setEntRisk] = useState('medium');
   const [entDesc, setEntDesc] = useState('');
+  const [entInheritable, setEntInheritable] = useState(false);
 
   const resourcesQuery = useMemoFirebase(() => collection(db, 'resources'), [db]);
   const entitlementsQuery = useMemoFirebase(() => collection(db, 'entitlements'), [db]);
@@ -110,7 +114,8 @@ export default function ResourcesPage() {
       owner: newOwner,
       url: newUrl,
       criticality: newCriticality,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      tenantId: 't1'
     });
     setIsCreateOpen(false);
     toast({ title: "System registriert" });
@@ -126,6 +131,7 @@ export default function ResourcesPage() {
       name: entName,
       riskLevel: entRisk,
       description: entDesc,
+      isInheritable: entInheritable,
       tenantId: 't1'
     };
     if (editingEntitlementId) {
@@ -142,6 +148,7 @@ export default function ResourcesPage() {
     setEntName('');
     setEntDesc('');
     setEntRisk('medium');
+    setEntInheritable(false);
     setEditingEntitlementId(null);
   };
 
@@ -391,6 +398,16 @@ export default function ResourcesPage() {
                   </Select>
                 </div>
               </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="inheritable" 
+                  checked={entInheritable} 
+                  onCheckedChange={(checked) => setEntInheritable(!!checked)} 
+                />
+                <Label htmlFor="inheritable" className="text-sm font-medium leading-none cursor-pointer">
+                  Rolle ist vererbbar (Inheritable)
+                </Label>
+              </div>
               <Button onClick={handleAddOrUpdateEntitlement} size="sm" className="w-full h-10">
                 {editingEntitlementId ? "Aktualisieren" : "Hinzufügen"}
               </Button>
@@ -405,13 +422,17 @@ export default function ResourcesPage() {
                         "text-[9px] uppercase font-bold",
                         e.riskLevel === 'high' ? "text-red-600 border-red-200" : "text-blue-600 border-blue-200"
                       )}>{e.riskLevel}</Badge>
-                      <span className="text-sm font-bold">{e.name}</span>
+                      <span className="text-sm font-bold flex items-center gap-2">
+                        {e.name}
+                        {e.isInheritable && <Network className="w-3 h-3 text-muted-foreground" title="Vererbbar" />}
+                      </span>
                     </div>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
                         setEditingEntitlementId(e.id);
                         setEntName(e.name);
                         setEntRisk(e.riskLevel);
+                        setEntInheritable(e.isInheritable || false);
                       }}><Pencil className="w-3.5 h-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => {
                         setSelectedEntitlement(e);

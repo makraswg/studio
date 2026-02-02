@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -25,7 +26,8 @@ import {
   History,
   X,
   FileDown,
-  FileText
+  FileText,
+  Network
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -106,16 +108,6 @@ export default function AssignmentsPage() {
     setMounted(true);
   }, []);
 
-  const resetForm = () => {
-    setSelectedAssignmentId(null);
-    setSelectedUserId('');
-    setSelectedEntitlementId('');
-    setTicketRef('');
-    setValidUntil('');
-    setNotes('');
-    setStatus('active');
-  };
-
   const handleCreateAssignment = () => {
     if (!selectedUserId || !selectedEntitlementId) {
       toast({ variant: "destructive", title: "Fehler", description: "Bitte Benutzer und Berechtigung wählen." });
@@ -131,6 +123,7 @@ export default function AssignmentsPage() {
       ticketRef,
       validUntil,
       notes,
+      tenantId: 't1'
     });
     
     setIsCreateOpen(false);
@@ -215,6 +208,16 @@ export default function AssignmentsPage() {
   const handleExportPdf = () => {
     if (!filteredAssignments || !users || !entitlements || !resources) return;
     exportAssignmentsPdf(filteredAssignments, users, entitlements, resources);
+  };
+
+  const resetForm = () => {
+    setSelectedAssignmentId(null);
+    setSelectedUserId('');
+    setSelectedEntitlementId('');
+    setTicketRef('');
+    setValidUntil('');
+    setNotes('');
+    setStatus('active');
   };
 
   if (!mounted) return null;
@@ -372,7 +375,10 @@ export default function AssignmentsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-bold text-sm">{res?.name}</span>
+                        <span className="font-bold text-sm flex items-center gap-1.5">
+                          {res?.name}
+                          {ent?.isInheritable && <Network className="w-3 h-3 text-muted-foreground" />}
+                        </span>
                         <span className="text-xs text-muted-foreground">{ent?.name}</span>
                       </div>
                     </TableCell>

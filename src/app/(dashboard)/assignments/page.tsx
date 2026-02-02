@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -24,7 +23,9 @@ import {
   Calendar,
   AlertTriangle,
   History,
-  X
+  X,
+  FileDown,
+  FileText
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -66,6 +67,7 @@ import {
 import { collection, doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { exportToExcel, exportAssignmentsPdf } from '@/lib/export-utils';
 
 export default function AssignmentsPage() {
   const db = useFirestore();
@@ -191,6 +193,30 @@ export default function AssignmentsPage() {
     return matchesSearch && matchesTab;
   });
 
+  const handleExportExcel = () => {
+    if (!filteredAssignments) return;
+    const exportData = filteredAssignments.map(a => {
+      const user = users?.find(u => u.id === a.userId);
+      const ent = entitlements?.find(e => e.id === a.entitlementId);
+      const res = resources?.find(r => r.id === ent?.resourceId);
+      return {
+        Benutzer: user?.displayName || a.userId,
+        Emaill: user?.email || '',
+        System: res?.name || '---',
+        Rolle: ent?.name || '---',
+        Status: a.status,
+        GueltigBis: a.validUntil || 'Unbefristet',
+        Ticket: a.ticketRef || ''
+      };
+    });
+    exportToExcel(exportData, 'AccessHub_Zuweisungen');
+  };
+
+  const handleExportPdf = () => {
+    if (!filteredAssignments || !users || !entitlements || !resources) return;
+    exportAssignmentsPdf(filteredAssignments, users, entitlements, resources);
+  };
+
   if (!mounted) return null;
 
   return (
@@ -201,67 +227,85 @@ export default function AssignmentsPage() {
           <p className="text-sm text-muted-foreground">Verwaltung aktiver Berechtigungen und deren Laufzeiten.</p>
         </div>
         
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="h-9 font-semibold">
-              <Plus className="w-4 h-4 mr-2" /> Neue Zuweisung
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md rounded-lg">
-            <DialogHeader>
-              <DialogTitle>Zugriff gewähren</DialogTitle>
-              <DialogDescription>Mitarbeiter und entsprechende Berechtigung auswählen.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase text-muted-foreground">Mitarbeiter</Label>
-                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                  <SelectTrigger className="h-10 rounded-md">
-                    <SelectValue placeholder="Mitarbeiter wählen..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users?.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase text-muted-foreground">System & Rolle</Label>
-                <Select value={selectedEntitlementId} onValueChange={setSelectedEntitlementId}>
-                  <SelectTrigger className="h-10 rounded-md">
-                    <SelectValue placeholder="Berechtigung wählen..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {entitlements?.map(e => {
-                      const res = resources?.find(r => r.id === e.resourceId);
-                      return (
-                        <SelectItem key={e.id} value={e.id}>
-                          {res?.name} — {e.name}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+        <div className="flex gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 font-semibold">
+                <FileDown className="w-4 h-4 mr-2" /> Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportExcel}>
+                <FileDown className="w-4 h-4 mr-2" /> Excel Export
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportPdf}>
+                <FileText className="w-4 h-4 mr-2" /> PDF Bericht
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="h-9 font-semibold">
+                <Plus className="w-4 h-4 mr-2" /> Neue Zuweisung
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md rounded-lg">
+              <DialogHeader>
+                <DialogTitle>Zugriff gewähren</DialogTitle>
+                <DialogDescription>Mitarbeiter und entsprechende Berechtigung auswählen.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase text-muted-foreground">Ticket / Ref.</Label>
-                  <Input value={ticketRef} onChange={e => setTicketRef(e.target.value)} placeholder="IT-123" className="h-10" />
+                  <Label className="text-xs font-bold uppercase text-muted-foreground">Mitarbeiter</Label>
+                  <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                    <SelectTrigger className="h-10 rounded-md">
+                      <SelectValue placeholder="Mitarbeiter wählen..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users?.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase text-muted-foreground">Gültig bis</Label>
-                  <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="h-10" />
+                  <Label className="text-xs font-bold uppercase text-muted-foreground">System & Rolle</Label>
+                  <Select value={selectedEntitlementId} onValueChange={setSelectedEntitlementId}>
+                    <SelectTrigger className="h-10 rounded-md">
+                      <SelectValue placeholder="Berechtigung wählen..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {entitlements?.map(e => {
+                        const res = resources?.find(r => r.id === e.resourceId);
+                        return (
+                          <SelectItem key={e.id} value={e.id}>
+                            {res?.name} — {e.name}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase text-muted-foreground">Ticket / Ref.</Label>
+                    <Input value={ticketRef} onChange={e => setTicketRef(e.target.value)} placeholder="IT-123" className="h-10" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase text-muted-foreground">Gültig bis</Label>
+                    <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="h-10" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase text-muted-foreground">Notizen</Label>
+                  <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Interne Bemerkung..." className="h-10" />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase text-muted-foreground">Notizen</Label>
-                <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Interne Bemerkung..." className="h-10" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={handleCreateAssignment} className="w-full">Zuweisung speichern</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button onClick={handleCreateAssignment} className="w-full">Zuweisung speichern</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-3">

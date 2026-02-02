@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -23,7 +22,9 @@ import {
   Trash2,
   Pencil,
   X,
-  AlertTriangle
+  AlertTriangle,
+  FileDown,
+  FileText
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -62,6 +63,7 @@ import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, d
 import { collection, doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { exportToExcel, exportResourcesPdf } from '@/lib/export-utils';
 
 export default function ResourcesPage() {
   const db = useFirestore();
@@ -174,6 +176,27 @@ export default function ResourcesPage() {
     res.owner.toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleExportExcel = () => {
+    if (!filteredResources) return;
+    const exportData = filteredResources.map(r => {
+      const resourceEnts = entitlements?.filter(e => e.resourceId === r.id) || [];
+      return {
+        System: r.name,
+        Typ: r.type,
+        Kritikalitaet: r.criticality,
+        Besitzer: r.owner,
+        URL: r.url || '',
+        Rollen: resourceEnts.map(e => e.name).join(', ')
+      };
+    });
+    exportToExcel(exportData, 'AccessHub_Ressourcenkatalog');
+  };
+
+  const handleExportPdf = () => {
+    if (!filteredResources || !entitlements) return;
+    exportResourcesPdf(filteredResources, entitlements);
+  };
+
   if (!mounted) return null;
 
   return (
@@ -184,9 +207,27 @@ export default function ResourcesPage() {
           <p className="text-sm text-muted-foreground">Inventar aller registrierten IT-Systeme.</p>
         </div>
         
-        <Button size="sm" className="h-9 font-semibold" onClick={() => setIsCreateOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" /> System hinzufügen
-        </Button>
+        <div className="flex gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 font-semibold">
+                <FileDown className="w-4 h-4 mr-2" /> Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportExcel}>
+                <FileDown className="w-4 h-4 mr-2" /> Excel Export
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportPdf}>
+                <FileText className="w-4 h-4 mr-2" /> PDF Bericht
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button size="sm" className="h-9 font-semibold" onClick={() => setIsCreateOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" /> System hinzufügen
+          </Button>
+        </div>
       </div>
 
       <div className="relative">

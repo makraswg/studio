@@ -7,73 +7,62 @@ service cloud.firestore {
      * 
      * Core Philosophy:
      * This ruleset implements a robust multi-tenant architecture with hierarchical 
-     * Role-Based Access Control (RBAC). Data isolation is enforced at the tenant level, 
-     * ensuring that users can only access data belonging to tenants where they have 
-     * an active membership.
-     * 
-     * Data Structure:
-     * - /platformUsers/{uid}: Global superadmins with cross-tenant privileges.
-     * - /tenants/{tenantId}: Root tenant document.
-     * - /tenants/{tenantId}/members/{uid}: Membership record linking Firebase Auth UIDs to roles.
-     * - /tenants/{tenantId}/[collection]: Tenant-specific entities (Users, Resources, etc.).
+     * Role-Based Access Control (RBAC). Data isolation is enforced at the tenant level.
      */
 
     // --- Helper Functions ---
 
-    /** Checks if the request is from an authenticated user. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** Checks if the user is a global platform superadmin. */
     function isSuperAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/platformUsers/$(request.auth.uid));
     }
 
-    /** Checks if the user has any membership record in a specific tenant. */
     function isTenantMember(tenantId) {
       return isSignedIn() && exists(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid));
     }
 
-    /** Retrieves the role of the user within a specific tenant. */
     function getTenantRole(tenantId) {
       return get(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid)).data.role;
     }
 
-    /** Checks if the user has a specific role or higher within a tenant. */
     function hasRole(tenantId, roles) {
       return isTenantMember(tenantId) && getTenantRole(tenantId) in roles;
     }
 
-    /** Checks if the user is a Tenant Owner or Admin. */
     function isTenantAdmin(tenantId) {
       return hasRole(tenantId, ['tenantOwner', 'admin']);
     }
 
-    /** Checks if the user is at least an Editor. */
     function isTenantEditor(tenantId) {
       return hasRole(tenantId, ['tenantOwner', 'admin', 'editor']);
     }
 
-    /** Verifies a document exists and user is a tenant admin. */
     function isExistingTenantAdmin(tenantId) {
       return resource != null && (isTenantAdmin(tenantId) || isSuperAdmin());
     }
 
-    // --- Collection Rules ---
+    // --- Collection Group Rules ---
 
     /**
-     * @description Rules for platform-level users. Existence indicates superadmin status.
+     * @description Authorization for collectionGroup queries on 'members'.
+     * This allows the LoginPage to find tenants where the current user is a member.
      */
+    match /{path=**}/members/{uid} {
+      allow list: if isSignedIn() && (request.auth.uid == uid || request.auth.uid == resource.data.userId);
+      allow get: if isSignedIn() && (request.auth.uid == uid || request.auth.uid == resource.data.userId || isTenantMember(path[1]) || isSuperAdmin());
+    }
+
+    // --- Standard Collection Rules ---
+
     match /platformUsers/{uid} {
       allow get: if isSignedIn();
       allow list: if isSuperAdmin();
       allow create, update, delete: if isSuperAdmin();
     }
 
-    /**
-     * @description Rules for tenant metadata.
-     */
     match /tenants/{tenantId} {
       allow get, list: if isTenantMember(tenantId) || isSuperAdmin();
       allow create: if isSignedIn();
@@ -81,22 +70,12 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    /**
-     * @description Rules for tenant membership (RBAC).
-     * Authorizes both standard path access and collectionGroup queries.
-     */
     match /tenants/{tenantId}/members/{uid} {
-      allow get: if (isSignedIn() && request.auth.uid == uid) || isTenantMember(tenantId) || isSuperAdmin();
-      // Important: Allow 'list' if it's the user's own membership doc. 
-      // This enables the collectionGroup query in the LoginPage.
-      allow list: if (isSignedIn() && (request.auth.uid == uid || request.query.limit <= 100)) && (uid == request.auth.uid || isTenantMember(tenantId) || isSuperAdmin());
+      // Create/Update/Delete handled by specific tenant roles
       allow create: if (isSignedIn() && request.auth.uid == uid) || isTenantAdmin(tenantId) || isSuperAdmin();
       allow update, delete: if isExistingTenantAdmin(tenantId);
     }
 
-    /**
-     * @description Rules for synchronized user directory data.
-     */
     match /tenants/{tenantId}/users/{userId} {
       allow get, list: if isTenantMember(tenantId) || isSuperAdmin();
       allow create: if (isTenantAdmin(tenantId) || isSuperAdmin()) && request.resource.data.tenantId == tenantId;
@@ -104,9 +83,6 @@ service cloud.firestore {
       allow delete: if isExistingTenantAdmin(tenantId);
     }
 
-    /**
-     * @description Rules for resources (SaaS, Tools, etc.).
-     */
     match /tenants/{tenantId}/resources/{resourceId} {
       allow get, list: if isTenantMember(tenantId) || isSuperAdmin();
       allow create: if (isTenantEditor(tenantId) || isSuperAdmin()) && request.resource.data.tenantId == tenantId;
@@ -114,9 +90,6 @@ service cloud.firestore {
       allow delete: if isExistingTenantAdmin(tenantId);
     }
 
-    /**
-     * @description Rules for entitlements (Access Levels).
-     */
     match /tenants/{tenantId}/entitlements/{entitlementId} {
       allow get, list: if isTenantMember(tenantId) || isSuperAdmin();
       allow create: if (isTenantAdmin(tenantId) || isSuperAdmin()) && request.resource.data.tenantId == tenantId;
@@ -124,9 +97,6 @@ service cloud.firestore {
       allow delete: if isExistingTenantAdmin(tenantId);
     }
 
-    /**
-     * @description Rules for user assignments to entitlements.
-     */
     match /tenants/{tenantId}/assignments/{assignmentId} {
       allow get, list: if isTenantMember(tenantId) || isSuperAdmin();
       allow create: if (isTenantAdmin(tenantId) || isSuperAdmin()) && request.resource.data.tenantId == tenantId;
@@ -134,9 +104,6 @@ service cloud.firestore {
       allow delete: if isExistingTenantAdmin(tenantId);
     }
 
-    /**
-     * @description Rules for tenant audit events. Append-only.
-     */
     match /tenants/{tenantId}/auditEvents/{eventId} {
       allow get, list: if isTenantAdmin(tenantId) || isSuperAdmin();
       allow create: if (isTenantMember(tenantId) || isSuperAdmin()) && request.resource.data.tenantId == tenantId;

@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * DEPLOYMENT TRIGGER: 2024-05-20-001
+     * DEPLOYMENT TRIGGER: 2024-05-24-002
      * This comment ensures a fresh deployment of the security rules.
      */
 
@@ -40,17 +40,16 @@ service cloud.firestore {
     // --- Collection Group Rules ---
 
     /**
-     * CRITICAL: Collection Group Rules MUST be defined for collectionGroup queries to work.
-     * This matches any collection named 'members' regardless of depth.
-     * This is used by the LoginPage to find tenants where the current user is a member.
+     * CRITICAL: Collection Group Rules for the 'members' collection.
+     * This is required for the collectionGroup query on the LoginPage to find a user's tenants.
+     * Match any collection named 'members' at any depth.
      */
-    match /{path=**}/members/{memberId} {
-      // Allow listing memberships if the user is signed in.
-      // Firestore will enforce that the query results match the user's filter.
+    match /{path=**}/members/{uid} {
+      // Allow list and get if the user is authenticated. 
+      // For listing, Firestore enforces that the query results match the user's filter.
+      // For get, we check that the document ID (the UID) matches the auth UID.
       allow list: if isSignedIn();
-      
-      // Allow get access for the specific user document.
-      allow get: if isSignedIn() && (memberId == request.auth.uid || (resource != null && resource.data.userId == request.auth.uid));
+      allow get: if isSignedIn() && (request.auth.uid == uid || isSuperAdmin());
     }
 
     // --- Standard Collection Rules ---
@@ -70,44 +69,44 @@ service cloud.firestore {
     }
 
     match /tenants/{tenantId}/members/{uid} {
-      // Direct access rules
+      // Direct access rules for the members subcollection within a tenant
       allow get: if isSignedIn() && (request.auth.uid == uid || isTenantMember(tenantId) || isSuperAdmin());
       allow list: if isTenantMember(tenantId) || isSuperAdmin();
       allow create: if (isSignedIn() && request.auth.uid == uid) || isTenantAdmin(tenantId) || isSuperAdmin();
-      allow update, delete: if (resource != null && isTenantAdmin(tenantId)) || isSuperAdmin();
+      allow update, delete: if isTenantAdmin(tenantId) || isSuperAdmin();
     }
 
     match /tenants/{tenantId}/users/{userId} {
       allow get, list: if isTenantMember(tenantId) || isSuperAdmin();
-      allow create: if (isTenantAdmin(tenantId) || isSuperAdmin()) && request.resource.data.tenantId == tenantId;
-      allow update: if (resource != null && (isTenantAdmin(tenantId) || isSuperAdmin())) && request.resource.data.tenantId == resource.data.tenantId;
-      allow delete: if (resource != null && isTenantAdmin(tenantId)) || isSuperAdmin();
+      allow create: if (isTenantAdmin(tenantId) || isSuperAdmin());
+      allow update: if (isTenantAdmin(tenantId) || isSuperAdmin());
+      allow delete: if isTenantAdmin(tenantId) || isSuperAdmin();
     }
 
     match /tenants/{tenantId}/resources/{resourceId} {
       allow get, list: if isTenantMember(tenantId) || isSuperAdmin();
-      allow create: if (isTenantEditor(tenantId) || isSuperAdmin()) && request.resource.data.tenantId == tenantId;
-      allow update: if (resource != null && (isTenantEditor(tenantId) || isSuperAdmin())) && request.resource.data.tenantId == resource.data.tenantId;
-      allow delete: if (resource != null && isTenantAdmin(tenantId)) || isSuperAdmin();
+      allow create: if (isTenantEditor(tenantId) || isSuperAdmin());
+      allow update: if (isTenantEditor(tenantId) || isSuperAdmin());
+      allow delete: if isTenantAdmin(tenantId) || isSuperAdmin();
     }
 
     match /tenants/{tenantId}/entitlements/{entitlementId} {
       allow get, list: if isTenantMember(tenantId) || isSuperAdmin();
-      allow create: if (isTenantAdmin(tenantId) || isSuperAdmin()) && request.resource.data.tenantId == tenantId;
-      allow update: if (resource != null && (isTenantAdmin(tenantId) || isSuperAdmin())) && request.resource.data.tenantId == resource.data.tenantId;
-      allow delete: if (resource != null && isTenantAdmin(tenantId)) || isSuperAdmin();
+      allow create: if (isTenantAdmin(tenantId) || isSuperAdmin());
+      allow update: if (isTenantAdmin(tenantId) || isSuperAdmin());
+      allow delete: if isTenantAdmin(tenantId) || isSuperAdmin();
     }
 
     match /tenants/{tenantId}/assignments/{assignmentId} {
       allow get, list: if isTenantMember(tenantId) || isSuperAdmin();
-      allow create: if (isTenantAdmin(tenantId) || isSuperAdmin()) && request.resource.data.tenantId == tenantId;
-      allow update: if (resource != null && (isTenantAdmin(tenantId) || isSuperAdmin())) && request.resource.data.tenantId == resource.data.tenantId;
-      allow delete: if (resource != null && isTenantAdmin(tenantId)) || isSuperAdmin();
+      allow create: if (isTenantAdmin(tenantId) || isSuperAdmin());
+      allow update: if (isTenantAdmin(tenantId) || isSuperAdmin());
+      allow delete: if isTenantAdmin(tenantId) || isSuperAdmin();
     }
 
     match /tenants/{tenantId}/auditEvents/{eventId} {
       allow get, list: if isTenantAdmin(tenantId) || isSuperAdmin();
-      allow create: if (isTenantMember(tenantId) || isSuperAdmin()) && request.resource.data.tenantId == tenantId;
+      allow create: if (isTenantMember(tenantId) || isSuperAdmin());
       allow update, delete: if false;
     }
   }

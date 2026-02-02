@@ -49,10 +49,18 @@ service cloud.firestore {
     /**
      * @description Authorization for collectionGroup queries on 'members'.
      * This allows the LoginPage to find tenants where the current user is a member.
+     * We use a recursive wildcard to match 'members' collections nested under tenants.
      */
-    match /{path=**}/members/{uid} {
-      allow list: if isSignedIn() && (request.auth.uid == uid || request.auth.uid == resource.data.userId);
-      allow get: if isSignedIn() && (request.auth.uid == uid || request.auth.uid == resource.data.userId || isTenantMember(path[1]) || isSuperAdmin());
+    match /{path=**}/members/{memberId} {
+      // Allow list if the query filters by the user's own UID or if the document ID matches their UID
+      allow list: if isSignedIn() && (request.auth.uid == memberId || resource.data.userId == request.auth.uid);
+      // Allow get if the user is the member, or if they are already a member of the same tenant (for team lists), or a superadmin
+      allow get: if isSignedIn() && (
+        request.auth.uid == memberId || 
+        resource.data.userId == request.auth.uid || 
+        isTenantMember(path[1]) || 
+        isSuperAdmin()
+      );
     }
 
     // --- Standard Collection Rules ---
@@ -72,6 +80,8 @@ service cloud.firestore {
 
     match /tenants/{tenantId}/members/{uid} {
       // Create/Update/Delete handled by specific tenant roles
+      // We also allow get/list here for direct path access
+      allow get, list: if isTenantMember(tenantId) || isSuperAdmin() || (isSignedIn() && request.auth.uid == uid);
       allow create: if (isSignedIn() && request.auth.uid == uid) || isTenantAdmin(tenantId) || isSuperAdmin();
       allow update, delete: if isExistingTenantAdmin(tenantId);
     }

@@ -34,9 +34,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 
 const riskData = [
-  { name: 'Low Risk', value: 65, color: '#3b82f6' },
-  { name: 'Med Risk', value: 25, color: '#f59e0b' },
-  { name: 'High Risk', value: 10, color: '#ef4444' },
+  { name: 'Niedriges Risiko', value: 65, color: '#3b82f6' },
+  { name: 'Mittleres Risiko', value: 25, color: '#f59e0b' },
+  { name: 'Hohes Risiko', value: 10, color: '#ef4444' },
 ];
 
 export default function DashboardPage() {
@@ -60,9 +60,9 @@ export default function DashboardPage() {
   if (!mounted) return null;
 
   const stats = [
-    { title: 'Users', value: users?.length || 0, icon: Users, label: 'Identities', color: 'text-blue-600', bg: 'bg-blue-50', loading: usersLoading },
-    { title: 'Systems', value: resources?.length || 0, icon: Layers, label: 'Catalog', color: 'text-indigo-600', bg: 'bg-indigo-50', loading: resourcesLoading },
-    { title: 'Access', value: assignments?.filter(a => a.status === 'active').length || 0, icon: ShieldCheck, label: 'Active', color: 'text-emerald-600', bg: 'bg-emerald-50', loading: assignmentsLoading },
+    { title: 'Benutzer', value: users?.length || 0, icon: Users, label: 'Identitäten', color: 'text-blue-600', bg: 'bg-blue-50', loading: usersLoading },
+    { title: 'Systeme', value: resources?.length || 0, icon: Layers, label: 'Katalog', color: 'text-indigo-600', bg: 'bg-indigo-50', loading: resourcesLoading },
+    { title: 'Zugriffe', value: assignments?.filter(a => a.status === 'active').length || 0, icon: ShieldCheck, label: 'Aktiv', color: 'text-emerald-600', bg: 'bg-emerald-50', loading: assignmentsLoading },
     { title: 'Audits', value: auditLogs?.length || 0, icon: Activity, label: 'Journal', color: 'text-orange-600', bg: 'bg-orange-50', loading: auditLoading },
   ];
 
@@ -72,15 +72,15 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between border-b pb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Access Control Console</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Access Control Konsole</h1>
           <p className="text-sm text-muted-foreground">Operative Übersicht der Identitäts- und Zugriffsumgebung.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px]">
-            <Activity className="w-3 h-3 mr-2" /> Compliance Report
+            <Activity className="w-3 h-3 mr-2" /> Compliance Bericht
           </Button>
           <Button size="sm" className="h-9 font-bold uppercase text-[10px]">
-            <RefreshCw className="w-3 h-3 mr-2" /> Trigger Sync
+            <RefreshCw className="w-3 h-3 mr-2" /> Sync Trigger
           </Button>
         </div>
       </div>
@@ -109,38 +109,38 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 shadow-none rounded-none border overflow-hidden">
           <CardHeader className="border-b bg-muted/10 py-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-bold uppercase tracking-widest">Active Review Campaign (Q3)</CardTitle>
-            <Badge className="rounded-none bg-blue-600">IN PROGRESS</Badge>
+            <CardTitle className="text-xs font-bold uppercase tracking-widest">Aktive Review-Kampagne (Q3)</CardTitle>
+            <Badge className="rounded-none bg-blue-600">IN BEARBEITUNG</Badge>
           </CardHeader>
           <CardContent className="p-8">
             <div className="flex items-center justify-between mb-4">
               <div className="space-y-1">
                 <p className="text-3xl font-bold">{reviewProgress}%</p>
-                <p className="text-xs text-muted-foreground">Completion Rate</p>
+                <p className="text-xs text-muted-foreground">Abschlussrate</p>
               </div>
               <div className="text-right">
                 <p className="text-sm font-bold text-red-600 flex items-center justify-end gap-1">
                    {assignments?.filter(a => {
                      if (!a.grantedAt) return false;
                      return ((new Date().getTime() - new Date(a.grantedAt).getTime()) / 86400000) > 90 && !a.lastReviewedAt;
-                   }).length || 0} Critical
+                   }).length || 0} Kritisch
                 </p>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Pending Review</p>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Ausstehende Prüfung</p>
               </div>
             </div>
             <Progress value={reviewProgress} className="h-2 rounded-none bg-slate-100" />
             <div className="mt-8 grid grid-cols-3 gap-4 border-t pt-6">
               <div className="text-center border-r">
                 <p className="text-lg font-bold">{assignments?.length || 0}</p>
-                <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-tighter">Total Items</p>
+                <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-tighter">Gesamt-Items</p>
               </div>
               <div className="text-center border-r">
                 <p className="text-lg font-bold text-emerald-600">{assignments?.filter(a => !!a.lastReviewedAt).length || 0}</p>
-                <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-tighter">Certified</p>
+                <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-tighter">Zertifiziert</p>
               </div>
               <div className="text-center">
                 <p className="text-lg font-bold text-orange-600">{assignments?.filter(a => a.status === 'requested').length || 0}</p>
-                <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-tighter">Pending Requests</p>
+                <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-tighter">Offene Anfragen</p>
               </div>
             </div>
           </CardContent>
@@ -148,7 +148,7 @@ export default function DashboardPage() {
 
         <Card className="shadow-none rounded-none border">
           <CardHeader className="border-b bg-muted/10 py-3">
-            <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Risk Profiling</CardTitle>
+            <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Risiko-Profil</CardTitle>
           </CardHeader>
           <CardContent className="p-6">
             <div className="h-[200px]">
@@ -178,9 +178,9 @@ export default function DashboardPage() {
 
       <Card className="shadow-none rounded-none border overflow-hidden">
         <CardHeader className="border-b bg-muted/10 py-3 flex flex-row items-center justify-between">
-          <CardTitle className="text-xs font-bold uppercase tracking-widest">Recent Activity Log</CardTitle>
+          <CardTitle className="text-xs font-bold uppercase tracking-widest">Letzte Aktivitäten</CardTitle>
           <Button variant="ghost" size="sm" className="h-7 text-[9px] font-bold uppercase" asChild>
-            <a href="/audit">Full Journal <ChevronRight className="ml-1 w-3 h-3" /></a>
+            <a href="/audit">Gesamtes Journal <ChevronRight className="ml-1 w-3 h-3" /></a>
           </Button>
         </CardHeader>
         <CardContent className="p-0">
@@ -197,7 +197,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase">{log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'Now'}</p>
+                  <p className="text-[10px] font-bold uppercase">{log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'Jetzt'}</p>
                   <p className="text-[9px] text-muted-foreground uppercase">{log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : ''}</p>
                 </div>
               </div>

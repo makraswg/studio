@@ -1,7 +1,7 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
-import Link from 'next/navigation';
 import { 
   Table, 
   TableBody, 
@@ -34,8 +34,7 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogFooter,
-  DialogDescription,
-  DialogTrigger
+  DialogDescription
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, addDocumentNonBlocking, useUser as useAuthUser } from '@/firebase';
@@ -113,7 +112,7 @@ export default function UsersPage() {
     user.department?.toLowerCase().includes(search.toLowerCase())
   );
 
-  if (!mounted) return null;
+  if (!mounted) return <div className="p-8 h-screen"><Loader2 className="animate-spin" /></div>;
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">
@@ -133,32 +132,12 @@ export default function UsersPage() {
             {isSyncing ? "LDAP wird synchronisiert..." : "Von LDAP synchronisieren"}
           </Button>
           
-          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary gap-2 h-11 px-6 shadow-lg shadow-primary/20">
-                <Plus className="w-5 h-5" /> Benutzer hinzufügen
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Verzeichnisbenutzer hinzufügen</DialogTitle>
-                <DialogDescription>Manuelles Erstellen eines Benutzereintrags.</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right">Name</Label>
-                  <Input value={newDisplayName} onChange={e => setNewDisplayName(e.target.value)} className="col-span-3" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right">E-Mail</Label>
-                  <Input value={newEmail} onChange={e => setNewEmail(e.target.value)} className="col-span-3" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleAddUser}>Benutzer speichern</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button 
+            onClick={() => setIsAddOpen(true)}
+            className="bg-primary gap-2 h-11 px-6 shadow-lg shadow-primary/20"
+          >
+            <Plus className="w-5 h-5" /> Benutzer hinzufügen
+          </Button>
         </div>
       </div>
 
@@ -228,7 +207,7 @@ export default function UsersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuItem onSelect={(e) => {
-                          e.preventDefault(); // Prevents UI focus issues
+                          e.preventDefault();
                           setSelectedUser(user);
                           setTimeout(() => setIsProfileOpen(true), 10);
                         }}>
@@ -246,6 +225,28 @@ export default function UsersPage() {
           </Table>
         )}
       </div>
+
+      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Verzeichnisbenutzer hinzufügen</DialogTitle>
+            <DialogDescription>Manuelles Erstellen eines Benutzereintrags.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Name</Label>
+              <Input value={newDisplayName} onChange={e => setNewDisplayName(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">E-Mail</Label>
+              <Input value={newEmail} onChange={e => setNewEmail(e.target.value)} className="col-span-3" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleAddUser}>Benutzer speichern</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
         <DialogContent className="sm:max-w-[500px]">

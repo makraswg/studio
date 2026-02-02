@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -37,8 +38,7 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogFooter,
-  DialogDescription,
-  DialogTrigger
+  DialogDescription
 } from '@/components/ui/dialog';
 import { 
   AlertDialog,
@@ -156,6 +156,7 @@ export default function ResourcesPage() {
       deleteDocumentNonBlocking(doc(db, 'resources', selectedResource.id));
       toast({ title: "Ressource gelöscht" });
       setIsDeleteDialogOpen(false);
+      setSelectedResource(null);
     }
   };
 
@@ -173,7 +174,7 @@ export default function ResourcesPage() {
     res.owner.toLowerCase().includes(search.toLowerCase())
   );
 
-  if (!mounted) return null;
+  if (!mounted) return <div className="p-8 h-screen"><Loader2 className="animate-spin" /></div>;
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">
@@ -183,62 +184,12 @@ export default function ResourcesPage() {
           <p className="text-muted-foreground mt-1">Dokumentation von Systemen und Anwendungen.</p>
         </div>
         
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary gap-2 h-11 px-6 shadow-lg shadow-primary/20">
-              <Plus className="w-5 h-5" /> Ressource hinzufügen
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Neue Ressource</DialogTitle>
-              <DialogDescription>Registrieren Sie ein neues System im Inventar.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Name</Label>
-                <Input value={newName} onChange={e => setNewName(e.target.value)} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Typ</Label>
-                <Select value={newType} onValueChange={setNewType}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SaaS">SaaS</SelectItem>
-                    <SelectItem value="OnPrem">On-Premises</SelectItem>
-                    <SelectItem value="Tool">Internes Werkzeug</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Besitzer</Label>
-                <Input value={newOwner} onChange={e => setNewOwner(e.target.value)} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">URL</Label>
-                <Input value={newUrl} onChange={e => setNewUrl(e.target.value)} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Kritikalität</Label>
-                <Select value={newCriticality} onValueChange={setNewCriticality}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Niedrig</SelectItem>
-                    <SelectItem value="medium">Mittel</SelectItem>
-                    <SelectItem value="high">Hoch</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={handleCreateResource}>Speichern</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button 
+          onClick={() => setIsCreateOpen(true)}
+          className="bg-primary gap-2 h-11 px-6 shadow-lg shadow-primary/20"
+        >
+          <Plus className="w-5 h-5" /> Ressource hinzufügen
+        </Button>
       </div>
 
       <div className="relative">
@@ -333,6 +284,59 @@ export default function ResourcesPage() {
           </Table>
         )}
       </div>
+
+      {/* Create/Edit Resource Dialog */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Neue Ressource</DialogTitle>
+            <DialogDescription>Registrieren Sie ein neues System im Inventar.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Name</Label>
+              <Input value={newName} onChange={e => setNewName(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Typ</Label>
+              <Select value={newType} onValueChange={setNewType}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SaaS">SaaS</SelectItem>
+                  <SelectItem value="OnPrem">On-Premises</SelectItem>
+                  <SelectItem value="Tool">Internes Werkzeug</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Besitzer</Label>
+              <Input value={newOwner} onChange={e => setNewOwner(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">URL</Label>
+              <Input value={newUrl} onChange={e => setNewUrl(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Kritikalität</Label>
+              <Select value={newCriticality} onValueChange={setNewCriticality}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Niedrig</SelectItem>
+                  <SelectItem value="medium">Mittel</SelectItem>
+                  <SelectItem value="high">Hoch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleCreateResource}>Speichern</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Resource Confirmation */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

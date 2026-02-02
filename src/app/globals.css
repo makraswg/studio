@@ -61,3 +61,8 @@
     @apply font-headline tracking-tight;
   }
 }
+
+/* Fix for Radix UI focus/pointer-events lockup */
+body[style*="pointer-events: none"] {
+  pointer-events: auto !important;
+}

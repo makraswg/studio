@@ -67,11 +67,9 @@ import { exportToExcel, exportResourcesPdf } from '@/lib/export-utils';
 
 export default function ResourcesPage() {
   const db = useFirestore();
-  const { user: authUser } = useUser();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   
-  // Dialog States
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEntitlementOpen, setIsEntitlementOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -80,14 +78,12 @@ export default function ResourcesPage() {
   const [selectedResource, setSelectedResource] = useState<any>(null);
   const [selectedEntitlement, setSelectedEntitlement] = useState<any>(null);
 
-  // Resource Form State
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState('SaaS');
   const [newOwner, setNewOwner] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [newCriticality, setNewCriticality] = useState('medium');
 
-  // Entitlement Form State
   const [editingEntitlementId, setEditingEntitlementId] = useState<string | null>(null);
   const [entName, setEntName] = useState('');
   const [entRisk, setEntRisk] = useState('medium');
@@ -108,7 +104,6 @@ export default function ResourcesPage() {
       toast({ variant: "destructive", title: "Fehler", description: "Name und Besitzer sind erforderlich." });
       return;
     }
-
     addDocumentNonBlocking(collection(db, 'resources'), {
       name: newName,
       type: newType,
@@ -117,7 +112,6 @@ export default function ResourcesPage() {
       criticality: newCriticality,
       createdAt: new Date().toISOString()
     });
-    
     setIsCreateOpen(false);
     toast({ title: "System registriert" });
     setNewName('');
@@ -127,14 +121,13 @@ export default function ResourcesPage() {
 
   const handleAddOrUpdateEntitlement = () => {
     if (!entName || !selectedResource) return;
-
     const entData = {
       resourceId: selectedResource.id,
       name: entName,
       riskLevel: entRisk,
       description: entDesc,
+      tenantId: 't1'
     };
-
     if (editingEntitlementId) {
       updateDocumentNonBlocking(doc(db, 'entitlements', editingEntitlementId), entData);
       toast({ title: "Berechtigung aktualisiert" });
@@ -142,7 +135,6 @@ export default function ResourcesPage() {
       addDocumentNonBlocking(collection(db, 'entitlements'), entData);
       toast({ title: "Berechtigung hinzugefügt" });
     }
-
     resetEntitlementForm();
   };
 
@@ -176,7 +168,7 @@ export default function ResourcesPage() {
     res.owner.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!filteredResources) return;
     const exportData = filteredResources.map(r => {
       const resourceEnts = entitlements?.filter(e => e.resourceId === r.id) || [];
@@ -189,12 +181,12 @@ export default function ResourcesPage() {
         Rollen: resourceEnts.map(e => e.name).join(', ')
       };
     });
-    exportToExcel(exportData, 'AccessHub_Ressourcenkatalog');
+    await exportToExcel(exportData, 'AccessHub_Ressourcenkatalog');
   };
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     if (!filteredResources || !entitlements) return;
-    exportResourcesPdf(filteredResources, entitlements);
+    await exportResourcesPdf(filteredResources, entitlements);
   };
 
   if (!mounted) return null;
@@ -206,7 +198,6 @@ export default function ResourcesPage() {
           <h1 className="text-2xl font-bold tracking-tight">Ressourcenkatalog</h1>
           <p className="text-sm text-muted-foreground">Inventar aller registrierten IT-Systeme.</p>
         </div>
-        
         <div className="flex gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -223,7 +214,6 @@ export default function ResourcesPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
           <Button size="sm" className="h-9 font-semibold" onClick={() => setIsCreateOpen(true)}>
             <Plus className="w-4 h-4 mr-2" /> System hinzufügen
           </Button>
@@ -327,12 +317,10 @@ export default function ResourcesPage() {
         )}
       </div>
 
-      {/* Create Resource Dialog */}
+      {/* Dialoge und Alerts */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="max-w-md rounded-lg">
-          <DialogHeader>
-            <DialogTitle>System registrieren</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>System registrieren</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase text-muted-foreground">Name</Label>
@@ -342,9 +330,7 @@ export default function ResourcesPage() {
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase text-muted-foreground">Typ</Label>
                 <Select value={newType} onValueChange={setNewType}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="SaaS">Cloud / SaaS</SelectItem>
                     <SelectItem value="OnPrem">On-Premises</SelectItem>
@@ -355,9 +341,7 @@ export default function ResourcesPage() {
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase text-muted-foreground">Kritikalität</Label>
                 <Select value={newCriticality} onValueChange={setNewCriticality}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="low">Niedrig</SelectItem>
                     <SelectItem value="medium">Mittel</SelectItem>
@@ -375,18 +359,13 @@ export default function ResourcesPage() {
               <Input value={newUrl} onChange={e => setNewUrl(e.target.value)} className="h-10" placeholder="https://..." />
             </div>
           </div>
-          <DialogFooter>
-            <Button onClick={handleCreateResource} className="w-full">Speichern</Button>
-          </DialogFooter>
+          <DialogFooter><Button onClick={handleCreateResource} className="w-full">Speichern</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Entitlement Management Dialog */}
       <Dialog open={isEntitlementOpen} onOpenChange={setIsEntitlementOpen}>
         <DialogContent className="max-w-2xl rounded-lg">
-          <DialogHeader>
-            <DialogTitle>Rollenmanagement: {selectedResource?.name}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Rollenmanagement: {selectedResource?.name}</DialogTitle></DialogHeader>
           <div className="space-y-6">
             <div className="p-4 border rounded-md bg-muted/20 space-y-4">
               <div className="flex items-center justify-between">
@@ -403,9 +382,7 @@ export default function ResourcesPage() {
                 <div className="space-y-2">
                   <Label className="text-xs font-bold">Risiko</Label>
                   <Select value={entRisk} onValueChange={setEntRisk}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="low">Niedrig</SelectItem>
                       <SelectItem value="medium">Mittel</SelectItem>
@@ -418,7 +395,6 @@ export default function ResourcesPage() {
                 {editingEntitlementId ? "Aktualisieren" : "Hinzufügen"}
               </Button>
             </div>
-
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase text-muted-foreground">Aktuelle Rollen</Label>
               <div className="divide-y border rounded-md max-h-48 overflow-auto">
@@ -450,7 +426,6 @@ export default function ResourcesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Alerts */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

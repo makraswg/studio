@@ -39,6 +39,13 @@ import {
   DialogTrigger
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
@@ -326,7 +333,7 @@ export default function ResourcesPage() {
                           <DropdownMenuItem 
                             className="font-bold" 
                             onSelect={(e) => {
-                              e.preventDefault(); // Prevent dropdown from closing and locking focus before dialog opens
+                              e.preventDefault(); 
                               setSelectedResource(resource);
                               setIsEntitlementOpen(true);
                             }}

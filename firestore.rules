@@ -52,12 +52,13 @@ service cloud.firestore {
      * We use a recursive wildcard to match 'members' collections nested under tenants.
      */
     match /{path=**}/members/{memberId} {
-      // Allow list if the user is filtering by their own UID or is a superadmin
+      // Allow list if the user is filtering by their own UID. 
+      // For collection group queries, we check the 'userId' field in the document.
       allow list: if isSignedIn() && (
-        request.auth.uid == memberId || 
-        (resource != null && resource.data.userId == request.auth.uid) ||
+        resource.data.userId == request.auth.uid || 
         isSuperAdmin()
       );
+      
       // Allow get if the user is the member, or if they are a member of the same tenant, or a superadmin
       allow get: if isSignedIn() && (
         request.auth.uid == memberId || 

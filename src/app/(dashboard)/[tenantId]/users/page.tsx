@@ -1,7 +1,7 @@
-
 "use client";
 
 import { useState } from 'react';
+import { useParams } from 'next/navigation';
 import { 
   Table, 
   TableBody, 
@@ -20,7 +20,8 @@ import {
   User as UserIcon,
   ChevronRight,
   ShieldCheck,
-  Building2
+  Building2,
+  Loader2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -29,16 +30,33 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { MOCK_USERS } from '@/lib/mock-data';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import { cn } from '@/lib/utils';
 
 export default function UsersPage() {
+  const { tenantId } = useParams();
+  const db = useFirestore();
   const [search, setSearch] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
 
+  const usersQuery = useMemoFirebase(() => {
+    return collection(db, 'tenants', tenantId as string, 'users');
+  }, [db, tenantId]);
+
+  const { data: users, isLoading } = useCollection(usersQuery);
+
   const handleSync = () => {
     setIsSyncing(true);
+    // In a real app, this would trigger a background sync function
     setTimeout(() => setIsSyncing(false), 2000);
   };
+
+  const filteredUsers = users?.filter(user => 
+    user.displayName.toLowerCase().includes(search.toLowerCase()) ||
+    user.email.toLowerCase().includes(search.toLowerCase()) ||
+    user.department?.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">
@@ -77,82 +95,94 @@ export default function UsersPage() {
       </div>
 
       <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
-        <Table>
-          <TableHeader className="bg-accent/30">
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[350px] py-4">Employee</TableHead>
-              <TableHead>Department</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Last Synced</TableHead>
-              <TableHead>Assignments</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {MOCK_USERS.map((user) => (
-              <TableRow key={user.id} className="group transition-colors hover:bg-accent/10 cursor-pointer">
-                <TableCell className="py-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-primary font-bold group-hover:scale-110 transition-transform">
-                      {user.displayName.charAt(0)}
-                    </div>
-                    <div>
-                      <div className="font-bold">{user.displayName}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{user.email}</div>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-medium text-sm">{user.department}</span>
-                    <span className="text-[10px] text-muted-foreground">{user.title}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge 
-                    className={cn(
-                      "font-bold",
-                      user.enabled ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
-                    )}
-                    variant="outline"
-                  >
-                    {user.enabled ? "ENABLED" : "DISABLED"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground text-xs">
-                  {new Date(user.lastSyncedAt).toLocaleDateString()}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1.5 font-bold text-primary">
-                    <ShieldCheck className="w-4 h-4" /> 12
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-muted-foreground">
-                        <MoreHorizontal className="w-5 h-5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuItem className="font-medium">
-                        View Profile <ChevronRight className="ml-auto w-4 h-4 text-muted-foreground" />
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="font-medium">
-                        View Assignments <ChevronRight className="ml-auto w-4 h-4 text-muted-foreground" />
-                      </DropdownMenuItem>
-                      <div className="h-px bg-border my-1" />
-                      <DropdownMenuItem className="font-medium text-primary">Sync This User Only</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-muted-foreground font-medium">Loading directory...</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader className="bg-accent/30">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[350px] py-4">Employee</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Last Synced</TableHead>
+                <TableHead>Assignments</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filteredUsers?.map((user) => (
+                <TableRow key={user.id} className="group transition-colors hover:bg-accent/10 cursor-pointer">
+                  <TableCell className="py-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-primary font-bold group-hover:scale-110 transition-transform">
+                        {user.displayName.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="font-bold">{user.displayName}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{user.email}</div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-medium text-sm">{user.department}</span>
+                      <span className="text-[10px] text-muted-foreground">{user.title}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge 
+                      className={cn(
+                        "font-bold",
+                        user.enabled ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+                      )}
+                      variant="outline"
+                    >
+                      {user.enabled ? "ENABLED" : "DISABLED"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    {user.lastSyncedAt ? new Date(user.lastSyncedAt).toLocaleDateString() : 'Never'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 font-bold text-primary">
+                      <ShieldCheck className="w-4 h-4" /> —
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-muted-foreground">
+                          <MoreHorizontal className="w-5 h-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuItem className="font-medium">
+                          View Profile <ChevronRight className="ml-auto w-4 h-4 text-muted-foreground" />
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="font-medium">
+                          View Assignments <ChevronRight className="ml-auto w-4 h-4 text-muted-foreground" />
+                        </DropdownMenuItem>
+                        <div className="h-px bg-border my-1" />
+                        <DropdownMenuItem className="font-medium text-primary">Sync This User Only</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredUsers?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    No users found matching your search.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
     </div>
   );
 }
-
-import { cn } from '@/lib/utils';

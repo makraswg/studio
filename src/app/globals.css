@@ -77,3 +77,14 @@ body[style*="pointer-events: none"] {
 .active-nav-item {
   @apply bg-primary text-primary-foreground shadow-lg shadow-primary/20;
 }
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 10px;
+}

@@ -1,6 +1,7 @@
-
 "use client";
 
+import { useMemo } from 'react';
+import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -9,8 +10,9 @@ import {
   ShieldCheck, 
   AlertTriangle, 
   ArrowRight,
-  TrendingUp,
-  Activity
+  Activity,
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -24,6 +26,9 @@ import {
   Pie, 
   Cell 
 } from 'recharts';
+import { cn } from '@/lib/utils';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 const data = [
   { name: 'Mon', active: 400 },
@@ -42,12 +47,33 @@ const riskData = [
 ];
 
 export default function TenantDashboard() {
+  const { tenantId } = useParams();
+  const db = useFirestore();
+
+  // Fetch collections for stats
+  const usersQuery = useMemoFirebase(() => collection(db, 'tenants', tenantId as string, 'users'), [db, tenantId]);
+  const resourcesQuery = useMemoFirebase(() => collection(db, 'tenants', tenantId as string, 'resources'), [db, tenantId]);
+  const assignmentsQuery = useMemoFirebase(() => collection(db, 'tenants', tenantId as string, 'assignments'), [db, tenantId]);
+  const auditQuery = useMemoFirebase(() => collection(db, 'tenants', tenantId as string, 'auditEvents'), [db, tenantId]);
+
+  const { data: users, isLoading: usersLoading } = useCollection(usersQuery);
+  const { data: resources, isLoading: resourcesLoading } = useCollection(resourcesQuery);
+  const { data: assignments, isLoading: assignmentsLoading } = useCollection(assignmentsQuery);
+  const { data: auditLogs, isLoading: auditLoading } = useCollection(auditQuery);
+
+  const stats = [
+    { title: 'Total Users', value: users?.length || 0, icon: Users, trend: 'LDAP Synced', color: 'text-blue-500', loading: usersLoading },
+    { title: 'Resources', value: resources?.length || 0, icon: Layers, trend: 'Managed', color: 'text-purple-500', loading: resourcesLoading },
+    { title: 'Active Assignments', value: assignments?.length || 0, icon: ShieldCheck, trend: 'Certified', color: 'text-green-500', loading: assignmentsLoading },
+    { title: 'Recent Events', value: auditLogs?.length || 0, icon: Activity, trend: 'Recorded', color: 'text-orange-500', loading: auditLoading },
+  ];
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Dashboard Overview</h1>
-          <p className="text-muted-foreground mt-1">Real-time statistics for Acme Corp access inventory.</p>
+          <p className="text-muted-foreground mt-1">Real-time statistics for {tenantId} access inventory.</p>
         </div>
         <div className="flex gap-3">
           <Button variant="outline" className="gap-2">
@@ -61,12 +87,7 @@ export default function TenantDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          { title: 'Total Users', value: '1,248', icon: Users, trend: '+12%', color: 'text-blue-500' },
-          { title: 'Resources', value: '84', icon: Layers, trend: '+3', color: 'text-purple-500' },
-          { title: 'Active Assignments', value: '4,592', icon: ShieldCheck, trend: '+156', color: 'text-green-500' },
-          { title: 'Pending Reviews', value: '18', icon: AlertTriangle, trend: 'Critical', color: 'text-orange-500' },
-        ].map((stat) => (
+        {stats.map((stat) => (
           <Card key={stat.title} className="border-none shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -76,7 +97,11 @@ export default function TenantDashboard() {
                 <span className="text-xs font-medium text-muted-foreground">{stat.trend}</span>
               </div>
               <div className="space-y-1">
-                <h3 className="text-2xl font-bold tracking-tight">{stat.value}</h3>
+                {stat.loading ? (
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                ) : (
+                  <h3 className="text-2xl font-bold tracking-tight">{stat.value}</h3>
+                )}
                 <p className="text-sm text-muted-foreground font-medium">{stat.title}</p>
               </div>
             </CardContent>
@@ -155,23 +180,26 @@ export default function TenantDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4 pt-4">
-              {[
-                { action: 'Updated Resource', actor: 'John Doe', entity: 'GitHub Enterprise', time: '2 minutes ago' },
-                { action: 'Added Assignment', actor: 'Jane Smith', entity: 'u123 -> AWS Admin', time: '1 hour ago' },
-                { action: 'LDAP Sync', actor: 'System', entity: '243 users updated', time: '4 hours ago' },
-                { action: 'Revoked Access', actor: 'Security Bot', entity: 'Expired validUntil', time: 'Yesterday' },
-              ].map((log, i) => (
-                <div key={i} className="flex items-start gap-4 p-3 rounded-lg hover:bg-accent/30 transition-colors group">
-                  <div className="mt-1 w-2 h-2 rounded-full bg-primary" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">{log.action}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      <span className="font-medium text-foreground">{log.actor}</span> changed {log.entity}
-                    </p>
+              {auditLoading ? (
+                <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
+              ) : auditLogs && auditLogs.length > 0 ? (
+                auditLogs.slice(0, 5).map((log, i) => (
+                  <div key={log.id} className="flex items-start gap-4 p-3 rounded-lg hover:bg-accent/30 transition-colors group">
+                    <div className="mt-1 w-2 h-2 rounded-full bg-primary" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">{log.action}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        <span className="font-medium text-foreground">{log.actorUid}</span> changed {log.entityType}
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                      {new Date(log.timestamp).toLocaleDateString()}
+                    </span>
                   </div>
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">{log.time}</span>
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground text-sm">No recent activity found.</div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -180,30 +208,20 @@ export default function TenantDashboard() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-orange-500" />
-              <CardTitle className="text-orange-950">High Risk Reviews Required</CardTitle>
+              <CardTitle className="text-orange-950">System Insights</CardTitle>
             </div>
             <CardDescription className="text-orange-900/70">
-              There are 8 assignments with high-risk entitlements that haven't been reviewed in over 90 days.
+              Inventory health and compliance status summary.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {[
-                { user: 'Robert Miller', resource: 'Financial Database', role: 'DBA Admin' },
-                { user: 'Sarah Jenkins', resource: 'Production AWS', role: 'Root Access' },
-              ].map((review, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-card rounded-xl border border-orange-100 shadow-sm">
-                  <div>
-                    <p className="text-sm font-bold">{review.user}</p>
-                    <p className="text-xs text-muted-foreground">{review.resource} • {review.role}</p>
-                  </div>
-                  <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white font-bold h-8">
-                    Review Now
-                  </Button>
-                </div>
-              ))}
+              <div className="p-4 bg-card rounded-xl border border-orange-100 shadow-sm">
+                <p className="text-sm font-bold">Review Campaign Due</p>
+                <p className="text-xs text-muted-foreground">The quarterly access review for high-risk systems starts in 3 days.</p>
+              </div>
               <Button variant="link" className="text-orange-600 font-bold p-0 mt-2 hover:no-underline hover:text-orange-700">
-                View all pending reviews <ArrowRight className="w-4 h-4 ml-1" />
+                Manage Review Campaigns <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
           </CardContent>
@@ -212,6 +230,3 @@ export default function TenantDashboard() {
     </div>
   );
 }
-
-import { cn } from '@/lib/utils';
-import { ChevronRight } from 'lucide-react';

@@ -27,10 +27,11 @@ export async function getJiraConfigs(): Promise<JiraConfig[]> {
 /**
  * Ruft verfügbare Jira Assets Workspaces ab.
  */
-export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): Promise<{ 
+export async function getJiraWorkspacesAction(configData: { email: string; apiToken: string }): Promise<{ 
   success: boolean; 
   workspaces?: { id: string; name: string }[]; 
-  error?: string 
+  error?: string;
+  details?: string;
 }> {
   if (!configData.email || !configData.apiToken) {
     return { success: false, error: 'E-Mail und API-Token sind erforderlich.' };
@@ -39,6 +40,7 @@ export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): 
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
   try {
+    console.log(`[Jira Assets] Rufe Workspaces ab für: ${configData.email}`);
     const response = await fetch(`https://api.atlassian.com/jsm/assets/workspace`, {
       headers: {
         'Authorization': `Basic ${auth}`,
@@ -49,11 +51,12 @@ export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): 
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`[Jira Assets] API Fehler ${response.status}:`, errorText);
       return { 
         success: false, 
-        error: `Fehler beim Abrufen der Workspaces (${response.status})`,
-        details: errorText.substring(0, 300)
-      } as any;
+        error: `Jira API Fehler (${response.status})`,
+        details: errorText.substring(0, 200) || response.statusText
+      };
     }
 
     const data = await response.json();
@@ -62,9 +65,11 @@ export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): 
       name: w.workspaceName || w.workspaceId
     })) || [];
 
+    console.log(`[Jira Assets] ${workspaces.length} Workspaces gefunden.`);
     return { success: true, workspaces };
   } catch (e: any) {
-    return { success: false, error: e.message };
+    console.error(`[Jira Assets] Kritischer Fehler:`, e);
+    return { success: false, error: 'Verbindungsfehler zur Atlassian Cloud', details: e.message };
   }
 }
 

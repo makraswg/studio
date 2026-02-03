@@ -98,12 +98,28 @@ export default function SettingsPage() {
 
     setIsFetchingWorkspaces(true);
     try {
+      console.log("Fetching workspaces for:", targetEmail);
       const res = await getJiraWorkspacesAction({ email: targetEmail, apiToken: targetToken });
       if (res.success && res.workspaces) {
         setWorkspaces(res.workspaces);
+        if (res.workspaces.length === 0) {
+          console.warn("Workspaces fetched but list is empty.");
+        }
+      } else {
+        console.error("Workspace fetch failed:", res.error, res.details);
+        toast({ 
+          variant: "destructive", 
+          title: "Assets-Fehler", 
+          description: res.error || "Workspaces konnten nicht geladen werden." 
+        });
       }
-    } catch (e) {
-      console.error("Failed to fetch workspaces", e);
+    } catch (e: any) {
+      console.error("Critical error fetching workspaces", e);
+      toast({ 
+        variant: "destructive", 
+        title: "Verbindungsfehler", 
+        description: e.message 
+      });
     } finally {
       setIsFetchingWorkspaces(false);
     }
@@ -295,7 +311,7 @@ export default function SettingsPage() {
                           ))
                         ) : (
                           <div className="p-4 text-center text-[10px] font-bold uppercase text-muted-foreground italic">
-                            Keine Workspaces geladen. Bitte prüfen Sie Ihre Zugangsdaten und klicken auf "Laden".
+                            {isFetchingWorkspaces ? "Abfrage läuft..." : "Keine Workspaces geladen. Bitte prüfen Sie Ihre Zugangsdaten und klicken auf 'Laden'."}
                           </div>
                         )}
                       </SelectContent>

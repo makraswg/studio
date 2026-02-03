@@ -63,7 +63,9 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     connection = await getMysqlConnection();
     
     // Bereite Daten für MySQL vor (JSON-Felder konvertieren)
-    const preparedData = { ...data };
+    // Wir stellen sicher, dass die ID im Datenobjekt enthalten ist
+    const preparedData = { ...data, id };
+    
     if (tableName === 'groups') {
       if (Array.isArray(preparedData.entitlementIds)) preparedData.entitlementIds = JSON.stringify(preparedData.entitlementIds);
       if (Array.isArray(preparedData.userIds)) preparedData.userIds = JSON.stringify(preparedData.userIds);

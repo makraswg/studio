@@ -87,7 +87,9 @@ export default function AccessReviewsPage() {
       reviewedBy: user?.uid || 'system'
     };
 
+    const auditId = `audit-${Math.random().toString(36).substring(2, 9)}`;
     const auditData = {
+      id: auditId,
       actorUid: user?.uid || 'system',
       action: action === 'certify' ? 'Zertifizierung' : 'Widerruf (Review)',
       entityType: 'assignment',
@@ -102,7 +104,7 @@ export default function AccessReviewsPage() {
         toast({ variant: "destructive", title: "Fehler", description: "Speichern in MySQL fehlgeschlagen." });
         return;
       }
-      await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
+      await saveCollectionRecord('auditEvents', auditId, auditData);
     } else {
       updateDocumentNonBlocking(doc(db, 'assignments', assignmentId), reviewData);
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);

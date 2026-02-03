@@ -109,7 +109,6 @@ export default function GroupsPage() {
     // 1. Create or update assignments for group members
     for (const uid of userIds) {
       for (const eid of entIds) {
-        // Create a predictable ID for group-based assignments
         const assId = `ga_${groupId}_${uid}_${eid}`.replace(/[^a-zA-Z0-9_]/g, '_');
         const existing = currentAssignments.find(a => a.id === assId);
 
@@ -137,7 +136,7 @@ export default function GroupsPage() {
       }
     }
 
-    // 2. Remove orphaned assignments (if user/role was removed from group)
+    // 2. Remove orphaned assignments
     const currentGroupAssignments = currentAssignments.filter(a => a.originGroupId === groupId);
     for (const a of currentGroupAssignments) {
       const userStillInGroup = userIds.includes(a.userId);
@@ -145,8 +144,6 @@ export default function GroupsPage() {
 
       if (!userStillInGroup || !entStillInGroup) {
         if (dataSource === 'mysql') {
-          // For groups, we might want to actually delete or set to 'removed'
-          // We'll set to removed to maintain history
           const updated = { ...a, status: 'removed', notes: `${a.notes} [Entfernt via Gruppen-Sync ${today}]` };
           await saveCollectionRecord('assignments', a.id, updated);
         } else {
@@ -202,7 +199,6 @@ export default function GroupsPage() {
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
-    // Perform sync of actual assignments
     await syncGroupAssignments(groupId, name, selectedUserIds, selectedEntitlementIds);
 
     setIsEditOpen(false);
@@ -234,7 +230,6 @@ export default function GroupsPage() {
         await deleteCollectionRecord('groups', selectedGroup.id);
         const groupAssignments = assignments?.filter(a => a.originGroupId === selectedGroup.id) || [];
         for (const a of groupAssignments) {
-          // Deactivate assignments
           await saveCollectionRecord('assignments', a.id, { ...a, status: 'removed' });
         }
         await saveCollectionRecord('auditEvents', auditData.id, auditData);
@@ -398,15 +393,15 @@ export default function GroupsPage() {
             </DialogDescription>
           </DialogHeader>
           
-          <Tabs defaultValue="general" className="w-full">
-            <TabsList className="w-full justify-start rounded-none bg-muted/50 border-b h-12 p-0 px-6 gap-6">
+          <Tabs defaultValue="general" className="w-full flex flex-col h-[550px]">
+            <TabsList className="w-full justify-start rounded-none bg-muted/50 border-b h-12 p-0 px-6 gap-6 shrink-0">
               <TabsTrigger value="general" className="h-full rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none text-[10px] font-bold uppercase">1. Allgemein</TabsTrigger>
               <TabsTrigger value="roles" className="h-full rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none text-[10px] font-bold uppercase">2. Rollen ({selectedEntitlementIds.length})</TabsTrigger>
               <TabsTrigger value="members" className="h-full rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none text-[10px] font-bold uppercase">3. Mitglieder ({selectedUserIds.length})</TabsTrigger>
             </TabsList>
 
-            <div className="p-6 h-[450px] overflow-hidden">
-              <TabsContent value="general" className="space-y-4 m-0">
+            <div className="flex-1 overflow-hidden">
+              <TabsContent value="general" className="p-6 space-y-4 m-0 h-full">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Gruppenname</Label>
                   <Input value={name} onChange={e => setName(e.target.value)} className="rounded-none h-10 shadow-none" placeholder="z.B. Marketing Team" />
@@ -423,17 +418,17 @@ export default function GroupsPage() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="roles" className="space-y-4 m-0 h-full flex flex-col">
-                <div className="relative">
+              <TabsContent value="roles" className="p-6 space-y-4 m-0 h-full flex flex-col">
+                <div className="relative shrink-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                   <Input 
                     placeholder="Rollen oder Systeme filtern..." 
-                    className="pl-9 h-9 text-[11px] rounded-none bg-muted/20 border-none"
+                    className="pl-9 h-10 text-[11px] rounded-none bg-muted/20 border-none shadow-none"
                     value={entitlementSearch}
                     onChange={e => setEntitlementSearch(e.target.value)}
                   />
                 </div>
-                <div className="flex-1 overflow-y-auto border bg-slate-50/50 p-2 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto border bg-slate-50/50 p-2 custom-scrollbar min-h-0">
                   <div className="grid grid-cols-1 gap-1">
                     {entitlements?.filter(e => {
                       const res = resources?.find(r => r.id === e.resourceId);
@@ -468,17 +463,17 @@ export default function GroupsPage() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="members" className="space-y-4 m-0 h-full flex flex-col">
-                <div className="relative">
+              <TabsContent value="members" className="p-6 space-y-4 m-0 h-full flex flex-col">
+                <div className="relative shrink-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                   <Input 
                     placeholder="Mitarbeiter suchen..." 
-                    className="pl-9 h-9 text-[11px] rounded-none bg-muted/20 border-none"
+                    className="pl-9 h-10 text-[11px] rounded-none bg-muted/20 border-none shadow-none"
                     value={userSearch}
                     onChange={e => setUserSearch(e.target.value)}
                   />
                 </div>
-                <div className="flex-1 overflow-y-auto border bg-slate-50/50 p-2 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto border bg-slate-50/50 p-2 custom-scrollbar min-h-0">
                   <div className="grid grid-cols-1 gap-1">
                     {users?.filter(u => {
                       const term = userSearch.toLowerCase();
@@ -517,7 +512,7 @@ export default function GroupsPage() {
             </div>
           </Tabs>
 
-          <DialogFooter className="p-6 bg-slate-50 border-t flex items-center justify-between">
+          <DialogFooter className="p-6 bg-slate-50 border-t flex items-center justify-between shrink-0">
             <div className="text-[9px] font-bold text-muted-foreground uppercase">
               {selectedUserIds.length} Mitglieder • {selectedEntitlementIds.length} Rollen
             </div>

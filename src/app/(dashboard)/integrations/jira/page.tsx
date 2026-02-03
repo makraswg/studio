@@ -25,7 +25,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { fetchJiraApprovedRequests, resolveJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
-import { User, Entitlement, Resource } from '@/lib/types';
+import { User, Entitlement, Resource, Assignment } from '@/lib/types';
 import { useFirestore, addDocumentNonBlocking, useUser as useAuthUser } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { useSettings } from '@/context/settings-context';
@@ -43,6 +43,7 @@ export default function JiraSyncPage() {
   const { data: users } = usePluggableCollection<User>('users');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: resources } = usePluggableCollection<Resource>('resources');
+  const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<Assignment>('assignments');
 
   useEffect(() => {
     setMounted(true);
@@ -63,7 +64,6 @@ export default function JiraSyncPage() {
   const handleAssignFromJira = async (ticket: any) => {
     if (!activeConfig) return;
 
-    // Einfaches Mapping: Suche User per E-Mail aus Ticket
     const user = users?.find(u => u.email.toLowerCase() === ticket.requestedUserEmail?.toLowerCase());
     
     if (!user) {
@@ -75,12 +75,21 @@ export default function JiraSyncPage() {
       return;
     }
 
-    // Hier würde normalerweise eine Rollen-ID im Ticket stehen. 
-    // Für die Demo nehmen wir die erste verfügbare Rolle eines Systems.
+    // In einer realen Welt würden wir die Rolle aus dem Ticket matchen
     const ent = entitlements?.[0]; 
-    if (!ent) return;
+    if (!ent) {
+      toast({ variant: "destructive", title: "Fehler", description: "Keine Rollen im System definiert." });
+      return;
+    }
 
-    const assignmentId = `ass-jira-${ticket.key}`;
+    // Doppelte Prüfung
+    const alreadyHas = assignments?.some(a => a.userId === user.id && a.entitlementId === ent.id && a.status === 'active');
+    if (alreadyHas) {
+      toast({ variant: "destructive", title: "Schon zugewiesen", description: `${user.displayName} besitzt diese Rolle bereits.` });
+      return;
+    }
+
+    const assignmentId = `ass-jira-${ticket.key}-${Math.random().toString(36).substring(2, 5)}`;
     const timestamp = new Date().toISOString();
     
     const assignmentData = {
@@ -91,17 +100,30 @@ export default function JiraSyncPage() {
       grantedBy: 'jira-sync',
       grantedAt: timestamp,
       validFrom: timestamp.split('T')[0],
-      ticketRef: ticket.key,
       jiraIssueKey: ticket.key,
+      ticketRef: ticket.key,
       notes: `Automatisch erstellt via Jira Ticket ${ticket.key}. Antragsteller: ${ticket.reporter}`,
       tenantId: 't1'
     };
 
-    // Speichern
+    const auditId = `audit-${Math.random().toString(36).substring(2, 9)}`;
+    const auditData = {
+      id: auditId,
+      actorUid: 'jira-sync',
+      action: `Zuweisung [${ent.name}] für [${user.displayName}] via Jira-Sync erstellt`,
+      entityType: 'assignment',
+      entityId: assignmentId,
+      timestamp,
+      tenantId: 't1',
+      after: assignmentData
+    };
+
     if (dataSource === 'mysql') {
       await saveCollectionRecord('assignments', assignmentId, assignmentData);
+      await saveCollectionRecord('auditEvents', auditId, auditData);
     } else {
       addDocumentNonBlocking(collection(db, 'assignments'), assignmentData);
+      addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
     // Jira Ticket abschließen
@@ -109,6 +131,7 @@ export default function JiraSyncPage() {
 
     toast({ title: "Zuweisung erfolgt", description: `Berechtigung für ${user.displayName} wurde aktiviert.` });
     setJiraTickets(prev => prev.filter(t => t.key !== ticket.key));
+    setTimeout(() => refreshAssignments(), 200);
   };
 
   if (!mounted) return null;
@@ -118,7 +141,7 @@ export default function JiraSyncPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Jira Synchronisation</h1>
-          <p className="text-sm text-muted-foreground">Eingangs-Queue für genehmigte Zugriffsanfragen aus Jira.</p>
+          <p className="text-sm text-muted-foreground">Genehmigte Tickets als Berechtigungs-Grundlage.</p>
         </div>
         <Button variant="outline" size="sm" onClick={loadSyncData} disabled={isLoading} className="h-9 font-bold uppercase text-[10px] rounded-none">
           {isLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} Aktualisieren
@@ -190,7 +213,7 @@ export default function JiraSyncPage() {
       )}
 
       <div className="p-4 bg-blue-50 border text-[10px] font-bold uppercase text-blue-700 leading-relaxed">
-        Prozess-Info: Genehmigte Anfragen aus dem Jira Projekt <strong>{activeConfig?.projectKey}</strong> werden hier aufgelistet. Nach dem Klick auf "Zuweisung Bestätigen" wird im ComplianceHub ein Datensatz angelegt und das Jira-Ticket automatisch mit einer Erfolgsmeldung kommentiert.
+        Hinweis: Nach der Bestätigung wird im ComplianceHub ein permanenter Datensatz mit dem Jira-Key als Dokumentationsgrundlage erstellt. Dieser Datensatz bleibt auch nach dem Beenden der Berechtigung für Revisionszwecke erhalten.
       </div>
     </div>
   );

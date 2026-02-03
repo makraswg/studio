@@ -1,3 +1,4 @@
+
 // src/lib/schema.ts
 
 /**
@@ -50,6 +51,8 @@ export const appSchema: AppSchema = {
       description: 'TEXT',
       entitlementIds: 'TEXT', // Gespeichert als JSON-String
       userIds: 'TEXT',        // Gespeichert als JSON-String
+      validFrom: 'VARCHAR(50)',
+      validUntil: 'VARCHAR(50)',
     },
   },
   resources: {

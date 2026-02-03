@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -24,7 +25,9 @@ import {
   Check,
   AlertTriangle,
   CheckCircle2,
-  X
+  X,
+  Calendar,
+  Clock
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -88,6 +91,8 @@ export default function GroupsPage() {
   const [selectedGroup, setSelectedGroup] = useState<AssignmentGroup | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [validFrom, setValidFrom] = useState(new Date().toISOString().split('T')[0]);
+  const [validUntil, setValidUntil] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [selectedEntitlementIds, setSelectedEntitlementIds] = useState<string[]>([]);
 
@@ -101,7 +106,7 @@ export default function GroupsPage() {
     setMounted(true);
   }, []);
 
-  const syncGroupAssignments = async (groupId: string, groupName: string, userIds: string[], entIds: string[]) => {
+  const syncGroupAssignments = async (groupId: string, groupName: string, userIds: string[], entIds: string[], gValidFrom: string, gValidUntil: string) => {
     const currentAssignments = assignments || [];
     const timestamp = new Date().toISOString();
     const today = timestamp.split('T')[0];
@@ -112,7 +117,7 @@ export default function GroupsPage() {
         const assId = `ga_${groupId}_${uid}_${eid}`.replace(/[^a-zA-Z0-9_]/g, '_');
         const existing = currentAssignments.find(a => a.id === assId);
 
-        if (!existing || existing.status === 'removed') {
+        if (!existing || existing.status === 'removed' || existing.validFrom !== gValidFrom || existing.validUntil !== gValidUntil) {
           const assignmentData = {
             id: assId,
             userId: uid,
@@ -120,8 +125,9 @@ export default function GroupsPage() {
             originGroupId: groupId,
             status: 'active',
             grantedBy: authUser?.uid || 'system',
-            grantedAt: timestamp,
-            validFrom: today,
+            grantedAt: existing?.grantedAt || timestamp,
+            validFrom: gValidFrom || today,
+            validUntil: gValidUntil,
             ticketRef: `GRUPPE: ${groupName}`,
             notes: `Auto-zugewiesen via Gruppe: ${groupName}`,
             tenantId: 't1'
@@ -142,7 +148,7 @@ export default function GroupsPage() {
       const userStillInGroup = userIds.includes(a.userId);
       const entStillInGroup = entIds.includes(a.entitlementId);
 
-      if (!userStillInGroup || !entStillInGroup) {
+      if ((!userStillInGroup || !entStillInGroup) && a.status !== 'removed') {
         if (dataSource === 'mysql') {
           const updated = { ...a, status: 'removed', notes: `${a.notes} [Entfernt via Gruppen-Sync ${today}]` };
           await saveCollectionRecord('assignments', a.id, updated);
@@ -168,6 +174,8 @@ export default function GroupsPage() {
       id: groupId,
       name,
       description,
+      validFrom,
+      validUntil,
       userIds: selectedUserIds,
       entitlementIds: selectedEntitlementIds,
       tenantId: 't1'
@@ -199,7 +207,7 @@ export default function GroupsPage() {
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
-    await syncGroupAssignments(groupId, name, selectedUserIds, selectedEntitlementIds);
+    await syncGroupAssignments(groupId, name, selectedUserIds, selectedEntitlementIds, validFrom, validUntil);
 
     setIsEditOpen(false);
     setIsAddOpen(false);
@@ -215,6 +223,7 @@ export default function GroupsPage() {
   const handleDeleteGroup = async () => {
     if (selectedGroup) {
       const timestamp = new Date().toISOString();
+      const today = timestamp.split('T')[0];
       const auditData = {
         id: `audit-${Math.random().toString(36).substring(2, 9)}`,
         actorUid: authUser?.uid || 'system',
@@ -230,13 +239,13 @@ export default function GroupsPage() {
         await deleteCollectionRecord('groups', selectedGroup.id);
         const groupAssignments = assignments?.filter(a => a.originGroupId === selectedGroup.id) || [];
         for (const a of groupAssignments) {
-          await saveCollectionRecord('assignments', a.id, { ...a, status: 'removed' });
+          await saveCollectionRecord('assignments', a.id, { ...a, status: 'removed', validUntil: today });
         }
         await saveCollectionRecord('auditEvents', auditData.id, auditData);
       } else {
         deleteDocumentNonBlocking(doc(db, 'groups', selectedGroup.id));
         assignments?.filter(a => a.originGroupId === selectedGroup.id).forEach(a => {
-          setDocumentNonBlocking(doc(db, 'assignments', a.id), { status: 'removed' }, { merge: true });
+          setDocumentNonBlocking(doc(db, 'assignments', a.id), { status: 'removed', validUntil: today }, { merge: true });
         });
         addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
       }
@@ -256,6 +265,8 @@ export default function GroupsPage() {
     setSelectedGroup(group);
     setName(group.name);
     setDescription(group.description || '');
+    setValidFrom(group.validFrom || new Date().toISOString().split('T')[0]);
+    setValidUntil(group.validUntil || '');
     setSelectedUserIds(Array.isArray(group.userIds) ? [...group.userIds] : []);
     setSelectedEntitlementIds(Array.isArray(group.entitlementIds) ? [...group.entitlementIds] : []);
     setTimeout(() => setIsEditOpen(true), 150);
@@ -270,6 +281,8 @@ export default function GroupsPage() {
     setSelectedGroup(null);
     setName('');
     setDescription('');
+    setValidFrom(new Date().toISOString().split('T')[0]);
+    setValidUntil('');
     setSelectedUserIds([]);
     setSelectedEntitlementIds([]);
     setUserSearch('');
@@ -340,7 +353,7 @@ export default function GroupsPage() {
             <TableHeader className="bg-muted/30">
               <TableRow className="hover:bg-transparent">
                 <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Gruppe</TableHead>
-                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Beschreibung</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Zeitraum</TableHead>
                 <TableHead className="font-bold uppercase tracking-widest text-[10px]">Mitglieder</TableHead>
                 <TableHead className="font-bold uppercase tracking-widest text-[10px]">Rollen</TableHead>
                 <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Aktionen</TableHead>
@@ -354,11 +367,25 @@ export default function GroupsPage() {
                       <div className="w-9 h-9 bg-primary/10 text-primary flex items-center justify-center">
                         <Workflow className="w-5 h-5" />
                       </div>
-                      <div className="font-bold text-sm">{group.name}</div>
+                      <div>
+                        <div className="font-bold text-sm">{group.name}</div>
+                        <div className="text-[10px] text-muted-foreground uppercase truncate max-w-[200px]">{group.description || 'Keine Beschreibung'}</div>
+                      </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground max-w-[300px] truncate">
-                    {group.description || '—'}
+                  <TableCell>
+                    <div className="flex flex-col gap-1 text-[10px] font-bold uppercase">
+                      <div className="flex items-center gap-1 text-slate-600">
+                        <Clock className="w-3 h-3" /> Ab: {group.validFrom || 'Sofort'}
+                      </div>
+                      {group.validUntil ? (
+                        <div className="flex items-center gap-1 text-slate-600">
+                          <Calendar className="w-3 h-3" /> Bis: {group.validUntil}
+                        </div>
+                      ) : (
+                        <div className="text-muted-foreground italic">Unbefristet</div>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-slate-600">
@@ -425,10 +452,22 @@ export default function GroupsPage() {
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Beschreibung</Label>
                   <Input value={description} onChange={e => setDescription(e.target.value)} className="rounded-none h-10 shadow-none" placeholder="Zweck dieser Gruppe..." />
                 </div>
-                <div className="p-4 bg-blue-50 border border-blue-100 text-[10px] text-blue-700 uppercase font-bold leading-relaxed mt-10">
+                
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1.5"><Clock className="w-3 h-3" /> Gültig ab (Standard)</Label>
+                    <Input type="date" value={validFrom} onChange={e => setValidFrom(e.target.value)} className="rounded-none h-10" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1.5"><Calendar className="w-3 h-3" /> Freigabe bis (Standard)</Label>
+                    <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="rounded-none h-10" />
+                  </div>
+                </div>
+
+                <div className="p-4 bg-blue-50 border border-blue-100 text-[10px] text-blue-700 uppercase font-bold leading-relaxed mt-6">
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    <p>Hinweis: Änderungen an einer Gruppe lösen eine automatische Synchronisation aller verknüpften Einzelzuweisungen aus. Neue Mitglieder erhalten sofortigen Zugriff gemäß den Gruppen-Rollen.</p>
+                    <p>Hinweis: Die gewählten Zeiträume werden auf alle generierten Zuweisungen übertragen. Änderungen an der Gruppe synchronisieren die Termine aller Mitglieder automatisch nach.</p>
                   </div>
                 </div>
               </TabsContent>
@@ -559,7 +598,7 @@ export default function GroupsPage() {
               <AlertTriangle className="w-5 h-5" /> Gruppe löschen?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs">
-              Dies löscht die Gruppe "{selectedGroup?.name}". Alle automatischen Zuweisungen dieser Gruppe werden ebenfalls sofort entfernt.
+              Dies löscht die Gruppe "{selectedGroup?.name}". Alle automatischen Zuweisungen dieser Gruppe werden ebenfalls sofort auf 'removed' gesetzt.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

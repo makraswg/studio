@@ -71,6 +71,8 @@ export interface AssignmentGroup {
   description: string;
   entitlementIds: string[];
   userIds: string[];
+  validFrom?: string;
+  validUntil?: string;
 }
 
 export interface AuditLogEntry {

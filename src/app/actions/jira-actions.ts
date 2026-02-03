@@ -15,7 +15,7 @@ function cleanJiraUrl(url: string): string {
     return `${parsed.protocol}//${parsed.host}`;
   } catch (e) {
     cleaned = cleaned.replace(/\/$/, '');
-    const segments = ['/rest/', '/jira/', '/assets/', '/browse/', '/projects/'];
+    const segments = ['/rest/', '/jira/', '/assets/', '/browse/', '/projects/', '/gateway/'];
     for (const segment of segments) {
       if (cleaned.includes(segment)) {
         cleaned = cleaned.split(segment)[0];
@@ -50,6 +50,7 @@ export async function getJiraWorkspacesAction(configData: { url: string; email: 
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
   try {
+    // Site-spezifischer Discovery-Endpunkt für Jira Cloud
     const response = await fetch(`${baseUrl}/rest/servicedeskapi/assets/workspace`, {
       method: 'GET',
       headers: {
@@ -93,14 +94,14 @@ export async function syncAssetsToJiraAction(
   const config = configs.find(c => c.id === configId);
   
   if (!config || !config.enabled || !config.assetsWorkspaceId) {
-    return { success: false, message: 'Jira Assets nicht konfiguriert.' };
+    return { success: false, message: 'Jira Assets (Workspace ID) nicht konfiguriert.' };
   }
 
   const baseUrl = cleanJiraUrl(config.url);
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
   
-  // Jira Cloud Assets API Endpoint
-  const assetsApiBase = `${baseUrl}/rest/assets/1.0`; 
+  // Jira Cloud Assets Gateway API Endpoint (Zwingend mit Workspace ID im Pfad)
+  const assetsApiBase = `${baseUrl}/gateway/api/jsm/assets/workspace/${config.assetsWorkspaceId}/v1`; 
 
   try {
     let createdCount = 0;
@@ -122,7 +123,7 @@ export async function syncAssetsToJiraAction(
               objectTypeId: config.assetsResourceObjectTypeId,
               attributes: [
                 {
-                  objectTypeAttributeId: "1", // In der Regel ID 1 für "Name"
+                  objectTypeAttributeId: "1", // Name-Attribut (In Assets meist ID 1)
                   objectAttributeValues: [{ value: res.name }]
                 }
               ]
@@ -133,7 +134,8 @@ export async function syncAssetsToJiraAction(
             createdCount++;
           } else {
             errorCount++;
-            lastError = `System '${res.name}': ${createRes.status} ${createRes.statusText}`;
+            const errText = await createRes.text();
+            lastError = `System '${res.name}': ${createRes.status} - ${errText.substring(0, 100)}`;
           }
         } catch (e: any) {
           errorCount++;
@@ -157,7 +159,7 @@ export async function syncAssetsToJiraAction(
               objectTypeId: config.assetsRoleObjectTypeId,
               attributes: [
                 {
-                  objectTypeAttributeId: "1", // Name
+                  objectTypeAttributeId: "1", // Name-Attribut
                   objectAttributeValues: [{ value: ent.name }]
                 }
               ]
@@ -168,7 +170,8 @@ export async function syncAssetsToJiraAction(
             createdCount++;
           } else {
             errorCount++;
-            lastError = `Rolle '${ent.name}': ${createEnt.status} ${createEnt.statusText}`;
+            const errText = await createEnt.text();
+            lastError = `Rolle '${ent.name}': ${createEnt.status} - ${errText.substring(0, 100)}`;
           }
         } catch (e: any) {
           errorCount++;
@@ -180,7 +183,7 @@ export async function syncAssetsToJiraAction(
     if (createdCount === 0 && errorCount > 0) {
       return { 
         success: false, 
-        message: `Übertragung fehlgeschlagen. Letzter Fehler: ${lastError}`,
+        message: `Übertragung fehlgeschlagen. 404 oder Berechtigungsfehler? Letzter Fehler: ${lastError}`,
         error: lastError
       };
     }
@@ -190,7 +193,7 @@ export async function syncAssetsToJiraAction(
       message: `${createdCount} Objekte erfolgreich nach Jira Assets übertragen. (Fehler: ${errorCount})` 
     };
   } catch (e: any) {
-    return { success: false, message: 'Synchronisation fehlgeschlagen', error: e.message };
+    return { success: false, message: 'Synchronisation fehlgeschlagen (Netzwerkfehler)', error: e.message };
   }
 }
 
@@ -223,7 +226,8 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
     const userData = await testRes.json();
     const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName}"`;
     
-    const searchRes = await fetch(`${url}/rest/api/3/search`, {
+    // Verwende den neuen JQL-Search-Endpunkt, um Migrationsfehler zu vermeiden
+    const searchRes = await fetch(`${url}/rest/api/3/search/jql`, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${auth}`,
@@ -301,7 +305,7 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
   try {
     const jql = `project = "${config.projectKey}" AND status = "${config.approvedStatusName}"${config.issueTypeName ? ` AND "Request Type" = "${config.issueTypeName}"` : ''}`;
 
-    const response = await fetch(`${url}/rest/api/3/search`, {
+    const response = await fetch(`${url}/rest/api/3/search/jql`, {
       method: 'POST',
       headers: { 
         'Authorization': `Basic ${auth}`,
@@ -319,9 +323,6 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
     if (!response.ok) return [];
     const data = await response.json();
     if (!data.issues) return [];
-
-    // Wir rufen hier keine lokalen Entitlements ab, da wir diese Action nur für die Ticket-Daten nutzen.
-    // Die Zuordnung findet im Client statt.
 
     return data.issues.map((issue: any) => {
       let extractedEmail = '';

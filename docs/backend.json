@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Tenant": {
@@ -193,6 +194,22 @@
         "userIds": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["id", "tenantId", "name"]
+    },
+    "AuditEvent": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AuditEvent",
+      "type": "object",
+      "description": "Represents a security audit record.",
+      "properties": {
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "actorUid": { "type": "string" },
+        "action": { "type": "string" },
+        "entityType": { "type": "string" },
+        "entityId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "tenantId", "actorUid", "action", "entityType", "entityId", "timestamp"]
     }
   },
   "auth": {

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -28,12 +29,11 @@ import {
   Cell 
 } from 'recharts';
 import { cn } from '@/lib/utils';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { exportComplianceReportPdf } from '@/lib/export-utils';
 import { toast } from '@/hooks/use-toast';
+import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 
 const riskData = [
   { name: 'Niedriges Risiko', value: 65, color: '#3b82f6' },
@@ -42,19 +42,13 @@ const riskData = [
 ];
 
 export default function DashboardPage() {
-  const db = useFirestore();
   const [mounted, setMounted] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  const usersQuery = useMemoFirebase(() => collection(db, 'users'), [db]);
-  const resourcesQuery = useMemoFirebase(() => collection(db, 'resources'), [db]);
-  const assignmentsQuery = useMemoFirebase(() => collection(db, 'assignments'), [db]);
-  const auditQuery = useMemoFirebase(() => collection(db, 'auditEvents'), [db]);
-
-  const { data: users, isLoading: usersLoading } = useCollection(usersQuery);
-  const { data: resources, isLoading: resourcesLoading } = useCollection(resourcesQuery);
-  const { data: assignments, isLoading: assignmentsLoading } = useCollection(assignmentsQuery);
-  const { data: auditLogs, isLoading: auditLoading } = useCollection(auditQuery);
+  const { data: users, isLoading: usersLoading } = usePluggableCollection<any>('users');
+  const { data: resources, isLoading: resourcesLoading } = usePluggableCollection<any>('resources');
+  const { data: assignments, isLoading: assignmentsLoading } = usePluggableCollection<any>('assignments');
+  const { data: auditLogs, isLoading: auditLoading } = usePluggableCollection<any>('auditEvents');
 
   useEffect(() => {
     setMounted(true);
@@ -90,13 +84,15 @@ export default function DashboardPage() {
     { title: 'Audits', value: auditLogs?.length || 0, icon: Activity, label: 'Journal', color: 'text-orange-600', bg: 'bg-orange-50', loading: auditLoading },
   ];
 
-  const reviewProgress = assignments ? Math.round((assignments.filter(a => !!a.lastReviewedAt).length / (assignments.length || 1)) * 100) : 0;
+  const totalAssignments = assignments?.length || 0;
+  const reviewedAssignments = assignments?.filter(a => !!a.lastReviewedAt).length || 0;
+  const reviewProgress = totalAssignments > 0 ? Math.round((reviewedAssignments / totalAssignments) * 100) : 0;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between border-b pb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Access Control Konsole</h1>
+          <h1 className="text-2xl font-bold tracking-tight">ComplianceHub Konsole</h1>
           <p className="text-sm text-muted-foreground">Operative Übersicht der Identitäts- und Zugriffsumgebung.</p>
         </div>
         <div className="flex gap-2">
@@ -156,7 +152,7 @@ export default function DashboardPage() {
               <div className="text-right">
                 <p className="text-sm font-bold text-red-600 flex items-center justify-end gap-1">
                    {assignments?.filter(a => {
-                     if (!a.grantedAt) return false;
+                     if (!a.grantedAt || a.status === 'removed') return false;
                      return ((new Date().getTime() - new Date(a.grantedAt).getTime()) / 86400000) > 90 && !a.lastReviewedAt;
                    }).length || 0} Kritisch
                 </p>
@@ -166,11 +162,11 @@ export default function DashboardPage() {
             <Progress value={reviewProgress} className="h-2 rounded-none bg-slate-100" />
             <div className="mt-8 grid grid-cols-3 gap-4 border-t pt-6">
               <div className="text-center border-r">
-                <p className="text-lg font-bold">{assignments?.length || 0}</p>
+                <p className="text-lg font-bold">{totalAssignments}</p>
                 <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-tighter">Gesamt-Items</p>
               </div>
               <div className="text-center border-r">
-                <p className="text-lg font-bold text-emerald-600">{assignments?.filter(a => !!a.lastReviewedAt).length || 0}</p>
+                <p className="text-lg font-bold text-emerald-600">{reviewedAssignments}</p>
                 <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-tighter">Zertifiziert</p>
               </div>
               <div className="text-center">
@@ -220,7 +216,7 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y">
-            {auditLogs?.slice(0, 5).map((log) => (
+            {auditLogs?.slice(0, 5).map((log: any) => (
               <div key={log.id} className="flex items-center justify-between p-4 hover:bg-muted/5 group">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-none bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-primary transition-colors">

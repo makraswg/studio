@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
-  title: 'AccessHub - Mandantenfähige Berechtigungsregistrierung',
+  title: 'ComplianceHub - Mandantenfähige Berechtigungsregistrierung',
   description: 'Verwalten Sie den IT-Zugriff und die Berechtigungen für Ihre gesamte Organisation.',
 };
 
@@ -21,7 +21,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased selection:bg-primary selection:text-primary-foreground">
-        <FirebaseClientProvider>
+        <FirebaseClientProvider { /* @ts-ignore */ ...{} }>
           {children}
           <Toaster />
         </FirebaseClientProvider>

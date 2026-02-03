@@ -1,4 +1,3 @@
-
 'use client';
 
 /**
@@ -32,7 +31,7 @@ export async function exportAssignmentsPdf(
     const timestamp = new Date().toLocaleString('de-DE');
 
     doc.setFontSize(18);
-    doc.text('AccessHub - Compliance Bericht: Zuweisungen', 14, 20);
+    doc.text('ComplianceHub - Compliance Bericht: Zuweisungen', 14, 20);
     doc.setFontSize(10);
     doc.text(`Erstellt am: ${timestamp}`, 14, 30);
     doc.text('Mandant: Acme Corp', 14, 35);
@@ -74,7 +73,7 @@ export async function exportResourcesPdf(resources: any[], entitlements: any[]) 
     const timestamp = new Date().toLocaleString('de-DE');
 
     doc.setFontSize(18);
-    doc.text('AccessHub - Ressourcenkatalog Bericht', 14, 20);
+    doc.text('ComplianceHub - Ressourcenkatalog Bericht', 14, 20);
     doc.setFontSize(10);
     doc.text(`Erstellt am: ${timestamp}`, 14, 30);
     doc.text('Mandant: Acme Corp', 14, 35);
@@ -121,7 +120,7 @@ export async function exportComplianceReportPdf(
 
     doc.setFontSize(22);
     doc.setTextColor(37, 99, 235);
-    doc.text('AccessHub Compliance Statusbericht', 14, 25);
+    doc.text('ComplianceHub Compliance Statusbericht', 14, 25);
     
     doc.setFontSize(10);
     doc.setTextColor(100);

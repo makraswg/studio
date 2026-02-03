@@ -287,7 +287,7 @@ export default function AssignmentsPage() {
             Ticket: a.ticketRef || ''
         };
     });
-    exportToExcel(exportData, 'AccessHub_Zuweisungen');
+    exportToExcel(exportData, 'ComplianceHub_Zuweisungen');
   };
 
   const handleExportPdf = () => {

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { usePathname } from 'next/navigation';
@@ -40,7 +39,7 @@ export function AppSidebar() {
           <ShieldCheck className="w-5 h-5 text-white" />
         </div>
         <div>
-          <span className="font-headline font-bold text-xl tracking-tight block">AccessHub</span>
+          <span className="font-headline font-bold text-xl tracking-tight block">ComplianceHub</span>
           <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase block">Identity Management</span>
         </div>
       </div>

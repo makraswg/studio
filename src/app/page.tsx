@@ -43,7 +43,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="absolute top-0 left-0 p-8 flex items-center gap-2">
         <Shield className="w-8 h-8 text-primary" />
-        <span className="text-2xl font-headline font-bold text-foreground">AccessHub</span>
+        <span className="text-2xl font-headline font-bold text-foreground">ComplianceHub</span>
       </div>
       <div className="w-full max-w-md">
         <Card className="border-none shadow-xl">

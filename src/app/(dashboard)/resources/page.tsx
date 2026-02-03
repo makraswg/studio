@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -422,8 +421,8 @@ export default function ResourcesPage() {
             onClick={handleSyncAssets}
             disabled={isSyncingAssets}
           >
-            {isSyncingAssets ? <RefreshCw className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Box className="w-3.5 h-3.5 mr-2" />}
-            Assets nach Jira synconisieren
+            {isSyncingAssets ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Box className="w-3.5 h-3.5 mr-2" />}
+            Assets nach Jira synchronisieren
           </Button>
            <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => exportResourcesPdf(resources || [], entitlements || [])}>
             <FileText className="w-3.5 h-3.5 mr-2" /> PDF Export

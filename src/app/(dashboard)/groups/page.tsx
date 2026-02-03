@@ -53,15 +53,13 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
+import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
-  useCollection, 
-  useMemoFirebase, 
   deleteDocumentNonBlocking, 
-  updateDocumentNonBlocking,
   setDocumentNonBlocking
 } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { AssignmentGroup, User, Entitlement, Resource } from '@/lib/types';
@@ -83,17 +81,11 @@ export default function GroupsPage() {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [selectedEntitlementIds, setSelectedEntitlementIds] = useState<string[]>([]);
 
-  const groupsQuery = useMemoFirebase(() => collection(db, 'groups'), [db]);
-  const usersQuery = useMemoFirebase(() => collection(db, 'users'), [db]);
-  const entitlementsQuery = useMemoFirebase(() => collection(db, 'entitlements'), [db]);
-  const resourcesQuery = useMemoFirebase(() => collection(db, 'resources'), [db]);
-  const assignmentsQuery = useMemoFirebase(() => collection(db, 'assignments'), [db]);
-
-  const { data: groups, isLoading } = useCollection<AssignmentGroup>(groupsQuery);
-  const { data: users } = useCollection<User>(usersQuery);
-  const { data: entitlements } = useCollection<Entitlement>(entitlementsQuery);
-  const { data: resources } = useCollection<Resource>(resourcesQuery);
-  const { data: assignments } = useCollection(assignmentsQuery);
+  const { data: groups, isLoading } = usePluggableCollection<AssignmentGroup>('groups');
+  const { data: users } = usePluggableCollection<User>('users');
+  const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
+  const { data: resources } = usePluggableCollection<Resource>('resources');
+  const { data: assignments } = usePluggableCollection('assignments');
 
   useEffect(() => {
     setMounted(true);
@@ -271,7 +263,7 @@ export default function GroupsPage() {
                   <TableCell>
                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase">
                       <Users className="w-3.5 h-3.5 text-slate-400" />
-                      {group.userIds?.length || 0} Personen
+                      {(group.members != undefined) ? group.members : (group.userIds?.length || 0)} Personen
                     </div>
                   </TableCell>
                   <TableCell>
@@ -378,6 +370,8 @@ export default function GroupsPage() {
               <div className="max-h-[400px] overflow-y-auto space-y-1 pr-1 custom-scrollbar border bg-slate-50/50 p-2">
                 {users?.map(u => {
                   const isSelected = selectedUserIds.includes(u.id);
+                  const displayName = u.name || u.displayName;
+                  const department = u.department || 'Keine Abteilung';
                   return (
                     <div 
                       key={u.id} 
@@ -388,10 +382,10 @@ export default function GroupsPage() {
                       onClick={() => toggleUser(u.id)}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-6 h-6 bg-slate-100 flex items-center justify-center text-[10px] font-bold">{u.displayName.charAt(0)}</div>
+                        <div className="w-6 h-6 bg-slate-100 flex items-center justify-center text-[10px] font-bold">{displayName.charAt(0)}</div>
                         <div className="flex flex-col">
-                          <span className="font-bold">{u.displayName}</span>
-                          <span className="text-[9px] text-muted-foreground uppercase">{u.department || 'Keine Abteilung'}</span>
+                          <span className="font-bold">{displayName}</span>
+                          <span className="text-[9px] text-muted-foreground uppercase">{department}</span>
                         </div>
                       </div>
                       {isSelected && <Check className="w-3.5 h-3.5 text-blue-600" />}

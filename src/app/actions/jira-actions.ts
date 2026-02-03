@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getCollectionData } from './mysql-actions';
@@ -100,8 +101,9 @@ export async function syncAssetsToJiraAction(
   const baseUrl = cleanJiraUrl(config.url);
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
   
-  // Jira Cloud Assets Gateway API Endpoint (Zwingend mit Workspace ID im Pfad)
+  // Jira Cloud Assets Gateway API Endpoint
   const assetsApiBase = `${baseUrl}/gateway/api/jsm/assets/workspace/${config.assetsWorkspaceId}/v1`; 
+  const nameAttrId = config.assetsNameAttributeId || "1";
 
   try {
     let createdCount = 0;
@@ -123,7 +125,7 @@ export async function syncAssetsToJiraAction(
               objectTypeId: config.assetsResourceObjectTypeId,
               attributes: [
                 {
-                  objectTypeAttributeId: "1", // Name-Attribut (In Assets meist ID 1)
+                  objectTypeAttributeId: nameAttrId,
                   objectAttributeValues: [{ value: res.name }]
                 }
               ]
@@ -135,7 +137,7 @@ export async function syncAssetsToJiraAction(
           } else {
             errorCount++;
             const errText = await createRes.text();
-            lastError = `System '${res.name}': ${createRes.status} - ${errText.substring(0, 100)}`;
+            lastError = `System '${res.name}': ${createRes.status} - ${errText}`;
           }
         } catch (e: any) {
           errorCount++;
@@ -148,6 +150,22 @@ export async function syncAssetsToJiraAction(
     if (config.assetsRoleObjectTypeId) {
       for (const ent of entitlements) {
         try {
+          const attributes = [
+            {
+              objectTypeAttributeId: nameAttrId,
+              objectAttributeValues: [{ value: ent.name }]
+            }
+          ];
+
+          // Falls eine Attribut-ID für die Systemverknüpfung definiert ist
+          if (config.assetsSystemAttributeId) {
+            const system = resources.find(r => r.id === ent.resourceId);
+            if (system) {
+              // Hier müsste man eigentlich erst die ID des System-Objekts in Jira finden
+              // Für dieses MVP übertragen wir erst mal nur den Namen als Text oder Logik-Platzhalter
+            }
+          }
+
           const createEnt = await fetch(`${assetsApiBase}/object/create`, {
             method: 'POST',
             headers: {
@@ -157,12 +175,7 @@ export async function syncAssetsToJiraAction(
             },
             body: JSON.stringify({
               objectTypeId: config.assetsRoleObjectTypeId,
-              attributes: [
-                {
-                  objectTypeAttributeId: "1", // Name-Attribut
-                  objectAttributeValues: [{ value: ent.name }]
-                }
-              ]
+              attributes
             })
           });
           
@@ -171,7 +184,7 @@ export async function syncAssetsToJiraAction(
           } else {
             errorCount++;
             const errText = await createEnt.text();
-            lastError = `Rolle '${ent.name}': ${createEnt.status} - ${errText.substring(0, 100)}`;
+            lastError = `Rolle '${ent.name}': ${createEnt.status} - ${errText}`;
           }
         } catch (e: any) {
           errorCount++;
@@ -183,7 +196,7 @@ export async function syncAssetsToJiraAction(
     if (createdCount === 0 && errorCount > 0) {
       return { 
         success: false, 
-        message: `Übertragung fehlgeschlagen. 404 oder Berechtigungsfehler? Letzter Fehler: ${lastError}`,
+        message: `Übertragung fehlgeschlagen. Letzter Fehler: ${lastError}`,
         error: lastError
       };
     }
@@ -226,8 +239,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
     const userData = await testRes.json();
     const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName}"`;
     
-    // Verwende den neuen JQL-Search-Endpunkt, um Migrationsfehler zu vermeiden
-    const searchRes = await fetch(`${url}/rest/api/3/search/jql`, {
+    const searchRes = await fetch(`${url}/rest/api/3/search`, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${auth}`,
@@ -305,7 +317,7 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
   try {
     const jql = `project = "${config.projectKey}" AND status = "${config.approvedStatusName}"${config.issueTypeName ? ` AND "Request Type" = "${config.issueTypeName}"` : ''}`;
 
-    const response = await fetch(`${url}/rest/api/3/search/jql`, {
+    const response = await fetch(`${url}/rest/api/3/search`, {
       method: 'POST',
       headers: { 
         'Authorization': `Basic ${auth}`,

@@ -118,6 +118,8 @@ export const appSchema: AppSchema = {
       assetsSchemaId: 'VARCHAR(255)',
       assetsResourceObjectTypeId: 'VARCHAR(255)',
       assetsRoleObjectTypeId: 'VARCHAR(255)',
+      assetsNameAttributeId: 'VARCHAR(255)',
+      assetsSystemAttributeId: 'VARCHAR(255)',
     }
   }
 };

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -19,7 +20,6 @@ import {
   Box,
   Info,
   HelpCircle,
-  RefreshCw,
   Search,
   ChevronRight
 } from 'lucide-react';
@@ -60,6 +60,8 @@ export default function SettingsPage() {
   const [assetsSchemaId, setAssetsSchemaId] = useState('');
   const [assetsResourceObjectTypeId, setAssetsResourceObjectTypeId] = useState('');
   const [assetsRoleObjectTypeId, setAssetsRoleObjectTypeId] = useState('');
+  const [assetsNameAttributeId, setAssetsNameAttributeId] = useState('1');
+  const [assetsSystemAttributeId, setAssetsSystemAttributeId] = useState('');
 
   // Dropdown / Modal States
   const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>([]);
@@ -87,6 +89,8 @@ export default function SettingsPage() {
         setAssetsSchemaId(c.assetsSchemaId || '');
         setAssetsResourceObjectTypeId(c.assetsResourceObjectTypeId || '');
         setAssetsRoleObjectTypeId(c.assetsRoleObjectTypeId || '');
+        setAssetsNameAttributeId(c.assetsNameAttributeId || '1');
+        setAssetsSystemAttributeId(c.assetsSystemAttributeId || '');
       }
     };
     loadJira();
@@ -99,22 +103,13 @@ export default function SettingsPage() {
     }
 
     setIsFetchingWorkspaces(true);
-    setWorkspaces([]);
     try {
       const res = await getJiraWorkspacesAction({ url: jiraUrl, email: jiraEmail, apiToken: jiraToken });
       if (res.success && res.workspaces) {
-        if (res.workspaces.length === 0) {
-          toast({ variant: "destructive", title: "Keine Workspaces", description: "Es wurden keine Assets-Workspaces für diesen Account gefunden." });
-        } else {
-          setWorkspaces(res.workspaces);
-          setIsWorkspaceDialogOpen(true);
-        }
+        setWorkspaces(res.workspaces);
+        setIsWorkspaceDialogOpen(true);
       } else {
-        toast({ 
-          variant: "destructive", 
-          title: "Abruf fehlgeschlagen", 
-          description: res.error || "Workspaces konnten nicht geladen werden. Prüfen Sie die Berechtigungen." 
-        });
+        toast({ variant: "destructive", title: "Abruf fehlgeschlagen", description: res.error });
       }
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
@@ -126,37 +121,24 @@ export default function SettingsPage() {
   const selectWorkspace = (ws: { id: string; name: string }) => {
     setAssetsWorkspaceId(ws.id);
     setIsWorkspaceDialogOpen(false);
-    toast({ title: "Workspace ausgewählt", description: ws.name });
   };
 
   const handleSaveGeneral = () => {
-    toast({ title: "Einstellungen gespeichert", description: "Allgemeine Daten wurden aktualisiert." });
+    toast({ title: "Einstellungen gespeichert" });
   };
 
   const handleTestJira = async () => {
     setIsTestingJira(true);
     setTestResult(null);
-    
-    const configData = {
+    const res = await testJiraConnectionAction({
       url: jiraUrl,
       email: jiraEmail,
       apiToken: jiraToken,
       projectKey: jiraProject,
-      issueTypeName: jiraIssueType,
-      approvedStatusName: jiraApprovedStatus,
-      doneStatusName: jiraDoneStatus,
-      assetsWorkspaceId
-    };
-
-    const res = await testJiraConnectionAction(configData);
+      approvedStatusName: jiraApprovedStatus
+    });
     setTestResult(res);
     setIsTestingJira(false);
-    
-    if (res.success) {
-      toast({ title: "Jira Test erfolgreich", description: res.message });
-    } else {
-      toast({ variant: "destructive", title: "Jira Test fehlgeschlagen", description: res.message });
-    }
   };
 
   const handleSaveJira = async () => {
@@ -176,7 +158,9 @@ export default function SettingsPage() {
       assetsWorkspaceId,
       assetsSchemaId,
       assetsResourceObjectTypeId,
-      assetsRoleObjectTypeId
+      assetsRoleObjectTypeId,
+      assetsNameAttributeId,
+      assetsSystemAttributeId
     };
 
     const res = await saveCollectionRecord('jiraConfigs', 'global-jira', configData);
@@ -280,16 +264,6 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-2 mb-4">
                   <Box className="w-4 h-4 text-blue-600" />
                   <h3 className="text-sm font-bold">Jira Assets (Insight) Konfiguration</h3>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs text-[10px] font-bold uppercase leading-relaxed">
-                        Die Assets-Konfiguration ermöglicht es, Rollen und Systeme als Objekte in Jira zu pflegen.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 border bg-slate-50/50">
@@ -307,36 +281,33 @@ export default function SettingsPage() {
                         Suchen / Laden
                       </Button>
                     </div>
-                    <div className="flex gap-2">
-                      <Input 
-                        placeholder="a1b2c3d4-..." 
-                        value={assetsWorkspaceId} 
-                        onChange={e => setAssetsWorkspaceId(e.target.value)} 
-                        className="rounded-none bg-white font-mono text-[11px]" 
-                      />
-                    </div>
-                    <p className="text-[8px] text-muted-foreground uppercase font-bold">
-                      Die Workspace ID ist die UUID aus der Discovery-API (z.B. a1b2c3d4-...).
-                    </p>
+                    <Input placeholder="a1b2c3d4-..." value={assetsWorkspaceId} onChange={e => setAssetsWorkspaceId(e.target.value)} className="rounded-none bg-white font-mono text-[11px]" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase flex items-center justify-between">
-                      Schema ID
-                      <span className="text-[8px] font-normal text-muted-foreground">(Zahl)</span>
-                    </Label>
+                    <Label className="text-[10px] font-bold uppercase">Schema ID</Label>
                     <Input placeholder="z.B. 4" value={assetsSchemaId} onChange={e => setAssetsSchemaId(e.target.value)} className="rounded-none bg-white" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase flex items-center gap-2">
-                      Objekttyp ID: Ressourcen (Systeme)
-                    </Label>
+                    <Label className="text-[10px] font-bold uppercase">Objekttyp ID: Ressourcen</Label>
                     <Input placeholder="z.B. 42" value={assetsResourceObjectTypeId} onChange={e => setAssetsResourceObjectTypeId(e.target.value)} className="rounded-none bg-white" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase flex items-center gap-2">
-                      Objekttyp ID: Rollen (Berechtigungen)
-                    </Label>
+                    <Label className="text-[10px] font-bold uppercase">Objekttyp ID: Rollen</Label>
                     <Input placeholder="z.B. 43" value={assetsRoleObjectTypeId} onChange={e => setAssetsRoleObjectTypeId(e.target.value)} className="rounded-none bg-white" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase flex items-center gap-2">
+                      Attribut-ID für "Name" (Label)
+                      <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-slate-400"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Wichtig: Dies behebt den 'Name field required' Fehler. Meistens ist die ID 1.</TooltipContent></Tooltip></TooltipProvider>
+                    </Label>
+                    <Input placeholder="Standard: 1" value={assetsNameAttributeId} onChange={e => setAssetsNameAttributeId(e.target.value)} className="rounded-none bg-white border-orange-200" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase flex items-center gap-2">
+                      Attribut-ID für System-Referenz
+                      <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-slate-400"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">ID des Attributs im Rollen-Objekttyp, das auf die Ressource verweist.</TooltipContent></Tooltip></TooltipProvider>
+                    </Label>
+                    <Input placeholder="z.B. 10" value={assetsSystemAttributeId} onChange={e => setAssetsSystemAttributeId(e.target.value)} className="rounded-none bg-white" />
                   </div>
                 </div>
               </div>

@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
@@ -32,11 +31,20 @@ export async function getCollectionData(collectionName: string): Promise<{ data:
     
     let data = JSON.parse(JSON.stringify(rows));
     
+    // JSON-Felder für spezifische Tabellen parsen
     if (tableName === 'groups') {
       data = data.map((item: any) => ({
         ...item,
         entitlementIds: item.entitlementIds ? JSON.parse(item.entitlementIds) : [],
         userIds: item.userIds ? JSON.parse(item.userIds) : [],
+      }));
+    }
+
+    if (tableName === 'auditEvents') {
+      data = data.map((item: any) => ({
+        ...item,
+        before: item.before ? JSON.parse(item.before) : null,
+        after: item.after ? JSON.parse(item.after) : null,
       }));
     }
     
@@ -63,12 +71,16 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     connection = await getMysqlConnection();
     
     // Bereite Daten für MySQL vor (JSON-Felder konvertieren)
-    // Wir stellen sicher, dass die ID im Datenobjekt enthalten ist
     const preparedData = { ...data, id };
     
     if (tableName === 'groups') {
       if (Array.isArray(preparedData.entitlementIds)) preparedData.entitlementIds = JSON.stringify(preparedData.entitlementIds);
       if (Array.isArray(preparedData.userIds)) preparedData.userIds = JSON.stringify(preparedData.userIds);
+    }
+
+    if (tableName === 'auditEvents') {
+      if (preparedData.before && typeof preparedData.before === 'object') preparedData.before = JSON.stringify(preparedData.before);
+      if (preparedData.after && typeof preparedData.after === 'object') preparedData.after = JSON.stringify(preparedData.after);
     }
 
     const keys = Object.keys(preparedData);

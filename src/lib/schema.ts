@@ -104,6 +104,8 @@ export const appSchema: AppSchema = {
       entityType: 'VARCHAR(50) NOT NULL',
       entityId: 'VARCHAR(255) NOT NULL',
       timestamp: 'VARCHAR(50) NOT NULL',
+      before: 'TEXT', // JSON Payload vor der Änderung
+      after: 'TEXT',  // JSON Payload nach der Änderung
     },
   },
 };

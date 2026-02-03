@@ -29,7 +29,8 @@ import {
   ChevronRight,
   ChevronDown,
   CornerDownRight,
-  Info
+  Info,
+  Key
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -100,6 +101,8 @@ export default function ResourcesPage() {
   const [newType, setNewType] = useState('SaaS');
   const [newOwner, setNewOwner] = useState('');
   const [newUrl, setNewUrl] = useState('');
+  const [newDocumentationUrl, setNewDocumentationUrl] = useState('');
+  const [newPasswordManagerUrl, setNewPasswordManagerUrl] = useState('');
   const [newCriticality, setNewCriticality] = useState('medium');
 
   const [editingEntitlementId, setEditingEntitlementId] = useState<string | null>(null);
@@ -128,6 +131,8 @@ export default function ResourcesPage() {
       type: newType,
       owner: newOwner,
       url: newUrl,
+      documentationUrl: newDocumentationUrl,
+      passwordManagerUrl: newPasswordManagerUrl,
       criticality: newCriticality,
       createdAt: new Date().toISOString(),
       tenantId: 't1'
@@ -137,6 +142,8 @@ export default function ResourcesPage() {
     setNewName('');
     setNewOwner('');
     setNewUrl('');
+    setNewDocumentationUrl('');
+    setNewPasswordManagerUrl('');
   };
 
   const handleAddOrUpdateEntitlement = () => {
@@ -200,6 +207,8 @@ export default function ResourcesPage() {
         Kritikalitaet: r.criticality,
         Besitzer: r.owner,
         URL: r.url || '',
+        Dokumentation: r.documentationUrl || '',
+        Passwortmanager: r.passwordManagerUrl || '',
         Rollen: resourceEnts.map(e => e.name).join(', ')
       };
     });
@@ -302,6 +311,7 @@ export default function ResourcesPage() {
             <TableHeader className="bg-muted/30">
               <TableRow className="hover:bg-transparent">
                 <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Anwendung</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Links</TableHead>
                 <TableHead className="font-bold uppercase tracking-widest text-[10px]">Typ</TableHead>
                 <TableHead className="font-bold uppercase tracking-widest text-[10px]">Kritikalität</TableHead>
                 <TableHead className="font-bold uppercase tracking-widest text-[10px]">Berechtigungen</TableHead>
@@ -325,6 +335,37 @@ export default function ResourcesPage() {
                           </div>
                           <div className="text-[10px] font-bold text-muted-foreground uppercase">{resource.owner}</div>
                         </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {resource.documentationUrl && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <a href={resource.documentationUrl} target="_blank" className="p-1.5 border hover:bg-muted transition-colors">
+                                  <FileText className="w-3.5 h-3.5 text-slate-600" />
+                                </a>
+                              </TooltipTrigger>
+                              <TooltipContent className="text-[10px] font-bold uppercase">Dokumentation</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        {resource.passwordManagerUrl && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <a href={resource.passwordManagerUrl} target="_blank" className="p-1.5 border hover:bg-muted transition-colors">
+                                  <Key className="w-3.5 h-3.5 text-orange-600" />
+                                </a>
+                              </TooltipTrigger>
+                              <TooltipContent className="text-[10px] font-bold uppercase">Passwortmanager</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        {!resource.documentationUrl && !resource.passwordManagerUrl && (
+                          <span className="text-[10px] text-muted-foreground italic uppercase">Keine Links</span>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -381,7 +422,7 @@ export default function ResourcesPage() {
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="max-w-md rounded-none border shadow-2xl">
           <DialogHeader><DialogTitle className="text-sm font-bold uppercase">System registrieren</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
             <div className="space-y-2">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Name des IT-Systems</Label>
               <Input value={newName} onChange={e => setNewName(e.target.value)} className="h-10 rounded-none" placeholder="z.B. SAP S/4HANA" />
@@ -435,6 +476,14 @@ export default function ResourcesPage() {
             <div className="space-y-2">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Zugriffs-URL (Optional)</Label>
               <Input value={newUrl} onChange={e => setNewUrl(e.target.value)} className="h-10 rounded-none" placeholder="https://..." />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Dokumentations-Link (Optional)</Label>
+              <Input value={newDocumentationUrl} onChange={e => setNewDocumentationUrl(e.target.value)} className="h-10 rounded-none" placeholder="https://wiki.intern/system-x" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Passwortmanager-Link (Optional)</Label>
+              <Input value={newPasswordManagerUrl} onChange={e => setNewPasswordManagerUrl(e.target.value)} className="h-10 rounded-none" placeholder="https://pass.intern/vault/id" />
             </div>
           </div>
           <DialogFooter><Button onClick={handleCreateResource} className="w-full h-11 rounded-none font-bold uppercase text-xs">System im Katalog speichern</Button></DialogFooter>

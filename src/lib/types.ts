@@ -32,6 +32,8 @@ export interface Resource {
   type: 'SaaS' | 'OnPrem' | 'Private Cloud' | 'Webshop' | 'IoT' | 'Andere';
   owner: string;
   url: string;
+  documentationUrl?: string;
+  passwordManagerUrl?: string;
   criticality: 'low' | 'medium' | 'high';
   notes: string;
 }

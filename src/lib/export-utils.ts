@@ -1,3 +1,4 @@
+
 'use client';
 
 /**
@@ -85,13 +86,15 @@ export async function exportResourcesPdf(resources: any[], entitlements: any[]) 
         r.type,
         r.criticality.toUpperCase(),
         r.owner,
-        resourceEnts.map((e) => e.name).join(', ')
+        resourceEnts.map((e) => e.name).join(', '),
+        r.documentationUrl ? 'JA' : 'NEIN',
+        r.passwordManagerUrl ? 'JA' : 'NEIN'
       ];
     });
 
     autoTable(doc, {
       startY: 45,
-      head: [['System', 'Typ', 'Kritikalität', 'Besitzer', 'Rollen']],
+      head: [['System', 'Typ', 'Kritikalität', 'Besitzer', 'Rollen', 'Doku', 'Pass-Mgr']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [37, 99, 235] },

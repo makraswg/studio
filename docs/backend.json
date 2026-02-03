@@ -163,6 +163,14 @@
           "description": "The URL of the resource.",
           "format": "uri"
         },
+        "documentationUrl": {
+          "type": "string",
+          "description": "Link to the internal documentation for this resource."
+        },
+        "passwordManagerUrl": {
+          "type": "string",
+          "description": "Link to the shared password manager vault for this resource."
+        },
         "criticality": {
           "type": "string",
           "enum": ["low", "medium", "high"],

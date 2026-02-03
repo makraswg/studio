@@ -22,10 +22,7 @@ import {
   Trash2, 
   Pencil,
   Check,
-  AlertTriangle,
-  History,
-  X,
-  HelpCircle
+  AlertTriangle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -141,8 +138,6 @@ export default function GroupsPage() {
         }
       }
     }
-    
-    refreshAssignments();
   };
 
   const handleSaveGroup = async () => {
@@ -165,17 +160,21 @@ export default function GroupsPage() {
     const auditData = {
       id: `audit-${Math.random().toString(36).substring(2, 9)}`,
       actorUid: authUser?.uid || 'system',
-      action: selectedGroup ? 'Zuweisungsgruppe aktualisiert' : 'Zuweisungsgruppe erstellt',
+      action: selectedGroup 
+        ? `Zuweisungsgruppe [${name}] aktualisiert (${selectedUserIds.length} Mitglieder, ${selectedEntitlementIds.length} Rollen)`
+        : `Zuweisungsgruppe [${name}] erstellt (${selectedUserIds.length} Mitglieder, ${selectedEntitlementIds.length} Rollen)`,
       entityType: 'group',
       entityId: groupId,
       timestamp,
-      tenantId: 't1'
+      tenantId: 't1',
+      before: selectedGroup,
+      after: groupData
     };
 
     if (dataSource === 'mysql') {
       const result = await saveCollectionRecord('groups', groupId, groupData);
       if (!result.success) {
-        toast({ variant: "destructive", title: "Fehler", description: result.error || "Speichern fehlgeschlagen." });
+        toast({ variant: "destructive", title: "Fehler", description: result.error });
         return;
       }
       await saveCollectionRecord('auditEvents', auditData.id, auditData);
@@ -203,11 +202,12 @@ export default function GroupsPage() {
       const auditData = {
         id: `audit-${Math.random().toString(36).substring(2, 9)}`,
         actorUid: authUser?.uid || 'system',
-        action: 'Zuweisungsgruppe gelöscht',
+        action: `Zuweisungsgruppe [${selectedGroup.name}] gelöscht (alle zugehörigen Zuweisungen entzogen)`,
         entityType: 'group',
         entityId: selectedGroup.id,
         timestamp,
-        tenantId: 't1'
+        tenantId: 't1',
+        before: selectedGroup
       };
 
       if (dataSource === 'mysql') {
@@ -240,8 +240,8 @@ export default function GroupsPage() {
     setSelectedGroup(group);
     setName(group.name);
     setDescription(group.description || '');
-    setSelectedUserIds(group.userIds || []);
-    setSelectedEntitlementIds(group.entitlementIds || []);
+    setSelectedUserIds(Array.isArray(group.userIds) ? group.userIds : []);
+    setSelectedEntitlementIds(Array.isArray(group.entitlementIds) ? group.entitlementIds : []);
     setTimeout(() => setIsEditOpen(true), 150);
   };
 
@@ -276,8 +276,8 @@ export default function GroupsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between border-b pb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight font-headline">Zuweisungsgruppen</h1>
-          <p className="text-sm text-muted-foreground">Automatisieren Sie den Zugriff für Teams ({dataSource.toUpperCase()}).</p>
+          <h1 className="text-2xl font-bold tracking-tight">Zuweisungsgruppen</h1>
+          <p className="text-sm text-muted-foreground">Automatisierter Zugriff für Abteilungen und Teams ({dataSource.toUpperCase()}).</p>
         </div>
         <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none shadow-none" onClick={() => { resetForm(); setIsAddOpen(true); }}>
           <Plus className="w-3.5 h-3.5 mr-2" /> Neue Gruppe
@@ -368,7 +368,7 @@ export default function GroupsPage() {
               {isEditOpen ? 'Gruppe bearbeiten' : 'Neue Gruppe erstellen'}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Verwalten Sie Stammdaten und die automatische Rollenverteilung.
+              Automatisierte Rollenverteilung basierend auf Gruppenzugehörigkeit.
             </DialogDescription>
           </DialogHeader>
           
@@ -442,7 +442,7 @@ export default function GroupsPage() {
                           <span className="text-[9px] text-muted-foreground uppercase">{department}</span>
                         </div>
                       </div>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-primary" />}
+                      {isSelected && <Check className="w-3 h-3 text-primary" />}
                     </div>
                   );
                 })}

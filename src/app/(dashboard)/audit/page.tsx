@@ -24,7 +24,6 @@ import {
   FileJson,
   ArrowRight
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import {
   Dialog,
@@ -52,6 +51,7 @@ export default function AuditLogPage() {
       case 'entitlement': return <Shield className="w-3.5 h-3.5" />;
       case 'assignment': return <UserIcon className="w-3.5 h-3.5" />;
       case 'user': return <UserIcon className="w-3.5 h-3.5" />;
+      case 'group': return <Shield className="w-3.5 h-3.5" />;
       default: return <Activity className="w-3.5 h-3.5" />;
     }
   };
@@ -59,7 +59,6 @@ export default function AuditLogPage() {
   const filteredLogs = useMemo(() => {
     if (!auditLogs) return [];
     
-    // Zuerst sortieren nach Zeitstempel absteigend
     const sorted = [...auditLogs].sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
@@ -82,7 +81,7 @@ export default function AuditLogPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Audit Log</h1>
-          <p className="text-sm text-muted-foreground">Unveränderlicher Verlauf aller Sicherheitsaktionen.</p>
+          <p className="text-sm text-muted-foreground">Revisionssicherer Verlauf aller Sicherheitsaktionen.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => refresh()}>
@@ -97,7 +96,7 @@ export default function AuditLogPage() {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input 
-          placeholder="Akteur, Aktion oder Entitäts-ID suchen..." 
+          placeholder="Nach Akteur, Aktion oder Ziel suchen..." 
           className="pl-10 h-10 shadow-none border-border rounded-none bg-white"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -116,7 +115,7 @@ export default function AuditLogPage() {
               <TableRow className="hover:bg-transparent">
                 <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Zeitpunkt</TableHead>
                 <TableHead className="font-bold uppercase tracking-widest text-[10px]">Akteur</TableHead>
-                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Aktion</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Aktion / Gegenstand</TableHead>
                 <TableHead className="font-bold uppercase tracking-widest text-[10px]">Entität</TableHead>
                 <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Details</TableHead>
               </TableRow>
@@ -135,7 +134,9 @@ export default function AuditLogPage() {
                       <span className="font-bold text-xs truncate max-w-[100px]">{log.actorUid}</span>
                     </div>
                   </TableCell>
-                  <TableCell><span className="text-xs font-bold">{log.action}</span></TableCell>
+                  <TableCell>
+                    <span className="text-xs font-bold leading-relaxed block max-w-md">{log.action}</span>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <div className="p-1 rounded-none bg-slate-100">{getEntityIcon(log.entityType)}</div>
@@ -166,14 +167,14 @@ export default function AuditLogPage() {
       </div>
 
       <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
-        <DialogContent className="max-w-3xl rounded-none border shadow-2xl p-0 overflow-hidden">
+        <DialogContent className="max-w-3xl rounded-none border shadow-2xl p-0 overflow-hidden bg-white">
           <DialogHeader className="p-6 bg-slate-900 text-white">
             <div className="flex items-center gap-3">
               <Activity className="w-5 h-5 text-primary" />
-              <div>
+              <div className="min-w-0 flex-1">
                 <DialogTitle className="text-lg font-bold uppercase tracking-wider">Audit Ereignis Details</DialogTitle>
-                <DialogDescription className="text-slate-400 text-xs uppercase font-bold">
-                  {selectedLog?.action} • {selectedLog?.timestamp && new Date(selectedLog.timestamp).toLocaleString()}
+                <DialogDescription className="text-slate-400 text-xs uppercase font-bold truncate">
+                  {selectedLog?.action}
                 </DialogDescription>
               </div>
             </div>
@@ -190,21 +191,21 @@ export default function AuditLogPage() {
                 <p className="text-xs font-bold uppercase">{selectedLog?.entityType}</p>
               </div>
               <div className="admin-card p-4 bg-muted/20">
-                <p className="text-[9px] font-bold uppercase text-muted-foreground mb-1">Entitäts-ID</p>
-                <p className="text-[10px] font-mono truncate">{selectedLog?.entityId}</p>
+                <p className="text-[9px] font-bold uppercase text-muted-foreground mb-1">Zeitpunkt</p>
+                <p className="text-xs font-bold">{selectedLog?.timestamp && new Date(selectedLog.timestamp).toLocaleString()}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <h4 className="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center gap-2">
-                  <FileJson className="w-3.5 h-3.5" /> Vor der Änderung (Before)
+                  <FileJson className="w-3.5 h-3.5" /> Vor der Änderung (Alt)
                 </h4>
-                <div className="border rounded-none bg-slate-50 p-3 h-64">
+                <div className="border rounded-none bg-slate-50 p-3 h-64 border-slate-200">
                   <ScrollArea className="h-full w-full">
-                    <pre className="text-[10px] font-mono leading-relaxed">
+                    <pre className="text-[10px] font-mono leading-relaxed text-slate-600">
                       {selectedLog?.before 
-                        ? JSON.stringify(selectedLog.before, null, 2) 
+                        ? JSON.stringify(typeof selectedLog.before === 'string' ? JSON.parse(selectedLog.before) : selectedLog.before, null, 2) 
                         : "// Keine Daten verfügbar"}
                     </pre>
                   </ScrollArea>
@@ -212,13 +213,13 @@ export default function AuditLogPage() {
               </div>
               <div className="space-y-2">
                 <h4 className="text-[10px] font-bold uppercase text-emerald-600 tracking-widest flex items-center gap-2">
-                  <ArrowRight className="w-3.5 h-3.5" /> Nach der Änderung (After)
+                  <ArrowRight className="w-3.5 h-3.5" /> Nach der Änderung (Neu)
                 </h4>
                 <div className="border rounded-none bg-emerald-50/30 p-3 h-64 border-emerald-100">
                   <ScrollArea className="h-full w-full">
-                    <pre className="text-[10px] font-mono leading-relaxed">
+                    <pre className="text-[10px] font-mono leading-relaxed text-emerald-900">
                       {selectedLog?.after 
-                        ? JSON.stringify(selectedLog.after, null, 2) 
+                        ? JSON.stringify(typeof selectedLog.after === 'string' ? JSON.parse(selectedLog.after) : selectedLog.after, null, 2) 
                         : "// Keine Daten verfügbar"}
                     </pre>
                   </ScrollArea>

@@ -22,11 +22,7 @@ import {
   Trash2,
   Calendar,
   AlertTriangle,
-  History,
-  X,
   FileDown,
-  FileText,
-  Network,
   Users,
   Check
 } from 'lucide-react';
@@ -37,8 +33,7 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogFooter,
-  DialogDescription,
-  DialogTrigger
+  DialogDescription
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -75,7 +70,7 @@ import {
 import { collection, doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
-import { exportToExcel, exportAssignmentsPdf } from '@/lib/export-utils';
+import { exportAssignmentsPdf } from '@/lib/export-utils';
 import { Assignment, User, Entitlement, Resource } from '@/lib/types';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
@@ -119,6 +114,10 @@ export default function AssignmentsPage() {
       return;
     }
 
+    const user = users?.find(u => u.id === selectedUserId);
+    const ent = entitlements?.find(e => e.id === selectedEntitlementId);
+    const res = resources?.find(r => r.id === ent?.resourceId);
+
     const assignmentId = `ass-${Math.random().toString(36).substring(2, 9)}`;
     const timestamp = new Date().toISOString();
     const assignmentData = {
@@ -137,17 +136,18 @@ export default function AssignmentsPage() {
     const auditData = {
       id: `audit-${Math.random().toString(36).substring(2, 9)}`,
       actorUid: authUser?.uid || 'system',
-      action: 'Einzelzuweisung erstellt',
+      action: `Einzelzuweisung [${ent?.name}] für [${user?.displayName || user?.name || selectedUserId}] auf [${res?.name}] erstellt`,
       entityType: 'assignment',
       entityId: assignmentId,
       timestamp,
-      tenantId: 't1'
+      tenantId: 't1',
+      after: assignmentData
     };
 
     if (dataSource === 'mysql') {
       const result = await saveCollectionRecord('assignments', assignmentId, assignmentData);
       if (!result.success) {
-        toast({ variant: "destructive", title: "MySQL Fehler", description: result.error });
+        toast({ variant: "destructive", title: "Fehler", description: result.error });
         return;
       }
       await saveCollectionRecord('auditEvents', auditData.id, auditData);
@@ -165,8 +165,12 @@ export default function AssignmentsPage() {
   const handleUpdateAssignment = async () => {
     if (!selectedAssignmentId) return;
 
+    const existing = assignments?.find(a => a.id === selectedAssignmentId);
+    const user = users?.find(u => u.id === existing?.userId);
+    const ent = entitlements?.find(e => e.id === existing?.entitlementId);
+
     const timestamp = new Date().toISOString();
-    const assignmentData = {
+    const updateData = {
       status,
       ticketRef,
       validUntil,
@@ -176,25 +180,26 @@ export default function AssignmentsPage() {
     const auditData = {
       id: `audit-${Math.random().toString(36).substring(2, 9)}`,
       actorUid: authUser?.uid || 'system',
-      action: 'Zuweisung aktualisiert',
+      action: `Zuweisung [${ent?.name}] für [${user?.displayName || user?.name}] aktualisiert (Status: ${status})`,
       entityType: 'assignment',
       entityId: selectedAssignmentId,
       timestamp,
-      tenantId: 't1'
+      tenantId: 't1',
+      before: existing,
+      after: { ...existing, ...updateData }
     };
 
     if (dataSource === 'mysql') {
-      const existing = assignments?.find(a => a.id === selectedAssignmentId);
       if (existing) {
-        const result = await saveCollectionRecord('assignments', selectedAssignmentId, { ...existing, ...assignmentData });
+        const result = await saveCollectionRecord('assignments', selectedAssignmentId, { ...existing, ...updateData });
         if (!result.success) {
-          toast({ variant: "destructive", title: "MySQL Fehler", description: result.error });
+          toast({ variant: "destructive", title: "Fehler", description: result.error });
           return;
         }
         await saveCollectionRecord('auditEvents', auditData.id, auditData);
       }
     } else {
-      updateDocumentNonBlocking(doc(db, 'assignments', selectedAssignmentId), assignmentData);
+      updateDocumentNonBlocking(doc(db, 'assignments', selectedAssignmentId), updateData);
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
@@ -206,21 +211,26 @@ export default function AssignmentsPage() {
 
   const confirmDeleteAssignment = async () => {
     if (selectedAssignmentId) {
+      const existing = assignments?.find(a => a.id === selectedAssignmentId);
+      const user = users?.find(u => u.id === existing?.userId);
+      const ent = entitlements?.find(e => e.id === existing?.entitlementId);
+
       const timestamp = new Date().toISOString();
       const auditData = {
         id: `audit-${Math.random().toString(36).substring(2, 9)}`,
         actorUid: authUser?.uid || 'system',
-        action: 'Zuweisung gelöscht',
+        action: `Einzelzuweisung [${ent?.name}] für [${user?.displayName || user?.name}] gelöscht`,
         entityType: 'assignment',
         entityId: selectedAssignmentId,
         timestamp,
-        tenantId: 't1'
+        tenantId: 't1',
+        before: existing
       };
 
       if (dataSource === 'mysql') {
         const result = await deleteCollectionRecord('assignments', selectedAssignmentId);
         if (!result.success) {
-          toast({ variant: "destructive", title: "MySQL Fehler", description: result.error });
+          toast({ variant: "destructive", title: "Fehler", description: result.error });
           return;
         }
         await saveCollectionRecord('auditEvents', auditData.id, auditData);
@@ -258,14 +268,12 @@ export default function AssignmentsPage() {
     
     const userName = user?.displayName || user?.name || '';
     const resourceName = resource?.name || '';
-    const assignmentUserId = assignment.userId || '';
-
     const searchLower = search.toLowerCase();
 
     const matchesSearch = 
       userName.toLowerCase().includes(searchLower) || 
       resourceName.toLowerCase().includes(searchLower) ||
-      assignmentUserId.toLowerCase().includes(searchLower);
+      assignment.userId.toLowerCase().includes(searchLower);
       
     const matchesTab = activeTab === 'all' || assignment.status === activeTab;
     return matchesSearch && matchesTab;
@@ -293,7 +301,7 @@ export default function AssignmentsPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Einzelzuweisungen</h1>
-          <p className="text-sm text-muted-foreground">Verwalten Sie direkte Berechtigungen für einzelne Benutzer ({dataSource.toUpperCase()}).</p>
+          <p className="text-sm text-muted-foreground">Direkte Berechtigungen für Mitarbeiter ({dataSource.toUpperCase()}).</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={handleExportPdf}>
@@ -342,7 +350,7 @@ export default function AssignmentsPage() {
               <TableRow className="hover:bg-transparent">
                 <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Mitarbeiter</TableHead>
                 <TableHead className="font-bold uppercase tracking-widest text-[10px]">System / Rolle</TableHead>
-                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Gültigkeit</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Freigabe bis</TableHead>
                 <TableHead className="font-bold uppercase tracking-widest text-[10px]">Status</TableHead>
                 <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Aktionen</TableHead>
               </TableRow>
@@ -383,9 +391,7 @@ export default function AssignmentsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-bold text-sm flex items-center gap-1.5">
-                          {res?.name}
-                        </span>
+                        <span className="font-bold text-sm flex items-center gap-1.5">{res?.name}</span>
                         <span className="text-xs text-muted-foreground">{ent?.name}</span>
                       </div>
                     </TableCell>
@@ -414,7 +420,7 @@ export default function AssignmentsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       {isFromGroup ? (
-                        <div className="text-[10px] font-bold text-muted-foreground uppercase px-2 italic">Nur via Gruppe editierbar</div>
+                        <div className="text-[10px] font-bold text-muted-foreground uppercase px-2 italic">Via Gruppe gesteuert</div>
                       ) : (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -487,7 +493,7 @@ export default function AssignmentsPage() {
                 <Input value={ticketRef} onChange={e => setTicketRef(e.target.value)} placeholder="z.B. INC-10293" className="rounded-none" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Gültig bis (Optional)</Label>
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Freigabe bis (Optional)</Label>
                 <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="rounded-none" />
               </div>
             </div>
@@ -524,7 +530,7 @@ export default function AssignmentsPage() {
                 <Input value={ticketRef} onChange={e => setTicketRef(e.target.value)} className="rounded-none" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Gültig bis</Label>
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Freigabe bis</Label>
                 <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="rounded-none" />
               </div>
             </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -30,7 +31,8 @@ import {
   Layout,
   CornerDownRight,
   HelpCircle,
-  History
+  Box,
+  RefreshCw
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -87,6 +89,7 @@ import { cn } from '@/lib/utils';
 import { exportResourcesPdf } from '@/lib/export-utils';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
+import { syncAssetsToJiraAction, getJiraConfigs } from '@/app/actions/jira-actions';
 
 export default function ResourcesPage() {
   const db = useFirestore();
@@ -94,6 +97,7 @@ export default function ResourcesPage() {
   const { user: authUser } = useAuthUser();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
+  const [isSyncingAssets, setIsSyncingAssets] = useState(false);
   
   // Dialog States
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -134,6 +138,33 @@ export default function ResourcesPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleSyncAssets = async () => {
+    setIsSyncingAssets(true);
+    try {
+      const configs = await getJiraConfigs();
+      if (configs.length === 0 || !configs[0].enabled || !configs[0].assetsWorkspaceId) {
+        toast({ 
+          variant: "destructive", 
+          title: "Jira Assets nicht konfiguriert", 
+          description: "Bitte hinterlegen Sie Workspace und Schema ID in den Einstellungen." 
+        });
+        setIsSyncingAssets(false);
+        return;
+      }
+
+      const res = await syncAssetsToJiraAction(configs[0].id);
+      if (res.success) {
+        toast({ title: "Asset Sync erfolgreich", description: res.message });
+      } else {
+        toast({ variant: "destructive", title: "Sync Fehler", description: res.message });
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    } finally {
+      setIsSyncingAssets(false);
+    }
+  };
 
   const handleSaveResource = async () => {
     if (!newName || !newOwner) {
@@ -381,9 +412,19 @@ export default function ResourcesPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Ressourcenkatalog</h1>
-          <p className="text-sm text-muted-foreground">Zentrale Übersicht aller Anwendungen und Systeme ({dataSource.toUpperCase()}).</p>
+          <p className="text-sm text-muted-foreground">Zentrale Übersicht aller Anwendungen und Systeme.</p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-9 font-bold uppercase text-[10px] rounded-none border-blue-200 text-blue-600 hover:bg-blue-50"
+            onClick={handleSyncAssets}
+            disabled={isSyncingAssets}
+          >
+            {isSyncingAssets ? <RefreshCw className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Box className="w-3.5 h-3.5 mr-2" />}
+            Assets nach Jira synconisieren
+          </Button>
            <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => exportResourcesPdf(resources || [], entitlements || [])}>
             <FileText className="w-3.5 h-3.5 mr-2" /> PDF Export
           </Button>

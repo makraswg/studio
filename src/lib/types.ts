@@ -81,6 +81,11 @@ export interface JiraConfig {
   approvedStatusName: string;
   doneStatusName: string;
   enabled: boolean;
+  // Assets Config
+  assetsWorkspaceId?: string;
+  assetsSchemaId?: string;
+  assetsResourceObjectTypeId?: string;
+  assetsRoleObjectTypeId?: string;
 }
 
 export interface JiraSyncItem {
@@ -91,4 +96,5 @@ export interface JiraSyncItem {
   created: string;
   requestedUserEmail?: string;
   requestedRoleName?: string;
+  requestedResourceName?: string;
 }

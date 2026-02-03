@@ -23,7 +23,8 @@ import {
   Info,
   Terminal,
   XCircle,
-  Search
+  Search,
+  Shield
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
@@ -34,6 +35,7 @@ import { useFirestore, addDocumentNonBlocking, useUser as useAuthUser } from '@/
 import { collection } from 'firebase/firestore';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function JiraSyncPage() {
   const { dataSource } = useSettings();
@@ -76,19 +78,20 @@ export default function JiraSyncPage() {
     if (!activeConfig) return;
 
     const user = users?.find(u => u.email.toLowerCase() === ticket.requestedUserEmail?.toLowerCase());
-    
     if (!user) {
       toast({ 
         variant: "destructive", 
         title: "Benutzer nicht gefunden", 
-        description: `Keine Identität für ${ticket.requestedUserEmail || 'unbekannte E-Mail'} gefunden.` 
+        description: `Keine Identität für ${ticket.requestedUserEmail} gefunden.` 
       });
       return;
     }
 
-    const ent = entitlements?.[0]; 
+    // Finde passende Rolle basierend auf Jira Ticket oder nimm die erste als Fallback
+    const ent = entitlements?.find(e => e.name.toLowerCase() === ticket.requestedRoleName?.toLowerCase()) || entitlements?.[0]; 
+    
     if (!ent) {
-      toast({ variant: "destructive", title: "Fehler", description: "Keine Rollen im System definiert." });
+      toast({ variant: "destructive", title: "Fehler", description: "Keine passende Rolle im System definiert." });
       return;
     }
 
@@ -111,7 +114,7 @@ export default function JiraSyncPage() {
       validFrom: timestamp.split('T')[0],
       jiraIssueKey: ticket.key,
       ticketRef: ticket.key,
-      notes: `Automatisch erstellt via Jira Ticket ${ticket.key}.`,
+      notes: `Automatisch erstellt via Jira Ticket ${ticket.key}. Angefordert: ${ticket.requestedRoleName || 'Nicht spezifiziert'}.`,
       tenantId: 't1'
     };
 
@@ -135,11 +138,11 @@ export default function JiraSyncPage() {
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
-    // Ticket in Jira abschließen & verschieben
+    // Ticket in Jira abschließen
     const res = await resolveJiraTicket(
       activeConfig.id, 
       ticket.key, 
-      `Berechtigung "${ent.name}" wurde erfolgreich im ComplianceHub zugewiesen. Ticket wird automatisch auf "${activeConfig.doneStatusName || 'Erledigt'}" gesetzt.`
+      `Berechtigung "${ent.name}" wurde erfolgreich im ComplianceHub zugewiesen.`
     );
 
     if (res.success) {
@@ -205,7 +208,7 @@ export default function JiraSyncPage() {
                 <TableRow>
                   <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Jira Key</TableHead>
                   <TableHead className="font-bold uppercase tracking-widest text-[10px]">Anfrage / Inhalt</TableHead>
-                  <TableHead className="font-bold uppercase tracking-widest text-[10px]">Ziel-Identität</TableHead>
+                  <TableHead className="font-bold uppercase tracking-widest text-[10px]">Identität & Rolle</TableHead>
                   <TableHead className="font-bold uppercase tracking-widest text-[10px]">Status (Jira)</TableHead>
                   <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Aktion</TableHead>
                 </TableRow>
@@ -227,17 +230,24 @@ export default function JiraSyncPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {ticket.requestedUserEmail ? (
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 rounded-none text-[9px] font-bold uppercase px-2 py-0.5">
-                            {ticket.requestedUserEmail}
-                          </Badge>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 text-red-500 font-bold text-[9px] uppercase">
-                          <AlertTriangle className="w-3 h-3" /> E-Mail nicht gefunden
-                        </div>
-                      )}
+                      <div className="space-y-2">
+                        {ticket.requestedUserEmail ? (
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 rounded-none text-[9px] font-bold uppercase px-2 py-0.5">
+                              {ticket.requestedUserEmail}
+                            </Badge>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-red-500 font-bold text-[9px] uppercase">
+                            <AlertTriangle className="w-3 h-3" /> E-Mail nicht gefunden
+                          </div>
+                        )}
+                        {ticket.requestedRoleName && (
+                          <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-[9px] uppercase">
+                            <Shield className="w-3 h-3" /> {ticket.requestedRoleName}
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-none text-[9px] font-bold uppercase px-2">{ticket.status}</Badge>
@@ -249,7 +259,7 @@ export default function JiraSyncPage() {
                         onClick={() => handleAssignFromJira(ticket)}
                         disabled={!ticket.requestedUserEmail}
                       >
-                        <UserPlus className="w-3.5 h-3.5 mr-1.5" /> Zuweisung Bestätigen
+                        <UserPlus className="w-3.5 h-3.5 mr-1.5" /> Bestätigen
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -261,9 +271,6 @@ export default function JiraSyncPage() {
                         <Info className="w-8 h-8 text-slate-300" />
                         <div className="space-y-1">
                           <p className="text-muted-foreground font-bold text-xs uppercase">Keine passenden Tickets gefunden</p>
-                          <p className="text-[10px] text-muted-foreground max-w-md mx-auto">
-                            Das System hat keine genehmigten Anfragen gefunden, die den Kriterien entsprechen.
-                          </p>
                         </div>
                         <div className="bg-slate-50 border p-3 rounded-none w-full max-w-lg text-left">
                           <p className="text-[9px] font-bold uppercase text-slate-400 mb-2 flex items-center gap-1.5">
@@ -282,15 +289,6 @@ export default function JiraSyncPage() {
           )}
         </div>
       )}
-
-      <div className="p-4 bg-blue-50 border text-[10px] font-bold uppercase text-blue-700 leading-relaxed">
-        <div className="flex items-start gap-2">
-          <Info className="w-4 h-4 shrink-0" />
-          <p>
-            Hinweis: Nach der Bestätigung einer Zuweisung wird das Jira-Ticket automatisch mit einem Abschluss-Kommentar versehen und in den Status "{activeConfig?.doneStatusName || 'Erledigt'}" verschoben.
-          </p>
-        </div>
-      </div>
     </div>
   );
 }

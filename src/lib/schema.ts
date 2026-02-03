@@ -114,6 +114,10 @@ export const appSchema: AppSchema = {
       approvedStatusName: 'VARCHAR(100)',
       doneStatusName: 'VARCHAR(100)',
       enabled: 'BOOLEAN DEFAULT FALSE',
+      assetsWorkspaceId: 'VARCHAR(255)',
+      assetsSchemaId: 'VARCHAR(255)',
+      assetsResourceObjectTypeId: 'VARCHAR(255)',
+      assetsRoleObjectTypeId: 'VARCHAR(255)',
     }
   }
 };

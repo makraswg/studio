@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Settings, 
-  Plus, 
   Save, 
   Lock,
   Database,
@@ -17,7 +16,8 @@ import {
   Loader2,
   CheckCircle2,
   AlertTriangle,
-  Zap
+  Zap,
+  Box
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
@@ -42,6 +42,10 @@ export default function SettingsPage() {
   const [jiraDoneStatus, setJiraDoneStatus] = useState('Erledigt');
   const [jiraEnabled, setJiraEnabled] = useState(false);
   
+  // Jira Assets State
+  const [assetsWorkspaceId, setAssetsWorkspaceId] = useState('');
+  const [assetsSchemaId, setAssetsSchemaId] = useState('');
+
   const [isSavingJira, setIsSavingJira] = useState(false);
   const [isTestingJira, setIsTestingJira] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; details?: string } | null>(null);
@@ -59,6 +63,8 @@ export default function SettingsPage() {
         setJiraApprovedStatus(c.approvedStatusName || 'Genehmigt');
         setJiraDoneStatus(c.doneStatusName || 'Erledigt');
         setJiraEnabled(c.enabled || false);
+        setAssetsWorkspaceId(c.assetsWorkspaceId || '');
+        setAssetsSchemaId(c.assetsSchemaId || '');
       }
     };
     loadJira();
@@ -79,7 +85,8 @@ export default function SettingsPage() {
       projectKey: jiraProject,
       issueTypeName: jiraIssueType,
       approvedStatusName: jiraApprovedStatus,
-      doneStatusName: jiraDoneStatus
+      doneStatusName: jiraDoneStatus,
+      assetsWorkspaceId
     };
 
     const res = await testJiraConnectionAction(configData);
@@ -106,7 +113,9 @@ export default function SettingsPage() {
       issueTypeName: jiraIssueType,
       approvedStatusName: jiraApprovedStatus,
       doneStatusName: jiraDoneStatus,
-      enabled: jiraEnabled
+      enabled: jiraEnabled,
+      assetsWorkspaceId,
+      assetsSchemaId
     };
 
     const res = await saveCollectionRecord('jiraConfigs', 'global-jira', configData);
@@ -183,7 +192,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase">Anfragetyp (Request Type)</Label>
-                  <Input placeholder="Zugriffs- und Berechtigungsänderungen" value={jiraIssueType} onChange={e => setJiraIssueType(e.target.value)} className="rounded-none" />
+                  <Input placeholder="Zugriffsanfrage" value={jiraIssueType} onChange={e => setJiraIssueType(e.target.value)} className="rounded-none" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase">Status für "Genehmigt" (approved)</Label>
@@ -203,6 +212,21 @@ export default function SettingsPage() {
                 </div>
               </div>
 
+              <div className="pt-6 border-t">
+                <h3 className="text-sm font-bold flex items-center gap-2 mb-4"><Box className="w-4 h-4 text-blue-600" /> Jira Assets (Insight) Konfiguration</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase">Workspace ID</Label>
+                    <Input placeholder="z.B. a1b2c3d4-..." value={assetsWorkspaceId} onChange={e => setAssetsWorkspaceId(e.target.value)} className="rounded-none" />
+                    <p className="text-[9px] text-muted-foreground">Finden Sie in der URL Ihrer Assets-Übersicht.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase">Schema ID</Label>
+                    <Input placeholder="z.B. 1" value={assetsSchemaId} onChange={e => setAssetsSchemaId(e.target.value)} className="rounded-none" />
+                  </div>
+                </div>
+              </div>
+
               {testResult && (
                 <div className={cn(
                   "p-4 border rounded-none text-[10px] font-bold uppercase animate-in slide-in-from-top-2",
@@ -217,10 +241,6 @@ export default function SettingsPage() {
                   </div>
                 </div>
               )}
-
-              <div className="p-4 border bg-slate-50 text-[10px] font-bold uppercase leading-relaxed text-slate-600">
-                Hinweis: Der API-Token kann unter <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" className="text-primary underline">Atlassian Security</a> erstellt werden.
-              </div>
             </CardContent>
             <CardFooter className="border-t p-4 flex justify-between bg-muted/5">
               <Button variant="outline" onClick={handleTestJira} disabled={isTestingJira} className="rounded-none gap-2 font-bold uppercase text-[10px] border-primary/20 text-primary hover:bg-primary/5">

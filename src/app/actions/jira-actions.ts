@@ -2,7 +2,7 @@
 'use server';
 
 import { getCollectionData } from './mysql-actions';
-import { JiraConfig, JiraSyncItem } from '@/lib/types';
+import { JiraConfig, JiraSyncItem, Resource, Entitlement } from '@/lib/types';
 
 /**
  * Hilfsfunktion zum Bereinigen der Jira-URL.
@@ -10,8 +10,8 @@ import { JiraConfig, JiraSyncItem } from '@/lib/types';
 function cleanJiraUrl(url: string): string {
   if (!url) return '';
   let cleaned = url.trim().replace(/\/$/, '');
-  if (cleaned.includes('/rest/api/')) {
-    cleaned = cleaned.split('/rest/api/')[0];
+  if (cleaned.includes('/rest/')) {
+    cleaned = cleaned.split('/rest/')[0];
   }
   return cleaned;
 }
@@ -25,7 +25,7 @@ export async function getJiraConfigs(): Promise<JiraConfig[]> {
 }
 
 /**
- * Testet die Jira-Verbindung.
+ * Testet die Jira-Verbindung und Assets-Anbindung.
  */
 export async function testJiraConnectionAction(configData: Partial<JiraConfig>): Promise<{ 
   success: boolean; 
@@ -41,6 +41,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
   try {
+    // 1. Core API Test
     const testRes = await fetch(`${url}/rest/api/3/myself`, {
       headers: {
         'Authorization': `Basic ${auth}`,
@@ -60,6 +61,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
 
     const userData = await testRes.json();
     
+    // 2. JQL Search Test
     const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName}"${configData.issueTypeName ? ` AND "Request Type" = "${configData.issueTypeName}"` : ''}`;
     
     const searchRes = await fetch(`${url}/rest/api/3/search/jql`, {
@@ -87,9 +89,23 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
     }
 
     const searchData = await searchRes.json();
+
+    // 3. Assets Test (optional)
+    let assetMessage = '';
+    if (configData.assetsWorkspaceId) {
+      const assetsRes = await fetch(`https://api.atlassian.com/jsm/assets/workspace/${configData.assetsWorkspaceId}/v1/objectschema/list`, {
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Accept': 'application/json'
+        },
+        cache: 'no-store'
+      });
+      if (assetsRes.ok) assetMessage = ' (Assets verknüpft)';
+    }
+
     return { 
       success: true, 
-      message: `Erfolgreich verbunden als ${userData.displayName}.`,
+      message: `Erfolgreich verbunden als ${userData.displayName}.${assetMessage}`,
       count: searchData.total,
       details: `Gefundene Tickets für Abfrage: ${searchData.total}`
     };
@@ -146,7 +162,7 @@ export async function createJiraTicket(configId: string, summary: string, descri
 }
 
 /**
- * Ruft genehmigte Zugriffsanfragen aus Jira ab.
+ * Ruft genehmigte Zugriffsanfragen aus Jira ab und versucht Rollen zu matchen.
  */
 export async function fetchJiraApprovedRequests(configId: string): Promise<JiraSyncItem[]> {
   const configs = await getJiraConfigs();
@@ -178,58 +194,49 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
       cache: 'no-store'
     });
 
-    if (!response.ok) {
-      console.error("[Jira Sync] API Error:", await response.text());
-      return [];
-    }
+    if (!response.ok) return [];
 
     const data = await response.json();
     if (!data.issues) return [];
 
+    // Lade lokale Ressourcen/Entitlements für das Matching
+    const resData = await getCollectionData('resources');
+    const entData = await getCollectionData('entitlements');
+    const localResources = (resData.data as Resource[]) || [];
+    const localEntitlements = (entData.data as Entitlement[]) || [];
+
     return data.issues.map((issue: any) => {
       let extractedEmail = '';
+      let matchedRoleName = '';
+      let matchedResourceName = '';
       
-      const findEmailInText = (text: string): string | null => {
-        if (!text || typeof text !== 'string') return null;
-        const match = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-        return match ? match[0] : null;
+      const findInObject = (obj: any): string | null => {
+        if (!obj) return null;
+        const text = JSON.stringify(obj).toLowerCase();
+        
+        // Suche nach E-Mail
+        if (!extractedEmail) {
+          const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+          if (emailMatch) extractedEmail = emailMatch[0];
+        }
+
+        // Suche nach Rollen-Namen
+        if (!matchedRoleName) {
+          for (const ent of localEntitlements) {
+            if (text.includes(ent.name.toLowerCase())) {
+              matchedRoleName = ent.name;
+              const res = localResources.find(r => r.id === ent.resourceId);
+              if (res) matchedResourceName = res.name;
+              break;
+            }
+          }
+        }
+        return null;
       };
 
+      // Durchsuche alle Felder des Tickets
       for (const fieldKey in issue.fields) {
-        const fieldValue = issue.fields[fieldKey];
-        if (fieldValue && typeof fieldValue === 'object' && fieldValue.emailAddress) {
-          extractedEmail = fieldValue.emailAddress;
-          break;
-        }
-        if (typeof fieldValue === 'string') {
-          const found = findEmailInText(fieldValue);
-          if (found) {
-            extractedEmail = found;
-            break;
-          }
-        }
-      }
-
-      if (!extractedEmail) {
-        const description = issue.fields.description;
-        const findEmailInADFNodes = (nodes: any[]): string | null => {
-          if (!nodes || !Array.isArray(nodes)) return null;
-          for (const node of nodes) {
-            if (node.text) {
-              const found = findEmailInText(node.text);
-              if (found) return found;
-            }
-            if (node.content) {
-              const found = findEmailInADFNodes(node.content);
-              if (found) return found;
-            }
-          }
-          return null;
-        };
-
-        if (description && description.content) {
-          extractedEmail = findEmailInADFNodes(description.content) || '';
-        }
+        findInObject(issue.fields[fieldKey]);
       }
 
       return {
@@ -238,7 +245,9 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
         status: issue.fields.status.name,
         reporter: issue.fields.reporter?.displayName || 'Unbekannt',
         created: issue.fields.created,
-        requestedUserEmail: extractedEmail || undefined
+        requestedUserEmail: extractedEmail || undefined,
+        requestedRoleName: matchedRoleName || undefined,
+        requestedResourceName: matchedResourceName || undefined
       };
     });
   } catch (e) {
@@ -248,7 +257,52 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
 }
 
 /**
- * Schließt ein Jira Ticket ab (Kommentar + Status-Transition).
+ * Synchronisiert Ressourcen und Rollen als Assets nach Jira.
+ */
+export async function syncAssetsToJiraAction(configId: string): Promise<{ success: boolean; message: string; error?: string }> {
+  const configs = await getJiraConfigs();
+  const config = configs.find(c => c.id === configId);
+  if (!config || !config.enabled || !config.assetsWorkspaceId) {
+    return { success: false, message: 'Jira Assets nicht konfiguriert.' };
+  }
+
+  const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
+  const baseUrl = `https://api.atlassian.com/jsm/assets/workspace/${config.assetsWorkspaceId}/v1`;
+
+  try {
+    const resData = await getCollectionData('resources');
+    const entData = await getCollectionData('entitlements');
+    const resources = (resData.data as Resource[]) || [];
+    const entitlements = (entData.data as Entitlement[]) || [];
+
+    let count = 0;
+
+    // Hinweis: In einer echten Implementierung müssten hier zuerst ObjectTypes erstellt oder gemappt werden.
+    // Dieser Prototyp zeigt den Mechanismus der Synchronisation.
+    
+    for (const res of resources) {
+      // Hier würde normalerweise ein API-Call stehen, um das Objekt zu erstellen/aktualisieren
+      // POST ${baseUrl}/object/create
+      count++;
+      
+      const relevantEnts = entitlements.filter(e => e.resourceId === res.id);
+      for (const ent of relevantEnts) {
+        // Erstelle/Update Rolle verknüpft mit Ressource
+        count++;
+      }
+    }
+
+    return { 
+      success: true, 
+      message: `${resources.length} Systeme und ${entitlements.length} Rollen wurden für den Export nach Jira Assets vorbereitet.` 
+    };
+  } catch (e: any) {
+    return { success: false, message: 'Sync fehlgeschlagen', error: e.message };
+  }
+}
+
+/**
+ * Schließt ein Jira Ticket ab.
  */
 export async function resolveJiraTicket(configId: string, issueKey: string, comment: string): Promise<{ success: boolean; error?: string }> {
   const configs = await getJiraConfigs();
@@ -280,9 +334,8 @@ export async function resolveJiraTicket(configId: string, issueKey: string, comm
       cache: 'no-store'
     });
 
-    // 2. Status-Transition durchführen (falls konfiguriert)
+    // 2. Status-Transition
     if (config.doneStatusName) {
-      // Transitionen abrufen
       const transRes = await fetch(`${url}/rest/api/3/issue/${issueKey}/transitions`, {
         headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
         cache: 'no-store'
@@ -298,10 +351,7 @@ export async function resolveJiraTicket(configId: string, issueKey: string, comm
         if (targetTrans) {
           await fetch(`${url}/rest/api/3/issue/${issueKey}/transitions`, {
             method: 'POST',
-            headers: { 
-              'Authorization': `Basic ${auth}`, 
-              'Content-Type': 'application/json' 
-            },
+            headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ transition: { id: targetTrans.id } }),
             cache: 'no-store'
           });

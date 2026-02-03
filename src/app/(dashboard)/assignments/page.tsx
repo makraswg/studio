@@ -135,6 +135,7 @@ export default function AssignmentsPage() {
     };
 
     const auditData = {
+      id: `audit-${Math.random().toString(36).substring(2, 9)}`,
       actorUid: authUser?.uid || 'system',
       action: 'Einzelzuweisung erstellt',
       entityType: 'assignment',
@@ -149,7 +150,7 @@ export default function AssignmentsPage() {
         toast({ variant: "destructive", title: "MySQL Fehler", description: result.error });
         return;
       }
-      await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
+      await saveCollectionRecord('auditEvents', auditData.id, auditData);
     } else {
       addDocumentNonBlocking(collection(db, 'assignments'), assignmentData);
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
@@ -173,6 +174,7 @@ export default function AssignmentsPage() {
     };
 
     const auditData = {
+      id: `audit-${Math.random().toString(36).substring(2, 9)}`,
       actorUid: authUser?.uid || 'system',
       action: 'Zuweisung aktualisiert',
       entityType: 'assignment',
@@ -189,7 +191,7 @@ export default function AssignmentsPage() {
           toast({ variant: "destructive", title: "MySQL Fehler", description: result.error });
           return;
         }
-        await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
+        await saveCollectionRecord('auditEvents', auditData.id, auditData);
       }
     } else {
       updateDocumentNonBlocking(doc(db, 'assignments', selectedAssignmentId), assignmentData);
@@ -206,6 +208,7 @@ export default function AssignmentsPage() {
     if (selectedAssignmentId) {
       const timestamp = new Date().toISOString();
       const auditData = {
+        id: `audit-${Math.random().toString(36).substring(2, 9)}`,
         actorUid: authUser?.uid || 'system',
         action: 'Zuweisung gelöscht',
         entityType: 'assignment',
@@ -220,7 +223,7 @@ export default function AssignmentsPage() {
           toast({ variant: "destructive", title: "MySQL Fehler", description: result.error });
           return;
         }
-        await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
+        await saveCollectionRecord('auditEvents', auditData.id, auditData);
       } else {
         deleteDocumentNonBlocking(doc(db, 'assignments', selectedAssignmentId));
         addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
@@ -253,7 +256,7 @@ export default function AssignmentsPage() {
     const entitlement = entitlements?.find(e => e.id === (assignment.entitlementId));
     const resource = resources?.find(r => r.id === entitlement?.resourceId);
     
-    const userName = user?.name || user?.displayName || '';
+    const userName = user?.displayName || user?.name || '';
     const resourceName = resource?.name || '';
     const assignmentUserId = assignment.userId || '';
 
@@ -267,28 +270,6 @@ export default function AssignmentsPage() {
     const matchesTab = activeTab === 'all' || assignment.status === activeTab;
     return matchesSearch && matchesTab;
   });
-
-  const handleExportExcel = () => {
-    if (!filteredAssignments) return;
-    const exportData = filteredAssignments.map(a => {
-        const user = users?.find(u => u.id === (a.userId));
-        const userName = user?.name || user?.displayName;
-        const userEmail = user?.email;
-        const ent = entitlements?.find(e => e.id === (a.entitlementId));
-        const res = resources?.find(r => r.id === ent?.resourceId);
-        return {
-            Benutzer: userName || a.userId,
-            Email: userEmail || '',
-            System: res?.name || '---',
-            Rolle: ent?.name || '---',
-            Status: a.status,
-            Herkunft: a.originGroupId ? 'GRUPPE' : 'DIREKT',
-            GueltigBis: a.validUntil || 'Unbefristet',
-            Ticket: a.ticketRef || ''
-        };
-    });
-    exportToExcel(exportData, 'ComplianceHub_Zuweisungen');
-  };
 
   const handleExportPdf = () => {
     if (!filteredAssignments || !users || !entitlements || !resources) return;
@@ -369,7 +350,7 @@ export default function AssignmentsPage() {
             <TableBody>
               {filteredAssignments?.map((assignment) => {
                 const user = users?.find(u => u.id === (assignment.userId));
-                const userName = user?.name || user?.displayName;
+                const userName = user?.displayName || user?.name;
                 const ent = entitlements?.find(e => e.id === (assignment.entitlementId));
                 const res = resources?.find(r => r.id === ent?.resourceId);
                 const isExpired = assignment.validUntil && new Date(assignment.validUntil) < new Date();
@@ -455,20 +436,11 @@ export default function AssignmentsPage() {
                   </TableRow>
                 );
               })}
-              {!isLoading && filteredAssignments?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                    <History className="w-8 h-8 mx-auto opacity-20 mb-2" />
-                    <p className="text-[10px] font-bold uppercase tracking-widest">Keine Einträge gefunden.</p>
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         )}
       </div>
 
-      {/* Create Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="rounded-none border shadow-2xl max-w-lg">
           <DialogHeader>
@@ -486,7 +458,7 @@ export default function AssignmentsPage() {
                 </SelectTrigger>
                 <SelectContent className="rounded-none">
                   {users?.map(u => (
-                    <SelectItem key={u.id} value={u.id}>{u.name || u.displayName} ({u.email})</SelectItem>
+                    <SelectItem key={u.id} value={u.id}>{u.displayName || u.name} ({u.email})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -527,7 +499,6 @@ export default function AssignmentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="rounded-none border shadow-2xl max-w-lg">
           <DialogHeader>
@@ -565,7 +536,6 @@ export default function AssignmentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Alert */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="rounded-none shadow-2xl border-2">
           <AlertDialogHeader>

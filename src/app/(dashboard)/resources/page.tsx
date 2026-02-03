@@ -153,6 +153,7 @@ export default function ResourcesPage() {
     };
 
     const auditData = {
+      id: `audit-${Math.random().toString(36).substring(2, 9)}`,
       actorUid: authUser?.uid || 'system',
       action: editingResource ? 'System aktualisiert' : 'System registriert',
       entityType: 'resource',
@@ -162,12 +163,8 @@ export default function ResourcesPage() {
     };
 
     if (dataSource === 'mysql') {
-      const result = await saveCollectionRecord('resources', resourceId, resData);
-      if (!result.success) {
-        toast({ variant: "destructive", title: "MySQL Fehler", description: result.error });
-        return;
-      }
-      await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
+      await saveCollectionRecord('resources', resourceId, resData);
+      await saveCollectionRecord('auditEvents', auditData.id, auditData);
     } else {
       setDocumentNonBlocking(doc(db, 'resources', resourceId), resData);
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
@@ -200,6 +197,7 @@ export default function ResourcesPage() {
     };
 
     const auditData = {
+      id: `audit-${Math.random().toString(36).substring(2, 9)}`,
       actorUid: authUser?.uid || 'system',
       action: editingEntitlementId ? 'Rolle aktualisiert' : 'Rolle hinzugefügt',
       entityType: 'entitlement',
@@ -210,7 +208,7 @@ export default function ResourcesPage() {
 
     if (dataSource === 'mysql') {
       await saveCollectionRecord('entitlements', entId, entData);
-      await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
+      await saveCollectionRecord('auditEvents', auditData.id, auditData);
     } else {
       const fbData = { ...entData, isSharedAccount };
       setDocumentNonBlocking(doc(db, 'entitlements', entId), fbData);
@@ -229,6 +227,7 @@ export default function ResourcesPage() {
     if (selectedResource) {
       const timestamp = new Date().toISOString();
       const auditData = {
+        id: `audit-${Math.random().toString(36).substring(2, 9)}`,
         actorUid: authUser?.uid || 'system',
         action: 'System gelöscht',
         entityType: 'resource',
@@ -239,7 +238,7 @@ export default function ResourcesPage() {
 
       if (dataSource === 'mysql') {
         await deleteCollectionRecord('resources', selectedResource.id);
-        await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
+        await saveCollectionRecord('auditEvents', auditData.id, auditData);
       } else {
         deleteDocumentNonBlocking(doc(db, 'resources', selectedResource.id));
         addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
@@ -255,6 +254,7 @@ export default function ResourcesPage() {
     if (selectedEntitlement) {
       const timestamp = new Date().toISOString();
       const auditData = {
+        id: `audit-${Math.random().toString(36).substring(2, 9)}`,
         actorUid: authUser?.uid || 'system',
         action: 'Rolle gelöscht',
         entityType: 'entitlement',
@@ -265,7 +265,7 @@ export default function ResourcesPage() {
 
       if (dataSource === 'mysql') {
         await deleteCollectionRecord('entitlements', selectedEntitlement.id);
-        await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
+        await saveCollectionRecord('auditEvents', auditData.id, auditData);
       } else {
         deleteDocumentNonBlocking(doc(db, 'entitlements', selectedEntitlement.id));
         addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
@@ -318,7 +318,7 @@ export default function ResourcesPage() {
 
   const renderEntitlementItem = (ent: any, depth = 0) => {
     const children = entitlements?.filter((e: any) => e.parentId === ent.id) || [];
-    const isShared = ent.isSharedAccount === true || ent.isSharedAccount === 1 || ent.isSharedAccount === "1";
+    const isShared = !!(ent.isSharedAccount === true || ent.isSharedAccount === 1 || ent.isSharedAccount === "1");
 
     return (
       <div key={ent.id}>
@@ -511,7 +511,6 @@ export default function ResourcesPage() {
         )}
       </div>
 
-      {/* Add/Edit Resource Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="rounded-none border shadow-2xl max-w-2xl">
           <DialogHeader>
@@ -592,7 +591,6 @@ export default function ResourcesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Resource Details & Access View */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="max-w-4xl rounded-none border shadow-2xl">
           <DialogHeader className="border-b pb-4">
@@ -641,14 +639,6 @@ export default function ResourcesPage() {
                           </TableRow>
                         );
                       })}
-                      {(assignments?.filter((a: any) => {
-                         const ent = entitlements?.find((e: any) => e.id === a.entitlementId);
-                         return ent?.resourceId === selectedResource?.id && a.status === 'active';
-                      }).length || 0) === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={3} className="h-20 text-center text-muted-foreground italic">Keine aktiven Zugriffe.</TableCell>
-                        </TableRow>
-                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -690,7 +680,6 @@ export default function ResourcesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Manage Roles (Entitlements) Dialog */}
       <Dialog open={isEntitlementOpen} onOpenChange={setIsEntitlementOpen}>
         <DialogContent className="max-w-2xl rounded-none border shadow-2xl overflow-hidden p-0">
           <div className="bg-slate-900 text-white p-6">
@@ -773,9 +762,6 @@ export default function ResourcesPage() {
               <div className="bg-muted/30 p-2 border-b text-[10px] font-bold uppercase tracking-widest">Definierte Rollen</div>
               <div className="max-h-[300px] overflow-y-auto">
                 {entitlements?.filter((e: any) => e.resourceId === selectedResource?.id && !e.parentId).map((ent: any) => renderEntitlementItem(ent))}
-                {(entitlements?.filter((e: any) => e.resourceId === selectedResource?.id).length || 0) === 0 && (
-                  <div className="p-8 text-center text-muted-foreground italic text-xs">Keine Rollen definiert.</div>
-                )}
               </div>
             </div>
           </div>
@@ -786,7 +772,6 @@ export default function ResourcesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="rounded-none shadow-2xl border-2">
           <AlertDialogHeader>
@@ -804,7 +789,6 @@ export default function ResourcesPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Entitlement Confirmation */}
       <AlertDialog open={isDeleteEntitlementOpen} onOpenChange={setIsDeleteEntitlementOpen}>
         <AlertDialogContent className="rounded-none border shadow-2xl">
           <AlertDialogHeader>

@@ -100,10 +100,8 @@ export default function GroupsPage() {
   const syncGroupAssignments = async (groupId: string, groupName: string, userIds: string[], entIds: string[]) => {
     const currentAssignments = assignments || [];
 
-    // 1. Neue/Bestehende Zuweisungen synchronisieren
     for (const uid of userIds) {
       for (const eid of entIds) {
-        // Robuste ID-Generierung für Gruppen-Zuweisungen
         const assId = `ga_${groupId}_${uid}_${eid}`.replace(/[^a-zA-Z0-9_]/g, '_');
         const existing = currentAssignments.find(a => a.id === assId);
 
@@ -130,7 +128,6 @@ export default function GroupsPage() {
       }
     }
 
-    // 2. Cleanup: Entferne Zuweisungen, die nicht mehr Teil dieser Gruppe sind
     const currentGroupAssignments = currentAssignments.filter(a => a.originGroupId === groupId);
     for (const a of currentGroupAssignments) {
       const userStillInGroup = userIds.includes(a.userId);
@@ -166,6 +163,7 @@ export default function GroupsPage() {
     };
 
     const auditData = {
+      id: `audit-${Math.random().toString(36).substring(2, 9)}`,
       actorUid: authUser?.uid || 'system',
       action: selectedGroup ? 'Zuweisungsgruppe aktualisiert' : 'Zuweisungsgruppe erstellt',
       entityType: 'group',
@@ -180,7 +178,7 @@ export default function GroupsPage() {
         toast({ variant: "destructive", title: "Fehler", description: result.error || "Speichern fehlgeschlagen." });
         return;
       }
-      await saveCollectionRecord('auditEvents', `audit_${Math.random().toString(36).substring(2, 9)}`, auditData);
+      await saveCollectionRecord('auditEvents', auditData.id, auditData);
     } else {
       setDocumentNonBlocking(doc(db, 'groups', groupId), groupData, { merge: true });
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
@@ -203,6 +201,7 @@ export default function GroupsPage() {
     if (selectedGroup) {
       const timestamp = new Date().toISOString();
       const auditData = {
+        id: `audit-${Math.random().toString(36).substring(2, 9)}`,
         actorUid: authUser?.uid || 'system',
         action: 'Zuweisungsgruppe gelöscht',
         entityType: 'group',
@@ -217,7 +216,7 @@ export default function GroupsPage() {
         for (const a of groupAssignments) {
           await deleteCollectionRecord('assignments', a.id);
         }
-        await saveCollectionRecord('auditEvents', `audit_${Math.random().toString(36).substring(2, 9)}`, auditData);
+        await saveCollectionRecord('auditEvents', auditData.id, auditData);
       } else {
         deleteDocumentNonBlocking(doc(db, 'groups', selectedGroup.id));
         assignments?.filter(a => a.originGroupId === selectedGroup.id).forEach(a => {
@@ -357,20 +356,11 @@ export default function GroupsPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {!isLoading && groups?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                    <History className="w-8 h-8 mx-auto opacity-20 mb-2" />
-                    <p className="text-[10px] font-bold uppercase tracking-widest">Keine Zuweisungsgruppen vorhanden.</p>
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         )}
       </div>
 
-      {/* Edit/Add Group Dialog */}
       <Dialog open={isEditOpen || isAddOpen} onOpenChange={(val) => { if(!val) { setIsEditOpen(false); setIsAddOpen(false); resetForm(); } }}>
         <DialogContent className="max-w-4xl rounded-none border shadow-2xl bg-white">
           <DialogHeader>
@@ -383,7 +373,6 @@ export default function GroupsPage() {
           </DialogHeader>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4">
-            {/* Stammdaten */}
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Gruppenname</Label>
@@ -425,7 +414,6 @@ export default function GroupsPage() {
               </div>
             </div>
 
-            {/* Mitglieder */}
             <div className="space-y-3">
               <div className="flex items-center justify-between border-b pb-1">
                 <span className="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center gap-1.5">
@@ -436,7 +424,7 @@ export default function GroupsPage() {
               <div className="max-h-[400px] overflow-y-auto space-y-1 pr-1 custom-scrollbar border bg-slate-50/50 p-2">
                 {users?.map(u => {
                   const isSelected = selectedUserIds.includes(u.id);
-                  const displayName = u.name || u.displayName;
+                  const displayName = u.displayName || u.name;
                   const department = u.department || 'Keine Abteilung';
                   return (
                     <div 
@@ -471,7 +459,6 @@ export default function GroupsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Group Confirmation */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent className="rounded-none shadow-2xl bg-white">
           <AlertDialogHeader>

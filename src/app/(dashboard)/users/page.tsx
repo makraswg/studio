@@ -138,6 +138,7 @@ export default function UsersPage() {
     };
 
     const auditData = {
+      id: `audit-${Math.random().toString(36).substring(2, 9)}`,
       actorUid: authUser?.uid || 'system',
       action: 'Benutzer manuell angelegt',
       entityType: 'user',
@@ -148,7 +149,7 @@ export default function UsersPage() {
 
     if (dataSource === 'mysql') {
       await saveCollectionRecord('users', userId, userData);
-      await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
+      await saveCollectionRecord('auditEvents', auditData.id, auditData);
     } else {
       setDocumentNonBlocking(doc(db, 'users', userId), userData);
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
@@ -163,7 +164,6 @@ export default function UsersPage() {
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
 
-    // CHECK: Darf nur gelöscht werden, wenn keine aktiven Zuweisungen bestehen
     const userAssignments = assignments?.filter(a => a.userId === selectedUser.id && a.status !== 'removed');
     if (userAssignments && userAssignments.length > 0) {
       toast({
@@ -177,6 +177,7 @@ export default function UsersPage() {
 
     const timestamp = new Date().toISOString();
     const auditData = {
+      id: `audit-${Math.random().toString(36).substring(2, 9)}`,
       actorUid: authUser?.uid || 'system',
       action: 'Benutzer gelöscht',
       entityType: 'user',
@@ -187,7 +188,7 @@ export default function UsersPage() {
 
     if (dataSource === 'mysql') {
       await deleteCollectionRecord('users', selectedUser.id);
-      await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
+      await saveCollectionRecord('auditEvents', auditData.id, auditData);
     } else {
       deleteDocumentNonBlocking(doc(db, 'users', selectedUser.id));
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
@@ -230,6 +231,21 @@ export default function UsersPage() {
         assignments: detailedAssignments
       });
       setAiAdvice(advice);
+
+      const auditData = {
+        id: `audit-${Math.random().toString(36).substring(2, 9)}`,
+        actorUid: authUser?.uid || 'system',
+        action: 'KI Risikocheck durchgeführt',
+        entityType: 'user',
+        entityId: userDoc.id,
+        timestamp: new Date().toISOString(),
+        tenantId: 't1'
+      };
+      if (dataSource === 'mysql') {
+        saveCollectionRecord('auditEvents', auditData.id, auditData);
+      } else {
+        addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
+      }
     } catch (e) {
       toast({ variant: "destructive", title: "KI-Fehler", description: "Analyse fehlgeschlagen." });
       setIsAdvisorOpen(false);
@@ -433,28 +449,20 @@ export default function UsersPage() {
                   </TableRow>
                 );
               })}
-              {!isLoading && filteredUsers?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                    <p className="text-[10px] font-bold uppercase tracking-widest">Keine Benutzer mit diesen Kriterien gefunden.</p>
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         )}
       </div>
 
-      {/* Profile & History Dialog */}
       <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
         <DialogContent className="max-w-4xl rounded-none border shadow-2xl p-0 overflow-hidden">
           <div className="bg-slate-900 text-white p-6">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-primary/20 text-primary flex items-center justify-center font-bold text-2xl uppercase border border-primary/30">
-                {selectedUser?.name?.charAt(0) || selectedUser?.displayName?.charAt(0) || '?'}
+                {selectedUser?.displayName?.charAt(0) || '?'}
               </div>
               <div>
-                <DialogTitle className="text-xl font-bold font-headline">{selectedUser?.name || selectedUser?.displayName}</DialogTitle>
+                <DialogTitle className="text-xl font-bold font-headline">{selectedUser?.displayName}</DialogTitle>
                 <div className="flex items-center gap-3 mt-1">
                   <span className="text-xs text-slate-400 uppercase font-bold tracking-widest">{selectedUser?.email}</span>
                   <Badge variant="outline" className="border-slate-700 text-slate-400 rounded-none text-[8px] uppercase">{selectedUser?.department}</Badge>
@@ -506,11 +514,6 @@ export default function UsersPage() {
                         </TableRow>
                       );
                     })}
-                    {assignments?.filter((a: any) => a.userId === selectedUser?.id && a.status === 'active').length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground italic text-xs">Keine aktiven Rollen gefunden.</TableCell>
-                      </TableRow>
-                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -543,11 +546,6 @@ export default function UsersPage() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {!auditLogs?.length && (
-                      <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground italic text-xs">Keine Historie verfügbar.</TableCell>
-                      </TableRow>
-                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -556,12 +554,11 @@ export default function UsersPage() {
 
           <DialogFooter className="border-t p-6 bg-slate-50">
             <Button variant="outline" onClick={() => setIsProfileOpen(false)} className="rounded-none">Schließen</Button>
-            <Button onClick={() => { setIsProfileOpen(false); router.push(`/assignments?search=${selectedUser?.name || selectedUser?.displayName}`); }} className="rounded-none font-bold uppercase text-[10px]">Zugriffe bearbeiten</Button>
+            <Button onClick={() => { setIsProfileOpen(false); router.push(`/assignments?search=${selectedUser?.displayName}`); }} className="rounded-none font-bold uppercase text-[10px]">Zugriffe bearbeiten</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete User Confirmation */}
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent className="rounded-none shadow-2xl border-2">
           <AlertDialogHeader>
@@ -579,7 +576,6 @@ export default function UsersPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Add User Dialog (Manual) */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent className="rounded-none border shadow-2xl">
           <DialogHeader>
@@ -613,7 +609,6 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* AI Advisor Dialog */}
       <Dialog open={isAdvisorOpen} onOpenChange={setIsAdvisorOpen}>
         <DialogContent className="max-w-2xl rounded-none border shadow-2xl overflow-hidden p-0">
           <div className="bg-slate-900 text-white p-6">
@@ -624,7 +619,7 @@ export default function UsersPage() {
                 Sicherheits-Check
               </div>
             </div>
-            <h2 className="text-xl font-bold font-headline">Analyse für {selectedUser?.name || selectedUser?.displayName}</h2>
+            <h2 className="text-xl font-bold font-headline">Analyse für {selectedUser?.displayName}</h2>
           </div>
           
           <div className="p-6">

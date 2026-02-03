@@ -136,108 +136,118 @@ export default function LifecyclePage() {
     }
 
     setIsActionLoading(true);
-    const bundle = bundles?.find(b => b.id === selectedBundleId);
-    
-    // 1. Create User
-    const userId = `u-${Math.random().toString(36).substring(2, 9)}`;
-    const timestamp = new Date().toISOString();
-    const userData = {
-      id: userId,
-      tenantId: 't1',
-      externalId: `MANUAL_${userId}`,
-      displayName: newUserName,
-      email: newUserEmail,
-      department: newUserDept,
-      enabled: true,
-      onboardingDate,
-      lastSyncedAt: timestamp
-    };
-
-    if (dataSource === 'mysql') {
-      await saveCollectionRecord('users', userId, userData);
-    } else {
-      setDocumentNonBlocking(doc(db, 'users', userId), userData);
-    }
-
-    // 2. Trigger Jira Ticket
-    const configs = await getJiraConfigs();
-    let jiraKey = 'PENDING';
-    if (configs.length > 0 && configs[0].enabled) {
-      const summary = `ONBOARDING: ${newUserName} (${newUserDept})`;
-      const roleListText = bundle.entitlementIds.map(eid => {
-        const ent = entitlements?.find(e => e.id === eid);
-        const res = resources?.find(r => r.id === ent?.resourceId);
-        return `${res?.name}: ${ent?.name}`;
-      });
+    try {
+      const bundle = bundles?.find(b => b.id === selectedBundleId);
       
-      const desc = `Bitte folgende Accounts für den neuen Mitarbeiter ${newUserName} erstellen:\n\nE-Mail: ${newUserEmail}\nStartdatum: ${onboardingDate}\n\nRollen laut Bundle '${bundle.name}':\n- ${roleListText.join('\n- ')}\n\nACHTUNG: Berechtigungen im Hub werden erst aktiv geschaltet, wenn dieses Ticket erledigt ist.`;
-      
-      const res = await createJiraTicket(configs[0].id, summary, desc);
-      if (res.success) jiraKey = res.key!;
-    }
-
-    // 3. Create Assignments with status 'requested'
-    for (const eid of bundle.entitlementIds) {
-      const assId = `ass-onb-${userId}-${eid}`.substring(0, 50);
-      const assData = {
-        id: assId,
+      // 1. Create User
+      const userId = `u-${Math.random().toString(36).substring(2, 9)}`;
+      const timestamp = new Date().toISOString();
+      const userData = {
+        id: userId,
         tenantId: 't1',
-        userId,
-        entitlementId: eid,
-        status: 'requested',
-        grantedBy: 'onboarding-wizard',
-        grantedAt: timestamp,
-        validFrom: onboardingDate,
-        jiraIssueKey: jiraKey,
-        ticketRef: jiraKey,
-        notes: `Wartend auf Ticket-Abschluss (${jiraKey}). Onboarding-Bundle: ${bundle.name}`
+        externalId: `MANUAL_${userId}`,
+        displayName: newUserName,
+        email: newUserEmail,
+        department: newUserDept,
+        enabled: true,
+        onboardingDate,
+        lastSyncedAt: timestamp
       };
 
       if (dataSource === 'mysql') {
-        await saveCollectionRecord('assignments', assId, assData);
+        await saveCollectionRecord('users', userId, userData);
       } else {
-        setDocumentNonBlocking(doc(db, 'assignments', assId), assData);
+        setDocumentNonBlocking(doc(db, 'users', userId), userData);
       }
-    }
 
-    toast({ title: "Onboarding angestoßen" });
-    setIsActionLoading(false);
-    resetJoinerForm();
-    refreshUsers();
-    refreshAssignments();
+      // 2. Trigger Jira Ticket
+      const configs = await getJiraConfigs();
+      let jiraKey = 'PENDING';
+      if (configs.length > 0 && configs[0].enabled) {
+        const summary = `ONBOARDING: ${newUserName} (${newUserDept})`;
+        const roleListText = bundle.entitlementIds.map(eid => {
+          const ent = entitlements?.find(e => e.id === eid);
+          const res = resources?.find(r => r.id === ent?.resourceId);
+          return `${res?.name}: ${ent?.name}`;
+        });
+        
+        const desc = `Bitte folgende Accounts für den neuen Mitarbeiter ${newUserName} erstellen:\n\nE-Mail: ${newUserEmail}\nStartdatum: ${onboardingDate}\n\nRollen laut Bundle '${bundle.name}':\n- ${roleListText.join('\n- ')}\n\nACHTUNG: Berechtigungen im Hub werden erst aktiv geschaltet, wenn dieses Ticket erledigt ist.`;
+        
+        const res = await createJiraTicket(configs[0].id, summary, desc);
+        if (res.success) jiraKey = res.key!;
+      }
+
+      // 3. Create Assignments with status 'requested'
+      for (const eid of bundle.entitlementIds) {
+        const assId = `ass-onb-${userId}-${eid}`.substring(0, 50);
+        const assData = {
+          id: assId,
+          tenantId: 't1',
+          userId,
+          entitlementId: eid,
+          status: 'requested',
+          grantedBy: 'onboarding-wizard',
+          grantedAt: timestamp,
+          validFrom: onboardingDate,
+          jiraIssueKey: jiraKey,
+          ticketRef: jiraKey,
+          notes: `Wartend auf Ticket-Abschluss (${jiraKey}). Onboarding-Bundle: ${bundle.name}`
+        };
+
+        if (dataSource === 'mysql') {
+          await saveCollectionRecord('assignments', assId, assData);
+        } else {
+          setDocumentNonBlocking(doc(db, 'assignments', assId), assData);
+        }
+      }
+
+      toast({ title: "Onboarding angestoßen" });
+      resetJoinerForm();
+      refreshUsers();
+      refreshAssignments();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Fehler beim Onboarding", description: error.message });
+    } finally {
+      setIsActionLoading(false);
+    }
   };
 
   const executeOffboarding = async () => {
     if (!userToOffboard) return;
     
     setIsActionLoading(true);
-    const user = userToOffboard;
-    const userAssignments = assignments?.filter(a => a.userId === user.id && a.status === 'active') || [];
-    const timestamp = new Date().toISOString();
+    try {
+      const user = userToOffboard;
+      const userAssignments = assignments?.filter(a => a.userId === user.id && a.status === 'active') || [];
+      const timestamp = new Date().toISOString();
 
-    const configs = await getJiraConfigs();
-    let jiraKey = 'OFFB-PENDING';
-    if (configs.length > 0 && configs[0].enabled) {
-      const summary = `OFFBOARDING: ${user.displayName}`;
-      const res = await createJiraTicket(configs[0].id, summary, `Bitte Accounts für ${user.displayName} (${user.email}) deaktivieren.`);
-      if (res.success) jiraKey = res.key!;
-    }
-
-    for (const a of userAssignments) {
-      const updateData = { status: 'pending_removal', jiraIssueKey: jiraKey };
-      if (dataSource === 'mysql') {
-        await saveCollectionRecord('assignments', a.id, { ...a, ...updateData });
-      } else {
-        updateDocumentNonBlocking(doc(db, 'assignments', a.id), updateData);
+      const configs = await getJiraConfigs();
+      let jiraKey = 'OFFB-PENDING';
+      if (configs.length > 0 && configs[0].enabled) {
+        const summary = `OFFBOARDING: ${user.displayName}`;
+        const res = await createJiraTicket(configs[0].id, summary, `Bitte Accounts für ${user.displayName} (${user.email}) deaktivieren.`);
+        if (res.success) jiraKey = res.key!;
       }
-    }
 
-    toast({ title: "Offboarding eingeleitet" });
-    setIsActionLoading(false);
-    setUserToOffboard(null);
-    setIsOffboardConfirmOpen(false);
-    refreshUsers();
-    refreshAssignments();
+      for (const a of userAssignments) {
+        const updateData = { status: 'pending_removal', jiraIssueKey: jiraKey };
+        if (dataSource === 'mysql') {
+          await saveCollectionRecord('assignments', a.id, { ...a, ...updateData });
+        } else {
+          updateDocumentNonBlocking(doc(db, 'assignments', a.id), updateData);
+        }
+      }
+
+      toast({ title: "Offboarding eingeleitet", description: `Jira-Ticket ${jiraKey} wurde erstellt.` });
+      setUserToOffboard(null);
+      setIsOffboardConfirmOpen(false);
+      refreshUsers();
+      refreshAssignments();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Fehler beim Offboarding", description: error.message });
+    } finally {
+      setIsActionLoading(false);
+    }
   };
 
   const resetJoinerForm = () => {
@@ -346,7 +356,19 @@ export default function LifecyclePage() {
                         <td className="p-4"><div className="font-bold">{u.displayName}</div><div className="text-[10px] text-muted-foreground">{u.email}</div></td>
                         <td className="p-4"><Badge variant="outline" className={cn("rounded-none font-bold uppercase text-[9px] border-none", isEnabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-500")}>{isEnabled ? "AKTIV" : "INAKTIV"}</Badge></td>
                         <td className="p-4 text-right">
-                          {isEnabled && <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase rounded-none border-red-200 text-red-600 hover:bg-red-50" onClick={() => { setUserToOffboard(u); setIsOffboardConfirmOpen(true); }}>Offboarding einleiten</Button>}
+                          {isEnabled && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-8 text-[9px] font-bold uppercase rounded-none border-red-200 text-red-600 hover:bg-red-50" 
+                              onClick={() => { 
+                                setUserToOffboard(u); 
+                                setIsOffboardConfirmOpen(true); 
+                              }}
+                            >
+                              Offboarding einleiten
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -445,12 +467,28 @@ export default function LifecyclePage() {
       <AlertDialog open={isOffboardConfirmOpen} onOpenChange={setIsOffboardConfirmOpen}>
         <AlertDialogContent className="rounded-none border-2">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-600 font-bold uppercase flex items-center gap-2 text-sm"><AlertTriangle className="w-5 h-5" /> Offboarding starten?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">Möchten Sie das Offboarding für {userToOffboard?.displayName} wirklich einleiten? Es wird ein Jira-Ticket erstellt.</AlertDialogDescription>
+            <AlertDialogTitle className="text-red-600 font-bold uppercase flex items-center gap-2 text-sm">
+              <AlertTriangle className="w-5 h-5" /> Offboarding starten?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              Möchten Sie das Offboarding für <strong>{userToOffboard?.displayName}</strong> wirklich einleiten? 
+              {userToOffboard && assignments && (
+                <span className="block mt-2 font-semibold">
+                  Es werden {assignments.filter(a => a.userId === userToOffboard.id && a.status === 'active').length} aktive Berechtigungen zur Entfernung vorgemerkt.
+                </span>
+              )}
+              Es wird automatisch ein Jira-Ticket zur Account-Deaktivierung in allen relevanten Systemen erstellt.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={executeOffboarding} className="bg-red-600 hover:bg-red-700 rounded-none font-bold uppercase text-xs">Starten</AlertDialogAction>
+            <AlertDialogCancel className="rounded-none" disabled={isActionLoading}>Abbrechen</AlertDialogCancel>
+            <Button 
+              onClick={executeOffboarding} 
+              disabled={isActionLoading}
+              className="bg-red-600 hover:bg-red-700 rounded-none font-bold uppercase text-xs h-10 px-6 gap-2"
+            >
+              {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} Starten
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

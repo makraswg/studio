@@ -172,3 +172,124 @@ export async function exportComplianceReportPdf(
     console.error('Compliance Export fehlgeschlagen:', error);
   }
 }
+
+/**
+ * Erstellt einen detaillierten Zuweisungs-Bericht gruppiert nach Nutzer oder Ressource.
+ */
+export async function exportFullComplianceReportPdf(
+  users: any[],
+  resources: any[],
+  entitlements: any[],
+  assignments: any[],
+  mode: 'user' | 'resource'
+) {
+  try {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    
+    const doc = new jsPDF();
+    const timestamp = new Date().toLocaleString('de-DE');
+
+    doc.setFontSize(20);
+    doc.setTextColor(37, 99, 235);
+    doc.text('Detaillierter Compliance Zuweisungsbericht', 14, 25);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Struktur: Gruppiert nach ${mode === 'user' ? 'Benutzern' : 'Ressourcen'}`, 14, 35);
+    doc.text(`Erstellungsdatum: ${timestamp}`, 14, 40);
+    doc.text('Mandant: Acme Corp', 14, 45);
+
+    let startY = 55;
+
+    if (mode === 'user') {
+      const activeAssignments = assignments.filter(a => a.status !== 'removed');
+      const uniqueUserIds = [...new Set(activeAssignments.map(a => a.userId))];
+      
+      uniqueUserIds.forEach((uid, index) => {
+        const user = users.find(u => u.id === uid);
+        const userAssignments = activeAssignments.filter(a => a.userId === uid);
+        
+        if (startY > 250) { doc.addPage(); startY = 20; }
+
+        doc.setFontSize(12);
+        doc.setTextColor(0);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${index + 1}. ${user?.displayName || uid} (${user?.email || 'keine E-Mail'})`, 14, startY);
+        startY += 5;
+
+        const tableData = userAssignments.map(a => {
+          const ent = entitlements.find(e => e.id === a.entitlementId);
+          const res = resources.find(r => r.id === ent?.resourceId);
+          return [
+            res?.name || 'Unbekanntes System',
+            ent?.name || 'Unbekannte Rolle',
+            ent?.riskLevel?.toUpperCase() || 'MEDIUM',
+            a.status.toUpperCase(),
+            a.validUntil ? new Date(a.validUntil).toLocaleDateString() : 'Unbefristet'
+          ];
+        });
+
+        autoTable(doc, {
+          startY: startY,
+          head: [['System', 'Rolle', 'Risiko', 'Status', 'Gültigkeit']],
+          body: tableData,
+          theme: 'striped',
+          headStyles: { fillColor: [37, 99, 235] },
+          styles: { fontSize: 8 },
+          margin: { left: 14 }
+        });
+
+        startY = (doc as any).lastAutoTable.finalY + 15;
+      });
+    } else {
+      const activeAssignments = assignments.filter(a => a.status !== 'removed');
+      const uniqueResourceIds = [...new Set(resources.map(r => r.id))];
+
+      resources.forEach((res, index) => {
+        const resAssignments = activeAssignments.filter(a => {
+          const ent = entitlements.find(e => e.id === a.entitlementId);
+          return ent?.resourceId === res.id;
+        });
+
+        if (resAssignments.length === 0) return;
+
+        if (startY > 250) { doc.addPage(); startY = 20; }
+
+        doc.setFontSize(12);
+        doc.setTextColor(0);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${index + 1}. System: ${res.name} (Besitzer: ${res.owner})`, 14, startY);
+        startY += 5;
+
+        const tableData = resAssignments.map(a => {
+          const user = users.find(u => u.id === a.userId);
+          const ent = entitlements.find(e => e.id === a.entitlementId);
+          return [
+            user?.displayName || a.userId,
+            user?.email || '-',
+            ent?.name || 'Unbekannte Rolle',
+            a.status.toUpperCase(),
+            a.validUntil ? new Date(a.validUntil).toLocaleDateString() : 'Unbefristet'
+          ];
+        });
+
+        autoTable(doc, {
+          startY: startY,
+          head: [['Benutzer', 'E-Mail', 'Rolle', 'Status', 'Gültigkeit']],
+          body: tableData,
+          theme: 'striped',
+          headStyles: { fillColor: [37, 99, 235] },
+          styles: { fontSize: 8 },
+          margin: { left: 14 }
+        });
+
+        startY = (doc as any).lastAutoTable.finalY + 15;
+      });
+    }
+
+    doc.save(`Compliance_Detailbericht_${mode}_${new Date().toISOString().split('T')[0]}.pdf`);
+  } catch (error) {
+    console.error('PDF Export fehlgeschlagen:', error);
+  }
+}

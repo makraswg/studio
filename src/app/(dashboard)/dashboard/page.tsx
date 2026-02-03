@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -16,7 +15,9 @@ import {
   CheckCircle2,
   FileDown,
   ExternalLink,
-  ShieldAlert
+  ShieldAlert,
+  FileText,
+  UserCircle
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -33,11 +34,19 @@ import {
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { exportComplianceReportPdf } from '@/lib/export-utils';
+import { exportComplianceReportPdf, exportFullComplianceReportPdf } from '@/lib/export-utils';
 import { toast } from '@/hooks/use-toast';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
 
 const riskData = [
   { name: 'Niedriges Risiko', value: 65, color: '#3b82f6' },
@@ -48,9 +57,11 @@ const riskData = [
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
 
   const { data: users, isLoading: usersLoading } = usePluggableCollection<any>('users');
   const { data: resources, isLoading: resourcesLoading } = usePluggableCollection<any>('resources');
+  const { data: entitlements, isLoading: entitlementsLoading } = usePluggableCollection<any>('entitlements');
   const { data: assignments, isLoading: assignmentsLoading } = usePluggableCollection<any>('assignments');
   const { data: auditLogs, isLoading: auditLoading } = usePluggableCollection<any>('auditEvents');
 
@@ -58,16 +69,17 @@ export default function DashboardPage() {
     setMounted(true);
   }, []);
 
-  const handleExportCompliance = async () => {
-    if (!users || !resources || !assignments || !auditLogs) {
+  const handleExportFull = async (mode: 'user' | 'resource') => {
+    if (!users || !resources || !assignments || !entitlements) {
       toast({ variant: "destructive", title: "Daten fehlen", description: "Bitte warten Sie, bis alle Daten geladen sind." });
       return;
     }
     
     setIsExporting(true);
+    setIsReportDialogOpen(false);
     try {
-      await exportComplianceReportPdf(users, resources, assignments, auditLogs);
-      toast({ title: "Bericht erstellt", description: "Der Compliance Statusbericht wurde als PDF heruntergeladen." });
+      await exportFullComplianceReportPdf(users, resources, entitlements, assignments, mode);
+      toast({ title: "Bericht erstellt", description: `Der Compliance Bericht nach ${mode === 'user' ? 'Benutzern' : 'Ressourcen'} wurde generiert.` });
     } catch (e) {
       toast({ variant: "destructive", title: "Fehler", description: "Bericht konnte nicht erstellt werden." });
     } finally {
@@ -111,7 +123,7 @@ export default function DashboardPage() {
             variant="outline" 
             size="sm" 
             className="h-9 font-bold uppercase text-[10px]"
-            onClick={handleExportCompliance}
+            onClick={() => setIsReportDialogOpen(true)}
             disabled={isExporting}
           >
             {isExporting ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Activity className="w-3 h-3 mr-2" />}
@@ -260,6 +272,42 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
+        <DialogContent className="rounded-none max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[10px] font-bold uppercase tracking-widest">Compliance-Bericht generieren</DialogTitle>
+            <DialogDescription className="text-xs">Wählen Sie die gewünschte Struktur für den Zuweisungs-Export.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-3 py-6">
+            <Button 
+              variant="outline" 
+              className="h-16 rounded-none flex items-center justify-start gap-4 hover:bg-primary/5 hover:border-primary transition-all group"
+              onClick={() => handleExportFull('user')}
+            >
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-sm group-hover:bg-blue-100"><UserCircle className="w-6 h-6" /></div>
+              <div className="text-left">
+                <p className="text-xs font-bold uppercase">Nach Benutzern</p>
+                <p className="text-[10px] text-muted-foreground">Struktur: Mitarbeiter -> Berechtigungen</p>
+              </div>
+            </Button>
+            <Button 
+              variant="outline" 
+              className="h-16 rounded-none flex items-center justify-start gap-4 hover:bg-primary/5 hover:border-primary transition-all group"
+              onClick={() => handleExportFull('resource')}
+            >
+              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-sm group-hover:bg-indigo-100"><Layers className="w-6 h-6" /></div>
+              <div className="text-left">
+                <p className="text-xs font-bold uppercase">Nach Ressourcen</p>
+                <p className="text-[10px] text-muted-foreground">Struktur: System -> Berechtigte Personen</p>
+              </div>
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsReportDialogOpen(false)} className="rounded-none h-10 px-8 text-[10px] font-bold uppercase">Abbrechen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

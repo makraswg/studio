@@ -41,6 +41,8 @@ export default function SettingsPage() {
   const [jiraEmail, setJiraEmail] = useState('');
   const [jiraToken, setJiraToken] = useState('');
   const [jiraProject, setJiraProject] = useState('');
+  const [jiraIssueType, setJiraIssueType] = useState('Service Request');
+  const [jiraApprovedStatus, setJiraApprovedStatus] = useState('Done');
   const [jiraEnabled, setJiraEnabled] = useState(false);
   const [isSavingJira, setIsSavingJira] = useState(false);
 
@@ -49,11 +51,13 @@ export default function SettingsPage() {
       const configs = await getJiraConfigs();
       if (configs.length > 0) {
         const c = configs[0];
-        setJiraUrl(c.url);
-        setJiraEmail(c.email);
-        setJiraToken(c.apiToken);
-        setJiraProject(c.projectKey);
-        setJiraEnabled(c.enabled);
+        setJiraUrl(c.url || '');
+        setJiraEmail(c.email || '');
+        setJiraToken(c.apiToken || '');
+        setJiraProject(c.projectKey || '');
+        setJiraIssueType(c.issueTypeName || 'Service Request');
+        setJiraApprovedStatus(c.approvedStatusName || 'Done');
+        setJiraEnabled(c.enabled || false);
       }
     };
     loadJira();
@@ -73,7 +77,8 @@ export default function SettingsPage() {
       email: jiraEmail,
       apiToken: jiraToken,
       projectKey: jiraProject,
-      issueTypeName: 'Service Request',
+      issueTypeName: jiraIssueType,
+      approvedStatusName: jiraApprovedStatus,
       enabled: jiraEnabled
     };
 
@@ -150,8 +155,16 @@ export default function SettingsPage() {
                   <Input placeholder="ITSM" value={jiraProject} onChange={e => setJiraProject(e.target.value)} className="rounded-none" />
                 </div>
                 <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase">Vorgangstyp (Issue Type)</Label>
+                  <Input placeholder="Service Request" value={jiraIssueType} onChange={e => setJiraIssueType(e.target.value)} className="rounded-none" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase">Status für "Genehmigt" (approved)</Label>
+                  <Input placeholder="Done" value={jiraApprovedStatus} onChange={e => setJiraApprovedStatus(e.target.value)} className="rounded-none" />
+                </div>
+                <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase">Admin E-Mail</Label>
-                  <Input placeholder="jira-admin@company.com" value={jiraEmail} onChange={e => jiraEmail(e.target.value)} className="rounded-none" />
+                  <Input placeholder="jira-admin@company.com" value={jiraEmail} onChange={e => setJiraEmail(e.target.value)} className="rounded-none" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase">Atlassian API Token</Label>

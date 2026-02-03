@@ -1,7 +1,7 @@
 
 'use server';
 
-import { getCollectionData, saveCollectionRecord } from './mysql-actions';
+import { getCollectionData } from './mysql-actions';
 import { JiraConfig, JiraSyncItem } from '@/lib/types';
 
 /**
@@ -56,7 +56,6 @@ export async function createJiraTicket(configId: string, summary: string, descri
 
 /**
  * Ruft genehmigte Zugriffsanfragen aus Jira ab.
- * Simuliert JQL: project = KEY AND status = "Approved"
  */
 export async function fetchJiraApprovedRequests(configId: string): Promise<JiraSyncItem[]> {
   const configs = await getJiraConfigs();
@@ -65,7 +64,8 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
 
   try {
     const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
-    const jql = `project = "${config.projectKey}" AND status = "Done" ORDER BY created DESC`;
+    const statusFilter = config.approvedStatusName || "Done";
+    const jql = `project = "${config.projectKey}" AND status = "${statusFilter}" ORDER BY created DESC`;
     const response = await fetch(`${config.url}/rest/api/3/search?jql=${encodeURIComponent(jql)}`, {
       headers: { 'Authorization': `Basic ${auth}` }
     });
@@ -79,7 +79,6 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
       status: issue.fields.status.name,
       reporter: issue.fields.reporter?.displayName || 'Unbekannt',
       created: issue.fields.created,
-      // In einer echten Umgebung würden wir hier Custom Fields für User/Rolle mappen
       requestedUserEmail: issue.fields.description?.content?.[0]?.content?.[0]?.text?.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0]
     }));
   } catch (e) {

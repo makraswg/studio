@@ -111,6 +111,7 @@ export const appSchema: AppSchema = {
       apiToken: 'TEXT',
       projectKey: 'VARCHAR(50)',
       issueTypeName: 'VARCHAR(100)',
+      approvedStatusName: 'VARCHAR(100)',
       enabled: 'BOOLEAN DEFAULT FALSE',
     }
   }

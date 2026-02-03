@@ -29,8 +29,6 @@ import {
   Users,
   Layout,
   CornerDownRight,
-  UserX,
-  ShieldAlert,
   HelpCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -76,15 +74,13 @@ import {
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
-  addDocumentNonBlocking, 
   deleteDocumentNonBlocking, 
-  updateDocumentNonBlocking,
   setDocumentNonBlocking
 } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { exportToExcel, exportResourcesPdf } from '@/lib/export-utils';
+import { exportResourcesPdf } from '@/lib/export-utils';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 
@@ -168,7 +164,7 @@ export default function ResourcesPage() {
     refresh();
   };
 
-  const handleSaveEntitlement = async () => {
+  const handleAddOrUpdateEntitlement = async () => {
     if (!entName || !selectedResource) return;
     
     const entId = editingEntitlementId || `ent-${Math.random().toString(36).substring(2, 9)}`;
@@ -193,6 +189,34 @@ export default function ResourcesPage() {
     toast({ title: editingEntitlementId ? "Berechtigung aktualisiert" : "Berechtigung hinzugefügt" });
     resetEntitlementForm();
     refresh();
+  };
+
+  const confirmDeleteResource = async () => {
+    if (selectedResource) {
+      if (dataSource === 'mysql') {
+        await deleteCollectionRecord('resources', selectedResource.id);
+      } else {
+        deleteDocumentNonBlocking(doc(db, 'resources', selectedResource.id));
+      }
+      toast({ title: "Ressource gelöscht" });
+      setIsDeleteDialogOpen(false);
+      setSelectedResource(null);
+      refresh();
+    }
+  };
+
+  const confirmDeleteEntitlement = async () => {
+    if (selectedEntitlement) {
+      if (dataSource === 'mysql') {
+        await deleteCollectionRecord('entitlements', selectedEntitlement.id);
+      } else {
+        deleteDocumentNonBlocking(doc(db, 'entitlements', selectedEntitlement.id));
+      }
+      toast({ title: "Rolle gelöscht" });
+      setIsDeleteEntitlementOpen(false);
+      setSelectedEntitlement(null);
+      refresh();
+    }
   };
 
   const resetResourceForm = () => {
@@ -224,20 +248,6 @@ export default function ResourcesPage() {
     setNewDocumentationUrl(resource.documentationUrl || '');
     setNewCriticality(resource.criticality);
     setIsCreateOpen(true);
-  };
-
-  const confirmDeleteResource = async () => {
-    if (selectedResource) {
-      if (dataSource === 'mysql') {
-        await deleteCollectionRecord('resources', selectedResource.id);
-      } else {
-        deleteDocumentNonBlocking(doc(db, 'resources', selectedResource.id));
-      }
-      toast({ title: "Ressource gelöscht" });
-      setIsDeleteDialogOpen(false);
-      setSelectedResource(null);
-      refresh();
-    }
   };
 
   const filteredResources = resources?.filter((res: any) => 

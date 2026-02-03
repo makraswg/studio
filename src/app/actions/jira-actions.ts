@@ -27,6 +27,7 @@ export async function getJiraConfigs(): Promise<JiraConfig[]> {
 
 /**
  * Testet die Jira-Verbindung und führt eine Probesuche aus.
+ * Nutzt den Endpunkt /rest/api/3/search/jql wie von der Migration gefordert.
  */
 export async function testJiraConnectionAction(configData: Partial<JiraConfig>): Promise<{ 
   success: boolean; 
@@ -62,10 +63,10 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
 
     const userData = await testRes.json();
     
-    // 2. Test-Suche mit POST /search (Moderner Standard für JQL)
+    // 2. Test-Suche mit POST /search/jql (Vorgeschriebener Endpunkt für JQL Suchen)
     const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName}"${configData.issueTypeName ? ` AND "Request Type" = "${configData.issueTypeName}"` : ''}`;
     
-    const searchRes = await fetch(`${url}/rest/api/3/search`, {
+    const searchRes = await fetch(`${url}/rest/api/3/search/jql`, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${auth}`,
@@ -150,6 +151,7 @@ export async function createJiraTicket(configId: string, summary: string, descri
 
 /**
  * Ruft genehmigte Zugriffsanfragen aus Jira ab.
+ * Nutzt ebenfalls den Endpunkt /rest/api/3/search/jql.
  */
 export async function fetchJiraApprovedRequests(configId: string): Promise<JiraSyncItem[]> {
   const configs = await getJiraConfigs();
@@ -166,7 +168,7 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
     }
     jql += ` ORDER BY created DESC`;
 
-    const response = await fetch(`${url}/rest/api/3/search`, {
+    const response = await fetch(`${url}/rest/api/3/search/jql`, {
       method: 'POST',
       headers: { 
         'Authorization': `Basic ${auth}`,

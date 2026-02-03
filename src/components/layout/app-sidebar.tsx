@@ -13,8 +13,8 @@ import {
   LogOut, 
   LayoutDashboard,
   ShieldCheck,
-  FileText,
-  Workflow
+  Workflow,
+  Settings2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -48,7 +48,7 @@ export function AppSidebar() {
       <div className="px-3 flex-1 overflow-y-auto space-y-6 pt-4">
         <div>
           <p className="px-3 mb-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-            IAM Operations
+            IAM Operationen
           </p>
           <nav className="space-y-1">
             {navItems.map((item) => {
@@ -74,9 +74,21 @@ export function AppSidebar() {
 
         <div>
           <p className="px-3 mb-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-            Configuration
+            Konfiguration
           </p>
           <nav className="space-y-1">
+            <Link 
+              href="/setup"
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider",
+                pathname === '/setup' 
+                  ? "bg-primary text-primary-foreground" 
+                  : "text-slate-400 hover:bg-white/5 hover:text-white"
+              )}
+            >
+              <Settings2 className="w-3.5 h-3.5" />
+              <span>Setup & Daten</span>
+            </Link>
             <Link 
               href="/settings"
               className={cn(

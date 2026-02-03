@@ -1,11 +1,9 @@
-
 "use client";
 
 import { AppSidebar } from '@/components/layout/app-sidebar';
-import { Search, Bell } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { SettingsProvider } from '@/context/settings-context'; // Importieren
+import { SettingsProvider } from '@/context/settings-context';
 
 export default function DashboardLayout({
   children,
@@ -13,19 +11,13 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <SettingsProvider> {/* Umschließen */}
+    <SettingsProvider>
       <div className="flex min-h-screen bg-background">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-16 border-b bg-card flex items-center justify-between px-8 sticky top-0 z-30">
-            <div className="flex-1 max-w-xl">
-              <div className="relative group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                <Input 
-                  placeholder="Ressourcen, Benutzer oder Berechtigungen suchen..." 
-                  className="pl-10 h-10 border-none bg-accent/50 focus-visible:ring-1 focus-visible:ring-primary w-full max-w-md transition-all rounded-none" 
-                />
-              </div>
+            <div className="flex-1 flex items-center">
+              {/* Leerer Platzhalter für die linke Seite des Headers */}
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">

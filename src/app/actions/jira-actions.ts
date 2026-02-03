@@ -4,6 +4,20 @@ import { getCollectionData } from './mysql-actions';
 import { JiraConfig, JiraSyncItem } from '@/lib/types';
 
 /**
+ * Hilfsfunktion zum Bereinigen der Jira-URL.
+ * Entfernt trailing slashes und versehentlich mitkopierte API-Pfade.
+ */
+function cleanJiraUrl(url: string): string {
+  if (!url) return '';
+  let cleaned = url.trim().replace(/\/$/, '');
+  // Falls der User den API-Pfad mitkopiert hat, extrahieren wir nur die Basis
+  if (cleaned.includes('/rest/api/')) {
+    cleaned = cleaned.split('/rest/api/')[0];
+  }
+  return cleaned;
+}
+
+/**
  * Ruft die Jira-Konfiguration ab.
  */
 export async function getJiraConfigs(): Promise<JiraConfig[]> {
@@ -12,7 +26,7 @@ export async function getJiraConfigs(): Promise<JiraConfig[]> {
 }
 
 /**
- * Testet die Jira-Verbindung und gibt detaillierte Diagnose-Informationen zurück.
+ * Testet die Jira-Verbindung und führt eine Probesuche aus.
  */
 export async function testJiraConnectionAction(configData: Partial<JiraConfig>): Promise<{ 
   success: boolean; 
@@ -24,11 +38,11 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
     return { success: false, message: 'Unvollständige Zugangsdaten.' };
   }
 
+  const url = cleanJiraUrl(configData.url);
+  const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
+
   try {
-    const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
-    const url = configData.url.replace(/\/$/, ''); // Remove trailing slash
-    
-    // 1. Einfacher Ping an /myself
+    // 1. Einfacher Ping an /myself um Auth zu prüfen
     const testRes = await fetch(`${url}/rest/api/3/myself`, {
       headers: {
         'Authorization': `Basic ${auth}`,
@@ -41,14 +55,14 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
       const errorText = await testRes.text();
       return { 
         success: false, 
-        message: `HTTP Fehler ${testRes.status}: ${testRes.statusText}`,
-        details: errorText.substring(0, 200)
+        message: `Authentifizierungsfehler (${testRes.status})`,
+        details: `Jira-Antwort: ${errorText.substring(0, 300)}`
       };
     }
 
     const userData = await testRes.json();
     
-    // 2. Test-Suche mit POST (Moderner Standard)
+    // 2. Test-Suche mit POST /search (Moderner Standard für JQL)
     const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName}"${configData.issueTypeName ? ` AND "Request Type" = "${configData.issueTypeName}"` : ''}`;
     
     const searchRes = await fetch(`${url}/rest/api/3/search`, {
@@ -69,9 +83,9 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
     if (!searchRes.ok) {
       const errorText = await searchRes.text();
       return { 
-        success: true, 
-        message: `Verbindung ok (User: ${userData.displayName}), aber JQL-Suche schlug fehl.`,
-        details: `JQL Fehler: ${errorText.substring(0, 200)}`
+        success: false, 
+        message: `JQL Suche fehlgeschlagen (${searchRes.status})`,
+        details: `Fehlermeldung: ${errorText.substring(0, 500)}`
       };
     }
 
@@ -80,11 +94,11 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
       success: true, 
       message: `Erfolgreich verbunden als ${userData.displayName}.`,
       count: searchData.total,
-      details: `Die JQL-Abfrage liefert aktuell ${searchData.total} Tickets zurück.`
+      details: `Gefundene Tickets für Abfrage: ${searchData.total}`
     };
 
   } catch (e: any) {
-    return { success: false, message: `Systemfehler: ${e.message}` };
+    return { success: false, message: `Verbindungsfehler: ${e.message}`, details: `Ziel-URL: ${url}` };
   }
 }
 
@@ -95,12 +109,12 @@ export async function createJiraTicket(configId: string, summary: string, descri
   const configs = await getJiraConfigs();
   const config = configs.find(c => c.id === configId);
 
-  if (!config || !config.enabled) return { success: false, error: 'Jira-Konfiguration nicht gefunden oder deaktiviert.' };
+  if (!config || !config.enabled) return { success: false, error: 'Jira nicht konfiguriert.' };
+
+  const url = cleanJiraUrl(config.url);
+  const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
 
   try {
-    const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
-    const url = config.url.replace(/\/$/, '');
-    
     const response = await fetch(`${url}/rest/api/3/issue`, {
       method: 'POST',
       headers: {
@@ -127,7 +141,7 @@ export async function createJiraTicket(configId: string, summary: string, descri
     if (response.ok) {
       return { success: true, key: data.key };
     } else {
-      return { success: false, error: data.errors ? JSON.stringify(data.errors) : 'Unbekannter Jira-Fehler' };
+      return { success: false, error: data.errors ? JSON.stringify(data.errors) : 'Ticket konnte nicht erstellt werden.' };
     }
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -142,11 +156,10 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
   const config = configs.find(c => c.id === configId);
   if (!config || !config.enabled) return [];
 
+  const url = cleanJiraUrl(config.url);
+  const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
+
   try {
-    const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
-    const url = config.url.replace(/\/$/, '');
-    
-    // JQL Filterung
     let jql = `project = "${config.projectKey}" AND status = "${config.approvedStatusName}"`;
     if (config.issueTypeName) {
       jql += ` AND "Request Type" = "${config.issueTypeName}"`;
@@ -169,8 +182,7 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
     });
 
     if (!response.ok) {
-      const err = await response.text();
-      console.error("[Jira Sync API Error]:", err);
+      console.error("[Jira Sync] API Error:", await response.text());
       return [];
     }
 
@@ -210,28 +222,29 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
       };
     });
   } catch (e) {
-    console.error("[Jira Sync Critical Error]:", e);
+    console.error("[Jira Sync] Critical Error:", e);
     return [];
   }
 }
 
 /**
- * Kommentiert und schließt ein Jira Ticket.
+ * Kommentiert ein Jira Ticket.
  */
 export async function resolveJiraTicket(configId: string, issueKey: string, comment: string): Promise<boolean> {
   const configs = await getJiraConfigs();
   const config = configs.find(c => c.id === configId);
   if (!config) return false;
 
+  const url = cleanJiraUrl(config.url);
+  const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
+
   try {
-    const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
-    const url = config.url.replace(/\/$/, '');
-    
     await fetch(`${url}/rest/api/3/issue/${issueKey}/comment`, {
       method: 'POST',
       headers: { 
         'Authorization': `Basic ${auth}`, 
-        'Content-Type': 'application/json' 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify({ 
         body: { 
@@ -245,7 +258,6 @@ export async function resolveJiraTicket(configId: string, issueKey: string, comm
       }),
       cache: 'no-store'
     });
-
     return true;
   } catch (e) {
     return false;

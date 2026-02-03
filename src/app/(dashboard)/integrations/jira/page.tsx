@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -21,7 +20,8 @@ import {
   AlertTriangle,
   History,
   Info,
-  Terminal
+  Terminal,
+  XCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
@@ -39,6 +39,7 @@ export default function JiraSyncPage() {
   const { user: authUser } = useAuthUser();
   const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [jiraTickets, setJiraTickets] = useState<any[]>([]);
   const [activeConfig, setActiveConfig] = useState<any>(null);
 
@@ -53,6 +54,7 @@ export default function JiraSyncPage() {
 
   const loadSyncData = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const configs = await getJiraConfigs();
       if (configs.length > 0 && configs[0].enabled) {
@@ -60,8 +62,9 @@ export default function JiraSyncPage() {
         const tickets = await fetchJiraApprovedRequests(configs[0].id);
         setJiraTickets(tickets);
       }
-    } catch (e) {
-      toast({ variant: "destructive", title: "Fehler beim Laden", description: "Verbindung zu Jira fehlgeschlagen." });
+    } catch (e: any) {
+      setError(e.message || "Unbekannter Fehler beim Abrufen der Jira-Daten.");
+      toast({ variant: "destructive", title: "Synchronisationsfehler", description: "Bitte prüfen Sie die API-Konfiguration." });
     } finally {
       setIsLoading(false);
     }
@@ -139,7 +142,6 @@ export default function JiraSyncPage() {
 
   if (!mounted) return null;
 
-  // Erstelle die JQL zur Anzeige für den User zur Fehlersuche
   const debugJql = activeConfig ? `project = "${activeConfig.projectKey}" AND status = "${activeConfig.approvedStatusName}"${activeConfig.issueTypeName ? ` AND "Request Type" = "${activeConfig.issueTypeName}"` : ''}` : '';
 
   return (
@@ -156,6 +158,17 @@ export default function JiraSyncPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-none flex items-center gap-3">
+          <XCircle className="w-5 h-5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-[10px] font-bold uppercase">Fehler beim Datenabruf</p>
+            <p className="text-xs">{error}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={loadSyncData} className="bg-white rounded-none h-8 text-[9px] font-bold uppercase border-red-200">Wiederholen</Button>
+        </div>
+      )}
+
       {!activeConfig && !isLoading && (
         <div className="p-8 border-2 border-dashed rounded-none text-center bg-muted/10">
           <AlertTriangle className="w-10 h-10 text-orange-400 mx-auto mb-4" />
@@ -167,7 +180,7 @@ export default function JiraSyncPage() {
         </div>
       )}
 
-      {activeConfig && (
+      {activeConfig && !error && (
         <div className="admin-card overflow-hidden">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -247,7 +260,7 @@ export default function JiraSyncPage() {
       )}
 
       <div className="p-4 bg-blue-50 border text-[10px] font-bold uppercase text-blue-700 leading-relaxed">
-        Hinweis: Das System sucht in Jira nach Tickets, bei denen eine gültige E-Mail-Adresse in der Beschreibung hinterlegt ist. Die JQL-Abfrage filtert nach Projekt, Status und Anfragetyp.
+        Hinweis: Das System sucht in Jira nach Tickets, bei denen eine gültige E-Mail-Adresse in der Beschreibung hinterlegt ist. Die API nutzt den POST /search Endpunkt für maximale Kompatibilität.
       </div>
     </div>
   );

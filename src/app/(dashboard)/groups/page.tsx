@@ -212,6 +212,44 @@ export default function GroupsPage() {
       return;
     }
 
+    // DUPLICATE CHECK: Verhindern, dass Gruppen Rollen zuweisen, die Nutzer bereits besitzen
+    const conflicts: string[] = [];
+    const currentAssignments = assignments || [];
+    const currentGroupId = selectedGroup?.id || 'NEW_GROUP';
+
+    for (const uid of selectedUserIds) {
+      const user = users?.find(u => u.id === uid);
+      const userName = user?.displayName || user?.name || uid;
+      
+      for (const eid of selectedEntitlementIds) {
+        const ent = entitlements?.find(e => e.id === eid);
+        const res = resources?.find(r => r.id === ent?.resourceId);
+        const roleName = `${res?.name || 'Unbekannt'} - ${ent?.name || 'Unbekannte Rolle'}`;
+
+        // Wir suchen nach aktiven Zuweisungen für diesen Nutzer und diese Rolle,
+        // die NICHT aus der aktuell bearbeiteten Gruppe stammen.
+        const existing = currentAssignments.find(a => 
+          a.userId === uid && 
+          a.entitlementId === eid && 
+          a.status === 'active' &&
+          a.originGroupId !== currentGroupId
+        );
+
+        if (existing) {
+          conflicts.push(`${userName} besitzt bereits [${roleName}]`);
+        }
+      }
+    }
+
+    if (conflicts.length > 0) {
+      toast({ 
+        variant: "destructive", 
+        title: "Speichern nicht möglich", 
+        description: `Es wurden Zuweisungskonflikte gefunden: ${conflicts.slice(0, 2).join(', ')}${conflicts.length > 2 ? ` (+${conflicts.length - 2} weitere)` : ''}. Bitte entfernen Sie die betroffenen Nutzer oder Rollen aus der Gruppe.`
+      });
+      return;
+    }
+
     const groupId = selectedGroup?.id || `grp_${Math.random().toString(36).substring(2, 9)}`;
     const timestamp = new Date().toISOString();
     const groupData = {

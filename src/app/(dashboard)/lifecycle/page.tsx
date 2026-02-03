@@ -49,6 +49,16 @@ import {
   DialogFooter,
   DialogDescription
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 
 export default function LifecyclePage() {
@@ -74,6 +84,11 @@ export default function LifecyclePage() {
   const [bundleName, setBundleName] = useState('');
   const [bundleDesc, setBundleDesc] = useState('');
   const [selectedEntitlementIds, setSelectedEntitlementIds] = useState<string[]>([]);
+  const [roleSearchTerm, setRoleSearchTerm] = useState('');
+
+  // Offboarding Confirmation State
+  const [userToOffboard, setUserToOffboard] = useState<any>(null);
+  const [isOffboardConfirmOpen, setIsOffboardConfirmOpen] = useState(false);
 
   const { data: users, refresh: refreshUsers } = usePluggableCollection<any>('users');
   const { data: bundles, refresh: refreshBundles } = usePluggableCollection<any>('bundles');
@@ -111,6 +126,7 @@ export default function LifecyclePage() {
     setBundleName('');
     setBundleDesc('');
     setSelectedEntitlementIds([]);
+    setRoleSearchTerm('');
     refreshBundles();
   };
 
@@ -192,11 +208,13 @@ export default function LifecyclePage() {
     refreshAssignments();
   };
 
-  const startOffboarding = async (user: any) => {
+  const executeOffboarding = async () => {
+    if (!userToOffboard) return;
+    
     setIsActionLoading(true);
+    const user = userToOffboard;
     const userAssignments = assignments?.filter(a => a.userId === user.id && a.status === 'active') || [];
     const timestamp = new Date().toISOString();
-    const today = timestamp.split('T')[0];
 
     // 1. Create Jira Ticket FIRST
     const configs = await getJiraConfigs();
@@ -248,6 +266,8 @@ export default function LifecyclePage() {
 
     toast({ title: "Offboarding eingeleitet", description: `Jira Ticket ${jiraKey} erstellt. Status: Pending Removal.` });
     setIsActionLoading(false);
+    setUserToOffboard(null);
+    setIsOffboardConfirmOpen(false);
     refreshUsers();
     refreshAssignments();
   };
@@ -260,6 +280,12 @@ export default function LifecyclePage() {
     setOnboardingDate(new Date().toISOString().split('T')[0]);
   };
 
+  const filteredEntitlements = entitlements?.filter(e => {
+    const res = resources?.find(r => r.id === e.resourceId);
+    const term = roleSearchTerm.toLowerCase();
+    return e.name.toLowerCase().includes(term) || (res?.name || '').toLowerCase().includes(term);
+  }) || [];
+
   if (!mounted) return null;
 
   return (
@@ -269,9 +295,11 @@ export default function LifecyclePage() {
           <h1 className="text-2xl font-bold tracking-tight">Identity Lifecycle Hub</h1>
           <p className="text-sm text-muted-foreground">Zentrale Verwaltung von Joiner- und Leaver-Prozessen (Ticket-gesteuert).</p>
         </div>
-        <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsBundleCreateOpen(true)}>
-          <Package className="w-3.5 h-3.5 mr-2" /> Bundle definieren
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsBundleCreateOpen(true)}>
+            <Package className="w-3.5 h-3.5 mr-2" /> Bundle definieren
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -406,7 +434,6 @@ export default function LifecyclePage() {
                 <tbody className="divide-y">
                   {users?.filter(u => u.displayName.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())).map(u => {
                     const pendingRemovalCount = assignments?.filter(a => a.userId === u.id && a.status === 'pending_removal').length || 0;
-                    const activeCount = assignments?.filter(a => a.userId === u.id && a.status === 'active').length || 0;
                     const isEnabled = u.enabled === true || u.enabled === 1 || u.enabled === "1";
                     
                     return (
@@ -432,7 +459,7 @@ export default function LifecyclePage() {
                               variant="outline" 
                               size="sm" 
                               className="h-8 text-[9px] font-bold uppercase rounded-none border-red-200 text-red-600 hover:bg-red-50"
-                              onClick={() => startOffboarding(u)}
+                              onClick={() => { setUserToOffboard(u); setIsOffboardConfirmOpen(true); }}
                               disabled={isActionLoading}
                             >
                               <UserMinus className="w-3 h-3 mr-1" /> Offboarding einleiten
@@ -484,11 +511,11 @@ export default function LifecyclePage() {
 
       {/* Bundle Create Dialog */}
       <Dialog open={isBundleCreateOpen} onOpenChange={setIsBundleCreateOpen}>
-        <DialogContent className="rounded-none border shadow-2xl max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="rounded-none border shadow-2xl max-w-2xl overflow-hidden flex flex-col h-[80vh]">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="text-sm font-bold uppercase">Rollen-Bundle definieren</DialogTitle>
           </DialogHeader>
-          <div className="space-y-6 py-4">
+          <div className="flex-1 overflow-y-auto space-y-6 py-4 pr-2 custom-scrollbar">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Bundle Name</Label>
@@ -501,32 +528,88 @@ export default function LifecyclePage() {
             </div>
 
             <div className="space-y-3">
-              <Label className="text-[10px] font-bold uppercase text-primary tracking-widest">Rollen wählen</Label>
-              <div className="border rounded-none h-64 overflow-y-auto bg-slate-50/50 p-2 grid grid-cols-1 gap-1">
-                {entitlements?.map(e => {
+              <Label className="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center justify-between">
+                Rollen wählen
+                <span className="text-muted-foreground">{selectedEntitlementIds.length} gewählt</span>
+              </Label>
+              
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input 
+                  placeholder="Nach Rollen oder Systemen suchen..." 
+                  value={roleSearchTerm} 
+                  onChange={e => setRoleSearchTerm(e.target.value)}
+                  className="pl-8 h-9 rounded-none text-xs bg-muted/20 border-none mb-2"
+                />
+              </div>
+
+              <div className="border rounded-none bg-slate-50/50 p-2 grid grid-cols-1 gap-1">
+                {filteredEntitlements.map(e => {
                   const res = resources?.find(r => r.id === e.resourceId);
                   const isChecked = selectedEntitlementIds.includes(e.id);
                   return (
-                    <div key={e.id} className={cn("flex items-center gap-3 p-2 text-xs border cursor-pointer", isChecked ? "border-primary bg-primary/5" : "border-transparent")} onClick={() => setSelectedEntitlementIds(prev => prev.includes(e.id) ? prev.filter(id => id !== e.id) : [...prev, e.id])}>
-                      <div className={cn("w-4 h-4 border flex items-center justify-center", isChecked ? "bg-primary border-primary" : "bg-white")}>
+                    <div 
+                      key={e.id} 
+                      className={cn(
+                        "flex items-center gap-3 p-2 text-xs border cursor-pointer transition-colors", 
+                        isChecked ? "border-primary bg-primary/5" : "border-transparent bg-white hover:bg-muted/50"
+                      )} 
+                      onClick={() => setSelectedEntitlementIds(prev => prev.includes(e.id) ? prev.filter(id => id !== e.id) : [...prev, e.id])}
+                    >
+                      <div className={cn("w-4 h-4 border flex items-center justify-center shrink-0", isChecked ? "bg-primary border-primary" : "bg-white")}>
                         {isChecked && <CheckCircle2 className="w-3 h-3 text-white" />}
                       </div>
-                      <div className="flex flex-col">
-                        <span className="font-bold uppercase text-[10px]">{res?.name}</span>
-                        <span className="text-muted-foreground text-[10px]">{e.name}</span>
+                      <div className="flex flex-col truncate">
+                        <span className="font-bold uppercase text-[10px] truncate">{res?.name || 'System'}</span>
+                        <span className="text-muted-foreground text-[10px] truncate">{e.name}</span>
                       </div>
                     </div>
                   );
                 })}
+                {filteredEntitlements.length === 0 && (
+                  <div className="py-8 text-center text-[10px] font-bold uppercase text-muted-foreground italic">
+                    Keine passenden Rollen gefunden
+                  </div>
+                )}
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t pt-4">
             <Button variant="outline" onClick={() => setIsBundleCreateOpen(false)} className="rounded-none">Abbrechen</Button>
             <Button onClick={handleCreateBundle} className="rounded-none font-bold uppercase text-[10px]">Bundle Speichern</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Offboarding Confirmation Dialog */}
+      <AlertDialog open={isOffboardConfirmOpen} onOpenChange={setIsOffboardConfirmOpen}>
+        <AlertDialogContent className="rounded-none shadow-2xl border-2">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600 font-bold uppercase flex items-center gap-2 text-sm">
+              <AlertTriangle className="w-5 h-5" /> Offboarding einleiten?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs space-y-4">
+              <p>
+                Möchten Sie den Offboarding-Prozess für <strong>{userToOffboard?.displayName}</strong> wirklich starten?
+              </p>
+              <div className="p-3 bg-red-50 border border-red-100 text-red-800 space-y-2">
+                <p className="font-bold uppercase text-[10px]">Folgende Aktionen werden ausgelöst:</p>
+                <ul className="list-disc pl-4 text-[10px] space-y-1 uppercase font-bold">
+                  <li>Automatisches Jira-Ticket zur De-Provisionierung wird erstellt.</li>
+                  <li>Alle {assignments?.filter(a => a.userId === userToOffboard?.id && a.status === 'active').length || 0} aktiven Zuweisungen werden in den Status 'Pending Removal' versetzt.</li>
+                  <li>Die finale Sperrung erfolgt erst nach IT-Bestätigung im Ticket.</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-none shadow-none text-xs font-bold uppercase" onClick={() => setUserToOffboard(null)}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={executeOffboarding} className="bg-red-600 hover:bg-red-700 rounded-none font-bold uppercase text-xs shadow-none">
+              Offboarding starten
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

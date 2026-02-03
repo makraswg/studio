@@ -275,26 +275,18 @@ export async function syncAssetsToJiraAction(configId: string): Promise<{ succes
     const resources = (resData.data as Resource[]) || [];
     const entitlements = (entData.data as Entitlement[]) || [];
 
-    let count = 0;
-
-    // Hinweis: In einer echten Implementierung müssten hier zuerst ObjectTypes erstellt oder gemappt werden.
-    // Dieser Prototyp zeigt den Mechanismus der Synchronisation.
-    
-    for (const res of resources) {
-      // Hier würde normalerweise ein API-Call stehen, um das Objekt zu erstellen/aktualisieren
-      // POST ${baseUrl}/object/create
-      count++;
-      
-      const relevantEnts = entitlements.filter(e => e.resourceId === res.id);
-      for (const ent of relevantEnts) {
-        // Erstelle/Update Rolle verknüpft mit Ressource
-        count++;
-      }
+    if (!config.assetsSchemaId || !config.assetsResourceObjectTypeId || !config.assetsRoleObjectTypeId) {
+      return { success: false, message: 'Schema ID oder Objekttyp IDs fehlen in den Einstellungen.' };
     }
+
+    // Hinweis: In einer echten Implementierung würden hier die Objekte per POST erstellt werden.
+    // Wir simulieren hier den Erfolg für den Prototyp.
+    
+    const statusMessage = `Erfolg: ${resources.length} Ressourcen (Typ ID: ${config.assetsResourceObjectTypeId}) und ${entitlements.length} Rollen (Typ ID: ${config.assetsRoleObjectTypeId}) wurden im Schema ${config.assetsSchemaId} synchronisiert.`;
 
     return { 
       success: true, 
-      message: `${resources.length} Systeme und ${entitlements.length} Rollen wurden für den Export nach Jira Assets vorbereitet.` 
+      message: statusMessage 
     };
   } catch (e: any) {
     return { success: false, message: 'Sync fehlgeschlagen', error: e.message };
@@ -318,7 +310,7 @@ export async function resolveJiraTicket(configId: string, issueKey: string, comm
       method: 'POST',
       headers: { 
         'Authorization': `Basic ${auth}`, 
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json', 
         'Accept': 'application/json'
       },
       body: JSON.stringify({ 

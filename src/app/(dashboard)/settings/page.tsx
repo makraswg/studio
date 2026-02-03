@@ -18,7 +18,8 @@ import {
   AlertTriangle,
   Zap,
   Box,
-  Info
+  Info,
+  HelpCircle
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
@@ -47,6 +48,8 @@ export default function SettingsPage() {
   // Jira Assets State
   const [assetsWorkspaceId, setAssetsWorkspaceId] = useState('');
   const [assetsSchemaId, setAssetsSchemaId] = useState('');
+  const [assetsResourceObjectTypeId, setAssetsResourceObjectTypeId] = useState('');
+  const [assetsRoleObjectTypeId, setAssetsRoleObjectTypeId] = useState('');
 
   const [isSavingJira, setIsSavingJira] = useState(false);
   const [isTestingJira, setIsTestingJira] = useState(false);
@@ -67,6 +70,8 @@ export default function SettingsPage() {
         setJiraEnabled(c.enabled || false);
         setAssetsWorkspaceId(c.assetsWorkspaceId || '');
         setAssetsSchemaId(c.assetsSchemaId || '');
+        setAssetsResourceObjectTypeId(c.assetsResourceObjectTypeId || '');
+        setAssetsRoleObjectTypeId(c.assetsRoleObjectTypeId || '');
       }
     };
     loadJira();
@@ -117,7 +122,9 @@ export default function SettingsPage() {
       doneStatusName: jiraDoneStatus,
       enabled: jiraEnabled,
       assetsWorkspaceId,
-      assetsSchemaId
+      assetsSchemaId,
+      assetsResourceObjectTypeId,
+      assetsRoleObjectTypeId
     };
 
     const res = await saveCollectionRecord('jiraConfigs', 'global-jira', configData);
@@ -231,7 +238,7 @@ export default function SettingsPage() {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 border bg-slate-50/50">
-                  <div className="space-y-2">
+                  <div className="space-y-2 md:col-span-2">
                     <Label className="text-[10px] font-bold uppercase flex items-center justify-between">
                       Workspace ID 
                       <span className="text-[8px] font-normal text-muted-foreground">(UUID Format)</span>
@@ -246,10 +253,27 @@ export default function SettingsPage() {
                       Schema ID
                       <span className="text-[8px] font-normal text-muted-foreground">(Zahl)</span>
                     </Label>
-                    <Input placeholder="z.B. 1" value={assetsSchemaId} onChange={e => setAssetsSchemaId(e.target.value)} className="rounded-none bg-white" />
+                    <Input placeholder="z.B. 4" value={assetsSchemaId} onChange={e => setAssetsSchemaId(e.target.value)} className="rounded-none bg-white" />
                     <p className="text-[9px] text-muted-foreground leading-relaxed">
-                      Klicken Sie in Assets auf Ihr Schema. Die ID steht am Ende der URL (z. B. <code className="bg-slate-200 px-1">/objectschema/1</code>).
+                      In Ihrem Beispiel (`.../object-schema/4`) ist dies die **4**.
                     </p>
+                  </div>
+                  <div className="space-y-2">
+                    {/* Spacer */}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase flex items-center gap-2">
+                      Objekttyp ID: Ressourcen (Systeme)
+                      <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-muted-foreground"/></TooltipTrigger><TooltipContent>ID der Asset-Klasse für Systeme.</TooltipContent></Tooltip></TooltipProvider>
+                    </Label>
+                    <Input placeholder="z.B. 42" value={assetsResourceObjectTypeId} onChange={e => setAssetsResourceObjectTypeId(e.target.value)} className="rounded-none bg-white" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase flex items-center gap-2">
+                      Objekttyp ID: Rollen (Berechtigungen)
+                      <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-muted-foreground"/></TooltipTrigger><TooltipContent>ID der Asset-Klasse für Rollen.</TooltipContent></Tooltip></TooltipProvider>
+                    </Label>
+                    <Input placeholder="z.B. 43" value={assetsRoleObjectTypeId} onChange={e => setAssetsRoleObjectTypeId(e.target.value)} className="rounded-none bg-white" />
                   </div>
                 </div>
               </div>

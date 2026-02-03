@@ -38,16 +38,16 @@ export async function getCollectionData(collectionName: string): Promise<{ data:
     if (tableName === 'groups' || tableName === 'bundles') {
       data = data.map((item: any) => ({
         ...item,
-        entitlementIds: item.entitlementIds ? JSON.parse(item.entitlementIds) : [],
-        userIds: item.userIds ? JSON.parse(item.userIds) : [],
+        entitlementIds: item.entitlementIds ? (typeof item.entitlementIds === 'string' ? JSON.parse(item.entitlementIds) : item.entitlementIds) : [],
+        userIds: item.userIds ? (typeof item.userIds === 'string' ? JSON.parse(item.userIds) : item.userIds) : [],
       }));
     }
 
     if (tableName === 'auditEvents') {
       data = data.map((item: any) => ({
         ...item,
-        before: item.before ? JSON.parse(item.before) : null,
-        after: item.after ? JSON.parse(item.after) : null,
+        before: item.before ? (typeof item.before === 'string' ? JSON.parse(item.before) : item.before) : null,
+        after: item.after ? (typeof item.after === 'string' ? JSON.parse(item.after) : item.after) : null,
       }));
     }
     
@@ -85,6 +85,11 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       if (preparedData.before && typeof preparedData.before === 'object') preparedData.before = JSON.stringify(preparedData.before);
       if (preparedData.after && typeof preparedData.after === 'object') preparedData.after = JSON.stringify(preparedData.after);
     }
+
+    // MySQL spezifische Boolean-Konvertierung
+    if (preparedData.enabled !== undefined) preparedData.enabled = preparedData.enabled ? 1 : 0;
+    if (preparedData.isAdmin !== undefined) preparedData.isAdmin = preparedData.isAdmin ? 1 : 0;
+    if (preparedData.isSharedAccount !== undefined) preparedData.isSharedAccount = preparedData.isSharedAccount ? 1 : 0;
 
     const keys = Object.keys(preparedData);
     const values = Object.values(preparedData);

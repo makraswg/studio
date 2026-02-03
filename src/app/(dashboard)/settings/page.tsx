@@ -303,6 +303,10 @@ export default function SettingsPage() {
                   <Input placeholder="Erteilt" value={jiraApprovedStatus} onChange={e => setJiraApprovedStatus(e.target.value)} className="rounded-none h-10" />
                 </div>
                 <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">STATUS FÜR "ERLEDIGT" (DONE)</Label>
+                  <Input placeholder="Erledigt" value={jiraDoneStatus} onChange={e => setJiraDoneStatus(e.target.value)} className="rounded-none h-10" />
+                </div>
+                <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ADMIN E-MAIL</Label>
                   <Input placeholder="m.mustermann@acme.com" value={jiraEmail} onChange={e => setJiraEmail(e.target.value)} className="rounded-none h-10" />
                 </div>

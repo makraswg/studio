@@ -24,11 +24,21 @@ import {
   RefreshCw,
   Info,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  BrainCircuit,
+  CheckCircle2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogDescription
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { 
   useFirestore, 
@@ -42,6 +52,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { getAccessAdvice } from '@/ai/flows/access-advisor-flow';
 
 export default function AccessReviewsPage() {
   const db = useFirestore();
@@ -50,6 +61,12 @@ export default function AccessReviewsPage() {
   const [mounted, setMounted] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'pending' | 'completed' | 'all'>('pending');
   const [search, setSearch] = useState('');
+
+  // AI Advisor State
+  const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
+  const [isAdvisorLoading, setIsAdvisorLoading] = useState(false);
+  const [aiAdvice, setAiAdvice] = useState<any>(null);
+  const [selectedReviewItem, setSelectedReviewItem] = useState<any>(null);
 
   const { data: assignments, isLoading, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
   const { data: users } = usePluggableCollection<any>('users');
@@ -99,6 +116,38 @@ export default function AccessReviewsPage() {
     setTimeout(() => refreshAssignments(), 150);
   };
 
+  const openQuickAdvisor = async (assignment: any) => {
+    const userDoc = users?.find(u => u.id === assignment.userId);
+    const ent = entitlements?.find(e => e.id === assignment.entitlementId);
+    const res = resources?.find(r => r.id === ent?.resourceId);
+
+    if (!userDoc) return;
+
+    setSelectedReviewItem({ assignment, user: userDoc, ent, res });
+    setIsAdvisorLoading(true);
+    setIsAdvisorOpen(true);
+    setAiAdvice(null);
+
+    try {
+      const advice = await getAccessAdvice({
+        userDisplayName: userDoc.name || userDoc.displayName,
+        userEmail: userDoc.email,
+        department: userDoc.department || 'Allgemein',
+        assignments: [{
+          resourceName: res?.name || 'Unbekannt',
+          entitlementName: ent?.name || 'Unbekannt',
+          riskLevel: ent?.riskLevel || 'medium'
+        }]
+      });
+      setAiAdvice(advice);
+    } catch (e) {
+      toast({ variant: "destructive", title: "KI-Fehler", description: "Empfehlung konnte nicht geladen werden." });
+      setIsAdvisorOpen(false);
+    } finally {
+      setIsAdvisorLoading(false);
+    }
+  };
+
   const filteredAssignments = assignments?.filter(assignment => {
     const userDoc = users?.find(u => u.id === assignment.userId);
     const ent = entitlements?.find(e => e.id === assignment.entitlementId);
@@ -121,14 +170,9 @@ export default function AccessReviewsPage() {
     completed: assignments?.filter(a => !!a.lastReviewedAt).length || 0,
     overdue: assignments?.filter(a => {
       if (a.status === 'removed') return false;
-      
-      // Check for age > 90 days
       const ninetyDaysAgo = new Date().getTime() - (90 * 24 * 60 * 60 * 1000);
       const isOld = a.grantedAt && new Date(a.grantedAt).getTime() < ninetyDaysAgo;
-      
-      // Check for expired
       const isExpired = a.validUntil && new Date(a.validUntil).getTime() < new Date().getTime();
-      
       return (isOld || isExpired) && !a.lastReviewedAt;
     }).length || 0,
     expired: assignments?.filter(a => a.status === 'active' && a.validUntil && new Date(a.validUntil).getTime() < new Date().getTime()).length || 0
@@ -193,7 +237,7 @@ export default function AccessReviewsPage() {
           <Info className="h-4 w-4 text-blue-600" />
           <AlertTitle className="text-[10px] font-bold uppercase text-blue-800 tracking-wider">Review Guide</AlertTitle>
           <AlertDescription className="text-[10px] text-blue-700 leading-relaxed">
-            Berechtigungen ohne Enddatum oder mit abgelaufener Gültigkeit (Gültig bis) müssen priorisiert geprüft werden.
+            Berechtigungen ohne Enddatum oder mit abgelaufener Gültigkeit müssen priorisiert geprüft werden.
           </AlertDescription>
         </Alert>
       </div>
@@ -236,7 +280,7 @@ export default function AccessReviewsPage() {
                 <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Benutzer</TableHead>
                 <TableHead className="font-bold uppercase tracking-widest text-[10px]">System / Rolle</TableHead>
                 <TableHead className="font-bold uppercase tracking-widest text-[10px]">Gültigkeit</TableHead>
-                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Risiko</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">KI-Check</TableHead>
                 <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Aktion</TableHead>
               </TableRow>
             </TableHeader>
@@ -281,12 +325,14 @@ export default function AccessReviewsPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={cn(
-                        "rounded-none font-bold uppercase text-[9px] border-none",
-                        ent?.riskLevel === 'high' ? "text-red-600 bg-red-50" : "text-blue-600 bg-blue-50"
-                      )}>
-                        {ent?.riskLevel || 'MEDIUM'}
-                      </Badge>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 text-[9px] font-bold uppercase text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-none"
+                        onClick={() => openQuickAdvisor(assignment)}
+                      >
+                        <BrainCircuit className="w-3.5 h-3.5 mr-1.5" /> Analysieren
+                      </Button>
                     </TableCell>
                     <TableCell className="text-right">
                       {assignment.lastReviewedAt ? (
@@ -327,6 +373,95 @@ export default function AccessReviewsPage() {
           </Table>
         )}
       </div>
+
+      {/* AI Advisor Dialog */}
+      <Dialog open={isAdvisorOpen} onOpenChange={setIsAdvisorOpen}>
+        <DialogContent className="max-w-2xl rounded-none border shadow-2xl overflow-hidden p-0">
+          <div className="bg-slate-900 text-white p-6">
+            <div className="flex items-center justify-between mb-2">
+              <Badge className="bg-blue-600 text-white rounded-none border-none font-bold text-[9px]">ACCESS ADVISOR AI</Badge>
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-slate-400">
+                <BrainCircuit className="w-4 h-4 text-blue-400" />
+                Review Check
+              </div>
+            </div>
+            <h2 className="text-xl font-bold font-headline">Schnellcheck: {selectedReviewItem?.user?.displayName || selectedReviewItem?.user?.name}</h2>
+            <p className="text-xs text-slate-400 mt-1 uppercase font-bold tracking-widest">
+              System: {selectedReviewItem?.res?.name} • Rolle: {selectedReviewItem?.ent?.name}
+            </p>
+          </div>
+          
+          <div className="p-6">
+            {isAdvisorLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Analysiere Berechtigung...</p>
+              </div>
+            ) : aiAdvice && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="admin-card p-4 border-l-4 border-l-blue-600 bg-blue-50/50">
+                    <p className="text-[9px] font-bold uppercase text-blue-600 mb-1">Risiko-Score</p>
+                    <div className="text-3xl font-bold flex items-baseline gap-1">
+                      {aiAdvice.riskScore} <span className="text-sm font-normal text-muted-foreground">/ 100</span>
+                    </div>
+                  </div>
+                  <div className="admin-card p-4 border-l-4 border-l-orange-500 bg-orange-50/50">
+                    <p className="text-[9px] font-bold uppercase text-orange-600 mb-1">KI Empfehlung</p>
+                    <div className="text-sm font-bold flex items-center gap-1.5 uppercase mt-1">
+                      {aiAdvice.riskScore > 50 ? (
+                        <span className="text-red-600 flex items-center gap-1"><ShieldAlert className="w-4 h-4" /> Widerruf prüfen</span>
+                      ) : (
+                        <span className="text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> Unbedenklich</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center gap-2">
+                    <span className="w-4 h-4 flex items-center justify-center bg-primary text-white rounded-full text-[8px]">!</span> Zusammenfassung
+                  </h4>
+                  <p className="text-sm leading-relaxed text-slate-700 bg-slate-50 p-4 border italic">
+                    "{aiAdvice.summary}"
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-bold uppercase text-emerald-600 tracking-widest">Handlungsempfehlung</h4>
+                  <ul className="space-y-2">
+                    {aiAdvice.recommendations.map((r: string, i: number) => (
+                      <li key={i} className="text-xs flex gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span className="font-bold">{r}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter className="p-6 border-t bg-slate-50">
+            <Button variant="outline" onClick={() => setIsAdvisorOpen(false)} className="rounded-none">Abbrechen</Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                className="rounded-none border-red-200 text-red-600 hover:bg-red-50 font-bold uppercase text-[10px]" 
+                onClick={() => { handleReview(selectedReviewItem.assignment.id, 'revoke'); setIsAdvisorOpen(false); }}
+              >
+                Widerrufen
+              </Button>
+              <Button 
+                className="rounded-none bg-emerald-600 hover:bg-emerald-700 font-bold uppercase text-[10px]" 
+                onClick={() => { handleReview(selectedReviewItem.assignment.id, 'certify'); setIsAdvisorOpen(false); }}
+              >
+                Bestätigen
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

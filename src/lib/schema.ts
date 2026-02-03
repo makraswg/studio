@@ -77,6 +77,7 @@ export const appSchema: AppSchema = {
       name: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
       riskLevel: 'VARCHAR(20) DEFAULT "medium"',
+      isAdmin: 'BOOLEAN DEFAULT FALSE',
       isSharedAccount: 'BOOLEAN DEFAULT FALSE',
       passwordManagerUrl: 'TEXT',
     },

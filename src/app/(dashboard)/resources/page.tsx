@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -31,7 +32,8 @@ import {
   CornerDownRight,
   HelpCircle,
   Box,
-  RefreshCw
+  RefreshCw,
+  ShieldAlert
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -124,6 +126,7 @@ export default function ResourcesPage() {
   const [entRisk, setEntRisk] = useState('medium');
   const [entDesc, setEntDesc] = useState('');
   const [entParentId, setEntParentId] = useState<string | null>(null);
+  const [entIsAdmin, setEntIsAdmin] = useState(false);
   const [isSharedAccount, setIsSharedAccount] = useState(false);
   const [entPasswordManagerUrl, setEntPasswordManagerUrl] = useState('');
 
@@ -157,7 +160,6 @@ export default function ResourcesPage() {
         return;
       }
 
-      // Wir übergeben die Daten direkt vom Client, um Firestore/MySQL-Unabhängigkeit zu gewährleisten.
       const res = await syncAssetsToJiraAction(
         configs[0].id, 
         resources, 
@@ -196,22 +198,10 @@ export default function ResourcesPage() {
       createdAt: editingResource?.createdAt || timestamp
     };
 
-    const auditData = {
-      id: `audit-${Math.random().toString(36).substring(2, 9)}`,
-      actorUid: authUser?.uid || 'system',
-      action: editingResource ? 'System aktualisiert' : 'System registriert',
-      entityType: 'resource',
-      entityId: resourceId,
-      timestamp,
-      tenantId: 't1'
-    };
-
     if (dataSource === 'mysql') {
       await saveCollectionRecord('resources', resourceId, resData);
-      await saveCollectionRecord('auditEvents', auditData.id, auditData);
     } else {
       setDocumentNonBlocking(doc(db, 'resources', resourceId), resData);
-      addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
     toast({ title: editingResource ? "System aktualisiert" : "System registriert" });
@@ -227,7 +217,6 @@ export default function ResourcesPage() {
     }
     
     const entId = editingEntitlementId || `ent-${Math.random().toString(36).substring(2, 9)}`;
-    const timestamp = new Date().toISOString();
     const entData = {
       id: entId,
       resourceId: selectedResource.id,
@@ -235,28 +224,17 @@ export default function ResourcesPage() {
       riskLevel: entRisk,
       description: entDesc,
       parentId: entParentId === "none" ? null : entParentId,
+      isAdmin: entIsAdmin ? 1 : 0,
       isSharedAccount: isSharedAccount ? 1 : 0,
       passwordManagerUrl: isSharedAccount ? entPasswordManagerUrl : '',
       tenantId: 't1'
     };
 
-    const auditData = {
-      id: `audit-${Math.random().toString(36).substring(2, 9)}`,
-      actorUid: authUser?.uid || 'system',
-      action: editingEntitlementId ? 'Rolle aktualisiert' : 'Rolle hinzugefügt',
-      entityType: 'entitlement',
-      entityId: entId,
-      timestamp,
-      tenantId: 't1'
-    };
-
     if (dataSource === 'mysql') {
       await saveCollectionRecord('entitlements', entId, entData);
-      await saveCollectionRecord('auditEvents', auditData.id, auditData);
     } else {
-      const fbData = { ...entData, isSharedAccount };
+      const fbData = { ...entData, isAdmin: !!entIsAdmin, isSharedAccount: !!isSharedAccount };
       setDocumentNonBlocking(doc(db, 'entitlements', entId), fbData);
-      addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
     toast({ title: editingEntitlementId ? "Berechtigung aktualisiert" : "Berechtigung hinzugefügt" });
@@ -269,23 +247,10 @@ export default function ResourcesPage() {
 
   const confirmDeleteResource = async () => {
     if (selectedResource) {
-      const timestamp = new Date().toISOString();
-      const auditData = {
-        id: `audit-${Math.random().toString(36).substring(2, 9)}`,
-        actorUid: authUser?.uid || 'system',
-        action: 'System gelöscht',
-        entityType: 'resource',
-        entityId: selectedResource.id,
-        timestamp,
-        tenantId: 't1'
-      };
-
       if (dataSource === 'mysql') {
         await deleteCollectionRecord('resources', selectedResource.id);
-        await saveCollectionRecord('auditEvents', auditData.id, auditData);
       } else {
         deleteDocumentNonBlocking(doc(db, 'resources', selectedResource.id));
-        addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
       }
       toast({ title: "Ressource gelöscht" });
       setIsDeleteDialogOpen(false);
@@ -296,23 +261,10 @@ export default function ResourcesPage() {
 
   const confirmDeleteEntitlement = async () => {
     if (selectedEntitlement) {
-      const timestamp = new Date().toISOString();
-      const auditData = {
-        id: `audit-${Math.random().toString(36).substring(2, 9)}`,
-        actorUid: authUser?.uid || 'system',
-        action: 'Rolle gelöscht',
-        entityType: 'entitlement',
-        entityId: selectedEntitlement.id,
-        timestamp,
-        tenantId: 't1'
-      };
-
       if (dataSource === 'mysql') {
         await deleteCollectionRecord('entitlements', selectedEntitlement.id);
-        await saveCollectionRecord('auditEvents', auditData.id, auditData);
       } else {
         deleteDocumentNonBlocking(doc(db, 'entitlements', selectedEntitlement.id));
-        addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
       }
       toast({ title: "Rolle gelöscht" });
       setIsDeleteEntitlementOpen(false);
@@ -339,6 +291,7 @@ export default function ResourcesPage() {
     setEntDesc('');
     setEntRisk('medium');
     setEntParentId(null);
+    setEntIsAdmin(false);
     setEditingEntitlementId(null);
     setIsSharedAccount(false);
     setEntPasswordManagerUrl('');
@@ -363,6 +316,7 @@ export default function ResourcesPage() {
   const renderEntitlementItem = (ent: any, depth = 0) => {
     const children = entitlements?.filter((e: any) => e.parentId === ent.id) || [];
     const isShared = !!(ent.isSharedAccount === true || ent.isSharedAccount === 1 || ent.isSharedAccount === "1");
+    const isAdmin = !!(ent.isAdmin === true || ent.isAdmin === 1 || ent.isAdmin === "1");
 
     return (
       <div key={ent.id}>
@@ -374,7 +328,9 @@ export default function ResourcesPage() {
             {depth > 0 && <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground" />}
             <div className="flex flex-col">
               <span className="text-sm font-bold flex items-center gap-2">
+                {isAdmin && <ShieldAlert className="w-3.5 h-3.5 text-red-600" />}
                 {ent.name}
+                {isAdmin && <Badge className="bg-red-50 text-red-700 text-[8px] border-red-200 uppercase font-bold">ADMIN</Badge>}
                 {isShared && (
                   <Badge variant="outline" className="bg-orange-50 text-orange-700 text-[8px] border-orange-200">SHARED</Badge>
                 )}
@@ -400,6 +356,7 @@ export default function ResourcesPage() {
               setEntName(ent.name);
               setEntRisk(ent.riskLevel);
               setEntParentId(ent.parentId || "none");
+              setEntIsAdmin(isAdmin);
               setIsSharedAccount(isShared);
               setEntPasswordManagerUrl(ent.passwordManagerUrl || '');
               setEntDesc(ent.description || '');
@@ -848,18 +805,25 @@ export default function ResourcesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="col-span-2 space-y-3 pt-2">
+              
+              <div className="col-span-2 space-y-3 pt-2 grid grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="admin" checked={entIsAdmin} onCheckedChange={(val) => setEntIsAdmin(!!val)} />
+                  <label htmlFor="admin" className="text-[10px] font-bold uppercase cursor-pointer select-none text-red-600">Admin-Berechtigung</label>
+                </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox id="shared" checked={isSharedAccount} onCheckedChange={(val) => setIsSharedAccount(!!val)} />
-                  <label htmlFor="shared" className="text-[10px] font-bold uppercase cursor-pointer select-none">Shared Account / Nicht benutzerbezogen</label>
+                  <label htmlFor="shared" className="text-[10px] font-bold uppercase cursor-pointer select-none">Shared Account</label>
                 </div>
-                {isSharedAccount && (
-                  <div className="space-y-2 animate-in fade-in duration-300">
-                    <Label className="text-[10px] font-bold uppercase text-orange-600">Passwortmanager Link (Vault URL)</Label>
-                    <Input value={entPasswordManagerUrl} onChange={e => setEntPasswordManagerUrl(e.target.value)} placeholder="https://vault.company.com/..." className="rounded-none border-orange-200" />
-                  </div>
-                )}
               </div>
+
+              {isSharedAccount && (
+                <div className="col-span-2 space-y-2 animate-in fade-in duration-300">
+                  <Label className="text-[10px] font-bold uppercase text-orange-600">Passwortmanager Link (Vault URL)</Label>
+                  <Input value={entPasswordManagerUrl} onChange={e => setEntPasswordManagerUrl(e.target.value)} placeholder="https://vault.company.com/..." className="rounded-none border-orange-200" />
+                </div>
+              )}
+
               <div className="col-span-2 flex justify-end gap-2 pt-2">
                 {!!editingEntitlementId && <Button variant="ghost" size="sm" className="rounded-none" onClick={resetEntitlementForm}>Abbrechen</Button>}
                 <Button size="sm" className="rounded-none font-bold uppercase text-[10px]" onClick={handleAddOrUpdateEntitlement}>

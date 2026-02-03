@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { 
   Table, 
@@ -16,30 +16,22 @@ import { Input } from '@/components/ui/input';
 import { 
   Search, 
   Plus, 
-  Loader2,
-  Shield,
   MoreHorizontal,
-  Pencil,
-  Trash2,
+  ShieldAlert,
   Calendar,
   AlertTriangle,
-  FileDown,
-  Users,
-  Check,
-  Clock,
-  XCircle,
-  ExternalLink,
-  Link as LinkIcon,
-  Zap
+  Zap,
+  Filter,
+  ShieldCheck
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { 
   Dialog, 
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogFooter,
-  DialogDescription
+  DialogFooter
 } from '@/components/ui/dialog';
 import {
   DropdownMenu,
@@ -52,19 +44,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
-  addDocumentNonBlocking, 
-  updateDocumentNonBlocking,
   setDocumentNonBlocking,
   useUser as useAuthUser 
 } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
-import { exportAssignmentsPdf } from '@/lib/export-utils';
 import { Assignment, User, Entitlement, Resource } from '@/lib/types';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
-import { createJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
 
 export default function AssignmentsPage() {
   const db = useFirestore();
@@ -75,20 +63,17 @@ export default function AssignmentsPage() {
   
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'requested' | 'removed' | 'pending_removal'>('active');
   const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [adminOnly, setAdminOnly] = useState(false);
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isJiraLoading, setIsJiraLoading] = useState<string | null>(null);
   
-  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedEntitlementId, setSelectedEntitlementId] = useState('');
   const [jiraIssueKey, setJiraIssueKey] = useState('');
   const [validFrom, setValidFrom] = useState(new Date().toISOString().split('T')[0]);
   const [validUntil, setValidUntil] = useState('');
   const [notes, setNotes] = useState('');
-  const [status, setStatus] = useState<Assignment['status']>('active');
 
   const { data: assignments, isLoading, refresh: refreshAssignments } = usePluggableCollection<Assignment>('assignments');
   const { data: users } = usePluggableCollection<User>('users');
@@ -130,9 +115,18 @@ export default function AssignmentsPage() {
 
   const filteredAssignments = assignments?.filter(a => {
     const user = users?.find(u => u.id === a.userId);
-    const match = (user?.displayName || '').toLowerCase().includes(search.toLowerCase());
+    const ent = entitlements?.find(e => e.id === a.entitlementId);
+    const res = resources?.find(r => r.id === ent?.resourceId);
+    
+    const matchSearch = (user?.displayName || '').toLowerCase().includes(search.toLowerCase()) || 
+                        (res?.name || '').toLowerCase().includes(search.toLowerCase());
+    
     const matchTab = activeTab === 'all' || a.status === activeTab;
-    return match && matchTab;
+    
+    const isAdmin = ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1";
+    const matchAdmin = !adminOnly || isAdmin;
+
+    return matchSearch && matchTab && matchAdmin;
   });
 
   if (!mounted) return null;
@@ -149,20 +143,25 @@ export default function AssignmentsPage() {
         </Button>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-3">
+      <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
-            placeholder="Mitarbeiter oder Jira-Key suchen..." 
+            placeholder="Mitarbeiter oder System suchen..." 
             className="pl-10 h-10 rounded-none bg-white"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        <div className="flex items-center gap-2 px-4 border bg-white h-10">
+          <ShieldAlert className={cn("w-4 h-4", adminOnly ? "text-red-600" : "text-muted-foreground")} />
+          <Label htmlFor="admin-filter" className="text-[10px] font-bold uppercase cursor-pointer">Nur Admin-Rollen</Label>
+          <Switch id="admin-filter" checked={adminOnly} onCheckedChange={setAdminOnly} />
+        </div>
         <div className="flex border rounded-none p-1 bg-muted/20">
           {['all', 'active', 'requested', 'pending_removal', 'removed'].map(id => (
             <Button key={id} variant={activeTab === id ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab(id as any)} className="h-8 text-[9px] font-bold uppercase px-4 rounded-none">
-              {id === 'all' ? 'Alle' : id === 'active' ? 'Aktiv' : id === 'requested' ? 'Pending Joiner' : id === 'pending_removal' ? 'Pending Leaver' : 'Inaktiv'}
+              {id === 'all' ? 'Alle' : id === 'active' ? 'Aktiv' : id === 'requested' ? 'Joiner' : id === 'pending_removal' ? 'Leaver' : 'Inaktiv'}
             </Button>
           ))}
         </div>
@@ -184,13 +183,24 @@ export default function AssignmentsPage() {
               const user = users?.find(u => u.id === a.userId);
               const ent = entitlements?.find(e => e.id === a.entitlementId);
               const res = resources?.find(r => r.id === ent?.resourceId);
+              const isAdmin = ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1";
 
               return (
                 <TableRow key={a.id} className="hover:bg-muted/5 border-b">
-                  <TableCell className="py-4 font-bold text-sm">{user?.displayName || a.userId}</TableCell>
+                  <TableCell className="py-4 font-bold text-sm">
+                    {user?.displayName || a.userId}
+                  </TableCell>
                   <TableCell>
-                    <div className="font-bold text-sm">{res?.name}</div>
-                    <div className="text-xs text-muted-foreground">{ent?.name}</div>
+                    <div className="flex items-center gap-2">
+                      {isAdmin && <ShieldAlert className="w-3.5 h-3.5 text-red-600" />}
+                      <div>
+                        <div className="font-bold text-sm">{res?.name}</div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          {ent?.name}
+                          {isAdmin && <Badge className="h-3 text-[7px] bg-red-50 text-red-700 px-1 border-red-100 uppercase">ADMIN</Badge>}
+                        </div>
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={cn(
@@ -233,7 +243,7 @@ export default function AssignmentsPage() {
               <Label className="text-[10px] font-bold uppercase">Rolle</Label>
               <Select value={selectedEntitlementId} onValueChange={setSelectedEntitlementId}>
                 <SelectTrigger className="rounded-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                <SelectContent className="rounded-none">{entitlements?.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}</SelectContent>
+                <SelectContent className="rounded-none">{entitlements?.map(e => <SelectItem key={e.id} value={e.id}>{e.name} ({resources?.find(r => r.id === e.resourceId)?.name})</SelectItem>)}</SelectContent>
               </Select>
             </div>
           </div>

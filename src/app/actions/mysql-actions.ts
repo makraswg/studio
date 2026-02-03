@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
@@ -12,6 +13,7 @@ const collectionToTableMap: { [key: string]: string } = {
   tenants: 'tenants',
   auditEvents: 'auditEvents',
   jiraConfigs: 'jiraConfigs',
+  bundles: 'bundles',
 };
 
 /**
@@ -33,7 +35,7 @@ export async function getCollectionData(collectionName: string): Promise<{ data:
     let data = JSON.parse(JSON.stringify(rows));
     
     // JSON-Felder für spezifische Tabellen parsen
-    if (tableName === 'groups') {
+    if (tableName === 'groups' || tableName === 'bundles') {
       data = data.map((item: any) => ({
         ...item,
         entitlementIds: item.entitlementIds ? JSON.parse(item.entitlementIds) : [],
@@ -74,7 +76,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     // Bereite Daten für MySQL vor (JSON-Felder konvertieren)
     const preparedData = { ...data, id };
     
-    if (tableName === 'groups') {
+    if (tableName === 'groups' || tableName === 'bundles') {
       if (Array.isArray(preparedData.entitlementIds)) preparedData.entitlementIds = JSON.stringify(preparedData.entitlementIds);
       if (Array.isArray(preparedData.userIds)) preparedData.userIds = JSON.stringify(preparedData.userIds);
     }

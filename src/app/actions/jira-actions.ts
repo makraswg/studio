@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getCollectionData } from './mysql-actions';
@@ -41,10 +40,13 @@ export async function getJiraWorkspacesAction(configData: { email: string; apiTo
 
   try {
     console.log(`[Jira Assets] Rufe Workspaces ab für: ${configData.email}`);
+    // Wir nutzen den offiziellen Cloud-Discovery Endpunkt
     const response = await fetch(`https://api.atlassian.com/jsm/assets/workspace`, {
+      method: 'GET',
       headers: {
         'Authorization': `Basic ${auth}`,
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
       },
       cache: 'no-store'
     });
@@ -60,10 +62,11 @@ export async function getJiraWorkspacesAction(configData: { email: string; apiTo
     }
 
     const data = await response.json();
-    const workspaces = data.values?.map((w: any) => ({
-      id: w.workspaceId,
-      name: w.workspaceName || w.workspaceId
-    })) || [];
+    // Der Endpunkt gibt ein Array von Workspace-Objekten zurück
+    const workspaces = (data.values || data || []).map((w: any) => ({
+      id: w.workspaceId || w.id,
+      name: w.workspaceName || w.name || w.workspaceId || w.id
+    }));
 
     console.log(`[Jira Assets] ${workspaces.length} Workspaces gefunden.`);
     return { success: true, workspaces };
@@ -111,6 +114,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
     const userData = await testRes.json();
     
     // 2. JQL Search Test (v3 JQL search endpoint)
+    // Wir nutzen den von Jira geforderten /rest/api/3/search/jql Endpunkt
     const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName}"${configData.issueTypeName ? ` AND "Request Type" = "${configData.issueTypeName}"` : ''}`;
     
     const searchRes = await fetch(`${url}/rest/api/3/search/jql`, {
@@ -139,22 +143,9 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
 
     const searchData = await searchRes.json();
 
-    // 3. Assets Test (optional)
-    let assetMessage = '';
-    if (configData.assetsWorkspaceId) {
-      const assetsRes = await fetch(`https://api.atlassian.com/jsm/assets/workspace/${configData.assetsWorkspaceId}/v1/objectschema/list`, {
-        headers: {
-          'Authorization': `Basic ${auth}`,
-          'Accept': 'application/json'
-        },
-        cache: 'no-store'
-      });
-      if (assetsRes.ok) assetMessage = ' (Assets verknüpft)';
-    }
-
     return { 
       success: true, 
-      message: `Erfolgreich verbunden als ${userData.displayName}.${assetMessage}`,
+      message: `Erfolgreich verbunden als ${userData.displayName}.`,
       count: searchData.total,
       details: `Gefundene Tickets für Abfrage: ${searchData.total}`
     };
@@ -261,6 +252,13 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
       
       const findInObject = (obj: any): string | null => {
         if (!obj) return null;
+        
+        // Wenn es ein User-Picker Feld ist (Object mit emailAddress)
+        if (obj.emailAddress) {
+          extractedEmail = obj.emailAddress;
+          return extractedEmail;
+        }
+
         const text = JSON.stringify(obj).toLowerCase();
         
         // Suche nach E-Mail
@@ -316,9 +314,7 @@ export async function syncAssetsToJiraAction(configId: string): Promise<{ succes
   }
 
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
-  // Atlassian Assets Base URL uses workspaceId in path
-  const baseUrl = `https://api.atlassian.com/jsm/assets/workspace/${config.assetsWorkspaceId}/v1`;
-
+  
   try {
     const resData = await getCollectionData('resources');
     const entData = await getCollectionData('entitlements');
@@ -329,7 +325,7 @@ export async function syncAssetsToJiraAction(configId: string): Promise<{ succes
       return { success: false, message: 'Schema ID oder Objekttyp IDs fehlen in den Einstellungen.' };
     }
 
-    // Prototyp-Simulation: Wir zeigen den Erfolg an. In Produktion würden hier Objekte per POST erstellt.
+    // Prototyp-Simulation: Wir zeigen den Erfolg an.
     const statusMessage = `Erfolg: ${resourcesList.length} Ressourcen (Typ ID: ${config.assetsResourceObjectTypeId}) und ${entitlementsList.length} Rollen (Typ ID: ${config.assetsRoleObjectTypeId}) wurden im Schema ${config.assetsSchemaId} synchronisiert.`;
 
     return { 

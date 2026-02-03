@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -20,7 +19,9 @@ import {
   Box,
   Info,
   HelpCircle,
-  RefreshCw
+  RefreshCw,
+  Search,
+  ChevronRight
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
@@ -30,7 +31,14 @@ import { getJiraConfigs, testJiraConnectionAction, getJiraWorkspacesAction } fro
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
 
 export default function SettingsPage() {
   const [tenantName, setTenantName] = useState('Acme Corp');
@@ -53,9 +61,10 @@ export default function SettingsPage() {
   const [assetsResourceObjectTypeId, setAssetsResourceObjectTypeId] = useState('');
   const [assetsRoleObjectTypeId, setAssetsRoleObjectTypeId] = useState('');
 
-  // Dropdown States
+  // Dropdown / Modal States
   const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>([]);
   const [isFetchingWorkspaces, setIsFetchingWorkspaces] = useState(false);
+  const [isWorkspaceDialogOpen, setIsWorkspaceDialogOpen] = useState(false);
 
   const [isSavingJira, setIsSavingJira] = useState(false);
   const [isTestingJira, setIsTestingJira] = useState(false);
@@ -78,51 +87,46 @@ export default function SettingsPage() {
         setAssetsSchemaId(c.assetsSchemaId || '');
         setAssetsResourceObjectTypeId(c.assetsResourceObjectTypeId || '');
         setAssetsRoleObjectTypeId(c.assetsRoleObjectTypeId || '');
-        
-        // Versuche initial Workspaces zu laden, wenn Token vorhanden
-        if (c.email && c.apiToken) {
-          fetchWorkspaces(c.email, c.apiToken);
-        }
       }
     };
     loadJira();
   }, []);
 
-  const fetchWorkspaces = async (email?: string, token?: string) => {
-    const targetEmail = email || jiraEmail;
-    const targetToken = token || jiraToken;
-    
-    if (!targetEmail || !targetToken) {
+  const fetchWorkspaces = async () => {
+    if (!jiraEmail || !jiraToken) {
+      toast({ variant: "destructive", title: "Fehlende Daten", description: "Bitte geben Sie zuerst Admin E-Mail und API Token ein." });
       return;
     }
 
     setIsFetchingWorkspaces(true);
+    setWorkspaces([]);
     try {
-      console.log("Fetching workspaces for:", targetEmail);
-      const res = await getJiraWorkspacesAction({ email: targetEmail, apiToken: targetToken });
+      const res = await getJiraWorkspacesAction({ email: jiraEmail, apiToken: jiraToken });
       if (res.success && res.workspaces) {
-        setWorkspaces(res.workspaces);
         if (res.workspaces.length === 0) {
-          console.warn("Workspaces fetched but list is empty.");
+          toast({ variant: "destructive", title: "Keine Workspaces", description: "Es wurden keine Assets-Workspaces für diesen Account gefunden." });
+        } else {
+          setWorkspaces(res.workspaces);
+          setIsWorkspaceDialogOpen(true);
         }
       } else {
-        console.error("Workspace fetch failed:", res.error, res.details);
         toast({ 
           variant: "destructive", 
-          title: "Assets-Fehler", 
-          description: res.error || "Workspaces konnten nicht geladen werden." 
+          title: "Abruf fehlgeschlagen", 
+          description: res.error || "Workspaces konnten nicht geladen werden. Prüfen Sie die Berechtigungen." 
         });
       }
     } catch (e: any) {
-      console.error("Critical error fetching workspaces", e);
-      toast({ 
-        variant: "destructive", 
-        title: "Verbindungsfehler", 
-        description: e.message 
-      });
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
     } finally {
       setIsFetchingWorkspaces(false);
     }
+  };
+
+  const selectWorkspace = (ws: { id: string; name: string }) => {
+    setAssetsWorkspaceId(ws.id);
+    setIsWorkspaceDialogOpen(false);
+    toast({ title: "Workspace ausgewählt", description: ws.name });
   };
 
   const handleSaveGeneral = () => {
@@ -288,37 +292,27 @@ export default function SettingsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 border bg-slate-50/50">
                   <div className="space-y-2 md:col-span-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-[10px] font-bold uppercase">Assets Workspace</Label>
+                      <Label className="text-[10px] font-bold uppercase">Assets Workspace ID (UUID)</Label>
                       <Button 
                         variant="ghost" 
                         size="sm" 
                         className="h-6 text-[8px] font-bold uppercase gap-1"
-                        onClick={() => fetchWorkspaces()}
-                        disabled={isFetchingWorkspaces || !jiraEmail || !jiraToken}
+                        onClick={fetchWorkspaces}
+                        disabled={isFetchingWorkspaces}
                       >
-                        {isFetchingWorkspaces ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                        Workspaces laden
+                        {isFetchingWorkspaces ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                        Suchen / Laden
                       </Button>
                     </div>
-                    <Select value={assetsWorkspaceId} onValueChange={setAssetsWorkspaceId}>
-                      <SelectTrigger className="rounded-none bg-white h-10 shadow-none border-slate-200">
-                        <SelectValue placeholder={isFetchingWorkspaces ? "Lade..." : "Workspace wählen..."} />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-none">
-                        {workspaces.length > 0 ? (
-                          workspaces.map(w => (
-                            <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-                          ))
-                        ) : (
-                          <div className="p-4 text-center text-[10px] font-bold uppercase text-muted-foreground italic">
-                            {isFetchingWorkspaces ? "Abfrage läuft..." : "Keine Workspaces geladen. Bitte prüfen Sie Ihre Zugangsdaten und klicken auf 'Laden'."}
-                          </div>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    {assetsWorkspaceId && (
-                      <p className="text-[8px] font-mono text-muted-foreground truncate">ID: {assetsWorkspaceId}</p>
-                    )}
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="a1b2c3d4-..." 
+                        value={assetsWorkspaceId} 
+                        onChange={e => setAssetsWorkspaceId(e.target.value)} 
+                        className="rounded-none bg-white font-mono text-[11px]" 
+                      />
+                    </div>
+                    <p className="text-[8px] text-muted-foreground uppercase font-bold">Hinweis: Die Workspace ID ist die UUID aus der URL Ihrer Assets-Seite.</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase flex items-center justify-between">
@@ -403,6 +397,34 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={isWorkspaceDialogOpen} onOpenChange={setIsWorkspaceDialogOpen}>
+        <DialogContent className="rounded-none max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[10px] font-bold uppercase tracking-widest">Workspace auswählen</DialogTitle>
+            <DialogDescription className="text-xs">Wählen Sie den Ziel-Workspace für Ihre Jira Assets.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            {workspaces.map(ws => (
+              <Button 
+                key={ws.id} 
+                variant="outline" 
+                className="w-full justify-between rounded-none font-bold text-xs h-12 hover:bg-primary/5 hover:border-primary transition-all group"
+                onClick={() => selectWorkspace(ws)}
+              >
+                <div className="flex flex-col items-start">
+                  <span>{ws.name}</span>
+                  <span className="text-[8px] text-muted-foreground font-mono truncate max-w-[200px]">{ws.id}</span>
+                </div>
+                <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </Button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsWorkspaceDialogOpen(false)} className="rounded-none">Abbrechen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

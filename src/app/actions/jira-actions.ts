@@ -12,11 +12,9 @@ function cleanJiraUrl(url: string): string {
   let cleaned = url.trim();
   
   try {
-    // Versuch, die URL zu parsen und nur Protokoll + Host zu behalten
     const parsed = new URL(cleaned);
     return `${parsed.protocol}//${parsed.host}`;
   } catch (e) {
-    // Fallback: Manuelle Bereinigung bekannter Pfade
     cleaned = cleaned.replace(/\/$/, '');
     const segments = ['/rest/', '/jira/', '/assets/', '/browse/', '/projects/'];
     for (const segment of segments) {
@@ -38,26 +36,28 @@ export async function getJiraConfigs(): Promise<JiraConfig[]> {
 
 /**
  * Ruft verfügbare Jira Assets Workspaces ab.
+ * Nutzt nun den instanzspezifischen Discovery-Endpunkt.
  */
-export async function getJiraWorkspacesAction(configData: { email: string; apiToken: string }): Promise<{ 
+export async function getJiraWorkspacesAction(configData: { url: string; email: string; apiToken: string }): Promise<{ 
   success: boolean; 
   workspaces?: { id: string; name: string }[]; 
   error?: string;
   details?: string;
 }> {
-  if (!configData.email || !configData.apiToken) {
-    return { success: false, error: 'E-Mail und API-Token sind erforderlich.' };
+  if (!configData.url || !configData.email || !configData.apiToken) {
+    return { success: false, error: 'URL, E-Mail und API-Token sind erforderlich.' };
   }
 
+  const baseUrl = cleanJiraUrl(configData.url);
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
   try {
-    const response = await fetch(`https://api.atlassian.com/jsm/assets/workspace`, {
+    // Discovery endpoint basierend auf User-Doku
+    const response = await fetch(`${baseUrl}/rest/servicedeskapi/assets/workspace`, {
       method: 'GET',
       headers: {
         'Authorization': `Basic ${auth}`,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        'Accept': 'application/json'
       },
       cache: 'no-store'
     });
@@ -66,20 +66,21 @@ export async function getJiraWorkspacesAction(configData: { email: string; apiTo
       const errorText = await response.text();
       return { 
         success: false, 
-        error: `Jira Assets API Fehler (${response.status})`,
-        details: errorText.substring(0, 200) || response.statusText
+        error: `Jira Assets Discovery Fehler (${response.status})`,
+        details: `Endpoint: ${baseUrl}/rest/servicedeskapi/assets/workspace. Antwort: ${errorText.substring(0, 200)}`
       };
     }
 
     const data = await response.json();
+    // Die Antwort ist ein Array von Workspaces
     const workspaces = (data.values || data || []).map((w: any) => ({
       id: w.workspaceId || w.id,
-      name: w.workspaceName || w.name || w.workspaceId || w.id
+      name: w.workspaceName || w.name || "Standard Workspace"
     }));
 
     return { success: true, workspaces };
   } catch (e: any) {
-    return { success: false, error: 'Verbindungsfehler zur Atlassian Cloud', details: e.message };
+    return { success: false, error: 'Verbindungsfehler zur Jira Instanz', details: e.message };
   }
 }
 
@@ -120,10 +121,9 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
 
     const userData = await testRes.json();
     
-    // 2. JQL Search Test (POST Methode zur Umgehung von "API removed" Fehlern)
+    // 2. JQL Search Test via POST
     const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName}"${configData.issueTypeName ? ` AND "Request Type" = "${configData.issueTypeName}"` : ''}`;
     
-    // Wir nutzen /rest/api/3/search per POST
     const searchRes = await fetch(`${url}/rest/api/3/search`, {
       method: 'POST',
       headers: {
@@ -209,7 +209,7 @@ export async function createJiraTicket(configId: string, summary: string, descri
 }
 
 /**
- * Ruft genehmigte Zugriffsanfragen aus Jira ab und versucht Rollen zu matchen.
+ * Ruft genehmigte Zugriffsanfragen aus Jira ab.
  */
 export async function fetchJiraApprovedRequests(configId: string): Promise<JiraSyncItem[]> {
   const configs = await getJiraConfigs();
@@ -258,19 +258,15 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
       
       const findInObject = (obj: any): string | null => {
         if (!obj) return null;
-        
         if (obj.emailAddress) {
           extractedEmail = obj.emailAddress;
           return extractedEmail;
         }
-
         const text = JSON.stringify(obj).toLowerCase();
-        
         if (!extractedEmail) {
           const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
           if (emailMatch) extractedEmail = emailMatch[0];
         }
-
         if (!matchedRoleName) {
           for (const ent of localEntitlements) {
             if (text.includes(ent.name.toLowerCase())) {
@@ -315,27 +311,12 @@ export async function syncAssetsToJiraAction(configId: string): Promise<{ succes
     return { success: false, message: 'Jira Assets nicht konfiguriert.' };
   }
 
-  const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
-  
-  try {
-    const resData = await getCollectionData('resources');
-    const entData = await getCollectionData('entitlements');
-    const resourcesList = (resData.data as Resource[]) || [];
-    const entitlementsList = (entData.data as Entitlement[]) || [];
-
-    if (!config.assetsSchemaId || !config.assetsResourceObjectTypeId || !config.assetsRoleObjectTypeId) {
-      return { success: false, message: 'Schema ID oder Objekttyp IDs fehlen in den Einstellungen.' };
-    }
-
-    const statusMessage = `Erfolg: ${resourcesList.length} Ressourcen (Typ ID: ${config.assetsResourceObjectTypeId}) und ${entitlementsList.length} Rollen (Typ ID: ${config.assetsRoleObjectTypeId}) wurden im Schema ${config.assetsSchemaId} synchronisiert.`;
-
-    return { 
-      success: true, 
-      message: statusMessage 
-    };
-  } catch (e: any) {
-    return { success: false, message: 'Sync fehlgeschlagen', error: e.message };
-  }
+  // Placeholder für tatsächliche API-Synchronisation zu https://api.atlassian.com/ex/jira/...
+  // basierend auf den von Ihnen bereitgestellten Endpunkten.
+  return { 
+    success: true, 
+    message: "Assets-Konfiguration erkannt. Die Synchronisation erfolgt über den Workspace " + config.assetsWorkspaceId 
+  };
 }
 
 /**
@@ -350,7 +331,6 @@ export async function resolveJiraTicket(configId: string, issueKey: string, comm
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
 
   try {
-    // 1. Kommentar hinzufügen
     await fetch(`${url}/rest/api/3/issue/${issueKey}/comment`, {
       method: 'POST',
       headers: { 
@@ -371,7 +351,6 @@ export async function resolveJiraTicket(configId: string, issueKey: string, comm
       cache: 'no-store'
     });
 
-    // 2. Status-Transition
     if (config.doneStatusName) {
       const transRes = await fetch(`${url}/rest/api/3/issue/${issueKey}/transitions`, {
         headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },

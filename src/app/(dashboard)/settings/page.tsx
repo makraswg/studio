@@ -93,15 +93,15 @@ export default function SettingsPage() {
   }, []);
 
   const fetchWorkspaces = async () => {
-    if (!jiraEmail || !jiraToken) {
-      toast({ variant: "destructive", title: "Fehlende Daten", description: "Bitte geben Sie zuerst Admin E-Mail und API Token ein." });
+    if (!jiraUrl || !jiraEmail || !jiraToken) {
+      toast({ variant: "destructive", title: "Fehlende Daten", description: "Bitte geben Sie zuerst URL, E-Mail und API Token ein." });
       return;
     }
 
     setIsFetchingWorkspaces(true);
     setWorkspaces([]);
     try {
-      const res = await getJiraWorkspacesAction({ email: jiraEmail, apiToken: jiraToken });
+      const res = await getJiraWorkspacesAction({ url: jiraUrl, email: jiraEmail, apiToken: jiraToken });
       if (res.success && res.workspaces) {
         if (res.workspaces.length === 0) {
           toast({ variant: "destructive", title: "Keine Workspaces", description: "Es wurden keine Assets-Workspaces für diesen Account gefunden." });
@@ -246,7 +246,7 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Label className="text-[10px] font-bold uppercase">Jira Cloud URL</Label>
-                    <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-muted-foreground"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Die Haupt-URL Ihrer Instanz, z.B. https://company.atlassian.net. Wir bereinigen tiefe Pfade automatisch.</TooltipContent></Tooltip></TooltipProvider>
+                    <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-muted-foreground"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Die Haupt-URL Ihrer Instanz, z.B. https://company.atlassian.net.</TooltipContent></Tooltip></TooltipProvider>
                   </div>
                   <Input placeholder="https://company.atlassian.net" value={jiraUrl} onChange={e => setJiraUrl(e.target.value)} className="rounded-none" />
                 </div>
@@ -315,7 +315,9 @@ export default function SettingsPage() {
                         className="rounded-none bg-white font-mono text-[11px]" 
                       />
                     </div>
-                    <p className="text-[8px] text-muted-foreground uppercase font-bold">Hinweis: Die Workspace ID ist die UUID aus der URL Ihrer Assets-Seite.</p>
+                    <p className="text-[8px] text-muted-foreground uppercase font-bold">
+                      Die Workspace ID ist die UUID aus der Discovery-API (z.B. a1b2c3d4-...).
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase flex items-center justify-between">
@@ -325,19 +327,14 @@ export default function SettingsPage() {
                     <Input placeholder="z.B. 4" value={assetsSchemaId} onChange={e => setAssetsSchemaId(e.target.value)} className="rounded-none bg-white" />
                   </div>
                   <div className="space-y-2">
-                    {/* Spacer */}
-                  </div>
-                  <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase flex items-center gap-2">
                       Objekttyp ID: Ressourcen (Systeme)
-                      <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-muted-foreground"/></TooltipTrigger><TooltipContent>ID der Asset-Klasse für Systeme.</TooltipContent></Tooltip></TooltipProvider>
                     </Label>
                     <Input placeholder="z.B. 42" value={assetsResourceObjectTypeId} onChange={e => setAssetsResourceObjectTypeId(e.target.value)} className="rounded-none bg-white" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase flex items-center gap-2">
                       Objekttyp ID: Rollen (Berechtigungen)
-                      <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-muted-foreground"/></TooltipTrigger><TooltipContent>ID der Asset-Klasse für Rollen.</TooltipContent></Tooltip></TooltipProvider>
                     </Label>
                     <Input placeholder="z.B. 43" value={assetsRoleObjectTypeId} onChange={e => setAssetsRoleObjectTypeId(e.target.value)} className="rounded-none bg-white" />
                   </div>

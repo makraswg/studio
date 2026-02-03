@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getCollectionData } from './mysql-actions';
@@ -146,7 +147,6 @@ export async function createJiraTicket(configId: string, summary: string, descri
 
 /**
  * Ruft genehmigte Zugriffsanfragen aus Jira ab.
- * Sucht die Ziel-E-Mail in ALLEN Feldern (inkl. Custom Fields wie 'Genehmigung für Mitarbeiter').
  */
 export async function fetchJiraApprovedRequests(configId: string): Promise<JiraSyncItem[]> {
   const configs = await getJiraConfigs();
@@ -173,7 +173,6 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
       body: JSON.stringify({
         jql: jql,
         maxResults: 50,
-        // Fordert alle navigierbaren Felder an, um Custom Fields zu erhalten
         fields: ["summary", "status", "reporter", "created", "description", "*navigable"]
       }),
       cache: 'no-store'
@@ -190,24 +189,18 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
     return data.issues.map((issue: any) => {
       let extractedEmail = '';
       
-      // Hilfsfunktion zur E-Mail-Suche
       const findEmailInText = (text: string): string | null => {
         if (!text || typeof text !== 'string') return null;
         const match = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
         return match ? match[0] : null;
       };
 
-      // 1. Durchsuche ALLE Felder (für Custom Fields wie "Genehmigung für Mitarbeiter")
       for (const fieldKey in issue.fields) {
         const fieldValue = issue.fields[fieldKey];
-        
-        // Falls das Feld ein User-Objekt ist (typisch für JSM Felder)
         if (fieldValue && typeof fieldValue === 'object' && fieldValue.emailAddress) {
           extractedEmail = fieldValue.emailAddress;
           break;
         }
-        
-        // Falls das Feld ein String ist (Custom Field Text)
         if (typeof fieldValue === 'string') {
           const found = findEmailInText(fieldValue);
           if (found) {
@@ -217,7 +210,6 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
         }
       }
 
-      // 2. Falls immer noch nichts gefunden, durchsuche die ADF-Beschreibung (Fallback)
       if (!extractedEmail) {
         const description = issue.fields.description;
         const findEmailInADFNodes = (nodes: any[]): string | null => {
@@ -256,17 +248,18 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
 }
 
 /**
- * Kommentiert ein Jira Ticket.
+ * Schließt ein Jira Ticket ab (Kommentar + Status-Transition).
  */
-export async function resolveJiraTicket(configId: string, issueKey: string, comment: string): Promise<boolean> {
+export async function resolveJiraTicket(configId: string, issueKey: string, comment: string): Promise<{ success: boolean; error?: string }> {
   const configs = await getJiraConfigs();
   const config = configs.find(c => c.id === configId);
-  if (!config) return false;
+  if (!config || !config.enabled) return { success: false, error: 'Jira nicht konfiguriert.' };
 
   const url = cleanJiraUrl(config.url);
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
 
   try {
+    // 1. Kommentar hinzufügen
     await fetch(`${url}/rest/api/3/issue/${issueKey}/comment`, {
       method: 'POST',
       headers: { 
@@ -286,8 +279,38 @@ export async function resolveJiraTicket(configId: string, issueKey: string, comm
       }),
       cache: 'no-store'
     });
-    return true;
-  } catch (e) {
-    return false;
+
+    // 2. Status-Transition durchführen (falls konfiguriert)
+    if (config.doneStatusName) {
+      // Transitionen abrufen
+      const transRes = await fetch(`${url}/rest/api/3/issue/${issueKey}/transitions`, {
+        headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
+        cache: 'no-store'
+      });
+      
+      if (transRes.ok) {
+        const transData = await transRes.json();
+        const targetTrans = transData.transitions?.find((t: any) => 
+          t.name.toLowerCase() === config.doneStatusName.toLowerCase() || 
+          t.to.name.toLowerCase() === config.doneStatusName.toLowerCase()
+        );
+
+        if (targetTrans) {
+          await fetch(`${url}/rest/api/3/issue/${issueKey}/transitions`, {
+            method: 'POST',
+            headers: { 
+              'Authorization': `Basic ${auth}`, 
+              'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ transition: { id: targetTrans.id } }),
+            cache: 'no-store'
+          });
+        }
+      }
+    }
+
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
   }
 }

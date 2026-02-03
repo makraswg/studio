@@ -112,6 +112,7 @@ export const appSchema: AppSchema = {
       projectKey: 'VARCHAR(50)',
       issueTypeName: 'VARCHAR(100)',
       approvedStatusName: 'VARCHAR(100)',
+      doneStatusName: 'VARCHAR(100)',
       enabled: 'BOOLEAN DEFAULT FALSE',
     }
   }

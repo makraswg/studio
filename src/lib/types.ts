@@ -79,6 +79,7 @@ export interface JiraConfig {
   projectKey: string;
   issueTypeName: string;
   approvedStatusName: string;
+  doneStatusName: string;
   enabled: boolean;
 }
 

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -37,7 +38,8 @@ export default function SettingsPage() {
   const [jiraToken, setJiraToken] = useState('');
   const [jiraProject, setJiraProject] = useState('');
   const [jiraIssueType, setJiraIssueType] = useState('Service Request');
-  const [jiraApprovedStatus, setJiraApprovedStatus] = useState('Done');
+  const [jiraApprovedStatus, setJiraApprovedStatus] = useState('Genehmigt');
+  const [jiraDoneStatus, setJiraDoneStatus] = useState('Erledigt');
   const [jiraEnabled, setJiraEnabled] = useState(false);
   
   const [isSavingJira, setIsSavingJira] = useState(false);
@@ -54,7 +56,8 @@ export default function SettingsPage() {
         setJiraToken(c.apiToken || '');
         setJiraProject(c.projectKey || '');
         setJiraIssueType(c.issueTypeName || 'Service Request');
-        setJiraApprovedStatus(c.approvedStatusName || 'Done');
+        setJiraApprovedStatus(c.approvedStatusName || 'Genehmigt');
+        setJiraDoneStatus(c.doneStatusName || 'Erledigt');
         setJiraEnabled(c.enabled || false);
       }
     };
@@ -75,7 +78,8 @@ export default function SettingsPage() {
       apiToken: jiraToken,
       projectKey: jiraProject,
       issueTypeName: jiraIssueType,
-      approvedStatusName: jiraApprovedStatus
+      approvedStatusName: jiraApprovedStatus,
+      doneStatusName: jiraDoneStatus
     };
 
     const res = await testJiraConnectionAction(configData);
@@ -101,6 +105,7 @@ export default function SettingsPage() {
       projectKey: jiraProject,
       issueTypeName: jiraIssueType,
       approvedStatusName: jiraApprovedStatus,
+      doneStatusName: jiraDoneStatus,
       enabled: jiraEnabled
     };
 
@@ -183,6 +188,10 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase">Status für "Genehmigt" (approved)</Label>
                   <Input placeholder="Genehmigt" value={jiraApprovedStatus} onChange={e => setJiraApprovedStatus(e.target.value)} className="rounded-none" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase">Status für "Erledigt" (done)</Label>
+                  <Input placeholder="Erledigt" value={jiraDoneStatus} onChange={e => setJiraDoneStatus(e.target.value)} className="rounded-none" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase">Admin E-Mail</Label>

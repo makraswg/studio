@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -110,7 +111,7 @@ export default function JiraSyncPage() {
       validFrom: timestamp.split('T')[0],
       jiraIssueKey: ticket.key,
       ticketRef: ticket.key,
-      notes: `Automatisch erstellt via Jira Ticket ${ticket.key}. Antragsteller (Beneficiary): ${ticket.requestedUserEmail}`,
+      notes: `Automatisch erstellt via Jira Ticket ${ticket.key}.`,
       tenantId: 't1'
     };
 
@@ -134,9 +135,19 @@ export default function JiraSyncPage() {
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
-    await resolveJiraTicket(activeConfig.id, ticket.key, "Berechtigung wurde erfolgreich im ComplianceHub zugewiesen.");
+    // Ticket in Jira abschließen & verschieben
+    const res = await resolveJiraTicket(
+      activeConfig.id, 
+      ticket.key, 
+      `Berechtigung "${ent.name}" wurde erfolgreich im ComplianceHub zugewiesen. Ticket wird automatisch auf "${activeConfig.doneStatusName || 'Erledigt'}" gesetzt.`
+    );
 
-    toast({ title: "Zuweisung erfolgt", description: `Berechtigung für ${user.displayName} wurde aktiviert.` });
+    if (res.success) {
+      toast({ title: "Zuweisung erfolgt", description: `Berechtigung aktiviert und Jira Ticket ${ticket.key} aktualisiert.` });
+    } else {
+      toast({ title: "Zuweisung erfolgt", description: "Berechtigung aktiviert, aber Jira-Status konnte nicht geändert werden." });
+    }
+
     setJiraTickets(prev => prev.filter(t => t.key !== ticket.key));
     setTimeout(() => refreshAssignments(), 200);
   };
@@ -251,7 +262,7 @@ export default function JiraSyncPage() {
                         <div className="space-y-1">
                           <p className="text-muted-foreground font-bold text-xs uppercase">Keine passenden Tickets gefunden</p>
                           <p className="text-[10px] text-muted-foreground max-w-md mx-auto">
-                            Die App durchsucht nun automatisch die Ticket-Beschreibung UND alle benutzerdefinierten Felder (wie „Genehmigung für Mitarbeiter“) nach einer E-Mail-Adresse.
+                            Das System hat keine genehmigten Anfragen gefunden, die den Kriterien entsprechen.
                           </p>
                         </div>
                         <div className="bg-slate-50 border p-3 rounded-none w-full max-w-lg text-left">
@@ -276,8 +287,7 @@ export default function JiraSyncPage() {
         <div className="flex items-start gap-2">
           <Info className="w-4 h-4 shrink-0" />
           <p>
-            Hinweis: Das System durchsucht automatisch alle Felder des Jira-Tickets nach einer gültigen E-Mail-Adresse. 
-            Es werden sowohl Text-Felder als auch User-Picker-Felder (z.B. „Genehmigung für Mitarbeiter“) unterstützt.
+            Hinweis: Nach der Bestätigung einer Zuweisung wird das Jira-Ticket automatisch mit einem Abschluss-Kommentar versehen und in den Status "{activeConfig?.doneStatusName || 'Erledigt'}" verschoben.
           </p>
         </div>
       </div>

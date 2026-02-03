@@ -139,6 +139,11 @@ export default function ResourcesPage() {
   }, []);
 
   const handleSyncAssets = async () => {
+    if (!resources || resources.length === 0) {
+      toast({ variant: "destructive", title: "Keine Daten", description: "Es sind keine Ressourcen zum Synchronisieren vorhanden." });
+      return;
+    }
+
     setIsSyncingAssets(true);
     try {
       const configs = await getJiraConfigs();
@@ -152,7 +157,13 @@ export default function ResourcesPage() {
         return;
       }
 
-      const res = await syncAssetsToJiraAction(configs[0].id);
+      // Wir übergeben die Daten direkt vom Client, um Firestore/MySQL-Unabhängigkeit zu gewährleisten.
+      const res = await syncAssetsToJiraAction(
+        configs[0].id, 
+        resources, 
+        entitlements || []
+      );
+
       if (res.success) {
         toast({ title: "Asset Sync erfolgreich", description: res.message });
       } else {

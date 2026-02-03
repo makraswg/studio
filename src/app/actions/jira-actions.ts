@@ -82,8 +82,13 @@ export async function getJiraWorkspacesAction(configData: { url: string; email: 
 
 /**
  * Synchronisiert Ressourcen und Rollen als Assets nach Jira.
+ * Die Daten werden vom Client übergeben, um unabhängig von der Server-Datenquelle (Firestore/MySQL) zu sein.
  */
-export async function syncAssetsToJiraAction(configId: string): Promise<{ success: boolean; message: string; error?: string }> {
+export async function syncAssetsToJiraAction(
+  configId: string, 
+  resources: Resource[], 
+  entitlements: Entitlement[]
+): Promise<{ success: boolean; message: string; error?: string }> {
   const configs = await getJiraConfigs();
   const config = configs.find(c => c.id === configId);
   
@@ -94,70 +99,95 @@ export async function syncAssetsToJiraAction(configId: string): Promise<{ succes
   const baseUrl = cleanJiraUrl(config.url);
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
   
-  // Wir nutzen den Workspace-spezifischen API-Endpunkt
-  // Hinweis: Viele Assets-APIs erwarten die workspaceId im Pfad
+  // Jira Cloud Assets API Endpoint
   const assetsApiBase = `${baseUrl}/rest/assets/1.0`; 
 
   try {
-    // 1. Daten aus lokaler DB laden
-    const resResult = await getCollectionData('resources');
-    const entResult = await getCollectionData('entitlements');
-    const resources = (resResult.data as Resource[]) || [];
-    const entitlements = (entResult.data as Entitlement[]) || [];
-
     let createdCount = 0;
-    let updatedCount = 0;
+    let errorCount = 0;
+    let lastError = '';
 
-    // 2. Ressourcen synchronisieren
+    // 1. Ressourcen (Systeme) synchronisieren
     if (config.assetsResourceObjectTypeId) {
       for (const res of resources) {
-        // Prüfen ob Objekt existiert (vereinfacht via Name-Suche)
-        const createRes = await fetch(`${assetsApiBase}/object/create`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Basic ${auth}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            objectTypeId: config.assetsResourceObjectTypeId,
-            attributes: [
-              {
-                objectTypeAttributeId: "1", // In der Regel ID 1 für "Name"
-                objectAttributeValues: [{ value: res.name }]
-              }
-            ]
-          })
-        });
-        if (createRes.ok) createdCount++;
+        try {
+          const createRes = await fetch(`${assetsApiBase}/object/create`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Basic ${auth}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              objectTypeId: config.assetsResourceObjectTypeId,
+              attributes: [
+                {
+                  objectTypeAttributeId: "1", // In der Regel ID 1 für "Name"
+                  objectAttributeValues: [{ value: res.name }]
+                }
+              ]
+            })
+          });
+          
+          if (createRes.ok) {
+            createdCount++;
+          } else {
+            errorCount++;
+            lastError = `System '${res.name}': ${createRes.status} ${createRes.statusText}`;
+          }
+        } catch (e: any) {
+          errorCount++;
+          lastError = e.message;
+        }
       }
     }
 
-    // 3. Rollen synchronisieren
+    // 2. Rollen (Berechtigungen) synchronisieren
     if (config.assetsRoleObjectTypeId) {
       for (const ent of entitlements) {
-        const createEnt = await fetch(`${assetsApiBase}/object/create`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Basic ${auth}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            objectTypeId: config.assetsRoleObjectTypeId,
-            attributes: [
-              {
-                objectTypeAttributeId: "1", // Name
-                objectAttributeValues: [{ value: ent.name }]
-              }
-            ]
-          })
-        });
-        if (createEnt.ok) createdCount++;
+        try {
+          const createEnt = await fetch(`${assetsApiBase}/object/create`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Basic ${auth}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              objectTypeId: config.assetsRoleObjectTypeId,
+              attributes: [
+                {
+                  objectTypeAttributeId: "1", // Name
+                  objectAttributeValues: [{ value: ent.name }]
+                }
+              ]
+            })
+          });
+          
+          if (createEnt.ok) {
+            createdCount++;
+          } else {
+            errorCount++;
+            lastError = `Rolle '${ent.name}': ${createEnt.status} ${createEnt.statusText}`;
+          }
+        } catch (e: any) {
+          errorCount++;
+          lastError = e.message;
+        }
       }
+    }
+
+    if (createdCount === 0 && errorCount > 0) {
+      return { 
+        success: false, 
+        message: `Übertragung fehlgeschlagen. Letzter Fehler: ${lastError}`,
+        error: lastError
+      };
     }
 
     return { 
       success: true, 
-      message: `${createdCount} Objekte erfolgreich nach Jira Assets übertragen (Workspace: ${config.assetsWorkspaceId}).` 
+      message: `${createdCount} Objekte erfolgreich nach Jira Assets übertragen. (Fehler: ${errorCount})` 
     };
   } catch (e: any) {
     return { success: false, message: 'Synchronisation fehlgeschlagen', error: e.message };
@@ -193,7 +223,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
     const userData = await testRes.json();
     const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName}"`;
     
-    const searchRes = await fetch(`${url}/rest/api/3/search/jql`, {
+    const searchRes = await fetch(`${url}/rest/api/3/search`, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${auth}`,
@@ -271,7 +301,7 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
   try {
     const jql = `project = "${config.projectKey}" AND status = "${config.approvedStatusName}"${config.issueTypeName ? ` AND "Request Type" = "${config.issueTypeName}"` : ''}`;
 
-    const response = await fetch(`${url}/rest/api/3/search/jql`, {
+    const response = await fetch(`${url}/rest/api/3/search`, {
       method: 'POST',
       headers: { 
         'Authorization': `Basic ${auth}`,
@@ -290,12 +320,11 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
     const data = await response.json();
     if (!data.issues) return [];
 
-    const entData = await getCollectionData('entitlements');
-    const localEntitlements = (entData.data as Entitlement[]) || [];
+    // Wir rufen hier keine lokalen Entitlements ab, da wir diese Action nur für die Ticket-Daten nutzen.
+    // Die Zuordnung findet im Client statt.
 
     return data.issues.map((issue: any) => {
       let extractedEmail = '';
-      let matchedRoleName = '';
       
       const findInObject = (obj: any) => {
         if (!obj) return;
@@ -304,14 +333,6 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
         if (!extractedEmail) {
           const match = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
           if (match) extractedEmail = match[0];
-        }
-        if (!matchedRoleName) {
-          for (const ent of localEntitlements) {
-            if (text.includes(ent.name.toLowerCase())) {
-              matchedRoleName = ent.name;
-              break;
-            }
-          }
         }
       };
 
@@ -323,8 +344,7 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
         status: issue.fields.status.name,
         reporter: issue.fields.reporter?.displayName || 'Unbekannt',
         created: issue.fields.created,
-        requestedUserEmail: extractedEmail || undefined,
-        requestedRoleName: matchedRoleName || undefined
+        requestedUserEmail: extractedEmail || undefined
       };
     });
   } catch (e) {

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -49,6 +48,7 @@ export default function JiraSyncPage() {
   const [activeConfig, setActiveConfig] = useState<any>(null);
 
   const { data: users } = usePluggableCollection<User>('users');
+  const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<Assignment>('assignments');
 
@@ -65,7 +65,17 @@ export default function JiraSyncPage() {
       if (configs.length > 0 && configs[0].enabled) {
         setActiveConfig(configs[0]);
         const tickets = await fetchJiraApprovedRequests(configs[0].id);
-        setJiraTickets(tickets);
+        
+        // Versuche Rollen im Client zuzuordnen
+        const ticketsWithRoles = tickets.map(t => {
+          const matchedRole = entitlements?.find(e => 
+            t.summary.toLowerCase().includes(e.name.toLowerCase()) || 
+            (t.requestedRoleName && t.requestedRoleName.toLowerCase() === e.name.toLowerCase())
+          );
+          return { ...t, matchedRole };
+        });
+        
+        setJiraTickets(ticketsWithRoles);
       }
     } catch (e: any) {
       setError(e.message || "Unbekannter Fehler beim Abrufen der Jira-Daten.");
@@ -77,9 +87,20 @@ export default function JiraSyncPage() {
 
   const handleSyncAssets = async () => {
     if (!activeConfig) return;
+    if (!resources || resources.length === 0) {
+      toast({ variant: "destructive", title: "Keine Daten", description: "Keine Ressourcen zum Synchronisieren gefunden." });
+      return;
+    }
+
     setIsSyncingAssets(true);
     try {
-      const res = await syncAssetsToJiraAction(activeConfig.id);
+      // Wir übergeben die Client-Daten an die Server Action
+      const res = await syncAssetsToJiraAction(
+        activeConfig.id, 
+        resources, 
+        entitlements || []
+      );
+      
       if (res.success) {
         toast({ title: "Asset Sync erfolgreich", description: res.message });
       } else {
@@ -105,10 +126,10 @@ export default function JiraSyncPage() {
       return;
     }
 
-    const ent = entitlements?.find(e => e.name.toLowerCase() === ticket.requestedRoleName?.toLowerCase()) || entitlements?.[0]; 
+    const ent = ticket.matchedRole || entitlements?.find(e => e.name.toLowerCase() === ticket.requestedRoleName?.toLowerCase()); 
     
     if (!ent) {
-      toast({ variant: "destructive", title: "Fehler", description: "Keine passende Rolle im System definiert." });
+      toast({ variant: "destructive", title: "Fehler", description: "Keine passende Rolle im System definiert. Bitte manuell zuweisen oder Rolle anlegen." });
       return;
     }
 
@@ -131,7 +152,7 @@ export default function JiraSyncPage() {
       validFrom: timestamp.split('T')[0],
       jiraIssueKey: ticket.key,
       ticketRef: ticket.key,
-      notes: `Automatisch erstellt via Jira Ticket ${ticket.key}. Angefordert: ${ticket.requestedRoleName || 'Nicht spezifiziert'}.`,
+      notes: `Automatisch erstellt via Jira Ticket ${ticket.key}. Angefordert: ${ticket.requestedRoleName || ent.name}.`,
       tenantId: 't1'
     };
 
@@ -270,9 +291,13 @@ export default function JiraSyncPage() {
                             <AlertTriangle className="w-3 h-3" /> E-Mail nicht gefunden
                           </div>
                         )}
-                        {ticket.requestedRoleName && (
+                        {ticket.matchedRole ? (
                           <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-[9px] uppercase">
-                            <Shield className="w-3 h-3" /> {ticket.requestedRoleName}
+                            <Shield className="w-3 h-3" /> {ticket.matchedRole.name}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-orange-500 font-bold text-[9px] uppercase italic">
+                            <Info className="w-3 h-3" /> Keine Rolle erkannt
                           </div>
                         )}
                       </div>

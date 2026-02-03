@@ -23,9 +23,8 @@ import {
   Pencil,
   Check,
   AlertTriangle,
-  Filter,
   CheckCircle2,
-  ChevronRight
+  X
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -107,13 +106,14 @@ export default function GroupsPage() {
     const timestamp = new Date().toISOString();
     const today = timestamp.split('T')[0];
 
-    // 1. New assignments
+    // 1. Create or update assignments for group members
     for (const uid of userIds) {
       for (const eid of entIds) {
+        // Create a predictable ID for group-based assignments
         const assId = `ga_${groupId}_${uid}_${eid}`.replace(/[^a-zA-Z0-9_]/g, '_');
         const existing = currentAssignments.find(a => a.id === assId);
 
-        if (!existing) {
+        if (!existing || existing.status === 'removed') {
           const assignmentData = {
             id: assId,
             userId: uid,
@@ -137,7 +137,7 @@ export default function GroupsPage() {
       }
     }
 
-    // 2. Remove orphaned assignments
+    // 2. Remove orphaned assignments (if user/role was removed from group)
     const currentGroupAssignments = currentAssignments.filter(a => a.originGroupId === groupId);
     for (const a of currentGroupAssignments) {
       const userStillInGroup = userIds.includes(a.userId);
@@ -145,9 +145,15 @@ export default function GroupsPage() {
 
       if (!userStillInGroup || !entStillInGroup) {
         if (dataSource === 'mysql') {
-          await deleteCollectionRecord('assignments', a.id);
+          // For groups, we might want to actually delete or set to 'removed'
+          // We'll set to removed to maintain history
+          const updated = { ...a, status: 'removed', notes: `${a.notes} [Entfernt via Gruppen-Sync ${today}]` };
+          await saveCollectionRecord('assignments', a.id, updated);
         } else {
-          deleteDocumentNonBlocking(doc(db, 'assignments', a.id));
+          setDocumentNonBlocking(doc(db, 'assignments', a.id), { 
+            status: 'removed',
+            notes: `${a.notes || ''} [Entfernt via Gruppen-Sync ${today}]`
+          }, { merge: true });
         }
       }
     }
@@ -196,6 +202,7 @@ export default function GroupsPage() {
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
+    // Perform sync of actual assignments
     await syncGroupAssignments(groupId, name, selectedUserIds, selectedEntitlementIds);
 
     setIsEditOpen(false);
@@ -227,13 +234,14 @@ export default function GroupsPage() {
         await deleteCollectionRecord('groups', selectedGroup.id);
         const groupAssignments = assignments?.filter(a => a.originGroupId === selectedGroup.id) || [];
         for (const a of groupAssignments) {
-          await deleteCollectionRecord('assignments', a.id);
+          // Deactivate assignments
+          await saveCollectionRecord('assignments', a.id, { ...a, status: 'removed' });
         }
         await saveCollectionRecord('auditEvents', auditData.id, auditData);
       } else {
         deleteDocumentNonBlocking(doc(db, 'groups', selectedGroup.id));
         assignments?.filter(a => a.originGroupId === selectedGroup.id).forEach(a => {
-          deleteDocumentNonBlocking(doc(db, 'assignments', a.id));
+          setDocumentNonBlocking(doc(db, 'assignments', a.id), { status: 'removed' }, { merge: true });
         });
         addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
       }
@@ -253,8 +261,8 @@ export default function GroupsPage() {
     setSelectedGroup(group);
     setName(group.name);
     setDescription(group.description || '');
-    setSelectedUserIds(Array.isArray(group.userIds) ? group.userIds : []);
-    setSelectedEntitlementIds(Array.isArray(group.entitlementIds) ? group.entitlementIds : []);
+    setSelectedUserIds(Array.isArray(group.userIds) ? [...group.userIds] : []);
+    setSelectedEntitlementIds(Array.isArray(group.entitlementIds) ? [...group.entitlementIds] : []);
     setTimeout(() => setIsEditOpen(true), 150);
   };
 
@@ -274,12 +282,14 @@ export default function GroupsPage() {
   };
 
   const toggleUser = (userId: string) => {
+    if (!userId) return;
     setSelectedUserIds(prev => 
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
     );
   };
 
   const toggleEntitlement = (entId: string) => {
+    if (!entId) return;
     setSelectedEntitlementIds(prev => 
       prev.includes(entId) ? prev.filter(id => id !== entId) : [...prev, entId]
     );
@@ -486,7 +496,7 @@ export default function GroupsPage() {
                           onClick={() => toggleUser(u.id)}
                         >
                           <div className="flex items-center gap-3 truncate">
-                            <div className="w-6 h-6 bg-slate-100 flex items-center justify-center font-bold text-slate-500 uppercase shrink-0">{displayName.charAt(0)}</div>
+                            <div className="w-6 h-6 bg-slate-100 flex items-center justify-center font-bold text-slate-500 uppercase shrink-0">{displayName?.charAt(0)}</div>
                             <div className="flex flex-col truncate">
                               <span className="font-bold text-slate-800">{displayName}</span>
                               <span className="text-muted-foreground uppercase text-[8px]">{u.department || 'Keine Abteilung'}</span>

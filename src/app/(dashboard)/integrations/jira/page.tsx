@@ -19,7 +19,8 @@ import {
   ShieldCheck, 
   UserPlus, 
   AlertTriangle,
-  History
+  History,
+  Info
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
@@ -42,7 +43,6 @@ export default function JiraSyncPage() {
 
   const { data: users } = usePluggableCollection<User>('users');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
-  const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<Assignment>('assignments');
 
   useEffect(() => {
@@ -52,13 +52,18 @@ export default function JiraSyncPage() {
 
   const loadSyncData = async () => {
     setIsLoading(true);
-    const configs = await getJiraConfigs();
-    if (configs.length > 0 && configs[0].enabled) {
-      setActiveConfig(configs[0]);
-      const tickets = await fetchJiraApprovedRequests(configs[0].id);
-      setJiraTickets(tickets);
+    try {
+      const configs = await getJiraConfigs();
+      if (configs.length > 0 && configs[0].enabled) {
+        setActiveConfig(configs[0]);
+        const tickets = await fetchJiraApprovedRequests(configs[0].id);
+        setJiraTickets(tickets);
+      }
+    } catch (e) {
+      toast({ variant: "destructive", title: "Fehler beim Laden", description: "Verbindung zu Jira fehlgeschlagen." });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleAssignFromJira = async (ticket: any) => {
@@ -70,19 +75,17 @@ export default function JiraSyncPage() {
       toast({ 
         variant: "destructive", 
         title: "Benutzer nicht gefunden", 
-        description: `Keine Identität für ${ticket.requestedUserEmail} im System hinterlegt.` 
+        description: `Keine Identität für ${ticket.requestedUserEmail || 'unbekannte E-Mail'} gefunden.` 
       });
       return;
     }
 
-    // In einer realen Welt würden wir die Rolle aus dem Ticket matchen
     const ent = entitlements?.[0]; 
     if (!ent) {
       toast({ variant: "destructive", title: "Fehler", description: "Keine Rollen im System definiert." });
       return;
     }
 
-    // Doppelte Prüfung
     const alreadyHas = assignments?.some(a => a.userId === user.id && a.entitlementId === ent.id && a.status === 'active');
     if (alreadyHas) {
       toast({ variant: "destructive", title: "Schon zugewiesen", description: `${user.displayName} besitzt diese Rolle bereits.` });
@@ -126,7 +129,6 @@ export default function JiraSyncPage() {
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
-    // Jira Ticket abschließen
     await resolveJiraTicket(activeConfig.id, ticket.key, "Berechtigung wurde erfolgreich im ComplianceHub zugewiesen.");
 
     toast({ title: "Zuweisung erfolgt", description: `Berechtigung für ${user.displayName} wurde aktiviert.` });
@@ -143,9 +145,11 @@ export default function JiraSyncPage() {
           <h1 className="text-2xl font-bold tracking-tight">Jira Synchronisation</h1>
           <p className="text-sm text-muted-foreground">Genehmigte Tickets als Berechtigungs-Grundlage.</p>
         </div>
-        <Button variant="outline" size="sm" onClick={loadSyncData} disabled={isLoading} className="h-9 font-bold uppercase text-[10px] rounded-none">
-          {isLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} Aktualisieren
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={loadSyncData} disabled={isLoading} className="h-9 font-bold uppercase text-[10px] rounded-none">
+            {isLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} Aktualisieren
+          </Button>
+        </div>
       </div>
 
       {!activeConfig && !isLoading && (
@@ -161,59 +165,75 @@ export default function JiraSyncPage() {
 
       {activeConfig && (
         <div className="admin-card overflow-hidden">
-          <Table>
-            <TableHeader className="bg-muted/30">
-              <TableRow>
-                <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Jira Key</TableHead>
-                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Anfrage / Inhalt</TableHead>
-                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Antragsteller</TableHead>
-                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Status (Jira)</TableHead>
-                <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Aktion</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {jiraTickets.map((ticket) => (
-                <TableRow key={ticket.key} className="hover:bg-muted/5 border-b">
-                  <TableCell className="py-4 font-bold text-primary text-xs">
-                    <a href={`${activeConfig.url}/browse/${ticket.key}`} target="_blank" className="flex items-center gap-1 hover:underline">
-                      {ticket.key} <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-bold text-sm">{ticket.summary}</span>
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Ziel-User: {ticket.requestedUserEmail || 'Unbekannt'}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-xs font-bold text-slate-600 uppercase">{ticket.reporter}</TableCell>
-                  <TableCell>
-                    <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-none text-[9px] font-bold uppercase px-2">{ticket.status}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button 
-                      size="sm" 
-                      className="h-8 text-[9px] font-bold uppercase rounded-none bg-blue-600 hover:bg-blue-700"
-                      onClick={() => handleAssignFromJira(ticket)}
-                    >
-                      <UserPlus className="w-3.5 h-3.5 mr-1.5" /> Zuweisung Bestätigen
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {jiraTickets.length === 0 && !isLoading && (
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Jira API wird abgefragt...</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader className="bg-muted/30">
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground italic text-xs">
-                    Aktuell keine neuen genehmigten Anfragen in Jira gefunden.
-                  </TableCell>
+                  <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Jira Key</TableHead>
+                  <TableHead className="font-bold uppercase tracking-widest text-[10px]">Anfrage / Inhalt</TableHead>
+                  <TableHead className="font-bold uppercase tracking-widest text-[10px]">Antragsteller</TableHead>
+                  <TableHead className="font-bold uppercase tracking-widest text-[10px]">Status (Jira)</TableHead>
+                  <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Aktion</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {jiraTickets.map((ticket) => (
+                  <TableRow key={ticket.key} className="hover:bg-muted/5 border-b">
+                    <TableCell className="py-4 font-bold text-primary text-xs">
+                      <a href={`${activeConfig.url}/browse/${ticket.key}`} target="_blank" className="flex items-center gap-1 hover:underline">
+                        {ticket.key} <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-sm">{ticket.summary}</span>
+                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
+                          {ticket.requestedUserEmail ? `Ziel-User: ${ticket.requestedUserEmail}` : "Keine E-Mail in Beschreibung gefunden"}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs font-bold text-slate-600 uppercase">{ticket.reporter}</TableCell>
+                    <TableCell>
+                      <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-none text-[9px] font-bold uppercase px-2">{ticket.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button 
+                        size="sm" 
+                        className="h-8 text-[9px] font-bold uppercase rounded-none bg-blue-600 hover:bg-blue-700"
+                        onClick={() => handleAssignFromJira(ticket)}
+                        disabled={!ticket.requestedUserEmail}
+                      >
+                        <UserPlus className="w-3.5 h-3.5 mr-1.5" /> Zuweisung Bestätigen
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {jiraTickets.length === 0 && !isLoading && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-32 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <Info className="w-6 h-6 text-slate-300" />
+                        <p className="text-muted-foreground italic text-xs">
+                          Aktuell keine neuen genehmigten Anfragen in Jira gefunden.<br/>
+                          (Prüfen Sie: Projekt "{activeConfig.projectKey}", Status "{activeConfig.approvedStatusName}" und Anfragetyp "{activeConfig.issueTypeName}")
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </div>
       )}
 
       <div className="p-4 bg-blue-50 border text-[10px] font-bold uppercase text-blue-700 leading-relaxed">
-        Hinweis: Nach der Bestätigung wird im ComplianceHub ein permanenter Datensatz mit dem Jira-Key als Dokumentationsgrundlage erstellt. Dieser Datensatz bleibt auch nach dem Beenden der Berechtigung für Revisionszwecke erhalten.
+        Hinweis: Das System sucht in Jira nach Tickets, bei denen eine gültige E-Mail-Adresse in der Beschreibung hinterlegt ist. Der Status und Anfragetyp muss exakt mit den Einstellungen übereinstimmen.
       </div>
     </div>
   );

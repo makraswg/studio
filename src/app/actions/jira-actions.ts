@@ -38,10 +38,7 @@ export async function createJiraTicket(configId: string, summary: string, descri
             version: 1,
             content: [{ type: 'paragraph', content: [{ type: 'text', text: description }] }]
           },
-          // Wir versuchen den Anfragetyp als Issue-Type zu senden, 
-          // falls es ein Standard-Typ ist. Bei JSM-spezifischen Request Types 
-          // müsste dies über ein Service-Desk-spezifisches API-Feld erfolgen.
-          issuetype: { name: config.issueTypeName || 'Service Request' }
+          issuetype: { name: 'Service Request' }
         }
       })
     });
@@ -50,6 +47,7 @@ export async function createJiraTicket(configId: string, summary: string, descri
     if (response.ok) {
       return { success: true, key: data.key };
     } else {
+      console.error("[Jira Create Error]", data);
       return { success: false, error: data.errors ? JSON.stringify(data.errors) : 'Unbekannter Jira-Fehler' };
     }
   } catch (e: any) {
@@ -59,7 +57,6 @@ export async function createJiraTicket(configId: string, summary: string, descri
 
 /**
  * Ruft genehmigte Zugriffsanfragen aus Jira ab.
- * Berücksichtigt JSM-spezifische "Request Type" Felder in der JQL.
  */
 export async function fetchJiraApprovedRequests(configId: string): Promise<JiraSyncItem[]> {
   const configs = await getJiraConfigs();
@@ -68,10 +65,9 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
 
   try {
     const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
-    const statusFilter = config.approvedStatusName || "Done";
+    const statusFilter = config.approvedStatusName || "Genehmigt";
     
-    // Wir bauen die JQL-Abfrage. 
-    // Wenn ein Anfragetyp gesetzt ist, suchen wir explizit im JSM-Feld "Request Type".
+    // JQL basierend auf User-Input: project = ITSM AND "Request Type" = "Anfragetyp" AND status = "Status"
     let jql = `project = "${config.projectKey}" AND status = "${statusFilter}"`;
     
     if (config.issueTypeName) {
@@ -80,24 +76,28 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
     
     jql += ` ORDER BY created DESC`;
     
-    // Debug-Log für die JQL (sichtbar in Server-Logs)
-    console.log(`[Jira Sync] Abfrage: ${jql}`);
+    console.log(`[Jira Sync] Ausgeführte JQL: ${jql}`);
 
     const response = await fetch(`${config.url}/rest/api/3/search?jql=${encodeURIComponent(jql)}`, {
-      headers: { 'Authorization': `Basic ${auth}` }
+      headers: { 
+        'Authorization': `Basic ${auth}`,
+        'Accept': 'application/json'
+      }
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[Jira API Error] ${response.status}: ${errorText}`);
+      console.error(`[Jira API Error] Status ${response.status}: ${errorText}`);
       return [];
     }
 
     const data = await response.json();
-    if (!data.issues) return [];
+    if (!data.issues) {
+      console.log("[Jira Sync] Keine Issues im Search-Result gefunden.");
+      return [];
+    }
 
     return data.issues.map((issue: any) => {
-      // Rekursive Extraktion der E-Mail aus dem ADF (Atlassian Document Format)
       let extractedEmail = '';
       const description = issue.fields.description;
 
@@ -130,7 +130,7 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
       };
     });
   } catch (e) {
-    console.error("Jira Sync Error:", e);
+    console.error("[Jira Sync Critical Error]:", e);
     return [];
   }
 }
@@ -146,7 +146,6 @@ export async function resolveJiraTicket(configId: string, issueKey: string, comm
   try {
     const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
     
-    // Kommentar hinzufügen
     await fetch(`${config.url}/rest/api/3/issue/${issueKey}/comment`, {
       method: 'POST',
       headers: { 

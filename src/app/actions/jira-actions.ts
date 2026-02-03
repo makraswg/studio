@@ -51,7 +51,6 @@ export async function getJiraWorkspacesAction(configData: { url: string; email: 
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
   try {
-    // Site-spezifischer Discovery-Endpunkt für Jira Cloud
     const response = await fetch(`${baseUrl}/rest/servicedeskapi/assets/workspace`, {
       method: 'GET',
       headers: {
@@ -84,7 +83,6 @@ export async function getJiraWorkspacesAction(configData: { url: string; email: 
 
 /**
  * Synchronisiert Ressourcen und Rollen als Assets nach Jira.
- * Die Daten werden vom Client übergeben, um unabhängig von der Server-Datenquelle (Firestore/MySQL) zu sein.
  */
 export async function syncAssetsToJiraAction(
   configId: string, 
@@ -101,7 +99,6 @@ export async function syncAssetsToJiraAction(
   const baseUrl = cleanJiraUrl(config.url);
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
   
-  // Jira Cloud Assets Gateway API Endpoint
   const assetsApiBase = `${baseUrl}/gateway/api/jsm/assets/workspace/${config.assetsWorkspaceId}/v1`; 
   const nameAttrId = config.assetsNameAttributeId || "1";
 
@@ -110,7 +107,7 @@ export async function syncAssetsToJiraAction(
     let errorCount = 0;
     let lastError = '';
 
-    // 1. Ressourcen (Systeme) synchronisieren
+    // 1. Ressourcen (Systeme)
     if (config.assetsResourceObjectTypeId) {
       for (const res of resources) {
         try {
@@ -146,26 +143,10 @@ export async function syncAssetsToJiraAction(
       }
     }
 
-    // 2. Rollen (Berechtigungen) synchronisieren
+    // 2. Rollen (Berechtigungen)
     if (config.assetsRoleObjectTypeId) {
       for (const ent of entitlements) {
         try {
-          const attributes = [
-            {
-              objectTypeAttributeId: nameAttrId,
-              objectAttributeValues: [{ value: ent.name }]
-            }
-          ];
-
-          // Falls eine Attribut-ID für die Systemverknüpfung definiert ist
-          if (config.assetsSystemAttributeId) {
-            const system = resources.find(r => r.id === ent.resourceId);
-            if (system) {
-              // Hier müsste man eigentlich erst die ID des System-Objekts in Jira finden
-              // Für dieses MVP übertragen wir erst mal nur den Namen als Text oder Logik-Platzhalter
-            }
-          }
-
           const createEnt = await fetch(`${assetsApiBase}/object/create`, {
             method: 'POST',
             headers: {
@@ -175,7 +156,12 @@ export async function syncAssetsToJiraAction(
             },
             body: JSON.stringify({
               objectTypeId: config.assetsRoleObjectTypeId,
-              attributes
+              attributes: [
+                {
+                  objectTypeAttributeId: nameAttrId,
+                  objectAttributeValues: [{ value: ent.name }]
+                }
+              ]
             })
           });
           

@@ -23,7 +23,8 @@ import {
   MoreHorizontal,
   X,
   Plus,
-  Workflow
+  Workflow,
+  Clock
 } from 'lucide-react';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
@@ -143,25 +144,38 @@ export default function LifecyclePage() {
       setDocumentNonBlocking(doc(db, 'users', userId), userData);
     }
 
-    // 2. Create Assignments for Bundle
-    const roleListText: string[] = [];
-    for (const eid of bundle.entitlementIds) {
-      const ent = entitlements?.find(e => e.id === eid);
-      const res = resources?.find(r => r.id === ent?.resourceId);
-      roleListText.push(`${res?.name}: ${ent?.name}`);
+    // 2. Trigger Jira Ticket for Service Desk FIRST to get the key
+    const configs = await getJiraConfigs();
+    let jiraKey = 'PENDING';
+    if (configs.length > 0 && configs[0].enabled) {
+      const summary = `ONBOARDING: ${newUserName} (${newUserDept})`;
+      const roleListText = bundle.entitlementIds.map(eid => {
+        const ent = entitlements?.find(e => e.id === eid);
+        const res = resources?.find(r => r.id === ent?.resourceId);
+        return `${res?.name}: ${ent?.name}`;
+      });
+      
+      const desc = `Bitte folgende Accounts für den neuen Mitarbeiter ${newUserName} erstellen:\n\nE-Mail: ${newUserEmail}\nStartdatum: ${onboardingDate}\n\nRollen laut Bundle '${bundle.name}':\n- ${roleListText.join('\n- ')}\n\nACHTUNG: Berechtigungen im Hub werden erst aktiv geschaltet, wenn dieses Ticket erledigt ist.`;
+      
+      const res = await createJiraTicket(configs[0].id, summary, desc);
+      if (res.success) jiraKey = res.key!;
+    }
 
+    // 3. Create Assignments with status 'requested' (PENDING)
+    for (const eid of bundle.entitlementIds) {
       const assId = `ass-onb-${userId}-${eid}`.substring(0, 50);
       const assData = {
         id: assId,
         tenantId: 't1',
         userId,
         entitlementId: eid,
-        status: 'active',
+        status: 'requested', // PENDING STAGE
         grantedBy: 'onboarding-wizard',
         grantedAt: timestamp,
         validFrom: onboardingDate,
-        ticketRef: 'ONBOARDING',
-        notes: `Automatisch zugewiesen via Onboarding-Bundle: ${bundle.name}`
+        jiraIssueKey: jiraKey,
+        ticketRef: jiraKey,
+        notes: `Wartend auf Ticket-Abschluss (${jiraKey}). Onboarding-Bundle: ${bundle.name}`
       };
 
       if (dataSource === 'mysql') {
@@ -171,19 +185,7 @@ export default function LifecyclePage() {
       }
     }
 
-    // 3. Trigger Jira Ticket for Service Desk
-    const configs = await getJiraConfigs();
-    if (configs.length > 0 && configs[0].enabled) {
-      const summary = `ONBOARDING: ${newUserName} (${newUserDept})`;
-      const desc = `Bitte folgende Accounts für den neuen Mitarbeiter ${newUserName} erstellen:\n\nE-Mail: ${newUserEmail}\nStartdatum: ${onboardingDate}\n\nRollen laut Bundle '${bundle.name}':\n- ${roleListText.join('\n- ')}\n\nHinweis: Das System hat keinen Schreibzugriff. Bitte manuell provisionieren und Ticket schließen.`;
-      
-      const res = await createJiraTicket(configs[0].id, summary, desc);
-      if (res.success) {
-        toast({ title: "Jira Ticket erstellt", description: `Key: ${res.key}` });
-      }
-    }
-
-    toast({ title: "Onboarding abgeschlossen", description: "Mitarbeiter und Rollen wurden im Hub registriert." });
+    toast({ title: "Onboarding angestoßen", description: `User angelegt. Jira Ticket ${jiraKey} erstellt. Status: Pending.` });
     setIsActionLoading(false);
     resetJoinerForm();
     refreshUsers();
@@ -196,25 +198,34 @@ export default function LifecyclePage() {
     const timestamp = new Date().toISOString();
     const today = timestamp.split('T')[0];
 
-    // 1. Disable User
-    const updatedUser = { ...user, enabled: false, offboardingDate: today };
-    if (dataSource === 'mysql') {
-      await saveCollectionRecord('users', user.id, updatedUser);
-    } else {
-      updateDocumentNonBlocking(doc(db, 'users', user.id), { enabled: false, offboardingDate: today });
+    // 1. Create Jira Ticket FIRST
+    const configs = await getJiraConfigs();
+    let jiraKey = 'OFFB-PENDING';
+    if (configs.length > 0 && configs[0].enabled) {
+      const revokeList = userAssignments.map(a => {
+        const ent = entitlements?.find(e => e.id === a.entitlementId);
+        const res = resources?.find(r => r.id === ent?.resourceId);
+        return `${res?.name}: ${ent?.name}`;
+      });
+
+      const summary = `OFFBOARDING: ${user.displayName}`;
+      const desc = `Mitarbeiter ${user.displayName} verlässt das Unternehmen.\nBitte folgende Accounts DEAKTIVIEREN:\n\nE-Mail: ${user.email}\n\nSysteme:\n- ${revokeList.join('\n- ')}\n\nACHTUNG: Der Account im Hub wird erst nach Abschluss dieses Tickets final deaktiviert.`;
+      
+      const res = await createJiraTicket(configs[0].id, summary, desc);
+      if (res.success) jiraKey = res.key!;
     }
 
-    // 2. Revoke all Assignments
-    const revokeList: string[] = [];
+    // 2. Set all Assignments to 'pending_removal'
     for (const a of userAssignments) {
-      const ent = entitlements?.find(e => e.id === a.entitlementId);
-      const res = resources?.find(r => r.id === ent?.resourceId);
-      revokeList.push(`${res?.name}: ${ent?.name}`);
-
+      const updateData = { 
+        status: 'pending_removal', 
+        jiraIssueKey: jiraKey,
+        notes: `${a.notes || ''} [Offboarding eingeleitet via ${jiraKey}]`.trim()
+      };
       if (dataSource === 'mysql') {
-        await saveCollectionRecord('assignments', a.id, { ...a, status: 'removed', validUntil: today });
+        await saveCollectionRecord('assignments', a.id, { ...a, ...updateData });
       } else {
-        updateDocumentNonBlocking(doc(db, 'assignments', a.id), { status: 'removed', validUntil: today });
+        updateDocumentNonBlocking(doc(db, 'assignments', a.id), updateData);
       }
     }
 
@@ -223,12 +234,11 @@ export default function LifecyclePage() {
     const auditData = {
       id: auditId,
       actorUid: authUser?.uid || 'system',
-      action: `OFFBOARDING: ${user.displayName} (Alle Zugriffe entzogen)`,
+      action: `OFFBOARDING GESTARTET: ${user.displayName} (Wartend auf ${jiraKey})`,
       entityType: 'user',
       entityId: user.id,
       timestamp,
-      tenantId: 't1',
-      after: { rolesRemoved: revokeList.length }
+      tenantId: 't1'
     };
     if (dataSource === 'mysql') {
       await saveCollectionRecord('auditEvents', auditId, auditData);
@@ -236,19 +246,7 @@ export default function LifecyclePage() {
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
-    // 4. Trigger Jira Ticket for Deprovisioning
-    const configs = await getJiraConfigs();
-    if (configs.length > 0 && configs[0].enabled) {
-      const summary = `OFFBOARDING (Account Löschung): ${user.displayName}`;
-      const desc = `Der Mitarbeiter ${user.displayName} verlässt das Unternehmen.\nBitte folgende Accounts SOFORT DEAKTIVIEREN:\n\nE-Mail: ${user.email}\nAbteilung: ${user.department}\n\nBetroffene Systeme:\n- ${revokeList.join('\n- ')}\n\nBitte Rückmeldung geben, sobald alle Löschungen erfolgt sind.`;
-      
-      const res = await createJiraTicket(configs[0].id, summary, desc);
-      if (res.success) {
-        toast({ title: "Jira Lösch-Ticket erstellt", description: `Key: ${res.key}` });
-      }
-    }
-
-    toast({ title: "Offboarding abgeschlossen", description: `${user.displayName} wurde deaktiviert.` });
+    toast({ title: "Offboarding eingeleitet", description: `Jira Ticket ${jiraKey} erstellt. Status: Pending Removal.` });
     setIsActionLoading(false);
     refreshUsers();
     refreshAssignments();
@@ -269,7 +267,7 @@ export default function LifecyclePage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Identity Lifecycle Hub</h1>
-          <p className="text-sm text-muted-foreground">Zentrale Verwaltung von Joiner-, Mover- und Leaver-Prozessen.</p>
+          <p className="text-sm text-muted-foreground">Zentrale Verwaltung von Joiner- und Leaver-Prozessen (Ticket-gesteuert).</p>
         </div>
         <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsBundleCreateOpen(true)}>
           <Package className="w-3.5 h-3.5 mr-2" /> Bundle definieren
@@ -293,8 +291,8 @@ export default function LifecyclePage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <Card className="lg:col-span-2 rounded-none shadow-none border">
               <CardHeader className="bg-muted/10 border-b">
-                <CardTitle className="text-xs font-bold uppercase tracking-widest">Neuen Mitarbeiter registrieren</CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase">Dokumentiert die Identität und löst Berechtigungsanfragen aus.</CardDescription>
+                <CardTitle className="text-xs font-bold uppercase tracking-widest">Mitarbeiter-Eintritt planen</CardTitle>
+                <CardDescription className="text-[10px] font-bold uppercase">Berechtigungen werden als 'Requested' angelegt, bis die IT den Abschluss bestätigt.</CardDescription>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 <div className="grid grid-cols-2 gap-6">
@@ -341,13 +339,12 @@ export default function LifecyclePage() {
                   </div>
                 </div>
 
-                <div className="p-4 bg-blue-50 border border-blue-100 flex gap-3">
-                  <Info className="w-5 h-5 text-blue-600 shrink-0" />
+                <div className="p-4 bg-amber-50 border border-amber-100 flex gap-3">
+                  <Clock className="w-5 h-5 text-amber-600 shrink-0" />
                   <div className="space-y-1">
-                    <p className="text-[10px] font-bold uppercase text-blue-800">Was passiert beim Klick auf Onboarding?</p>
-                    <p className="text-[10px] text-blue-700 leading-relaxed uppercase">
-                      1. Der Nutzer wird im Hub angelegt. 2. Alle Rollen des Bundles werden zugewiesen. 
-                      3. Ein Jira-Ticket für die IT wird erstellt, um die Accounts manuell anzulegen.
+                    <p className="text-[10px] font-bold uppercase text-amber-800">Warte-Workflow aktiv</p>
+                    <p className="text-[10px] text-amber-700 leading-relaxed uppercase">
+                      Nach dem Start verbleiben die Zuweisungen im Status 'Requested'. Sie müssen im Tab 'Jira Synchronisation' finalisiert werden, sobald die IT das Ticket abgeschlossen hat.
                     </p>
                   </div>
                 </div>
@@ -355,7 +352,7 @@ export default function LifecyclePage() {
               <div className="p-6 border-t bg-muted/5 flex justify-end">
                 <Button onClick={startOnboarding} disabled={isActionLoading || !selectedBundleId} className="rounded-none font-bold uppercase text-[10px] h-11 px-10 gap-2">
                   {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                  Onboarding Prozess starten
+                  Prozess anstoßen
                 </Button>
               </div>
             </Card>
@@ -378,9 +375,6 @@ export default function LifecyclePage() {
                         </Badge>
                       </div>
                     ))}
-                    {users?.filter(u => u.onboardingDate && new Date(u.onboardingDate) >= new Date()).length === 0 && (
-                      <div className="p-8 text-center text-[10px] text-muted-foreground italic font-bold uppercase">Keine geplanten Eintritte</div>
-                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -392,8 +386,8 @@ export default function LifecyclePage() {
           <Card className="rounded-none shadow-none border overflow-hidden">
             <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-xs font-bold uppercase tracking-widest">Offboarding-Zentrale (Widerrufs-Management)</CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase mt-1">Sicherer Zugriffsentzug für ausscheidende Mitarbeiter.</CardDescription>
+                <CardTitle className="text-xs font-bold uppercase tracking-widest">Offboarding-Zentrale</CardTitle>
+                <CardDescription className="text-[10px] font-bold uppercase mt-1">Status 'Pending Removal' bis zur Bestätigung durch IT.</CardDescription>
               </div>
               <div className="relative w-64">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -405,13 +399,13 @@ export default function LifecyclePage() {
                 <thead className="bg-muted/30 border-b">
                   <tr className="text-[10px] font-bold uppercase tracking-widest text-left">
                     <th className="p-4">Identität</th>
-                    <th className="p-4">Aktive Zugriffe</th>
-                    <th className="p-4">Status</th>
+                    <th className="p-4">Status im Zielsystem</th>
                     <th className="p-4 text-right">Aktion</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {users?.filter(u => u.displayName.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())).map(u => {
+                    const pendingRemovalCount = assignments?.filter(a => a.userId === u.id && a.status === 'pending_removal').length || 0;
                     const activeCount = assignments?.filter(a => a.userId === u.id && a.status === 'active').length || 0;
                     const isEnabled = u.enabled === true || u.enabled === 1 || u.enabled === "1";
                     
@@ -422,18 +416,18 @@ export default function LifecyclePage() {
                           <div className="text-[10px] text-muted-foreground uppercase">{u.email}</div>
                         </td>
                         <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <ShieldCheck className={cn("w-4 h-4", activeCount > 0 ? "text-primary" : "text-slate-200")} />
-                            <span className="font-bold text-xs">{activeCount} Rollen</span>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <Badge variant="outline" className={cn("rounded-none font-bold uppercase text-[9px] border-none", isEnabled ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700")}>
-                            {isEnabled ? "AKTIV" : "DEAKTIVIERT"}
-                          </Badge>
+                          {pendingRemovalCount > 0 ? (
+                            <div className="flex items-center gap-2 text-amber-600 font-bold text-xs uppercase animate-pulse">
+                              <Clock className="w-4 h-4" /> Lösch-Ticket läuft ({pendingRemovalCount} Rollen)
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className={cn("rounded-none font-bold uppercase text-[9px] border-none", isEnabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-500")}>
+                              {isEnabled ? "AKTIV" : "INAKTIV"}
+                            </Badge>
+                          )}
                         </td>
                         <td className="p-4 text-right">
-                          {isEnabled ? (
+                          {isEnabled && pendingRemovalCount === 0 ? (
                             <Button 
                               variant="outline" 
                               size="sm" 
@@ -441,11 +435,12 @@ export default function LifecyclePage() {
                               onClick={() => startOffboarding(u)}
                               disabled={isActionLoading}
                             >
-                              {isActionLoading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <UserMinus className="w-3 h-3 mr-1" />}
-                              Offboarding starten
+                              <UserMinus className="w-3 h-3 mr-1" /> Offboarding einleiten
                             </Button>
                           ) : (
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase italic px-4">Bereits deaktiviert</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase italic px-4">
+                              {pendingRemovalCount > 0 ? "Warten auf IT..." : "Abgeschlossen"}
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -479,22 +474,10 @@ export default function LifecyclePage() {
                         </div>
                       );
                     })}
-                    {bundle.entitlementIds.length > 4 && (
-                      <p className="text-[9px] font-bold text-primary pt-2 uppercase">+{bundle.entitlementIds.length - 4} weitere Rollen...</p>
-                    )}
                   </div>
                 </CardContent>
               </Card>
             ))}
-            <div 
-              className="border-2 border-dashed rounded-none flex flex-col items-center justify-center p-8 cursor-pointer hover:bg-muted/20 transition-colors"
-              onClick={() => setIsBundleCreateOpen(true)}
-            >
-              <div className="w-10 h-10 bg-muted flex items-center justify-center mb-3">
-                <Plus className="w-5 h-5 text-muted-foreground" />
-              </div>
-              <p className="text-[10px] font-bold uppercase text-muted-foreground">Neues Bundle anlegen</p>
-            </div>
           </div>
         </TabsContent>
       </Tabs>
@@ -504,7 +487,6 @@ export default function LifecyclePage() {
         <DialogContent className="rounded-none border shadow-2xl max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold uppercase">Rollen-Bundle definieren</DialogTitle>
-            <DialogDescription className="text-xs font-bold uppercase">Gruppieren Sie häufig benötigte Berechtigungen für das Onboarding.</DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             <div className="grid grid-cols-2 gap-4">
@@ -519,29 +501,18 @@ export default function LifecyclePage() {
             </div>
 
             <div className="space-y-3">
-              <Label className="text-[10px] font-bold uppercase text-primary tracking-widest">Rollen für dieses Bundle wählen</Label>
+              <Label className="text-[10px] font-bold uppercase text-primary tracking-widest">Rollen wählen</Label>
               <div className="border rounded-none h-64 overflow-y-auto bg-slate-50/50 p-2 grid grid-cols-1 gap-1">
                 {entitlements?.map(e => {
                   const res = resources?.find(r => r.id === e.resourceId);
                   const isChecked = selectedEntitlementIds.includes(e.id);
                   return (
-                    <div 
-                      key={e.id} 
-                      className={cn(
-                        "flex items-center gap-3 p-2 text-xs border cursor-pointer hover:bg-white transition-colors",
-                        isChecked ? "border-primary/30 bg-primary/5" : "border-transparent"
-                      )}
-                      onClick={() => {
-                        setSelectedEntitlementIds(prev => 
-                          prev.includes(e.id) ? prev.filter(id => id !== e.id) : [...prev, e.id]
-                        );
-                      }}
-                    >
+                    <div key={e.id} className={cn("flex items-center gap-3 p-2 text-xs border cursor-pointer", isChecked ? "border-primary bg-primary/5" : "border-transparent")} onClick={() => setSelectedEntitlementIds(prev => prev.includes(e.id) ? prev.filter(id => id !== e.id) : [...prev, e.id])}>
                       <div className={cn("w-4 h-4 border flex items-center justify-center", isChecked ? "bg-primary border-primary" : "bg-white")}>
                         {isChecked && <CheckCircle2 className="w-3 h-3 text-white" />}
                       </div>
-                      <div className="flex flex-col truncate">
-                        <span className="font-bold uppercase text-[10px] tracking-tighter">{res?.name}</span>
+                      <div className="flex flex-col">
+                        <span className="font-bold uppercase text-[10px]">{res?.name}</span>
                         <span className="text-muted-foreground text-[10px]">{e.name}</span>
                       </div>
                     </div>

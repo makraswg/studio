@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -24,17 +25,21 @@ import {
   XCircle,
   Search,
   Shield,
-  Box
+  Box,
+  Clock,
+  ArrowRight,
+  Zap
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { fetchJiraApprovedRequests, resolveJiraTicket, getJiraConfigs, syncAssetsToJiraAction } from '@/app/actions/jira-actions';
+import { fetchJiraSyncItems, resolveJiraTicket, getJiraConfigs, syncAssetsToJiraAction } from '@/app/actions/jira-actions';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { User, Entitlement, Resource, Assignment } from '@/lib/types';
-import { useFirestore, addDocumentNonBlocking, useUser as useAuthUser } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useFirestore, addDocumentNonBlocking, useUser as useAuthUser, updateDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function JiraSyncPage() {
   const { dataSource } = useSettings();
@@ -43,12 +48,13 @@ export default function JiraSyncPage() {
   const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncingAssets, setIsSyncingAssets] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'pending' | 'completed'>('pending');
+  
   const [jiraTickets, setJiraTickets] = useState<any[]>([]);
+  const [doneTickets, setDoneTickets] = useState<any[]>([]);
   const [activeConfig, setActiveConfig] = useState<any>(null);
 
   const { data: users } = usePluggableCollection<User>('users');
-  const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<Assignment>('assignments');
 
@@ -59,289 +65,213 @@ export default function JiraSyncPage() {
 
   const loadSyncData = async () => {
     setIsLoading(true);
-    setError(null);
     try {
       const configs = await getJiraConfigs();
       if (configs.length > 0 && configs[0].enabled) {
         setActiveConfig(configs[0]);
-        const tickets = await fetchJiraApprovedRequests(configs[0].id);
+        const approved = await fetchJiraSyncItems(configs[0].id, 'approved');
+        const done = await fetchJiraSyncItems(configs[0].id, 'done');
         
-        // Versuche Rollen im Client zuzuordnen
-        const ticketsWithRoles = tickets.map(t => {
-          const matchedRole = entitlements?.find(e => 
-            t.summary.toLowerCase().includes(e.name.toLowerCase()) || 
-            (t.requestedRoleName && t.requestedRoleName.toLowerCase() === e.name.toLowerCase())
-          );
-          return { ...t, matchedRole };
-        });
+        setJiraTickets(approved.map(t => ({
+          ...t,
+          matchedRole: entitlements?.find(e => t.summary.toLowerCase().includes(e.name.toLowerCase()))
+        })));
         
-        setJiraTickets(ticketsWithRoles);
+        setDoneTickets(done);
       }
     } catch (e: any) {
-      setError(e.message || "Unbekannter Fehler beim Abrufen der Jira-Daten.");
-      toast({ variant: "destructive", title: "Synchronisationsfehler", description: "Bitte prüfen Sie die API-Konfiguration." });
+      toast({ variant: "destructive", title: "API Fehler", description: e.message });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSyncAssets = async () => {
-    if (!activeConfig) return;
-    if (!resources || resources.length === 0) {
-      toast({ variant: "destructive", title: "Keine Daten", description: "Keine Ressourcen zum Synchronisieren gefunden." });
+  const handleApplyCompletedTicket = async (ticket: any) => {
+    // 1. Find all local assignments linked to this Jira key
+    const linkedAssignments = assignments?.filter(a => a.jiraIssueKey === ticket.key) || [];
+    if (linkedAssignments.length === 0) {
+      toast({ variant: "destructive", title: "Keine Daten", description: "Keine ausstehenden Änderungen für dieses Ticket gefunden." });
       return;
     }
 
-    setIsSyncingAssets(true);
-    try {
-      // Wir übergeben die Client-Daten an die Server Action
-      const res = await syncAssetsToJiraAction(
-        activeConfig.id, 
-        resources, 
-        entitlements || []
-      );
+    const isLeaver = ticket.summary.toLowerCase().includes('offboarding');
+    const timestamp = new Date().toISOString();
+    let affectedUserId = linkedAssignments[0].userId;
+
+    for (const a of linkedAssignments) {
+      const newStatus = isLeaver ? 'removed' : 'active';
+      const updateData = { status: newStatus, lastReviewedAt: timestamp };
       
-      if (res.success) {
-        toast({ title: "Asset Sync erfolgreich", description: res.message });
+      if (dataSource === 'mysql') {
+        await saveCollectionRecord('assignments', a.id, { ...a, ...updateData });
       } else {
-        toast({ variant: "destructive", title: "Sync Fehler", description: res.message });
+        updateDocumentNonBlocking(doc(db, 'assignments', a.id), updateData);
       }
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler", description: e.message });
-    } finally {
-      setIsSyncingAssets(false);
     }
+
+    // If Leaver, disable user profile too
+    if (isLeaver) {
+      const user = users?.find(u => u.id === affectedUserId);
+      if (user) {
+        const userData = { ...user, enabled: false, offboardingDate: timestamp.split('T')[0] };
+        if (dataSource === 'mysql') {
+          await saveCollectionRecord('users', user.id, userData);
+        } else {
+          updateDocumentNonBlocking(doc(db, 'users', user.id), { enabled: false, offboardingDate: timestamp.split('T')[0] });
+        }
+      }
+    }
+
+    toast({ title: "Finalisierung erfolgreich", description: `Änderungen für Ticket ${ticket.key} wurden im Hub übernommen.` });
+    setDoneTickets(prev => prev.filter(t => t.key !== ticket.key));
+    setTimeout(() => refreshAssignments(), 200);
   };
 
-  const handleAssignFromJira = async (ticket: any) => {
-    if (!activeConfig) return;
-
+  const handleAssignFromApproved = async (ticket: any) => {
     const user = users?.find(u => u.email.toLowerCase() === ticket.requestedUserEmail?.toLowerCase());
-    if (!user) {
-      toast({ 
-        variant: "destructive", 
-        title: "Benutzer nicht gefunden", 
-        description: `Keine Identität für ${ticket.requestedUserEmail} gefunden.` 
-      });
-      return;
-    }
-
-    const ent = ticket.matchedRole || entitlements?.find(e => e.name.toLowerCase() === ticket.requestedRoleName?.toLowerCase()); 
+    const ent = ticket.matchedRole;
     
-    if (!ent) {
-      toast({ variant: "destructive", title: "Fehler", description: "Keine passende Rolle im System definiert. Bitte manuell zuweisen oder Rolle anlegen." });
-      return;
-    }
-
-    const alreadyHas = assignments?.some(a => a.userId === user.id && a.entitlementId === ent.id && a.status === 'active');
-    if (alreadyHas) {
-      toast({ variant: "destructive", title: "Schon zugewiesen", description: `${user.displayName} besitzt diese Rolle bereits.` });
+    if (!user || !ent) {
+      toast({ variant: "destructive", title: "Zuweisung nicht möglich", description: "Benutzer oder Rolle konnte nicht automatisch zugeordnet werden." });
       return;
     }
 
     const assignmentId = `ass-jira-${ticket.key}-${Math.random().toString(36).substring(2, 5)}`;
-    const timestamp = new Date().toISOString();
-    
     const assignmentData = {
       id: assignmentId,
       userId: user.id,
       entitlementId: ent.id,
       status: 'active',
       grantedBy: 'jira-sync',
-      grantedAt: timestamp,
-      validFrom: timestamp.split('T')[0],
+      grantedAt: new Date().toISOString(),
+      validFrom: new Date().toISOString().split('T')[0],
       jiraIssueKey: ticket.key,
       ticketRef: ticket.key,
-      notes: `Automatisch erstellt via Jira Ticket ${ticket.key}. Angefordert: ${ticket.requestedRoleName || ent.name}.`,
+      notes: `Einzelzuweisung via Jira Ticket ${ticket.key}.`,
       tenantId: 't1'
-    };
-
-    const auditId = `audit-${Math.random().toString(36).substring(2, 9)}`;
-    const auditData = {
-      id: auditId,
-      actorUid: 'jira-sync',
-      action: `Zuweisung [${ent.name}] für [${user.displayName}] via Jira-Sync erstellt`,
-      entityType: 'assignment',
-      entityId: assignmentId,
-      timestamp,
-      tenantId: 't1',
-      after: assignmentData
     };
 
     if (dataSource === 'mysql') {
       await saveCollectionRecord('assignments', assignmentId, assignmentData);
-      await saveCollectionRecord('auditEvents', auditId, auditData);
     } else {
       addDocumentNonBlocking(collection(db, 'assignments'), assignmentData);
-      addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
-    const res = await resolveJiraTicket(
-      activeConfig.id, 
-      ticket.key, 
-      `Berechtigung "${ent.name}" wurde erfolgreich im ComplianceHub zugewiesen.`
-    );
-
-    if (res.success) {
-      toast({ title: "Zuweisung erfolgt", description: `Berechtigung aktiviert und Jira Ticket ${ticket.key} aktualisiert.` });
-    } else {
-      toast({ title: "Zuweisung erfolgt", description: "Berechtigung aktiviert, aber Jira-Status konnte nicht geändert werden." });
-    }
-
+    await resolveJiraTicket(activeConfig.id, ticket.key, "Berechtigung im ComplianceHub aktiviert.");
     setJiraTickets(prev => prev.filter(t => t.key !== ticket.key));
+    toast({ title: "Ticket verarbeitet" });
     setTimeout(() => refreshAssignments(), 200);
   };
 
   if (!mounted) return null;
-
-  const debugJql = activeConfig ? `project = "${activeConfig.projectKey}" AND status = "${activeConfig.approvedStatusName}"${activeConfig.issueTypeName ? ` AND "Request Type" = "${activeConfig.issueTypeName}"` : ''}` : '';
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Jira Synchronisation</h1>
-          <p className="text-sm text-muted-foreground">Genehmigte Tickets als Berechtigungs-Grundlage.</p>
+          <p className="text-sm text-muted-foreground">Gateway für Genehmigungen und Abschluss-Bestätigungen.</p>
         </div>
-        <div className="flex gap-2">
-          {activeConfig && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-9 font-bold uppercase text-[10px] rounded-none border-blue-200 text-blue-600 hover:bg-blue-50"
-              onClick={handleSyncAssets}
-              disabled={isSyncingAssets}
-            >
-              {isSyncingAssets ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Box className="w-3.5 h-3.5 mr-2" />}
-              Assets exportieren
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={loadSyncData} disabled={isLoading} className="h-9 font-bold uppercase text-[10px] rounded-none">
-            {isLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} Aktualisieren
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={loadSyncData} disabled={isLoading} className="h-9 font-bold uppercase text-[10px] rounded-none">
+          {isLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} Aktualisieren
+        </Button>
       </div>
 
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-none flex items-center gap-3">
-          <XCircle className="w-5 h-5 shrink-0" />
-          <div className="flex-1">
-            <p className="text-[10px] font-bold uppercase">Fehler beim Datenabruf</p>
-            <p className="text-xs">{error}</p>
+      <Tabs value={activeTab} onValueChange={setActiveTab as any} className="space-y-6">
+        <TabsList className="bg-muted/50 p-1 h-12 rounded-none border w-full justify-start gap-2">
+          <TabsTrigger value="pending" className="rounded-none px-8 gap-2 text-[10px] font-bold uppercase data-[state=active]:bg-white">
+            1. Genehmigungen ({jiraTickets.length})
+          </TabsTrigger>
+          <TabsTrigger value="completed" className="rounded-none px-8 gap-2 text-[10px] font-bold uppercase data-[state=active]:bg-white">
+            2. Erledigte Tickets ({doneTickets.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pending" className="admin-card overflow-hidden">
+          <Table>
+            <TableHeader className="bg-muted/30">
+              <TableRow>
+                <TableHead className="py-4 font-bold uppercase text-[10px]">Key</TableHead>
+                <TableHead className="font-bold uppercase text-[10px]">Inhalt</TableHead>
+                <TableHead className="font-bold uppercase text-[10px]">Erkannt</TableHead>
+                <TableHead className="text-right font-bold uppercase text-[10px]">Aktion</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {jiraTickets.map((ticket) => (
+                <TableRow key={ticket.key} className="hover:bg-muted/5 border-b">
+                  <TableCell className="py-4 font-bold text-primary text-xs">{ticket.key}</TableCell>
+                  <TableCell>
+                    <div className="font-bold text-sm">{ticket.summary}</div>
+                    <div className="text-[9px] text-muted-foreground uppercase">{ticket.requestedUserEmail}</div>
+                  </TableCell>
+                  <TableCell>
+                    {ticket.matchedRole ? (
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-none rounded-none text-[9px] font-bold uppercase">{ticket.matchedRole.name}</Badge>
+                    ) : <span className="text-[9px] italic text-muted-foreground">Keine Rolle erkannt</span>}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" className="h-8 text-[9px] font-bold uppercase rounded-none" disabled={!ticket.matchedRole} onClick={() => handleAssignFromApproved(ticket)}>Bestätigen</Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {jiraTickets.length === 0 && !isLoading && (
+                <TableRow><TableCell colSpan={4} className="h-32 text-center text-xs text-muted-foreground italic">Keine neuen Genehmigungen.</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TabsContent>
+
+        <TabsContent value="completed" className="space-y-4">
+          <div className="p-4 bg-blue-50 border border-blue-100 text-[10px] font-bold uppercase text-blue-700 leading-relaxed">
+            Hinweis: Tickets, die in Jira auf 'Erledigt' stehen, müssen hier finalisiert werden, damit die Status-Änderungen (Onboarding/Offboarding) im ComplianceHub wirksam werden.
           </div>
-          <Button variant="outline" size="sm" onClick={loadSyncData} className="bg-white rounded-none h-8 text-[9px] font-bold uppercase border-red-200">Wiederholen</Button>
-        </div>
-      )}
-
-      {!activeConfig && !isLoading && (
-        <div className="p-8 border-2 border-dashed rounded-none text-center bg-muted/10">
-          <AlertTriangle className="w-10 h-10 text-orange-400 mx-auto mb-4" />
-          <h3 className="font-bold text-sm uppercase">Jira Integration nicht konfiguriert</h3>
-          <p className="text-xs text-muted-foreground mt-1 mb-6">Bitte hinterlegen Sie API-Daten in den Einstellungen.</p>
-          <Button size="sm" className="rounded-none font-bold uppercase text-[10px]" asChild>
-            <a href="/settings">Zu den Einstellungen</a>
-          </Button>
-        </div>
-      )}
-
-      {activeConfig && !error && (
-        <div className="admin-card overflow-hidden">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Jira API wird abgefragt...</p>
-            </div>
-          ) : (
+          <div className="admin-card overflow-hidden">
             <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow>
-                  <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Jira Key</TableHead>
-                  <TableHead className="font-bold uppercase tracking-widest text-[10px]">Anfrage / Inhalt</TableHead>
-                  <TableHead className="font-bold uppercase tracking-widest text-[10px]">Identität & Rolle</TableHead>
-                  <TableHead className="font-bold uppercase tracking-widest text-[10px]">Status (Jira)</TableHead>
-                  <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Aktion</TableHead>
+                  <TableHead className="py-4 font-bold uppercase text-[10px]">Key</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px]">Prozess / Betreff</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px]">Zugehörige Items</TableHead>
+                  <TableHead className="text-right font-bold uppercase text-[10px]">Finalisierung</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {jiraTickets.map((ticket) => (
-                  <TableRow key={ticket.key} className="hover:bg-muted/5 border-b">
-                    <TableCell className="py-4 font-bold text-primary text-xs">
-                      <a href={`${activeConfig.url}/browse/${ticket.key}`} target="_blank" className="flex items-center gap-1 hover:underline">
-                        {ticket.key} <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-bold text-sm">{ticket.summary}</span>
-                        <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-tighter">
-                          Von: {ticket.reporter}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-2">
-                        {ticket.requestedUserEmail ? (
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 rounded-none text-[9px] font-bold uppercase px-2 py-0.5">
-                              {ticket.requestedUserEmail}
-                            </Badge>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-red-500 font-bold text-[9px] uppercase">
-                            <AlertTriangle className="w-3 h-3" /> E-Mail nicht gefunden
-                          </div>
-                        )}
-                        {ticket.matchedRole ? (
-                          <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-[9px] uppercase">
-                            <Shield className="w-3 h-3" /> {ticket.matchedRole.name}
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-orange-500 font-bold text-[9px] uppercase italic">
-                            <Info className="w-3 h-3" /> Keine Rolle erkannt
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-none text-[9px] font-bold uppercase px-2">{ticket.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button 
-                        size="sm" 
-                        className="h-8 text-[9px] font-bold uppercase rounded-none bg-blue-600 hover:bg-blue-700"
-                        onClick={() => handleAssignFromJira(ticket)}
-                        disabled={!ticket.requestedUserEmail}
-                      >
-                        <UserPlus className="w-3.5 h-3.5 mr-1.5" /> Bestätigen
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {jiraTickets.length === 0 && !isLoading && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-48 text-center p-8">
-                      <div className="flex flex-col items-center gap-4">
-                        <Info className="w-8 h-8 text-slate-300" />
-                        <div className="space-y-1">
-                          <p className="text-muted-foreground font-bold text-xs uppercase">Keine passenden Tickets gefunden</p>
-                        </div>
-                        <div className="bg-slate-50 border p-3 rounded-none w-full max-w-lg text-left">
-                          <p className="text-[9px] font-bold uppercase text-slate-400 mb-2 flex items-center gap-1.5">
-                            <Terminal className="w-3 h-3" /> Aktuelle JQL-Diagnose:
-                          </p>
-                          <code className="text-[10px] font-mono text-blue-600 break-all select-all">
-                            {debugJql}
-                          </code>
-                        </div>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                {doneTickets.map((ticket) => {
+                  const linkedCount = assignments?.filter(a => a.jiraIssueKey === ticket.key).length || 0;
+                  return (
+                    <TableRow key={ticket.key} className="hover:bg-muted/5 border-b">
+                      <TableCell className="py-4 font-bold text-xs">{ticket.key}</TableCell>
+                      <TableCell>
+                        <div className="font-bold text-sm">{ticket.summary}</div>
+                        <div className="text-[9px] text-muted-foreground uppercase">Status: {ticket.status}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="rounded-none text-[9px] font-bold uppercase border-slate-200">
+                          {linkedCount} Zuweisungen
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button 
+                          size="sm" 
+                          className="h-8 text-[9px] font-bold uppercase rounded-none bg-blue-600 hover:bg-blue-700" 
+                          onClick={() => handleApplyCompletedTicket(ticket)}
+                          disabled={linkedCount === 0}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Änderungen übernehmen
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {doneTickets.length === 0 && !isLoading && (
+                  <TableRow><TableCell colSpan={4} className="h-32 text-center text-xs text-muted-foreground italic">Keine abgeschlossenen Tickets zur Finalisierung gefunden.</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
-          )}
-        </div>
-      )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

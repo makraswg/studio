@@ -10,6 +10,7 @@ export interface Tenant {
 
 export interface User {
   id: string;
+  tenantId: string;
   externalId: string;
   displayName: string;
   email: string;
@@ -23,6 +24,7 @@ export interface User {
 
 export interface Resource {
   id: string;
+  tenantId: string;
   name: string;
   type: 'SaaS' | 'OnPrem' | 'Private Cloud' | 'Webshop' | 'IoT' | 'Andere';
   owner: string;
@@ -50,7 +52,7 @@ export interface Assignment {
   userId: string;
   entitlementId: string;
   originGroupId?: string;
-  status: 'active' | 'requested' | 'removed';
+  status: 'active' | 'requested' | 'removed' | 'pending_removal';
   grantedBy: string;
   grantedAt: string;
   validFrom?: string;

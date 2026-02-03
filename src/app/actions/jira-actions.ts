@@ -118,10 +118,8 @@ export async function getJiraAttributesAction(configData: {
     const data = await response.json();
     const attributes = Array.isArray(data) ? data : (data.values || []);
     
-    // 1. Suche nach dem Label (Name)
     const labelAttr = attributes.find((a: any) => a.label === true || a.name?.toLowerCase() === 'name');
     
-    // 2. Suche nach einer Referenz auf den Ziel-Objekttyp
     let referenceAttributeId = undefined;
     if (configData.targetObjectTypeId) {
       const targetId = configData.targetObjectTypeId.toString();
@@ -177,7 +175,6 @@ export async function syncAssetsToJiraAction(
     
     const resourceMap = new Map<string, string>();
 
-    // 1. Ressourcen (Systeme)
     if (config.assetsResourceObjectTypeId) {
       for (const res of resources) {
         try {
@@ -215,7 +212,6 @@ export async function syncAssetsToJiraAction(
       }
     }
 
-    // 2. Rollen (Berechtigungen)
     if (config.assetsRoleObjectTypeId) {
       for (const ent of entitlements) {
         try {
@@ -372,9 +368,9 @@ export async function createJiraTicket(configId: string, summary: string, descri
 }
 
 /**
- * Ruft genehmigte Zugriffsanfragen aus Jira ab.
+ * Ruft Tickets ab, die entweder genehmigt ODER abgeschlossen sind.
  */
-export async function fetchJiraApprovedRequests(configId: string): Promise<JiraSyncItem[]> {
+export async function fetchJiraSyncItems(configId: string, type: 'approved' | 'done'): Promise<JiraSyncItem[]> {
   const configs = await getJiraConfigs();
   const config = configs.find(c => c.id === configId);
   if (!config || !config.enabled) return [];
@@ -383,7 +379,8 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
 
   try {
-    const jql = `project = "${config.projectKey}" AND status = "${config.approvedStatusName}"${config.issueTypeName ? ` AND "Request Type" = "${config.issueTypeName}"` : ''}`;
+    const status = type === 'approved' ? config.approvedStatusName : config.doneStatusName;
+    const jql = `project = "${config.projectKey}" AND status = "${status}"`;
 
     const response = await fetch(`${url}/rest/api/3/search`, {
       method: 'POST',
@@ -395,7 +392,7 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
       body: JSON.stringify({
         jql: jql,
         maxResults: 50,
-        fields: ["summary", "status", "reporter", "created", "description", "*navigable"]
+        fields: ["summary", "status", "reporter", "created", "description"]
       }),
       cache: 'no-store'
     });
@@ -406,17 +403,15 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
 
     return data.issues.map((issue: any) => {
       let extractedEmail = '';
-      
       const findInObject = (obj: any) => {
         if (!obj) return;
         if (obj.emailAddress) extractedEmail = obj.emailAddress;
-        const text = JSON.stringify(obj).toLowerCase();
         if (!extractedEmail) {
+          const text = JSON.stringify(obj).toLowerCase();
           const match = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
           if (match) extractedEmail = match[0];
         }
       };
-
       for (const key in issue.fields) findInObject(issue.fields[key]);
 
       return {

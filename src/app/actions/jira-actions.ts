@@ -48,14 +48,21 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
 
     const userData = await testRes.json();
     
-    // 2. Test-Suche mit der konfigurierten JQL
+    // 2. Test-Suche mit POST (Moderner Standard)
     const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName}"${configData.issueTypeName ? ` AND "Request Type" = "${configData.issueTypeName}"` : ''}`;
     
-    const searchRes = await fetch(`${url}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=1`, {
+    const searchRes = await fetch(`${url}/rest/api/3/search`, {
+      method: 'POST',
       headers: {
         'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
+      body: JSON.stringify({
+        jql: jql,
+        maxResults: 1,
+        fields: ["id", "key"]
+      }),
       cache: 'no-store'
     });
 
@@ -146,15 +153,24 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
     }
     jql += ` ORDER BY created DESC`;
 
-    const response = await fetch(`${url}/rest/api/3/search?jql=${encodeURIComponent(jql)}&expand=names,renderedFields`, {
+    const response = await fetch(`${url}/rest/api/3/search`, {
+      method: 'POST',
       headers: { 
         'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
+      body: JSON.stringify({
+        jql: jql,
+        maxResults: 50,
+        fields: ["summary", "status", "reporter", "created", "description"]
+      }),
       cache: 'no-store'
     });
 
     if (!response.ok) {
+      const err = await response.text();
+      console.error("[Jira Sync API Error]:", err);
       return [];
     }
 

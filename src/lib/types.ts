@@ -29,7 +29,7 @@ export interface User {
 export interface Resource {
   id: string;
   name: string;
-  type: 'SaaS' | 'OnPrem' | 'Shop' | 'Tool' | 'Other';
+  type: 'SaaS' | 'OnPrem' | 'Private Cloud' | 'Webshop' | 'IoT' | 'Andere';
   owner: string;
   url: string;
   criticality: 'low' | 'medium' | 'high';
@@ -49,6 +49,7 @@ export interface Assignment {
   id: string;
   userId: string;
   entitlementId: string;
+  originGroupId?: string; // Neu: Kennzeichnet Zuweisungen aus Gruppen
   status: 'active' | 'requested' | 'removed';
   grantedBy: string;
   grantedAt: string;
@@ -59,12 +60,21 @@ export interface Assignment {
   reviewedBy?: string;
 }
 
+export interface AssignmentGroup {
+  id: string;
+  tenantId: string;
+  name: string;
+  description: string;
+  entitlementIds: string[];
+  userIds: string[];
+}
+
 export interface AuditLogEntry {
   id: string;
   tenantId: string;
   actorUid: string;
   action: string;
-  entityType: 'resource' | 'entitlement' | 'assignment' | 'member';
+  entityType: 'resource' | 'entitlement' | 'assignment' | 'member' | 'group';
   entityId: string;
   before?: any;
   after?: any;

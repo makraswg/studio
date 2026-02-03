@@ -151,7 +151,8 @@
         },
         "type": {
           "type": "string",
-          "description": "The type of resource (e.g., SaaS, OnPrem, Shop, Tool, Other)."
+          "enum": ["SaaS", "OnPrem", "Private Cloud", "Webshop", "IoT", "Andere"],
+          "description": "The type of resource."
         },
         "owner": {
           "type": "string",
@@ -164,7 +165,8 @@
         },
         "criticality": {
           "type": "string",
-          "description": "The criticality level of the resource (e.g., low, medium, high)."
+          "enum": ["low", "medium", "high"],
+          "description": "The criticality level of the resource."
         },
         "notes": {
           "type": "string",
@@ -212,7 +214,8 @@
         },
         "riskLevel": {
           "type": "string",
-          "description": "The risk level associated with the entitlement (e.g., low, medium, high)."
+          "enum": ["low", "medium", "high"],
+          "description": "The risk level associated with the entitlement."
         }
       },
       "required": [
@@ -244,6 +247,10 @@
         "entitlementId": {
           "type": "string",
           "description": "Reference to Entitlement. (Relationship: Entitlement 1:N Assignment)"
+        },
+        "originGroupId": {
+          "type": "string",
+          "description": "If this assignment was granted via a group, the ID of that group."
         },
         "status": {
           "type": "string",
@@ -279,6 +286,29 @@
         "entitlementId",
         "status"
       ]
+    },
+    "AssignmentGroup": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AssignmentGroup",
+      "type": "object",
+      "description": "Represents a group of assignments that can be applied to users collectively.",
+      "properties": {
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "entitlementIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of entitlement IDs that members of this group receive."
+        },
+        "userIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of user IDs who are members of this group."
+        }
+      },
+      "required": ["id", "tenantId", "name"]
     },
     "AuditEvent": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -333,25 +363,6 @@
         "entityId",
         "timestamp"
       ]
-    },
-    "PlatformUser": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "PlatformUser",
-      "type": "object",
-      "description": "Represents a platform-level user, potentially with superadmin privileges.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the platform user."
-        },
-        "isSuperAdmin": {
-          "type": "boolean",
-          "description": "Indicates whether the user has superadmin privileges."
-        }
-      },
-      "required": [
-        "id"
-      ]
     }
   },
   "auth": {
@@ -366,155 +377,58 @@
         "path": "tenants/{tenantId}",
         "definition": {
           "entityName": "Tenant",
-          "schema": {
-            "$ref": "#/backend/entities/Tenant"
-          },
-          "description": "Stores tenant-specific data. Used for tenant isolation.",
-          "params": [
-            {
-              "name": "tenantId",
-              "description": "The unique identifier for the tenant."
-            }
-          ]
-        }
-      },
-      {
-        "path": "tenants/{tenantId}/members/{uid}",
-        "definition": {
-          "entityName": "TenantMember",
-          "schema": {
-            "$ref": "#/backend/entities/TenantMember"
-          },
-          "description": "Stores tenant membership information, including the user's role within the tenant. This collection is critical for authorization independence; security rules will validate the existence of this document based on the user's UID to grant access. Includes denormalized role for efficient authorization.",
-          "params": [
-            {
-              "name": "tenantId",
-              "description": "The unique identifier for the tenant."
-            },
-            {
-              "name": "uid",
-              "description": "The Firebase Auth UID of the user who is a member of the tenant."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Tenant" },
+          "description": "Stores tenant-specific data."
         }
       },
       {
         "path": "tenants/{tenantId}/users/{userId}",
         "definition": {
           "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user data synchronized from LDAP or a similar directory service. Each user belongs to a specific tenant. The `userId` corresponds to the user's unique identifier within the tenant, and not necessarily the Firebase Auth UID. This allows for internal user management separate from authentication.",
-          "params": [
-            {
-              "name": "tenantId",
-              "description": "The unique identifier for the tenant."
-            },
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user within the tenant."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/User" },
+          "description": "Stores user data."
         }
       },
       {
         "path": "tenants/{tenantId}/resources/{resourceId}",
         "definition": {
           "entityName": "Resource",
-          "schema": {
-            "$ref": "#/backend/entities/Resource"
-          },
-          "description": "Stores resource data for each tenant.",
-          "params": [
-            {
-              "name": "tenantId",
-              "description": "The unique identifier for the tenant."
-            },
-            {
-              "name": "resourceId",
-              "description": "The unique identifier for the resource."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Resource" },
+          "description": "Stores resource data."
         }
       },
       {
         "path": "tenants/{tenantId}/entitlements/{entitlementId}",
         "definition": {
           "entityName": "Entitlement",
-          "schema": {
-            "$ref": "#/backend/entities/Entitlement"
-          },
-          "description": "Stores entitlement data for each resource within a tenant.",
-          "params": [
-            {
-              "name": "tenantId",
-              "description": "The unique identifier for the tenant."
-            },
-            {
-              "name": "entitlementId",
-              "description": "The unique identifier for the entitlement."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Entitlement" },
+          "description": "Stores entitlement data."
         }
       },
       {
         "path": "tenants/{tenantId}/assignments/{assignmentId}",
         "definition": {
           "entityName": "Assignment",
-          "schema": {
-            "$ref": "#/backend/entities/Assignment"
-          },
-          "description": "Stores assignment data, linking users to entitlements for specific resources within a tenant.",
-          "params": [
-            {
-              "name": "tenantId",
-              "description": "The unique identifier for the tenant."
-            },
-            {
-              "name": "assignmentId",
-              "description": "The unique identifier for the assignment."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Assignment" },
+          "description": "Stores individual assignment data."
+        }
+      },
+      {
+        "path": "tenants/{tenantId}/groups/{groupId}",
+        "definition": {
+          "entityName": "AssignmentGroup",
+          "schema": { "$ref": "#/backend/entities/AssignmentGroup" },
+          "description": "Stores assignment group data."
         }
       },
       {
         "path": "tenants/{tenantId}/auditEvents/{eventId}",
         "definition": {
           "entityName": "AuditEvent",
-          "schema": {
-            "$ref": "#/backend/entities/AuditEvent"
-          },
-          "description": "Stores audit events for each tenant. This collection is append-only.",
-          "params": [
-            {
-              "name": "tenantId",
-              "description": "The unique identifier for the tenant."
-            },
-            {
-              "name": "eventId",
-              "description": "The unique identifier for the audit event."
-            }
-          ]
-        }
-      },
-      {
-        "path": "platformUsers/{uid}",
-        "definition": {
-          "entityName": "PlatformUser",
-          "schema": {
-            "$ref": "#/backend/entities/PlatformUser"
-          },
-          "description": "Stores platform user data, including superadmin privileges. Existence of a document at this path indicates superadmin status.",
-          "params": [
-            {
-              "name": "uid",
-              "description": "The Firebase Auth UID of the platform user."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/AuditEvent" },
+          "description": "Stores audit events."
         }
       }
-    ],
-    "reasoning": "The Firestore data structure is designed to support a multi-tenant application with role-based access control. Each tenant's data is isolated within its own collections, ensuring data privacy and security. Authorization Independence is achieved by storing tenant membership information (role) directly within the `tenantMembers` collection, which avoids costly and insecure `get()` calls in the security rules. Superadmin privileges are checked via a separate `platformUsers` collection, offering an efficient way to bypass tenant-level restrictions when necessary.\n\nThe structure supports the required QAPs (Queries Aware Permissions) by:\n\n1.  **Segregation:**  Each tenant's data resides in its own top-level collections (e.g., `tenants/{tenantId}/resources`). This ensures that list operations can be securely performed within a tenant's scope.\n2.  **Membership Model:** The `tenants/{tenantId}/members/{uid}` collection explicitly defines the role of each user within a tenant. This model is pivotal for authorization checks in security rules, enabling secure and efficient filtering based on user roles."
+    ]
   }
 }

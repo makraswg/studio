@@ -70,7 +70,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/Tooltip";
+} from "@/components/ui/tooltip";
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
@@ -122,8 +122,8 @@ export default function ResourcesPage() {
   // Data Loading
   const { data: resources, isLoading, refresh: refreshResources } = usePluggableCollection<any>('resources');
   const { data: entitlements, refresh: refreshEntitlements } = usePluggableCollection<any>('entitlements');
-  const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
-  const { data: users, refresh: refreshUsers } = usePluggableCollection<any>('users');
+  const { data: assignments } = usePluggableCollection<any>('assignments');
+  const { data: users } = usePluggableCollection<any>('users');
 
   useEffect(() => {
     setMounted(true);
@@ -161,7 +161,7 @@ export default function ResourcesPage() {
     toast({ title: editingResource ? "System aktualisiert" : "System registriert" });
     setIsCreateOpen(false);
     resetResourceForm();
-    refreshResources();
+    setTimeout(() => refreshResources(), 100);
   };
 
   const handleAddOrUpdateEntitlement = async () => {
@@ -188,7 +188,7 @@ export default function ResourcesPage() {
 
     toast({ title: editingEntitlementId ? "Berechtigung aktualisiert" : "Berechtigung hinzugefügt" });
     resetEntitlementForm();
-    refreshEntitlements();
+    setTimeout(() => refreshEntitlements(), 100);
   };
 
   const confirmDeleteResource = async () => {
@@ -201,7 +201,7 @@ export default function ResourcesPage() {
       toast({ title: "Ressource gelöscht" });
       setIsDeleteDialogOpen(false);
       setSelectedResource(null);
-      refreshResources();
+      setTimeout(() => refreshResources(), 100);
     }
   };
 
@@ -215,7 +215,7 @@ export default function ResourcesPage() {
       toast({ title: "Rolle gelöscht" });
       setIsDeleteEntitlementOpen(false);
       setSelectedEntitlement(null);
-      refreshEntitlements();
+      setTimeout(() => refreshEntitlements(), 100);
     }
   };
 

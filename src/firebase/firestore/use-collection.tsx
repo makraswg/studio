@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Query,
   onSnapshot,
@@ -20,6 +19,7 @@ export interface UseCollectionResult<T> {
   data: WithId<T>[] | null;
   isLoading: boolean;
   error: Error | null;
+  refresh: () => void;
 }
 
 export function useCollection<T>(
@@ -34,9 +34,14 @@ export function useCollection<T>(
   const [data, setData] = useState<WithId<T>[] | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(!!memoizedTargetRefOrQuery);
   const [error, setError] = useState<Error | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   
   const isMounted = useRef(true);
   const activeUnsubscribe = useRef<(() => void) | null>(null);
+
+  const refresh = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
 
   useEffect(() => {
     isMounted.current = true;
@@ -107,7 +112,7 @@ export function useCollection<T>(
         activeUnsubscribe.current = null;
       }
     };
-  }, [memoizedTargetRefOrQuery, options?.includeMetadataChanges]);
+  }, [memoizedTargetRefOrQuery, options?.includeMetadataChanges, refreshKey]);
 
-  return { data, isLoading, error };
+  return { data, isLoading, error, refresh };
 }

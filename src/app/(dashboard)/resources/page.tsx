@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -12,6 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Plus, 
   Search, 
@@ -70,7 +70,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/Tooltip";
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
@@ -636,6 +636,10 @@ export default function ResourcesPage() {
               <div className="col-span-2 space-y-2">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Rollenname / Permission</Label>
                 <Input value={entName} onChange={e => setEntName(e.target.value)} placeholder="z.B. Finanz-Editor" className="rounded-none" />
+              </div>
+              <div className="col-span-2 space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Beschreibung</Label>
+                <Textarea value={entDesc} onChange={e => setEntDesc(e.target.value)} placeholder="Beschreibung der Berechtigung..." className="rounded-none resize-none h-20" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Risikostufe</Label>

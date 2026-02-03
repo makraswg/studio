@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCollection as useFirestoreCollection, UseCollectionResult } from '@/firebase/firestore/use-collection';
@@ -39,13 +38,18 @@ export function usePluggableCollection<T extends Document>(collectionName: strin
   if (dataSource === 'firestore') {
     return firestoreResult;
   } else if (dataSource === 'mysql') {
-    // Umwandlung des mysqlResult Typs in UseCollectionResult<T>
     return {
       data: mysqlResult.data ? (mysqlResult.data as any) : null,
       isLoading: mysqlResult.isLoading,
-      error: mysqlResult.error ? new Error(mysqlResult.error) : null
+      error: mysqlResult.error ? new Error(mysqlResult.error) : null,
+      refresh: mysqlResult.refresh
     } as UseCollectionResult<T>;
   } else {
-    return mockResult;
+    return {
+      data: mockResult.data ? (mockResult.data as any) : null,
+      isLoading: mockResult.isLoading,
+      error: mockResult.error ? new Error(mockResult.error) : null,
+      refresh: mockResult.refresh
+    } as UseCollectionResult<T>;
   }
 }

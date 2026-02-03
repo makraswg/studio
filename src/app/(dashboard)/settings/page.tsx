@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -9,27 +8,23 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Settings, 
-  Users, 
-  Shield, 
-  Mail, 
   Plus, 
   Save, 
-  Trash2,
   Lock,
-  Globe,
-  Bell,
   Database,
   ExternalLink,
+  Loader2,
   CheckCircle2,
-  Loader2
+  AlertTriangle,
+  Zap
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { getJiraConfigs } from '@/app/actions/jira-actions';
+import { getJiraConfigs, testJiraConnectionAction } from '@/app/actions/jira-actions';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { cn } from '@/lib/utils';
 
 export default function SettingsPage() {
   const [tenantName, setTenantName] = useState('Acme Corp');
@@ -44,7 +39,10 @@ export default function SettingsPage() {
   const [jiraIssueType, setJiraIssueType] = useState('Service Request');
   const [jiraApprovedStatus, setJiraApprovedStatus] = useState('Done');
   const [jiraEnabled, setJiraEnabled] = useState(false);
+  
   const [isSavingJira, setIsSavingJira] = useState(false);
+  const [isTestingJira, setIsTestingJira] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string; details?: string } | null>(null);
 
   useEffect(() => {
     const loadJira = async () => {
@@ -65,6 +63,30 @@ export default function SettingsPage() {
 
   const handleSaveGeneral = () => {
     toast({ title: "Einstellungen gespeichert", description: "Allgemeine Daten wurden aktualisiert." });
+  };
+
+  const handleTestJira = async () => {
+    setIsTestingJira(true);
+    setTestResult(null);
+    
+    const configData = {
+      url: jiraUrl,
+      email: jiraEmail,
+      apiToken: jiraToken,
+      projectKey: jiraProject,
+      issueTypeName: jiraIssueType,
+      approvedStatusName: jiraApprovedStatus
+    };
+
+    const res = await testJiraConnectionAction(configData);
+    setTestResult(res);
+    setIsTestingJira(false);
+    
+    if (res.success) {
+      toast({ title: "Jira Test erfolgreich", description: res.message });
+    } else {
+      toast({ variant: "destructive", title: "Jira Test fehlgeschlagen", description: res.message });
+    }
   };
 
   const handleSaveJira = async () => {
@@ -131,7 +153,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="jira" className="space-y-6">
-          <Card className="rounded-none shadow-none border">
+          <Card className="rounded-none shadow-none border overflow-hidden">
             <CardHeader className="bg-muted/10 border-b">
               <CardTitle className="text-xs font-bold uppercase">Jira Service Management Anbindung</CardTitle>
               <CardDescription className="text-[10px] uppercase font-bold">Automatisieren Sie Workflows zwischen ComplianceHub und Jira.</CardDescription>
@@ -156,11 +178,11 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase">Anfragetyp (Request Type)</Label>
-                  <Input placeholder="Service Request" value={jiraIssueType} onChange={e => setJiraIssueType(e.target.value)} className="rounded-none" />
+                  <Input placeholder="Zugriffs- und Berechtigungsänderungen" value={jiraIssueType} onChange={e => setJiraIssueType(e.target.value)} className="rounded-none" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase">Status für "Genehmigt" (approved)</Label>
-                  <Input placeholder="Done" value={jiraApprovedStatus} onChange={e => setJiraApprovedStatus(e.target.value)} className="rounded-none" />
+                  <Input placeholder="Genehmigt" value={jiraApprovedStatus} onChange={e => setJiraApprovedStatus(e.target.value)} className="rounded-none" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase">Admin E-Mail</Label>
@@ -172,11 +194,30 @@ export default function SettingsPage() {
                 </div>
               </div>
 
+              {testResult && (
+                <div className={cn(
+                  "p-4 border rounded-none text-[10px] font-bold uppercase animate-in slide-in-from-top-2",
+                  testResult.success ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-red-50 border-red-200 text-red-700"
+                )}>
+                  <div className="flex items-start gap-3">
+                    {testResult.success ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
+                    <div className="space-y-1">
+                      <p>{testResult.message}</p>
+                      {testResult.details && <p className="font-mono text-[9px] opacity-70 mt-2 bg-white/50 p-2 border border-current/20">{testResult.details}</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="p-4 border bg-slate-50 text-[10px] font-bold uppercase leading-relaxed text-slate-600">
-                Hinweis: Der API-Token kann unter <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" className="text-primary underline">Atlassian Security</a> erstellt werden. Erforderliche Berechtigungen: "Issue Create" und "Issue Search".
+                Hinweis: Der API-Token kann unter <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" className="text-primary underline">Atlassian Security</a> erstellt werden.
               </div>
             </CardContent>
-            <CardFooter className="border-t p-4 flex justify-end">
+            <CardFooter className="border-t p-4 flex justify-between bg-muted/5">
+              <Button variant="outline" onClick={handleTestJira} disabled={isTestingJira} className="rounded-none gap-2 font-bold uppercase text-[10px] border-primary/20 text-primary hover:bg-primary/5">
+                {isTestingJira ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} 
+                Verbindung testen
+              </Button>
               <Button onClick={handleSaveJira} disabled={isSavingJira} className="rounded-none gap-2 font-bold uppercase text-[10px]">
                 {isSavingJira ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 
                 Integration Speichern

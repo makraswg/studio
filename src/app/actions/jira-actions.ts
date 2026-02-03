@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getCollectionData } from './mysql-actions';
@@ -13,6 +12,76 @@ export async function getJiraConfigs(): Promise<JiraConfig[]> {
 }
 
 /**
+ * Testet die Jira-Verbindung und gibt detaillierte Diagnose-Informationen zurück.
+ */
+export async function testJiraConnectionAction(configData: Partial<JiraConfig>): Promise<{ 
+  success: boolean; 
+  message: string; 
+  details?: string;
+  count?: number;
+}> {
+  if (!configData.url || !configData.email || !configData.apiToken) {
+    return { success: false, message: 'Unvollständige Zugangsdaten.' };
+  }
+
+  try {
+    const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
+    const url = configData.url.replace(/\/$/, ''); // Remove trailing slash
+    
+    // 1. Einfacher Ping an /myself
+    const testRes = await fetch(`${url}/rest/api/3/myself`, {
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Accept': 'application/json'
+      },
+      cache: 'no-store'
+    });
+
+    if (!testRes.ok) {
+      const errorText = await testRes.text();
+      return { 
+        success: false, 
+        message: `HTTP Fehler ${testRes.status}: ${testRes.statusText}`,
+        details: errorText.substring(0, 200)
+      };
+    }
+
+    const userData = await testRes.json();
+    
+    // 2. Test-Suche mit der konfigurierten JQL
+    const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName}"${configData.issueTypeName ? ` AND "Request Type" = "${configData.issueTypeName}"` : ''}`;
+    
+    const searchRes = await fetch(`${url}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=1`, {
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Accept': 'application/json'
+      },
+      cache: 'no-store'
+    });
+
+    if (!searchRes.ok) {
+      const errorText = await searchRes.text();
+      return { 
+        success: true, 
+        message: `Verbindung ok (User: ${userData.displayName}), aber JQL-Suche schlug fehl.`,
+        details: `JQL Fehler: ${errorText.substring(0, 200)}`
+      };
+    }
+
+    const searchData = await searchRes.json();
+    return { 
+      success: true, 
+      message: `Erfolgreich verbunden als ${userData.displayName}.`,
+      count: searchData.total,
+      details: `Die JQL-Abfrage liefert aktuell ${searchData.total} Tickets zurück.`
+    };
+
+  } catch (e: any) {
+    return { success: false, message: `Systemfehler: ${e.message}` };
+  }
+}
+
+/**
  * Erstellt ein Ticket in Jira.
  */
 export async function createJiraTicket(configId: string, summary: string, description: string): Promise<{ success: boolean; key?: string; error?: string }> {
@@ -23,7 +92,9 @@ export async function createJiraTicket(configId: string, summary: string, descri
 
   try {
     const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
-    const response = await fetch(`${config.url}/rest/api/3/issue`, {
+    const url = config.url.replace(/\/$/, '');
+    
+    const response = await fetch(`${url}/rest/api/3/issue`, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${auth}`,
@@ -39,7 +110,6 @@ export async function createJiraTicket(configId: string, summary: string, descri
             version: 1,
             content: [{ type: 'paragraph', content: [{ type: 'text', text: description }] }]
           },
-          // Nutze den konfigurierten Anfragetyp als IssueType Name (meistens 'Service Request')
           issuetype: { name: config.issueTypeName || 'Service Request' }
         }
       }),
@@ -50,7 +120,6 @@ export async function createJiraTicket(configId: string, summary: string, descri
     if (response.ok) {
       return { success: true, key: data.key };
     } else {
-      console.error("[Jira Create Error]", data);
       return { success: false, error: data.errors ? JSON.stringify(data.errors) : 'Unbekannter Jira-Fehler' };
     }
   } catch (e: any) {
@@ -68,21 +137,16 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
 
   try {
     const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
-    const statusFilter = config.approvedStatusName || "Genehmigt";
+    const url = config.url.replace(/\/$/, '');
     
-    // JQL basierend auf User-Input: project = ITSM AND "Request Type" = "..." AND status = "..."
-    let jql = `project = "${config.projectKey}" AND status = "${statusFilter}"`;
-    
+    // JQL Filterung
+    let jql = `project = "${config.projectKey}" AND status = "${config.approvedStatusName}"`;
     if (config.issueTypeName) {
-      // In JSM JQL ist "Request Type" oft der Anzeigename des Anfragetyps
       jql += ` AND "Request Type" = "${config.issueTypeName}"`;
     }
-    
     jql += ` ORDER BY created DESC`;
-    
-    console.log(`[Jira Sync] Requesting JQL: ${jql}`);
 
-    const response = await fetch(`${config.url}/rest/api/3/search?jql=${encodeURIComponent(jql)}`, {
+    const response = await fetch(`${url}/rest/api/3/search?jql=${encodeURIComponent(jql)}&expand=names,renderedFields`, {
       headers: { 
         'Authorization': `Basic ${auth}`,
         'Accept': 'application/json'
@@ -91,21 +155,16 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[Jira API Error] Status ${response.status}: ${errorText}`);
       return [];
     }
 
     const data = await response.json();
-    if (!data.issues) {
-      return [];
-    }
+    if (!data.issues) return [];
 
     return data.issues.map((issue: any) => {
       let extractedEmail = '';
       const description = issue.fields.description;
 
-      // Rekursive Suche nach E-Mail in ADF (Atlassian Document Format)
       const findEmailInNodes = (nodes: any[]): string | null => {
         if (!nodes || !Array.isArray(nodes)) return null;
         for (const node of nodes) {
@@ -150,8 +209,9 @@ export async function resolveJiraTicket(configId: string, issueKey: string, comm
 
   try {
     const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
+    const url = config.url.replace(/\/$/, '');
     
-    await fetch(`${config.url}/rest/api/3/issue/${issueKey}/comment`, {
+    await fetch(`${url}/rest/api/3/issue/${issueKey}/comment`, {
       method: 'POST',
       headers: { 
         'Authorization': `Basic ${auth}`, 

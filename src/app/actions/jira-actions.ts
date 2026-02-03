@@ -368,9 +368,9 @@ export async function createJiraTicket(configId: string, summary: string, descri
 }
 
 /**
- * Ruft Tickets ab, die entweder genehmigt ODER abgeschlossen sind.
+ * Ruft Tickets ab, basierend auf ihrem Typ (offen, genehmigt oder abgeschlossen).
  */
-export async function fetchJiraSyncItems(configId: string, type: 'approved' | 'done'): Promise<JiraSyncItem[]> {
+export async function fetchJiraSyncItems(configId: string, type: 'pending' | 'approved' | 'done'): Promise<JiraSyncItem[]> {
   const configs = await getJiraConfigs();
   const config = configs.find(c => c.id === configId);
   if (!config || !config.enabled) return [];
@@ -379,8 +379,15 @@ export async function fetchJiraSyncItems(configId: string, type: 'approved' | 'd
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
 
   try {
-    const status = type === 'approved' ? config.approvedStatusName : config.doneStatusName;
-    const jql = `project = "${config.projectKey}" AND status = "${status}"`;
+    let jql = '';
+    if (type === 'approved') {
+      jql = `project = "${config.projectKey}" AND status = "${config.approvedStatusName}"`;
+    } else if (type === 'done') {
+      jql = `project = "${config.projectKey}" AND status = "${config.doneStatusName}"`;
+    } else {
+      // Pending: Alles was nicht Approved oder Done ist
+      jql = `project = "${config.projectKey}" AND status NOT IN ("${config.approvedStatusName}", "${config.doneStatusName}", "Canceled", "Rejected", "Abgelehnt")`;
+    }
 
     const response = await fetch(`${url}/rest/api/3/search`, {
       method: 'POST',

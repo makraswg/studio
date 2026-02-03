@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Loader2, CheckCircle, XCircle, Beaker, Database, GanttChartSquare } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Beaker, Database, GanttChartSquare, ShieldCheck } from 'lucide-react';
 import { useFirestore } from '@/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { getMockCollection } from '@/lib/mock-db';
 import { testMysqlConnectionAction } from '@/app/actions/mysql-actions';
-import { runDatabaseMigrationAction } from '@/app/actions/migration-actions'; // Import der neuen Aktion
+import { runDatabaseMigrationAction } from '@/app/actions/migration-actions';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -22,7 +22,6 @@ type TestResult = {
   details?: string[];
 };
 
-// Hilfskomponente zur Anzeige der Testergebnisse
 const TestResultDisplay = ({ result }: { result: TestResult }) => {
   if (result.status === 'idle') return null;
 
@@ -39,13 +38,13 @@ const TestResultDisplay = ({ result }: { result: TestResult }) => {
   }[result.status];
 
   return (
-      <div className={cn("mt-2 text-xs font-medium", color)}>
+      <div className={cn("mt-2 text-[10px] font-bold uppercase", color)}>
           <div className="flex items-center">
             {icon}
             <span>{result.message}</span>
           </div>
           {result.details && result.details.length > 0 && (
-              <pre className="mt-2 p-2 bg-muted/50 rounded-md text-xs font-mono whitespace-pre-wrap max-h-40 overflow-auto">
+              <pre className="mt-2 p-2 bg-muted/50 border text-[9px] font-mono whitespace-pre-wrap max-h-40 overflow-auto">
                   {result.details.join('\n')}
               </pre>
           )}
@@ -56,23 +55,34 @@ const TestResultDisplay = ({ result }: { result: TestResult }) => {
 export default function SetupPage() {
   const { dataSource, setDataSource } = useSettings();
   const [currentSelection, setCurrentSelection] = useState(dataSource);
+  
+  const [firestoreTest, setFirestoreTest] = useState<TestResult>({ status: 'idle', message: '' });
+  const [mockTest, setMockTest] = useState<TestResult>({ status: 'idle', message: '' });
+  const [mysqlTest, setMysqlTest] = useState<TestResult>({ status: 'idle', message: '' });
+  const [migrationResult, setMigrationResult] = useState<TestResult>({ status: 'idle', message: '' });
+
+  const db = useFirestore();
+
   useEffect(() => {
     setCurrentSelection(dataSource);
   }, [dataSource]);
 
-  const [firestoreTest, setFirestoreTest] = useState<TestResult>({ status: 'idle', message: '' });
-  const [mockTest, setMockTest] = useState<TestResult>({ status: 'idle', message: '' });
-  const [mysqlTest, setMysqlTest] = useState<TestResult>({ status: 'idle', message: '' });
-  const [migrationResult, setMigrationResult] = useState<TestResult>({ status: 'idle', message: '' }); // Zustand für das Migrationsergebnis
-
-  const db = useFirestore();
-
   const handleTestFirestore = async () => {
-    // ... (unverändert)
+    setFirestoreTest({ status: 'loading', message: 'Firestore-Verbindung wird geprüft...' });
+    try {
+      const snap = await getDocs(collection(db, 'tenants'));
+      setFirestoreTest({ status: 'success', message: `Verbindung ok (${snap.size} Mandanten gefunden)` });
+    } catch (e: any) {
+      setFirestoreTest({ status: 'error', message: `Fehler: ${e.message}` });
+    }
   };
 
   const handleTestMock = () => {
-    // ... (unverändert)
+    setMockTest({ status: 'loading', message: 'Lade statische Daten...' });
+    setTimeout(() => {
+      const users = getMockCollection('users');
+      setMockTest({ status: 'success', message: `${users.length} Test-Nutzer geladen.` });
+    }, 500);
   };
 
   const handleTestMysql = async () => {
@@ -84,9 +94,8 @@ export default function SetupPage() {
     });
   };
 
-  // NEUER HANDLER für die Migration
   const handleRunMigration = async () => {
-      setMigrationResult({ status: 'loading', message: 'Datenbank-Migration wird ausgeführt...\nDas kann einen Moment dauern.' });
+      setMigrationResult({ status: 'loading', message: 'Migration läuft...' });
       const result = await runDatabaseMigrationAction();
       setMigrationResult({ 
           status: result.success ? 'success' : 'error', 
@@ -102,6 +111,7 @@ export default function SetupPage() {
 
   const handleDataSourceChange = (value: DataSource) => {
     setDataSource(value);
+    toast({ title: "Datenquelle geändert", description: `Die App nutzt nun ${value}.` });
   };
 
   return (
@@ -111,55 +121,95 @@ export default function SetupPage() {
             <p className="text-sm text-muted-foreground">Konfigurieren Sie die Datenquelle der Anwendung und testen Sie die Verbindungen.</p>
         </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Datenquelle</CardTitle>
-          <CardDescription>
-            Wählen Sie aus, welche Datenquelle die Anwendung verwenden soll. Die Tests helfen Ihnen bei der Konfiguration.
+      <Card className="rounded-none shadow-none border">
+        <CardHeader className="bg-muted/10 border-b">
+          <CardTitle className="text-xs font-bold uppercase tracking-widest">Datenquellen-Management</CardTitle>
+          <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">
+            Wählen Sie aus, welche Datenbank die Anwendung verwenden soll.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-6">
           <RadioGroup 
             value={currentSelection} 
             onValueChange={handleDataSourceChange}
-            className="grid grid-cols-1 md:grid-cols-3 gap-4"
+            className="grid grid-cols-1 md:grid-cols-3 gap-6"
           >
-            {/* ... Firestore- und Mock-Optionen (unverändert) ... */}
-            
-            {/* MySQL Option */}
-            <Label htmlFor="mysql" className={cn(
-              "flex flex-col items-start space-y-2 border rounded-md p-4 cursor-pointer transition-colors",
-              currentSelection === 'mysql' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+            {/* Firestore Option */}
+            <Label htmlFor="firestore" className={cn(
+              "flex flex-col items-start space-y-4 border p-6 cursor-pointer transition-all",
+              currentSelection === 'firestore' ? 'border-primary ring-1 ring-primary bg-primary/5' : 'hover:bg-muted/50 border-border'
             )}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="mysql" id="mysql" />
+              <div className="flex items-center space-x-3">
+                <RadioGroupItem value="firestore" id="firestore" />
                 <div className="flex flex-col">
-                  <span className="font-bold text-sm">MySQL-Datenbank</span>
-                  <span className="text-xs font-mono text-muted-foreground">Experimentell</span>
+                  <span className="font-bold text-sm">Google Firestore</span>
+                  <span className="text-[9px] font-bold text-primary uppercase tracking-widest">Empfohlen</span>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground pl-6">Verwendet eine relationale MySQL-Datenbank via `.env.local`.</p>
-              <div className="pl-6 pt-2 w-full space-y-4">
-                  <div>
-                      <Button variant="outline" size="sm" onClick={(e) => { e.preventDefault(); handleTestMysql(); }}>
-                          <Database className="w-3.5 h-3.5 mr-2" />
-                          Verbindung testen
-                      </Button>
-                      <TestResultDisplay result={mysqlTest} />
-                  </div>
-                  <div className='border-t pt-4'>
-                      <Button variant="secondary" size="sm" onClick={(e) => { e.preventDefault(); handleRunMigration(); }}>
-                          <GanttChartSquare className="w-3.5 h-3.5 mr-2" />
-                          DB initialisieren / migrieren
+              <p className="text-xs text-muted-foreground">Verwendet die skalierbare NoSQL-Cloud-Datenbank von Firebase.</p>
+              <div className="w-full pt-2">
+                  <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestFirestore(); }}>
+                    <ShieldCheck className="w-3.5 h-3.5 mr-2" /> Cloud-Test
+                  </Button>
+                  <TestResultDisplay result={firestoreTest} />
+              </div>
+            </Label>
+
+            {/* Mock Option */}
+            <Label htmlFor="mock" className={cn(
+              "flex flex-col items-start space-y-4 border p-6 cursor-pointer transition-all",
+              currentSelection === 'mock' ? 'border-primary ring-1 ring-primary bg-primary/5' : 'hover:bg-muted/50 border-border'
+            )}>
+              <div className="flex items-center space-x-3">
+                <RadioGroupItem value="mock" id="mock" />
+                <div className="flex flex-col">
+                  <span className="font-bold text-sm">Mock-Daten</span>
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Entwicklung</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Statische Beispieldaten für schnelle Tests ohne Internetverbindung.</p>
+              <div className="w-full pt-2">
+                  <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestMock(); }}>
+                    <Beaker className="w-3.5 h-3.5 mr-2" /> Lokal-Test
+                  </Button>
+                  <TestResultDisplay result={mockTest} />
+              </div>
+            </Label>
+
+            {/* MySQL Option */}
+            <Label htmlFor="mysql" className={cn(
+              "flex flex-col items-start space-y-4 border p-6 cursor-pointer transition-all",
+              currentSelection === 'mysql' ? 'border-primary ring-1 ring-primary bg-primary/5' : 'hover:bg-muted/50 border-border'
+            )}>
+              <div className="flex items-center space-x-3">
+                <RadioGroupItem value="mysql" id="mysql" />
+                <div className="flex flex-col">
+                  <span className="font-bold text-sm">MySQL (Relational)</span>
+                  <span className="text-[9px] font-bold text-orange-600 uppercase tracking-widest">Experimentell</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Verwendet eine relationale SQL-Struktur via .env-Anbindung.</p>
+              <div className="w-full space-y-3 pt-2">
+                  <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestMysql(); }}>
+                      <Database className="w-3.5 h-3.5 mr-2" /> DB-Ping
+                  </Button>
+                  <TestResultDisplay result={mysqlTest} />
+                  
+                  <div className="pt-2 border-t">
+                      <Button variant="secondary" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleRunMigration(); }}>
+                          <GanttChartSquare className="w-3.5 h-3.5 mr-2" /> Initialisieren
                       </Button>
                       <TestResultDisplay result={migrationResult} />
                   </div>
               </div>
             </Label>
-
           </RadioGroup>
         </CardContent>
       </Card>
+
+      <div className="p-4 bg-muted/20 border text-[10px] font-bold uppercase text-muted-foreground">
+        Hinweis: Ein Wechsel der Datenquelle während einer Sitzung aktualisiert die Ansicht sofort. Daten werden nicht automatisch zwischen Quellen migriert.
+      </div>
     </div>
   );
 }

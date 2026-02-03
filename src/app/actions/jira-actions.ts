@@ -115,19 +115,23 @@ export async function getJiraAttributesAction(configData: {
     if (!response.ok) return { success: false, error: `Fehler ${response.status}` };
 
     const data = await response.json();
-    const attributes = data || [];
+    const attributes = Array.isArray(data) ? data : (data.values || []);
     
     // 1. Suche nach dem Label (Name)
-    const labelAttr = attributes.find((a: any) => a.label === true);
+    const labelAttr = attributes.find((a: any) => a.label === true || a.name?.toLowerCase() === 'name');
     
     // 2. Suche nach einer Referenz auf den Ziel-Objekttyp (z.B. System-Referenz)
-    // Jira Assets Typ 7 ist meistens 'Referenced Object'
     let referenceAttributeId = undefined;
     if (configData.targetObjectTypeId) {
-      const refAttr = attributes.find((a: any) => 
-        (a.type === 7 || a.type === 'REFERENCED_OBJECT') && 
-        a.typeValue?.toString() === configData.targetObjectTypeId.toString()
-      );
+      const targetId = configData.targetObjectTypeId.toString();
+      
+      const refAttr = attributes.find((a: any) => {
+        // Jira Assets Typ 7 ist 'Referenced Object'
+        const isRefType = a.type === 7 || a.type === 'REFERENCED_OBJECT' || a.type === 'REFERENCE';
+        const matchesTarget = a.typeValue?.toString() === targetId || a.additionalValue?.toString() === targetId;
+        return isRefType && matchesTarget;
+      });
+      
       referenceAttributeId = refAttr?.id?.toString();
     }
 

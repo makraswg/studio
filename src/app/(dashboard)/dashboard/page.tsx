@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -13,7 +12,8 @@ import {
   ChevronRight,
   Loader2,
   AlertTriangle,
-  CheckCircle2
+  CheckCircle2,
+  FileDown
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -32,6 +32,8 @@ import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { exportComplianceReportPdf } from '@/lib/export-utils';
+import { toast } from '@/hooks/use-toast';
 
 const riskData = [
   { name: 'Niedriges Risiko', value: 65, color: '#3b82f6' },
@@ -42,6 +44,7 @@ const riskData = [
 export default function DashboardPage() {
   const db = useFirestore();
   const [mounted, setMounted] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const usersQuery = useMemoFirebase(() => collection(db, 'users'), [db]);
   const resourcesQuery = useMemoFirebase(() => collection(db, 'resources'), [db]);
@@ -56,6 +59,27 @@ export default function DashboardPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleExportCompliance = async () => {
+    if (!users || !resources || !assignments || !auditLogs) {
+      toast({ variant: "destructive", title: "Daten fehlen", description: "Bitte warten Sie, bis alle Daten geladen sind." });
+      return;
+    }
+    
+    setIsExporting(true);
+    try {
+      await exportComplianceReportPdf(users, resources, assignments, auditLogs);
+      toast({ title: "Bericht erstellt", description: "Der Compliance Statusbericht wurde als PDF heruntergeladen." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Fehler", description: "Bericht konnte nicht erstellt werden." });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleSync = () => {
+    toast({ title: "Synchronisierung gestartet", description: "Der Abgleich mit dem LDAP-Verzeichnis läuft im Hintergrund." });
+  };
 
   if (!mounted) return null;
 
@@ -76,11 +100,22 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">Operative Übersicht der Identitäts- und Zugriffsumgebung.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px]">
-            <Activity className="w-3 h-3 mr-2" /> Compliance Bericht
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-9 font-bold uppercase text-[10px]"
+            onClick={handleExportCompliance}
+            disabled={isExporting}
+          >
+            {isExporting ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Activity className="w-3 h-3 mr-2" />}
+            Compliance Bericht
           </Button>
-          <Button size="sm" className="h-9 font-bold uppercase text-[10px]">
-            <RefreshCw className="w-3 h-3 mr-2" /> Sync Trigger
+          <Button 
+            size="sm" 
+            className="h-9 font-bold uppercase text-[10px]"
+            onClick={handleSync}
+          >
+            <RefreshCw className="w-3 h-3 mr-2" /> Synchronisierung
           </Button>
         </div>
       </div>

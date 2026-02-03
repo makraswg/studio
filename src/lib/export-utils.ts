@@ -103,3 +103,71 @@ export async function exportResourcesPdf(resources: any[], entitlements: any[]) 
     console.error('PDF Export fehlgeschlagen:', error);
   }
 }
+
+export async function exportComplianceReportPdf(
+  users: any[],
+  resources: any[],
+  assignments: any[],
+  auditLogs: any[]
+) {
+  try {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    
+    const doc = new jsPDF();
+    const timestamp = new Date().toLocaleString('de-DE');
+
+    doc.setFontSize(22);
+    doc.setTextColor(37, 99, 235);
+    doc.text('AccessHub Compliance Statusbericht', 14, 25);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Erstellungsdatum: ${timestamp}`, 14, 35);
+    doc.text('Mandant: Acme Corp', 14, 40);
+    doc.text('Status: Vertraulich / Intern', 14, 45);
+
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text('1. Zusammenfassung der IAM-Umgebung', 14, 60);
+    
+    const statsData = [
+      ['Metrik', 'Wert'],
+      ['Gesamtbenutzer', (users?.length || 0).toString()],
+      ['Systeme im Katalog', (resources?.length || 0).toString()],
+      ['Aktive Zugriffsberechtigungen', (assignments?.filter((a: any) => a.status === 'active').length || 0).toString()],
+      ['Review-Fortschritt (Q3)', `${Math.round((assignments?.filter((a: any) => !!a.lastReviewedAt).length / (assignments?.length || 1)) * 100)}%`]
+    ];
+
+    autoTable(doc, {
+      startY: 65,
+      head: [['Metrik', 'Wert']],
+      body: statsData.slice(1),
+      theme: 'grid',
+      headStyles: { fillColor: [37, 99, 235] }
+    });
+
+    const nextY = (doc as any).lastAutoTable.finalY + 15;
+    doc.text('2. Letzte Compliance-relevante Ereignisse', 14, nextY);
+    
+    const auditData = (auditLogs || []).slice(0, 8).map((log: any) => [
+      new Date(log.timestamp).toLocaleString('de-DE'),
+      log.actorUid,
+      log.action,
+      log.entityType
+    ]);
+
+    autoTable(doc, {
+      startY: nextY + 5,
+      head: [['Zeitpunkt', 'Akteur', 'Aktion', 'Entität']],
+      body: auditData,
+      theme: 'striped',
+      headStyles: { fillColor: [37, 99, 235] },
+      styles: { fontSize: 8 }
+    });
+
+    doc.save(`Compliance_Statusbericht_${new Date().toISOString().split('T')[0]}.pdf`);
+  } catch (error) {
+    console.error('Compliance Export fehlgeschlagen:', error);
+  }
+}

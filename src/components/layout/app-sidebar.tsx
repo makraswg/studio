@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -18,11 +19,14 @@ import {
   RefreshCw,
   UserPlus,
   User as UserIcon,
-  Lock
+  Lock,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   useAuth, 
   useUser 
@@ -36,12 +40,27 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { toast } from '@/hooks/use-toast';
+import { updatePlatformUserPasswordAction } from '@/app/actions/mysql-actions';
 
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuth();
   const { user } = useUser();
+
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -64,6 +83,34 @@ export function AppSidebar() {
       router.push('/');
     } catch (error) {
       console.error("Logout failed:", error);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      toast({ variant: "destructive", title: "Fehler", description: "Passwörter stimmen nicht überein." });
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast({ variant: "destructive", title: "Fehler", description: "Passwort muss mind. 6 Zeichen lang sein." });
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      const res = await updatePlatformUserPasswordAction(user?.email || '', newPassword);
+      if (res.success) {
+        toast({ title: "Passwort aktualisiert", description: "Ihr Passwort wurde erfolgreich geändert." });
+        setIsPasswordDialogOpen(false);
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        throw new Error(res.error);
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    } finally {
+      setIsUpdatingPassword(false);
     }
   };
 
@@ -196,13 +243,7 @@ export function AppSidebar() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-slate-800" />
             <DropdownMenuItem 
-              onSelect={() => router.push('/settings')}
-              className="gap-3 px-3 py-2 text-[11px] font-bold uppercase cursor-pointer hover:bg-white/5 focus:bg-white/5 focus:text-white transition-colors"
-            >
-              <UserIcon className="w-3.5 h-3.5 text-slate-400" /> Profil
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              onSelect={() => router.push('/settings')}
+              onSelect={() => setIsPasswordDialogOpen(true)}
               className="gap-3 px-3 py-2 text-[11px] font-bold uppercase cursor-pointer hover:bg-white/5 focus:bg-white/5 focus:text-white transition-colors"
             >
               <Lock className="w-3.5 h-3.5 text-slate-400" /> Passwort ändern
@@ -217,6 +258,32 @@ export function AppSidebar() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+        <DialogContent className="rounded-none max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold uppercase">Passwort ändern</DialogTitle>
+            <DialogDescription className="text-xs">Vergeben Sie ein neues Passwort für Ihren Account.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase">Neues Passwort</Label>
+              <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="rounded-none" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase">Bestätigen</Label>
+              <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="rounded-none" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)} className="rounded-none">Abbrechen</Button>
+            <Button onClick={handleUpdatePassword} disabled={isUpdatingPassword} className="rounded-none font-bold uppercase text-[10px] gap-2">
+              {isUpdatingPassword && <Loader2 className="w-3 h-3 animate-spin" />}
+              Aktualisieren
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

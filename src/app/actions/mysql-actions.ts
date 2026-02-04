@@ -101,15 +101,12 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     // Security: Handle platform user passwords (hashing)
     if (tableName === 'platformUsers') {
       if (preparedData.password && preparedData.password.trim() !== '') {
-        // Nur hashen, wenn es nicht bereits ein Hash ist (einfache Prüfung)
         const isAlreadyHashed = /^\$2[ayb]\$.{56}$/.test(preparedData.password);
         if (!isAlreadyHashed) {
           const salt = bcrypt.genSaltSync(10);
           preparedData.password = bcrypt.hashSync(preparedData.password, salt);
         }
       } else {
-        // Falls Passwort leer ist, entfernen wir es aus dem Datensatz, 
-        // damit das bestehende Passwort in der DB nicht überschrieben wird.
         delete preparedData.password;
       }
     }
@@ -119,7 +116,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     if (preparedData.isAdmin !== undefined) preparedData.isAdmin = preparedData.isAdmin ? 1 : 0;
     if (preparedData.isSharedAccount !== undefined) preparedData.isSharedAccount = preparedData.isSharedAccount ? 1 : 0;
     if (preparedData.ldapEnabled !== undefined) preparedData.ldapEnabled = preparedData.ldapEnabled ? 1 : 0;
-    if (preparedData.enabled === false) preparedData.enabled = 0; // Explicit check
+    if (preparedData.enabled === false) preparedData.enabled = 0; 
 
     const keys = Object.keys(preparedData);
     const values = Object.values(preparedData);
@@ -140,6 +137,30 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
 }
 
 /**
+ * Aktualisiert das Passwort eines Plattform-Nutzers.
+ */
+export async function updatePlatformUserPasswordAction(email: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+  if (!email || !newPassword) return { success: false, error: 'Daten unvollständig.' };
+
+  let connection;
+  try {
+    const salt = bcrypt.genSaltSync(10);
+    const hashedPassword = bcrypt.hashSync(newPassword, salt);
+
+    connection = await getMysqlConnection();
+    await connection.execute(
+      'UPDATE `platformUsers` SET `password` = ? WHERE `email` = ?',
+      [hashedPassword, email]
+    );
+    connection.release();
+    return { success: true };
+  } catch (error: any) {
+    if (connection) connection.release();
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Authentifiziert einen Plattform-Nutzer gegen die MySQL-Datenbank.
  */
 export async function authenticatePlatformUserAction(email: string, password: string): Promise<{ 
@@ -150,7 +171,6 @@ export async function authenticatePlatformUserAction(email: string, password: st
   let connection;
   try {
     connection = await getMysqlConnection();
-    // Wir fragen den User ab und prüfen, ob er aktiviert ist (1 für true in MySQL)
     const [rows]: any = await connection.execute(
       'SELECT * FROM `platformUsers` WHERE `email` = ? AND `enabled` = 1', 
       [email]
@@ -163,7 +183,6 @@ export async function authenticatePlatformUserAction(email: string, password: st
 
     const user = rows[0];
     
-    // Passwort-Vergleich via bcrypt
     if (!user.password) {
         return { success: false, error: 'Kein Passwort für diesen Benutzer hinterlegt.' };
     }
@@ -171,7 +190,6 @@ export async function authenticatePlatformUserAction(email: string, password: st
     const isMatch = bcrypt.compareSync(password, user.password);
     
     if (isMatch) {
-      // Passwort für den Transport entfernen
       const { password: _, ...userWithoutPassword } = user;
       return { success: true, user: userWithoutPassword };
     } else {

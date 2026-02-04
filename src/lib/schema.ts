@@ -25,6 +25,18 @@ export const appSchema: AppSchema = {
       ldapUserFilter: 'TEXT',
     },
   },
+  platformUsers: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      uid: 'VARCHAR(255)',
+      email: 'VARCHAR(255) NOT NULL',
+      displayName: 'VARCHAR(255) NOT NULL',
+      role: 'VARCHAR(50) NOT NULL',
+      tenantId: 'VARCHAR(255) DEFAULT "all"',
+      enabled: 'BOOLEAN DEFAULT TRUE',
+      createdAt: 'VARCHAR(50)',
+    },
+  },
   servicePartners: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',

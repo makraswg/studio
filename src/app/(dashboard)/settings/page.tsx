@@ -24,7 +24,10 @@ import {
   FileSearch,
   Unplug,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Users,
+  ShieldCheck,
+  Trash2
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +39,7 @@ import {
   getJiraSchemasAction,
   getJiraAttributesAction
 } from '@/app/actions/jira-actions';
-import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { cn } from '@/lib/utils';
 import { 
   useFirestore, 
@@ -54,6 +57,8 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PlatformUser, Role } from '@/lib/types';
 
 export default function SettingsPage() {
   const db = useFirestore();
@@ -65,6 +70,16 @@ export default function SettingsPage() {
   const { data: jiraConfigs, refresh: refreshJira } = usePluggableCollection<any>('jiraConfigs');
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<any>('tenants');
   const { data: servicePartners, refresh: refreshPartners } = usePluggableCollection<any>('servicePartners');
+  const { data: platformUsers, refresh: refreshPlatformUsers } = usePluggableCollection<PlatformUser>('platformUsers');
+
+  // Platform User Management State
+  const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<PlatformUser | null>(null);
+  const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+  const [userRole, setUserRole] = useState<Role>('viewer');
+  const [userTenantId, setUserTenantId] = useState('all');
+  const [userEnabled, setUserEnabled] = useState(true);
 
   // Tenant Management State
   const [isTenantDialogOpen, setIsTenantDialogOpen] = useState(false);
@@ -293,18 +308,55 @@ export default function SettingsPage() {
     setTimeout(() => refreshPartners(), 200);
   };
 
+  const handleSavePlatformUser = async () => {
+    if (!userName || !userEmail) return;
+    const id = selectedUser?.id || `puser-${Math.random().toString(36).substring(2, 7)}`;
+    const data: PlatformUser = {
+      id,
+      email: userEmail,
+      displayName: userName,
+      role: userRole,
+      tenantId: userTenantId,
+      enabled: userEnabled,
+      createdAt: selectedUser?.createdAt || new Date().toISOString()
+    };
+    if (dataSource === 'mysql') await saveCollectionRecord('platformUsers', id, data);
+    else setDocumentNonBlocking(doc(db, 'platformUsers', id), data);
+    toast({ title: "Plattform-Nutzer gespeichert" });
+    setIsUserDialogOpen(false);
+    setTimeout(() => refreshPlatformUsers(), 200);
+  };
+
+  const handleDeletePlatformUser = async (id: string) => {
+    if (dataSource === 'mysql') await deleteCollectionRecord('platformUsers', id);
+    else {
+      // Non-blocking delete for Firestore
+      const { deleteDocumentNonBlocking } = await import('@/firebase');
+      deleteDocumentNonBlocking(doc(db, 'platformUsers', id));
+    }
+    toast({ title: "Nutzer entfernt" });
+    setTimeout(() => refreshPlatformUsers(), 200);
+  };
+
+  const getTenantSlug = (id?: string | null) => {
+    if (!id || id === 'all' || id === 'global') return 'Global';
+    const tenant = tenants?.find(t => t.id === id);
+    return tenant ? tenant.slug : id;
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto pb-20">
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Systemeinstellungen</h1>
-          <p className="text-muted-foreground mt-1">Plattform-Governance, Jira-Automatisierung und Partner-Management.</p>
+          <p className="text-muted-foreground mt-1">Plattform-Governance, Jira-Automatisierung und Benutzerverwaltung.</p>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-card border h-12 p-1 gap-1 rounded-none w-full justify-start overflow-x-auto">
           <TabsTrigger value="general" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Settings className="w-3.5 h-3.5" /> Organisation</TabsTrigger>
+          <TabsTrigger value="users" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Users className="w-3.5 h-3.5" /> Plattform-Nutzer</TabsTrigger>
           <TabsTrigger value="tenants" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Building2 className="w-3.5 h-3.5" /> Mandanten</TabsTrigger>
           <TabsTrigger value="partners" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Contact className="w-3.5 h-3.5" /> Service Partner</TabsTrigger>
           <TabsTrigger value="jira" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><ExternalLink className="w-3.5 h-3.5" /> JIRA Integration</TabsTrigger>
@@ -331,6 +383,66 @@ export default function SettingsPage() {
             <CardFooter className="bg-muted/5 border-t py-3 flex justify-end">
               <Button size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]"><Save className="w-3 h-3 mr-2" /> Speichern</Button>
             </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="users">
+          <Card className="rounded-none border shadow-none">
+            <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-[10px] font-bold uppercase">Administratoren & Operatoren</CardTitle>
+                <CardDescription className="text-[9px] font-bold uppercase mt-1">Verwalten Sie den Zugriff auf dieses System.</CardDescription>
+              </div>
+              <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { 
+                setSelectedUser(null); setUserName(''); setUserEmail(''); setUserRole('viewer'); setUserTenantId('all'); setUserEnabled(true);
+                setIsUserDialogOpen(true); 
+              }}>
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> Nutzer hinzufügen
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow>
+                    <TableHead className="font-bold uppercase text-[10px] py-4">Name / E-Mail</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Rolle</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Mandant</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Status</TableHead>
+                    <TableHead className="text-right font-bold uppercase text-[10px]">Aktion</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {platformUsers?.map((u) => (
+                    <TableRow key={u.id} className="border-b">
+                      <TableCell className="py-4">
+                        <div className="font-bold text-sm">{u.displayName}</div>
+                        <div className="text-[10px] text-muted-foreground font-mono">{u.email}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="rounded-none text-[9px] font-bold uppercase bg-slate-50">{u.role}</Badge>
+                      </TableCell>
+                      <TableCell className="text-[10px] font-bold uppercase">{getTenantSlug(u.tenantId)}</TableCell>
+                      <TableCell>
+                        {u.enabled ? (
+                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 rounded-none text-[8px] font-bold uppercase">Aktiv</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground rounded-none text-[8px] font-bold uppercase">Inaktiv</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => {
+                            setSelectedUser(u); setUserName(u.displayName); setUserEmail(u.email); setUserRole(u.role); setUserTenantId(u.tenantId); setUserEnabled(!!u.enabled);
+                            setIsUserDialogOpen(true);
+                          }}><Pencil className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="text-red-600" onClick={() => handleDeletePlatformUser(u.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
           </Card>
         </TabsContent>
 
@@ -571,6 +683,55 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Platform User Dialog */}
+      <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
+        <DialogContent className="rounded-none max-w-md">
+          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Plattform-Nutzer verwalten</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase">Anzeigename</Label>
+              <Input value={userName} onChange={e => setUserName(e.target.value)} className="rounded-none" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase">E-Mail (Login)</Label>
+              <Input value={userEmail} onChange={e => setUserEmail(e.target.value)} className="rounded-none" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase">Plattform-Rolle</Label>
+                <Select value={userRole} onValueChange={(v: Role) => setUserRole(v)}>
+                  <SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger>
+                  <SelectContent className="rounded-none">
+                    <SelectItem value="superAdmin">Super Admin</SelectItem>
+                    <SelectItem value="admin">Tenant Admin</SelectItem>
+                    <SelectItem value="editor">Editor</SelectItem>
+                    <SelectItem value="viewer">Viewer (Read-only)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase">Zuständigkeit</Label>
+                <Select value={userTenantId} onValueChange={setUserTenantId}>
+                  <SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger>
+                  <SelectContent className="rounded-none">
+                    <SelectItem value="all">Global (Alle)</SelectItem>
+                    {tenants?.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex items-center justify-between pt-4 border-t">
+              <Label className="text-[10px] font-bold uppercase">Nutzer aktiviert</Label>
+              <Switch checked={userEnabled} onCheckedChange={setUserEnabled} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUserDialogOpen(false)} className="rounded-none">Abbrechen</Button>
+            <Button onClick={handleSavePlatformUser} className="rounded-none font-bold uppercase text-[10px]">Speichern</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Partner Dialog */}
       <Dialog open={isPartnerDialogOpen} onOpenChange={setIsPartnerDialogOpen}>

@@ -6,6 +6,7 @@ import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
 // Eine einfache Zuordnung von Anwendungs-Sammlungsnamen zu echten MySQL-Tabellennamen.
 const collectionToTableMap: { [key: string]: string } = {
   users: 'users',
+  platformUsers: 'platformUsers',
   groups: 'groups',
   entitlements: 'entitlements',
   resources: 'resources',

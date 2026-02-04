@@ -31,6 +31,17 @@ export interface User {
   adGroups?: string[];
 }
 
+export interface PlatformUser {
+  id: string;
+  uid?: string; // Firebase Auth UID
+  email: string;
+  displayName: string;
+  role: Role;
+  tenantId: string; // 'all' or specific tenantId
+  enabled: boolean | number;
+  createdAt: string;
+}
+
 export interface ServicePartner {
   id: string;
   tenantId: string;

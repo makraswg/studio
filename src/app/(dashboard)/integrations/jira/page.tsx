@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -39,6 +38,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 import { fetchJiraSyncItems, resolveJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';

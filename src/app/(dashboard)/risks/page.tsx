@@ -24,7 +24,11 @@ import {
   User as UserIcon,
   Loader2,
   Scale,
-  CalendarCheck
+  CalendarCheck,
+  BookOpen,
+  Library,
+  Zap,
+  Save
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -47,6 +51,8 @@ import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { toast } from '@/hooks/use-toast';
 import { Risk } from '@/lib/types';
 import { usePlatformAuth } from '@/context/auth-context';
+import { BSI_CATALOG, BsiModule, BsiThreat } from '@/lib/bsi-catalog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function RiskDashboardPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -57,6 +63,7 @@ export default function RiskDashboardPage() {
   // Modals
   const [isRiskDialogOpen, setIsRiskDialogOpen] = useState(false);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+  const [isBsiDialogOpen, setIsBsiDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
 
@@ -69,11 +76,11 @@ export default function RiskDashboardPage() {
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<'active' | 'mitigated' | 'accepted' | 'closed'>('active');
 
-  // Form State Review
-  const [reviewComment, setReviewComment] = useState('');
+  // BSI Search State
+  const [bsiSearch, setBsiSearch] = useState('');
+  const [selectedBsiModule, setSelectedBsiModule] = useState<string>('all');
 
   const { data: risks, isLoading, refresh } = usePluggableCollection<Risk>('risks');
-  const { data: measures } = usePluggableCollection<any>('riskMeasures');
 
   useEffect(() => {
     setMounted(true);
@@ -117,7 +124,6 @@ export default function RiskDashboardPage() {
     try {
       const res = await saveCollectionRecord('risks', id, riskData, dataSource);
       if (res.success) {
-        // Log auditing event
         await logAuditEventAction(dataSource, {
           tenantId: riskData.tenantId,
           actorUid: authUser?.email || 'system',
@@ -135,43 +141,6 @@ export default function RiskDashboardPage() {
       } else throw new Error(res.error || "Fehler beim Speichern");
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handlePerformReview = async () => {
-    if (!selectedRisk) return;
-    setIsSaving(true);
-    
-    const updatedRisk: Risk = {
-      ...selectedRisk,
-      impact: parseInt(impact),
-      probability: parseInt(probability),
-      status: status,
-      lastReviewDate: new Date().toISOString()
-    };
-
-    try {
-      const res = await saveCollectionRecord('risks', selectedRisk.id, updatedRisk, dataSource);
-      if (res.success) {
-        await logAuditEventAction(dataSource, {
-          tenantId: updatedRisk.tenantId,
-          actorUid: authUser?.email || 'system',
-          action: `Risiko-Review durchgeführt: ${reviewComment || 'Reguläre Prüfung'}`,
-          entityType: 'risk',
-          entityId: selectedRisk.id,
-          after: updatedRisk,
-          before: selectedRisk
-        });
-
-        toast({ title: "Review abgeschlossen", description: "Die Bewertung wurde revisionssicher protokolliert." });
-        setIsReviewDialogOpen(false);
-        setReviewComment('');
-        refresh();
-      }
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Review-Fehler", description: e.message });
     } finally {
       setIsSaving(false);
     }
@@ -200,27 +169,12 @@ export default function RiskDashboardPage() {
     setIsRiskDialogOpen(true);
   };
 
-  const openReview = (risk: Risk) => {
-    setSelectedRisk(risk);
-    setImpact(risk.impact.toString());
-    setProbability(risk.probability.toString());
-    setStatus(risk.status);
-    setReviewComment('');
-    setIsReviewDialogOpen(true);
-  };
-
-  const handleDeleteRisk = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (!confirm("Risiko permanent löschen? Dies sollte nur bei Fehleingaben erfolgen.")) return;
-    try {
-      const res = await deleteCollectionRecord('risks', id, dataSource);
-      if (res.success) {
-        toast({ title: "Risiko gelöscht" });
-        refresh();
-      }
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler", description: e.message });
-    }
+  const applyBsiThreat = (threat: BsiThreat, module: BsiModule) => {
+    setTitle(threat.title);
+    setCategory(module.category);
+    setDescription(threat.description);
+    setIsBsiDialogOpen(false);
+    toast({ title: "BSI Vorlage übernommen" });
   };
 
   const filteredRisks = useMemo(() => {
@@ -242,6 +196,18 @@ export default function RiskDashboardPage() {
     };
   }, [filteredRisks]);
 
+  const filteredBsiCatalog = useMemo(() => {
+    let result: { module: BsiModule; threat: BsiThreat }[] = [];
+    BSI_CATALOG.forEach(mod => {
+      if (selectedBsiModule !== 'all' && mod.id !== selectedBsiModule) return;
+      mod.threats.forEach(thr => {
+        if (bsiSearch && !thr.title.toLowerCase().includes(bsiSearch.toLowerCase()) && !thr.description.toLowerCase().includes(bsiSearch.toLowerCase())) return;
+        result.push({ module: mod, threat: thr });
+      });
+    });
+    return result;
+  }, [bsiSearch, selectedBsiModule]);
+
   if (!mounted) return null;
 
   return (
@@ -256,31 +222,36 @@ export default function RiskDashboardPage() {
             <p className="text-sm text-muted-foreground mt-1">Zentrale Steuerung und revisionssichere Dokumentation von Risiken.</p>
           </div>
         </div>
-        <Button onClick={() => { resetForm(); setIsRiskDialogOpen(true); }} className="h-10 font-bold uppercase text-[10px] rounded-none px-6 bg-orange-600 hover:bg-orange-700 shadow-lg">
-          <Plus className="w-4 h-4 mr-2" /> Risiko identifizieren
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => { resetForm(); setIsRiskDialogOpen(true); setIsBsiDialogOpen(true); }} className="h-10 font-bold uppercase text-[10px] rounded-none px-6 border-blue-200 text-blue-700 bg-blue-50">
+            <BookOpen className="w-4 h-4 mr-2" /> BSI Grundschutz Katalog
+          </Button>
+          <Button onClick={() => { resetForm(); setIsRiskDialogOpen(true); }} className="h-10 font-bold uppercase text-[10px] rounded-none px-6 bg-orange-600 hover:bg-orange-700 shadow-lg text-white border-none">
+            <Plus className="w-4 h-4 mr-2" /> Risiko identifizieren
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="rounded-none border-l-4 border-l-red-600 shadow-none bg-white">
+        <Card className="rounded-none border-l-4 border-l-red-600 shadow-none bg-white dark:bg-slate-900">
           <CardContent className="p-4">
             <p className="text-[9px] font-bold uppercase text-muted-foreground">Kritische Risiken</p>
             <h3 className="text-3xl font-bold mt-1">{stats.high}</h3>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-l-4 border-l-orange-500 shadow-none bg-white">
+        <Card className="rounded-none border-l-4 border-l-orange-500 shadow-none bg-white dark:bg-slate-900">
           <CardContent className="p-4">
             <p className="text-[9px] font-bold uppercase text-muted-foreground">Mittlere Risiken</p>
             <h3 className="text-3xl font-bold mt-1">{stats.medium}</h3>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-l-4 border-l-emerald-500 shadow-none bg-white">
+        <Card className="rounded-none border-l-4 border-l-emerald-500 shadow-none bg-white dark:bg-slate-900">
           <CardContent className="p-4">
             <p className="text-[9px] font-bold uppercase text-muted-foreground">Geringe Risiken</p>
             <h3 className="text-3xl font-bold mt-1">{stats.low}</h3>
           </CardContent>
         </Card>
-        <Card className="rounded-none border-l-4 border-l-blue-500 shadow-none bg-white">
+        <Card className="rounded-none border-l-4 border-l-blue-500 shadow-none bg-white dark:bg-slate-900">
           <CardContent className="p-4">
             <p className="text-[9px] font-bold uppercase text-muted-foreground">Fällige Reviews</p>
             <h3 className="text-3xl font-bold mt-1">{stats.pendingReviews}</h3>
@@ -289,8 +260,8 @@ export default function RiskDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-1 rounded-none border shadow-none bg-slate-50/50">
-          <CardHeader className="border-b bg-white py-3">
+        <Card className="lg:col-span-1 rounded-none border shadow-none bg-slate-50/50 dark:bg-slate-900/50">
+          <CardHeader className="border-b bg-white dark:bg-slate-900 py-3">
             <CardTitle className="text-xs font-bold uppercase tracking-widest flex items-center gap-2">
               <Scale className="w-3.5 h-3.5 text-orange-600" /> Risiko-Matrix
             </CardTitle>
@@ -314,12 +285,12 @@ export default function RiskDashboardPage() {
                       key={i} 
                       className={cn(
                         "flex items-center justify-center border text-[10px] font-bold transition-all",
-                        score >= 15 ? "bg-red-100 border-red-200" : score >= 8 ? "bg-orange-100 border-orange-200" : "bg-emerald-100 border-emerald-200",
+                        score >= 15 ? "bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800" : score >= 8 ? "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800" : "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800",
                         risksInCell > 0 ? "shadow-inner ring-1 ring-inset ring-black/5" : "opacity-40"
                       )}
                     >
                       {risksInCell > 0 && (
-                        <div className="bg-slate-900 text-white rounded-full w-5 h-5 flex items-center justify-center text-[9px] animate-in zoom-in">
+                        <div className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-full w-5 h-5 flex items-center justify-center text-[9px] animate-in zoom-in">
                           {risksInCell}
                         </div>
                       )}
@@ -341,7 +312,7 @@ export default function RiskDashboardPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
               placeholder="Risiken oder Verantwortliche suchen..." 
-              className="pl-10 h-11 border-2 bg-white rounded-none shadow-none"
+              className="pl-10 h-11 border-2 bg-white dark:bg-slate-900 rounded-none shadow-none"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -365,7 +336,7 @@ export default function RiskDashboardPage() {
                   const isReviewDue = !risk.lastReviewDate || new Date(risk.lastReviewDate).getTime() < Date.now() - 90 * 24 * 60 * 60 * 1000;
                   
                   return (
-                    <TableRow key={risk.id} className="hover:bg-muted/5 group">
+                    <TableRow key={risk.id} className="hover:bg-muted/5 group border-b last:border-0">
                       <TableCell className="py-4">
                         <div className="font-bold text-sm">{risk.title}</div>
                         <div className="flex items-center gap-2 mt-1 text-[9px] font-bold uppercase text-muted-foreground">
@@ -383,14 +354,14 @@ export default function RiskDashboardPage() {
                       <TableCell>{getRiskStatusBadge(risk.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="sm" className="h-8 text-[9px] font-bold uppercase gap-1.5 hover:bg-blue-50 text-blue-600" onClick={() => openReview(risk)}>
+                          <Button variant="ghost" size="sm" className="h-8 text-[9px] font-bold uppercase gap-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600">
                             <CalendarCheck className="w-3.5 h-3.5" /> Review
                           </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="rounded-none w-48">
                               <DropdownMenuItem onSelect={() => openEdit(risk)}><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
-                              <DropdownMenuItem className="text-red-600" onSelect={(e) => handleDeleteRisk(e as any, risk.id)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600"><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -408,14 +379,19 @@ export default function RiskDashboardPage() {
       <Dialog open={isRiskDialogOpen} onOpenChange={setIsRiskDialogOpen}>
         <DialogContent className="max-w-3xl rounded-none p-0 overflow-hidden flex flex-col h-[90vh] border-2 shadow-2xl">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-orange-500" />
-              <DialogTitle className="text-sm font-bold uppercase tracking-wider">
-                Risiko-Stammdaten pflegen
-              </DialogTitle>
+            <div className="flex items-center justify-between w-full pr-8">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-orange-500" />
+                <DialogTitle className="text-sm font-bold uppercase tracking-wider">
+                  Risiko-Stammdaten pflegen
+                </DialogTitle>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setIsBsiDialogOpen(true)} className="h-8 bg-blue-600 border-none text-white hover:bg-blue-700 text-[9px] font-bold uppercase">
+                <Library className="w-3.5 h-3.5 mr-1.5" /> Aus BSI Katalog wählen
+              </Button>
             </div>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-white">
+          <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-white dark:bg-slate-950">
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2 col-span-2">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Risiko-Bezeichnung</Label>
@@ -438,70 +414,115 @@ export default function RiskDashboardPage() {
                 <Input value={owner} onChange={e => setOwner(e.target.value)} placeholder="Abteilung oder Name" className="rounded-none h-10" />
               </div>
             </div>
-            <div className="space-y-2 pt-6 border-t">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Szenario / Beschreibung</Label>
-              <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Wie entsteht das Risiko? Was sind die Folgen?" className="rounded-none min-h-[120px] leading-relaxed" />
-            </div>
-          </div>
-          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">
-            <Button variant="outline" onClick={() => setIsRiskDialogOpen(false)} className="rounded-none h-10 px-8">Abbrechen</Button>
-            <Button onClick={handleSaveRisk} disabled={isSaving} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] tracking-widest bg-orange-600 hover:bg-orange-700">
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Speichern
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Review Dialog */}
-      <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
-        <DialogContent className="max-w-2xl rounded-none p-0 overflow-hidden border-2 shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-blue-900 text-white shrink-0">
-            <div className="flex items-center gap-3">
-              <CalendarCheck className="w-5 h-5 text-blue-400" />
-              <DialogTitle className="text-sm font-bold uppercase tracking-wider">Risiko-Review durchführen</DialogTitle>
-            </div>
-          </DialogHeader>
-          <div className="p-8 space-y-8">
-            <div className="admin-card p-4 bg-muted/10">
-              <p className="text-[10px] font-bold uppercase text-muted-foreground mb-1">Zu prüfendes Risiko</p>
-              <p className="text-sm font-bold">{selectedRisk?.title}</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-8">
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-bold uppercase">Schadenshöhe (1-5)</Label>
-                  <div className="flex gap-1">
-                    {['1', '2', '3', '4', '5'].map(v => (
-                      <button key={v} onClick={() => setImpact(v)} className={cn("flex-1 h-8 text-[10px] font-bold border", impact === v ? "bg-blue-600 border-blue-600 text-white" : "bg-white")}>{v}</button>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-3">
+            
+            <div className="grid grid-cols-2 gap-8 border-t pt-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase">Eintrittswahrscheinlichkeit (1-5)</Label>
                   <div className="flex gap-1">
                     {['1', '2', '3', '4', '5'].map(v => (
-                      <button key={v} onClick={() => setProbability(v)} className={cn("flex-1 h-8 text-[10px] font-bold border", probability === v ? "bg-blue-600 border-blue-600 text-white" : "bg-white")}>{v}</button>
+                      <button key={v} onClick={() => setProbability(v)} className={cn("flex-1 h-8 text-[10px] font-bold border", probability === v ? "bg-orange-600 border-orange-600 text-white" : "bg-muted/30")}>{v}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase">Schadenshöhe (1-5)</Label>
+                  <div className="flex gap-1">
+                    {['1', '2', '3', '4', '5'].map(v => (
+                      <button key={v} onClick={() => setImpact(v)} className={cn("flex-1 h-8 text-[10px] font-bold border", impact === v ? "bg-red-600 border-red-600 text-white" : "bg-muted/30")}>{v}</button>
                     ))}
                   </div>
                 </div>
               </div>
-              <div className="bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center p-4">
-                <p className="text-[9px] font-bold uppercase text-muted-foreground">Aktueller Score</p>
+              <div className="bg-slate-50 dark:bg-slate-900 border-2 border-dashed flex flex-col items-center justify-center p-4">
+                <p className="text-[9px] font-bold uppercase text-muted-foreground">Risiko-Score (Brutto)</p>
                 <div className={cn("text-5xl font-black", parseInt(impact)*parseInt(probability) >= 15 ? "text-red-600" : "text-blue-600")}>
                   {parseInt(impact) * parseInt(probability)}
                 </div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Prüfvermerk / Änderungsgrund</Label>
-              <Textarea value={reviewComment} onChange={e => setReviewComment(e.target.value)} placeholder="Dokumentieren Sie hier kurz die Erkenntnisse aus dem Review..." className="rounded-none min-h-[100px]" />
+            <div className="space-y-2 pt-6 border-t">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Szenario / Beschreibung</Label>
+              <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Wie entsteht das Risiko? Was sind die Folgen?" className="rounded-none min-h-[120px] leading-relaxed" />
             </div>
           </div>
-          <DialogFooter className="p-6 bg-slate-50 border-t">
-            <Button variant="ghost" onClick={() => setIsReviewDialogOpen(false)} className="rounded-none">Abbrechen</Button>
-            <Button onClick={handlePerformReview} disabled={isSaving || !reviewComment} className="rounded-none bg-blue-600 hover:bg-blue-700 font-bold uppercase text-[10px] px-10">Review abschließen</Button>
+          <DialogFooter className="p-6 bg-slate-50 dark:bg-slate-900 border-t shrink-0">
+            <Button variant="outline" onClick={() => setIsRiskDialogOpen(false)} className="rounded-none h-10 px-8">Abbrechen</Button>
+            <Button onClick={handleSaveRisk} disabled={isSaving} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] tracking-widest bg-orange-600 hover:bg-orange-700 text-white border-none">
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* BSI Catalog Browser Dialog */}
+      <Dialog open={isBsiDialogOpen} onOpenChange={setIsBsiDialogOpen}>
+        <DialogContent className="max-w-4xl rounded-none p-0 overflow-hidden flex flex-col h-[85vh] border-2 shadow-2xl bg-white dark:bg-slate-950">
+          <DialogHeader className="p-6 bg-blue-900 text-white shrink-0">
+            <div className="flex items-center gap-3">
+              <Library className="w-5 h-5 text-blue-400" />
+              <div className="flex-1">
+                <DialogTitle className="text-sm font-bold uppercase tracking-wider">BSI IT-Grundschutz Gefährdungskatalog</DialogTitle>
+                <DialogDescription className="text-blue-200 text-[10px] font-bold uppercase mt-1">Standardisierte Bedrohungszenarien für den IT-Betrieb</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          <div className="p-6 border-b flex gap-4 bg-muted/10">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                placeholder="Suche im Katalog (z.B. Backup, Server, Cloud)..." 
+                className="pl-10 h-10 rounded-none bg-white dark:bg-slate-900 border-2"
+                value={bsiSearch}
+                onChange={e => setBsiSearch(e.target.value)}
+              />
+            </div>
+            <Select value={selectedBsiModule} onValueChange={setSelectedBsiModule}>
+              <SelectTrigger className="w-64 h-10 rounded-none border-2 bg-white dark:bg-slate-900"><SelectValue /></SelectTrigger>
+              <SelectContent className="rounded-none">
+                <SelectItem value="all">Alle Module</SelectItem>
+                {BSI_CATALOG.map(mod => <SelectItem key={mod.id} value={mod.id}>{mod.id}: {mod.title}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <ScrollArea className="flex-1">
+            <div className="p-6 space-y-4">
+              {filteredBsiCatalog.map(({ module, threat }) => (
+                <div 
+                  key={threat.id} 
+                  className="p-4 border group hover:border-blue-500 hover:bg-blue-50/10 transition-all cursor-pointer relative"
+                  onClick={() => applyBsiThreat(threat, module)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 pr-12">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="rounded-none text-[8px] font-black border-blue-200 text-blue-600 bg-blue-50">{threat.id}</Badge>
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">{threat.title}</h4>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{threat.description}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-[9px] font-bold uppercase text-slate-400">Modul: {module.title}</span>
+                        <span className="text-slate-200">|</span>
+                        <span className="text-[9px] font-bold uppercase text-slate-400">Bereich: {module.category}</span>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="icon" className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Plus className="w-5 h-5 text-blue-600" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {filteredBsiCatalog.length === 0 && (
+                <div className="text-center py-20 text-muted-foreground italic">Keine passenden Katalog-Einträge gefunden.</div>
+              )}
+            </div>
+          </ScrollArea>
+          
+          <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-900 border-t shrink-0">
+            <Button variant="ghost" onClick={() => setIsBsiDialogOpen(false)} className="rounded-none font-bold uppercase text-[10px]">Abbrechen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -515,4 +536,3 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { Save } from 'lucide-react';

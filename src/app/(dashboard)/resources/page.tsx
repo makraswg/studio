@@ -68,6 +68,7 @@ import { toast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { Entitlement } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 export default function ResourcesPage() {
   const db = useFirestore();
@@ -199,7 +200,7 @@ export default function ResourcesPage() {
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input placeholder="Systeme suchen..." className="w-full pl-10 h-10 border border-input bg-white px-3 text-sm focus:outline-none" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Input placeholder="Systeme suchen..." className="pl-10 h-10 border border-input bg-white px-3 text-sm focus:outline-none rounded-none" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
       <div className="admin-card overflow-hidden">

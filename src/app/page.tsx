@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Shield, Loader2, AlertCircle, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { usePlatformAuth } from '@/context/auth-context';
 import { useSettings } from '@/context/settings-context';
-import { authenticatePlatformUserAction } from '@/app/actions/mysql-actions';
+import { authenticateUserAction } from '@/app/actions/auth-actions'; // Import der neuen, universellen Aktion
 import { requestPasswordResetAction } from '@/app/actions/smtp-actions';
 import { toast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -43,24 +43,29 @@ export default function LoginPage() {
     setAuthError(null);
 
     try {
-      if (!email || !password) {
-        throw new Error("Bitte E-Mail und Passwort eingeben.");
+      if (!email) {
+        throw new Error("Bitte geben Sie eine E-Mail Adresse ein.");
+      }
+      // Für Firestore/Mock ist das Passwort optional, für MySQL erforderlich
+      if (dataSource === 'mysql' && !password) {
+          throw new Error("Bitte geben Sie ein Passwort ein.");
       }
 
-      // Check against MySQL/Firestore Database via Server Action
-      const result = await authenticatePlatformUserAction(email, password);
+      // Ruft die neue, universelle Server Action mit der aktuellen Datenquelle auf
+      const result = await authenticateUserAction(dataSource, email, password);
       
-      if (!result.success) {
+      if (!result.success || !result.user) {
         setAuthError(result.error || "Authentifizierung fehlgeschlagen.");
         setIsActionLoading(false);
         return;
       }
       
-      toast({ title: "Login erfolgreich", description: `Willkommen, ${result.user.displayName}` });
+      toast({ title: "Login erfolgreich", description: `Willkommen, ${result.user.displayName || result.user.email}` });
       
-      // Set the platform user session locally
+      // Setzt die Benutzer-Session im AuthContext
       setUser(result.user);
       router.push('/dashboard');
+
     } catch (err: any) {
       setAuthError(err.message || "Ein unerwarteter Fehler ist aufgetreten.");
     } finally {
@@ -121,19 +126,22 @@ export default function LoginPage() {
                 <Label htmlFor="email" className="text-[10px] font-bold uppercase">E-Mail</Label>
                 <Input id="email" type="email" placeholder="admin@company.com" value={email} onChange={(e) => setEmail(e.target.value)} className="rounded-none" />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" title="Passwort" className="text-[10px] font-bold uppercase">Passwort</Label>
-                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="rounded-none" />
-                <div className="flex justify-end pt-1">
-                  <button 
-                    type="button" 
-                    className="text-[10px] font-bold uppercase text-primary hover:underline"
-                    onClick={() => { setForgotSuccess(false); setForgotEmail(email); setIsForgotOpen(true); }}
-                  >
-                    Passwort vergessen?
-                  </button>
+              {/* Passwortfeld nur anzeigen, wenn es für die Datenquelle relevant ist (z.B. MySQL) */}
+              {dataSource === 'mysql' && (
+                <div className="space-y-2">
+                    <Label htmlFor="password" title="Passwort" className="text-[10px] font-bold uppercase">Passwort</Label>
+                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="rounded-none" />
+                    <div className="flex justify-end pt-1">
+                    <button 
+                        type="button" 
+                        className="text-[10px] font-bold uppercase text-primary hover:underline"
+                        onClick={() => { setForgotSuccess(false); setForgotEmail(email); setIsForgotOpen(true); }}
+                    >
+                        Passwort vergessen?
+                    </button>
+                    </div>
                 </div>
-              </div>
+              )}
               
               <div className="p-3 bg-muted/20 border text-[9px] font-bold uppercase text-muted-foreground flex items-center gap-2">
                 <Shield className="w-3 h-3" /> Aktiver Modus: {dataSource.toUpperCase()}

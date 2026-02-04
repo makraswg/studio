@@ -4,52 +4,38 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 export type DataSource = 'firestore' | 'mock' | 'mysql';
-// We change TenantId to string to allow dynamic IDs from the database
-export type TenantId = string; 
 
 interface SettingsContextType {
   dataSource: DataSource;
   setDataSource: (source: DataSource) => void;
-  activeTenantId: TenantId;
-  setActiveTenantId: (id: TenantId) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  // Changed default to 'mysql'
+  // Der konsistente Startwert wird auf 'mysql' geändert.
   const [dataSource, setDataSource] = useState<DataSource>('mysql');
-  const [activeTenantId, setActiveTenantId] = useState<TenantId>('all');
   const [isHydrated, setIsHydrated] = useState(false);
 
+  // Dieser Effekt wird NUR auf dem Client ausgeführt, nachdem die Komponente gemountet wurde.
   useEffect(() => {
+    // Wenn im Local Storage ein gespeicherter Wert existiert, wird dieser verwendet.
     const savedSource = localStorage.getItem('dataSource');
     if (savedSource === 'firestore' || savedSource === 'mock' || savedSource === 'mysql') {
-      setDataSource(savedSource as DataSource);
-    } else {
-      // If no valid source in storage, ensure mysql is set (default for new sessions)
-      setDataSource('mysql');
+      setDataSource(savedSource);
     }
-    const savedTenant = localStorage.getItem('activeTenantId');
-    if (savedTenant) {
-      setActiveTenantId(savedTenant);
-    }
+    // Markiert die Komponente als "hydriert", um Hydration-Fehler zu vermeiden.
     setIsHydrated(true);
   }, []);
 
+  // Dieser Effekt speichert zukünftige Änderungen zurück in den Local Storage.
   useEffect(() => {
     if (isHydrated) {
       localStorage.setItem('dataSource', dataSource);
-      localStorage.setItem('activeTenantId', activeTenantId);
     }
-  }, [dataSource, activeTenantId, isHydrated]);
+  }, [dataSource, isHydrated]);
 
-  const value = { 
-    dataSource, 
-    setDataSource, 
-    activeTenantId, 
-    setActiveTenantId 
-  };
+  const value = { dataSource, setDataSource };
 
   return (
     <SettingsContext.Provider value={value}>

@@ -162,48 +162,6 @@ export async function updatePlatformUserPasswordAction(email: string, newPasswor
 }
 
 /**
- * Authentifiziert einen Plattform-Nutzer gegen die MySQL-Datenbank.
- */
-export async function authenticatePlatformUserAction(email: string, password: string): Promise<{ 
-  success: boolean; 
-  user?: any; 
-  error?: string 
-}> {
-  let connection;
-  try {
-    connection = await getMysqlConnection();
-    const [rows]: any = await connection.execute(
-      'SELECT * FROM `platformUsers` WHERE `email` = ? AND `enabled` = 1', 
-      [email]
-    );
-    connection.release();
-
-    if (!rows || rows.length === 0) {
-      return { success: false, error: 'Benutzer nicht gefunden oder deaktiviert.' };
-    }
-
-    const user = rows[0];
-    
-    if (!user.password) {
-        return { success: false, error: 'Kein Passwort für diesen Benutzer hinterlegt.' };
-    }
-
-    const isMatch = bcrypt.compareSync(password, user.password);
-    
-    if (isMatch) {
-      const { password: _, ...userWithoutPassword } = user;
-      return { success: true, user: userWithoutPassword };
-    } else {
-      return { success: false, error: 'Ungültiges Passwort.' };
-    }
-  } catch (error: any) {
-    if (connection) connection.release();
-    console.error("MySQL Auth Error:", error);
-    return { success: false, error: `Datenbank-Fehler: ${error.message}` };
-  }
-}
-
-/**
  * Löscht einen Datensatz aus MySQL.
  */
 export async function deleteCollectionRecord(collectionName: string, id: string): Promise<{ success: boolean; error: string | null }> {

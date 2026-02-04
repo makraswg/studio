@@ -32,7 +32,9 @@ import {
   Lock,
   Globe,
   Database,
-  Fingerprint
+  Fingerprint,
+  ChevronRight,
+  Shield
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -81,6 +83,7 @@ import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysq
 import { Entitlement, Tenant, Resource, ServicePartner } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
 
 export default function ResourcesPage() {
   const db = useFirestore();
@@ -92,6 +95,7 @@ export default function ResourcesPage() {
   const [isResourceDeleteOpen, setIsResourceDeleteOpen] = useState(false);
   const [isEntitlementListOpen, setIsEntitlementListOpen] = useState(false);
   const [isEntitlementEditOpen, setIsEntitlementEditOpen] = useState(false);
+  const [isEntitlementDeleteOpen, setIsEntitlementDeleteOpen] = useState(false);
 
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
   const [editingEntitlement, setEditingEntitlement] = useState<Entitlement | null>(null);
@@ -167,6 +171,58 @@ export default function ResourcesPage() {
     setResDocUrl(res.documentationUrl || '');
     setResNotes(res.notes || '');
     setIsResourceDialogOpen(true);
+  };
+
+  const handleDeleteResource = async () => {
+    if (!selectedResource) return;
+    if (dataSource === 'mysql') await deleteCollectionRecord('resources', selectedResource.id);
+    else deleteDocumentNonBlocking(doc(db, 'resources', selectedResource.id));
+    toast({ title: "System entfernt" });
+    setIsResourceDeleteOpen(false);
+    setTimeout(() => refreshResources(), 200);
+  };
+
+  const handleSaveEntitlement = async () => {
+    if (!entName || !selectedResource) return;
+    const id = editingEntitlement?.id || `ent-${Math.random().toString(36).substring(2, 9)}`;
+    const data: Entitlement = {
+      id, 
+      resourceId: selectedResource.id, 
+      tenantId: selectedResource.tenantId,
+      name: entName, 
+      description: entDescription, 
+      riskLevel: entRisk,
+      isAdmin: entIsAdmin, 
+      externalMapping: entMapping,
+      parentId: entParentId === 'none' ? undefined : entParentId
+    };
+    if (dataSource === 'mysql') await saveCollectionRecord('entitlements', id, data);
+    else setDocumentNonBlocking(doc(db, 'entitlements', id), data);
+    toast({ title: "Rolle gespeichert" });
+    setIsEntitlementEditOpen(false);
+    setEditingEntitlement(null);
+    setTimeout(() => refreshEntitlements(), 200);
+  };
+
+  const openEntitlementEdit = (ent: Entitlement | null) => {
+    setEditingEntitlement(ent);
+    setEntName(ent?.name || '');
+    setEntDescription(ent?.description || '');
+    setEntRisk(ent?.riskLevel || 'medium');
+    setEntIsAdmin(!!ent?.isAdmin);
+    setEntMapping(ent?.externalMapping || '');
+    setEntParentId(ent?.parentId || 'none');
+    setIsEntitlementEditOpen(true);
+  };
+
+  const handleDeleteEntitlement = async () => {
+    if (!editingEntitlement) return;
+    if (dataSource === 'mysql') await deleteCollectionRecord('entitlements', editingEntitlement.id);
+    else deleteDocumentNonBlocking(doc(db, 'entitlements', editingEntitlement.id));
+    toast({ title: "Rolle gelöscht" });
+    setIsEntitlementDeleteOpen(false);
+    setEditingEntitlement(null);
+    setTimeout(() => refreshEntitlements(), 200);
   };
 
   const filteredResources = useMemo(() => {
@@ -413,7 +469,144 @@ export default function ResourcesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Die anderen Dialoge für Entitlements bleiben unverändert... */}
+      {/* Entitlement List Dialog */}
+      <Dialog open={isEntitlementListOpen} onOpenChange={setIsEntitlementListOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col p-0 rounded-none overflow-hidden">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <GitGraph className="w-5 h-5 text-primary" />
+                <DialogTitle className="text-sm font-bold uppercase">Rollen für {selectedResource?.name}</DialogTitle>
+              </div>
+              <Button size="sm" className="h-8 rounded-none bg-primary hover:bg-primary/90 text-[10px] font-bold uppercase" onClick={() => openEntitlementEdit(null)}>
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> Rolle hinzufügen
+              </Button>
+            </div>
+          </DialogHeader>
+          <ScrollArea className="flex-1">
+            <div className="p-6">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-bold uppercase text-[10px]">Rollenname</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Risiko</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Mapping</TableHead>
+                    <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {entitlements?.filter(e => e.resourceId === selectedResource?.id).map((ent) => (
+                    <TableRow key={ent.id}>
+                      <TableCell>
+                        <div className="font-bold text-sm flex items-center gap-2">
+                          {ent.name}
+                          {ent.isAdmin && <ShieldAlert className="w-3 h-3 text-red-600" />}
+                        </div>
+                        {ent.parentId && <div className="text-[9px] text-muted-foreground uppercase flex items-center gap-1"><ChevronRight className="w-2 h-2" /> Erbt von: {entitlements.find(e => e.id === ent.parentId)?.name}</div>}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn("text-[8px] font-bold uppercase rounded-none", ent.riskLevel === 'high' ? "bg-red-50 text-red-700 border-red-100" : "bg-slate-50")}>
+                          {ent.riskLevel}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-[10px]">{ent.externalMapping || '—'}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEntitlementEdit(ent)}><Pencil className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => { setEditingEntitlement(ent); setIsEntitlementDeleteOpen(true); }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </ScrollArea>
+          <div className="p-4 bg-slate-50 border-t flex justify-end shrink-0">
+            <Button onClick={() => setIsEntitlementListOpen(false)} className="rounded-none h-10 px-8">Schließen</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Entitlement Edit Dialog */}
+      <Dialog open={isEntitlementEditOpen} onOpenChange={setIsEntitlementEditOpen}>
+        <DialogContent className="max-w-lg rounded-none border shadow-2xl p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="p-6 bg-slate-800 text-white shrink-0">
+            <div className="flex items-center gap-3">
+              <Shield className="w-5 h-5 text-primary" />
+              <DialogTitle className="text-sm font-bold uppercase">{editingEntitlement ? 'Rolle bearbeiten' : 'Neue Rolle definieren'}</DialogTitle>
+            </div>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Name der Berechtigung</Label>
+              <Input value={entName} onChange={e => setEntName(e.target.value)} placeholder="z.B. Finanz-Buchhalter" className="rounded-none h-10" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Beschreibung / Zweck</Label>
+              <Textarea value={entDescription} onChange={e => setEntDescription(e.target.value)} placeholder="Wozu wird dieser Zugriff benötigt?" className="rounded-none min-h-[80px]" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Risikostufe</Label>
+                <Select value={entRisk} onValueChange={(v: any) => setEntRisk(v)}>
+                  <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent className="rounded-none">
+                    <SelectItem value="low">Niedrig (Standard)</SelectItem>
+                    <SelectItem value="medium">Mittel (Erweitert)</SelectItem>
+                    <SelectItem value="high">Hoch (Kritisch)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Basis-Rolle (Inheritance)</Label>
+                <Select value={entParentId} onValueChange={setEntParentId}>
+                  <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent className="rounded-none">
+                    <SelectItem value="none">Keine (Direkt)</SelectItem>
+                    {entitlements?.filter(e => e.resourceId === selectedResource?.id && e.id !== editingEntitlement?.id).map(e => (
+                      <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Technisches Mapping (AD-Gruppe / Key)</Label>
+              <Input value={entMapping} onChange={e => setEntMapping(e.target.value)} placeholder="CN=APP_ROLE_01,OU=Groups..." className="rounded-none h-10 font-mono text-xs" />
+            </div>
+            <div className="flex items-center justify-between p-4 bg-red-50/50 border border-red-100">
+              <div className="flex items-center gap-3">
+                <ShieldAlert className="w-5 h-5 text-red-600" />
+                <div>
+                  <Label className="text-[10px] font-bold uppercase block">Privilegierter Zugriff</Label>
+                  <span className="text-[9px] text-muted-foreground uppercase">Markiert dieses Konto als Administrator</span>
+                </div>
+              </div>
+              <Switch checked={entIsAdmin} onCheckedChange={setEntIsAdmin} />
+            </div>
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">
+            <Button variant="outline" onClick={() => setIsEntitlementEditOpen(false)} className="rounded-none h-10 px-8">Abbrechen</Button>
+            <Button onClick={handleSaveEntitlement} className="rounded-none font-bold uppercase text-[10px] px-10">Rolle speichern</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Dialogs */}
+      <AlertDialog open={isResourceDeleteOpen} onOpenChange={setIsResourceDeleteOpen}>
+        <AlertDialogContent className="rounded-none">
+          <AlertDialogHeader><AlertDialogTitle className="text-red-600 font-bold uppercase text-sm">System permanent entfernen?</AlertDialogTitle><AlertDialogDescription className="text-xs">Dies löscht das System und alle zugehörigen Rollen aus dem Katalog.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel><AlertDialogAction onClick={handleDeleteResource} className="bg-red-600 rounded-none text-xs uppercase font-bold">Löschen</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isEntitlementDeleteOpen} onOpenChange={setIsEntitlementDeleteOpen}>
+        <AlertDialogContent className="rounded-none">
+          <AlertDialogHeader><AlertDialogTitle className="text-red-600 font-bold uppercase text-sm">Rolle löschen?</AlertDialogTitle><AlertDialogDescription className="text-xs">Existierende Zuweisungen für Mitarbeiter bleiben als Audit-Historie erhalten, die Rolle kann aber nicht neu vergeben werden.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel><AlertDialogAction onClick={handleDeleteEntitlement} className="bg-red-600 rounded-none text-xs uppercase font-bold">Löschen</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

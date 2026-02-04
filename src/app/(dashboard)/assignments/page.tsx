@@ -25,7 +25,11 @@ import {
   Clock,
   Ticket,
   AlertTriangle,
-  Layers
+  Layers,
+  Calendar,
+  ShieldCheck,
+  User as UserIcon,
+  Link as LinkIcon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -420,19 +424,124 @@ export default function AssignmentsPage() {
       </Dialog>
 
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="max-w-md rounded-none">
-          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Zuweisungs-Details</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4 text-xs">
-            <div className="grid grid-cols-2 gap-4 border-b pb-4">
-              <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">ID</p><p className="font-mono">{selectedAssignment?.id}</p></div>
-              <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Quelle</p><p>{selectedAssignment?.syncSource || 'Manuell'}</p></div>
+        <DialogContent className="max-w-2xl max-h-[90vh] rounded-none p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="w-5 h-5 text-primary" />
+              <div>
+                <DialogTitle className="text-sm font-bold uppercase tracking-wider">Einzelzuweisung Details</DialogTitle>
+                <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Zugeordnet an {users?.find(u => u.id === selectedAssignment?.userId)?.displayName}</p>
+              </div>
             </div>
-            <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Erteilt von</p><p>{selectedAssignment?.grantedBy} am {selectedAssignment?.grantedAt && new Date(selectedAssignment.grantedAt).toLocaleString()}</p></div>
-            <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Mandant</p><p className="font-bold uppercase">{getTenantSlug(selectedAssignment?.tenantId)}</p></div>
-            <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Ticket / Referenz</p><p className="font-bold">{selectedAssignment?.ticketRef || selectedAssignment?.jiraIssueKey || 'N/A'}</p></div>
-            <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Anmerkungen</p><p className="italic">{selectedAssignment?.notes || 'Keine Anmerkungen vorhanden.'}</p></div>
-          </div>
-          <DialogFooter><Button onClick={() => setIsDetailsOpen(false)} className="rounded-none">Schließen</Button></DialogFooter>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1">
+            <div className="p-6 space-y-8 text-xs">
+              {/* Basis-Informationen */}
+              <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                <div>
+                  <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px] flex items-center gap-1.5"><Info className="w-3 h-3" /> Zuweisungs-ID</p>
+                  <p className="font-mono bg-muted/30 px-2 py-1 border">{selectedAssignment?.id}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px] flex items-center gap-1.5"><ShieldAlert className="w-3 h-3" /> Status</p>
+                  <Badge variant="outline" className={cn(
+                    "rounded-none font-bold uppercase text-[10px] px-3",
+                    selectedAssignment?.status === 'active' ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"
+                  )}>
+                    {selectedAssignment?.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px] flex items-center gap-1.5"><LinkIcon className="w-3 h-3" /> Herkunft / Quelle</p>
+                  <p className="font-bold uppercase tracking-tight">{selectedAssignment?.syncSource || 'Manuelle Erfassung'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px] flex items-center gap-1.5"><UserIcon className="w-3 h-3" /> Mandant</p>
+                  <p className="font-bold uppercase text-primary">{getTenantSlug(selectedAssignment?.tenantId)}</p>
+                </div>
+              </div>
+
+              {/* Identitäten & Ressourcen */}
+              <div className="space-y-4 pt-6 border-t">
+                <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Identität & Berechtigung</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="p-3 border bg-slate-50/50">
+                    <p className="text-[9px] font-bold uppercase text-muted-foreground mb-2">Benutzer</p>
+                    <p className="font-bold text-sm mb-1">{users?.find(u => u.id === selectedAssignment?.userId)?.displayName || 'Unbekannt'}</p>
+                    <p className="text-[9px] font-mono text-muted-foreground">UID: {selectedAssignment?.userId}</p>
+                  </div>
+                  <div className="p-3 border bg-slate-50/50">
+                    <p className="text-[9px] font-bold uppercase text-muted-foreground mb-2">Rolle & System</p>
+                    {(() => {
+                      const ent = entitlements?.find(e => e.id === selectedAssignment?.entitlementId);
+                      const res = resources?.find(r => r.id === ent?.resourceId);
+                      return (
+                        <>
+                          <p className="font-bold text-sm mb-1">{res?.name} / {ent?.name}</p>
+                          <p className="text-[9px] font-mono text-muted-foreground">EID: {selectedAssignment?.entitlementId}</p>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Gültigkeitszeitraum */}
+              <div className="space-y-4 pt-6 border-t">
+                <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Zeitraum & Governance</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Gültig ab</p>
+                    <div className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-muted-foreground" /><span className="font-bold">{selectedAssignment?.validFrom || '—'}</span></div>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Gültig bis</p>
+                    <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 text-muted-foreground" /><span className="font-bold">{selectedAssignment?.validUntil || 'Unbefristet'}</span></div>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Zertifiziert am</p>
+                    <div className="flex items-center gap-2"><ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /><span className="font-bold">{selectedAssignment?.lastReviewedAt ? new Date(selectedAssignment.lastReviewedAt).toLocaleDateString() : 'Ausstehend'}</span></div>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Prüfer (UID)</p>
+                    <p className="truncate font-mono text-[10px]">{selectedAssignment?.reviewedBy || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Erteilung & Tickets */}
+              <div className="space-y-4 pt-6 border-t">
+                <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Prozess & Referenzen</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Erteilt von</p>
+                    <p className="font-bold">{selectedAssignment?.grantedBy}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">am {selectedAssignment?.grantedAt && new Date(selectedAssignment.grantedAt).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Ticket / Jira Key</p>
+                    <div className="flex items-center gap-2">
+                      <Ticket className="w-4 h-4 text-blue-600" />
+                      <span className="font-bold text-sm">{selectedAssignment?.ticketRef || selectedAssignment?.jiraIssueKey || 'Keine Referenz'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Anmerkungen */}
+              <div className="space-y-2 pt-6 border-t">
+                <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Interne Notizen</p>
+                <div className="p-4 bg-amber-50/30 border border-amber-100 italic leading-relaxed">
+                  {selectedAssignment?.notes || 'Keine zusätzlichen Anmerkungen hinterlegt.'}
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+          
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
+            <Button onClick={() => setIsDetailsOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Schließen</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

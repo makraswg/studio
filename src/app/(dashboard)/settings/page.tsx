@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -23,7 +24,8 @@ import {
   Pencil,
   Search,
   RefreshCw,
-  ChevronRight
+  ChevronRight,
+  Network
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
@@ -65,6 +67,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function SettingsPage() {
   const db = useFirestore();
@@ -79,8 +82,17 @@ export default function SettingsPage() {
   const [isTenantDialogOpen, setIsTenantDialogOpen] = useState(false);
   const [isTenantDeleteOpen, setIsTenantDeleteOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
+  
+  // Tenant Form Fields
   const [tenantName, setTenantName] = useState('');
   const [tenantSlug, setTenantSlug] = useState('');
+  const [ldapEnabled, setLdapEnabled] = useState(false);
+  const [ldapUrl, setLdapUrl] = useState('');
+  const [ldapPort, setLdapPort] = useState('389');
+  const [ldapBaseDn, setLdapBaseDn] = useState('');
+  const [ldapBindDn, setLdapBindDn] = useState('');
+  const [ldapBindPassword, setLdapBindPassword] = useState('');
+  const [ldapUserFilter, setLdapUserFilter] = useState('(sAMAccountName=*)');
 
   // Jira State
   const [jiraUrl, setJiraUrl] = useState('');
@@ -150,7 +162,14 @@ export default function SettingsPage() {
       id,
       name: tenantName,
       slug: tenantSlug.toLowerCase().replace(/\s+/g, '-'),
-      createdAt: selectedTenant?.createdAt || new Date().toISOString()
+      createdAt: selectedTenant?.createdAt || new Date().toISOString(),
+      ldapEnabled,
+      ldapUrl,
+      ldapPort,
+      ldapBaseDn,
+      ldapBindDn,
+      ldapBindPassword,
+      ldapUserFilter
     };
 
     const auditId = `audit-${Math.random().toString(36).substring(2, 9)}`;
@@ -213,9 +232,30 @@ export default function SettingsPage() {
     setSelectedTenant(null);
     setTenantName('');
     setTenantSlug('');
+    setLdapEnabled(false);
+    setLdapUrl('');
+    setLdapPort('389');
+    setLdapBaseDn('');
+    setLdapBindDn('');
+    setLdapBindPassword('');
+    setLdapUserFilter('(sAMAccountName=*)');
   };
 
-  // Jira Actions (Unchanged)
+  const openEditTenant = (tenant: any) => {
+    setSelectedTenant(tenant);
+    setTenantName(tenant.name || '');
+    setTenantSlug(tenant.slug || '');
+    setLdapEnabled(!!tenant.ldapEnabled);
+    setLdapUrl(tenant.ldapUrl || '');
+    setLdapPort(tenant.ldapPort || '389');
+    setLdapBaseDn(tenant.ldapBaseDn || '');
+    setLdapBindDn(tenant.ldapBindDn || '');
+    setLdapBindPassword(tenant.ldapBindPassword || '');
+    setLdapUserFilter(tenant.ldapUserFilter || '(sAMAccountName=*)');
+    setIsTenantDialogOpen(true);
+  };
+
+  // Jira Actions
   const fetchWorkspaces = async () => {
     if (!jiraUrl || !jiraEmail || !jiraToken) {
       toast({ variant: "destructive", title: "Fehlende Daten", description: "Bitte geben Sie zuerst URL, E-Mail und API Token ein." });
@@ -386,7 +426,7 @@ export default function SettingsPage() {
                   <TableRow>
                     <TableHead className="font-bold uppercase text-[10px] py-4">Name</TableHead>
                     <TableHead className="font-bold uppercase text-[10px]">Slug / ID</TableHead>
-                    <TableHead className="font-bold uppercase text-[10px]">Erstellt am</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">LDAP Sync</TableHead>
                     <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -400,10 +440,16 @@ export default function SettingsPage() {
                       <TableRow key={tenant.id} className="hover:bg-muted/5 border-b">
                         <TableCell className="font-bold text-sm py-4">{tenant.name}</TableCell>
                         <TableCell className="font-mono text-[10px]">{tenant.slug}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{new Date(tenant.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          {tenant.ldapEnabled ? (
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 rounded-none text-[8px] font-bold uppercase">Aktiv</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-muted-foreground rounded-none text-[8px] font-bold uppercase">Inaktiv</Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => { setSelectedTenant(tenant); setTenantName(tenant.name); setTenantSlug(tenant.slug); setIsTenantDialogOpen(true); }}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => openEditTenant(tenant)}>
                               <Pencil className="w-3.5 h-3.5" />
                             </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => { setSelectedTenant(tenant); setIsTenantDeleteOpen(true); }}>
@@ -640,28 +686,87 @@ export default function SettingsPage() {
 
       {/* Tenant Management Dialog */}
       <Dialog open={isTenantDialogOpen} onOpenChange={setIsTenantDialogOpen}>
-        <DialogContent className="rounded-none border shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-bold uppercase">
+        <DialogContent className="rounded-none border shadow-2xl max-w-2xl p-0 overflow-hidden flex flex-col h-[85vh]">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <DialogTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-primary" />
               {selectedTenant ? 'Mandant bearbeiten' : 'Neuer Mandant'}
             </DialogTitle>
-            <DialogDescription className="text-xs uppercase font-bold">
-              Konfigurieren Sie die Stammdaten der Organisation.
+            <DialogDescription className="text-xs text-slate-400">
+              Konfigurieren Sie die Stammdaten und IT-Anbindung der Organisation.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase tracking-widest">Name der Firma</Label>
-              <Input placeholder="z.B. Acme Corp" value={tenantName} onChange={e => setTenantName(e.target.value)} className="rounded-none h-10" />
+          
+          <ScrollArea className="flex-1">
+            <div className="p-6 space-y-8">
+              {/* Stammdaten Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b pb-2 mb-4">
+                  <Settings className="w-3.5 h-3.5 text-muted-foreground" />
+                  <h3 className="text-[10px] font-bold uppercase tracking-widest">Stammdaten</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Firma</Label>
+                    <Input placeholder="z.B. Acme Corp" value={tenantName} onChange={e => setTenantName(e.target.value)} className="rounded-none h-10" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Slug / ID</Label>
+                    <Input placeholder="z.B. acme" value={tenantSlug} onChange={e => setTenantSlug(e.target.value)} className="rounded-none h-10 font-mono text-xs" />
+                  </div>
+                </div>
+              </div>
+
+              {/* LDAP Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b pb-2 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Network className="w-3.5 h-3.5 text-primary" />
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest">LDAP / Active Directory Synchronisation</h3>
+                  </div>
+                  <Switch checked={ldapEnabled} onCheckedChange={setLdapEnabled} className="scale-75" />
+                </div>
+
+                <div className={cn("space-y-6 transition-opacity", !ldapEnabled && "opacity-40 pointer-events-none")}>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="col-span-2 space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Server URL</Label>
+                      <Input placeholder="ldap://10.0.0.5" value={ldapUrl} onChange={e => setLdapUrl(e.target.value)} className="rounded-none h-10 font-mono text-xs" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Port</Label>
+                      <Input placeholder="389" value={ldapPort} onChange={e => setLdapPort(e.target.value)} className="rounded-none h-10" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Search Base (Base DN)</Label>
+                    <Input placeholder="OU=Users,DC=company,DC=com" value={ldapBaseDn} onChange={e => setLdapBaseDn(e.target.value)} className="rounded-none h-10 font-mono text-xs" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Bind DN (User)</Label>
+                      <Input placeholder="CN=SyncUser,CN=Users,DC=..." value={ldapBindDn} onChange={e => setLdapBindDn(e.target.value)} className="rounded-none h-10 font-mono text-xs" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Bind Passwort</Label>
+                      <Input type="password" value={ldapBindPassword} onChange={e => setLdapBindPassword(e.target.value)} className="rounded-none h-10" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Benutzer-Filter (LQL)</Label>
+                    <Input placeholder="(sAMAccountName=*)" value={ldapUserFilter} onChange={e => setLdapUserFilter(e.target.value)} className="rounded-none h-10 font-mono text-xs" />
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase tracking-widest">Slug / ID (für Filter)</Label>
-              <Input placeholder="z.B. acme" value={tenantSlug} onChange={e => setTenantSlug(e.target.value)} className="rounded-none h-10 font-mono text-xs" />
-            </div>
-          </div>
-          <DialogFooter>
+          </ScrollArea>
+
+          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">
             <Button variant="outline" className="rounded-none" onClick={() => setIsTenantDialogOpen(false)}>Abbrechen</Button>
-            <Button className="rounded-none font-bold uppercase text-[10px]" onClick={handleSaveTenant}>Mandant speichern</Button>
+            <Button className="rounded-none font-bold uppercase text-[10px] px-8" onClick={handleSaveTenant}>Mandant speichern</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

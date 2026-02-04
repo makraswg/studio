@@ -6,6 +6,14 @@ export interface Tenant {
   name: string;
   slug: string;
   createdAt: string;
+  // LDAP Configuration
+  ldapEnabled?: boolean | number;
+  ldapUrl?: string;
+  ldapPort?: string;
+  ldapBaseDn?: string;
+  ldapBindDn?: string;
+  ldapBindPassword?: string;
+  ldapUserFilter?: string;
 }
 
 export interface User {

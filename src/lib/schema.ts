@@ -16,6 +16,13 @@ export const appSchema: AppSchema = {
       name: 'VARCHAR(255) NOT NULL',
       slug: 'VARCHAR(100) UNIQUE NOT NULL',
       createdAt: 'VARCHAR(50) NOT NULL',
+      ldapEnabled: 'BOOLEAN DEFAULT FALSE',
+      ldapUrl: 'TEXT',
+      ldapPort: 'VARCHAR(10)',
+      ldapBaseDn: 'TEXT',
+      ldapBindDn: 'TEXT',
+      ldapBindPassword: 'TEXT',
+      ldapUserFilter: 'TEXT',
     },
   },
   users: {

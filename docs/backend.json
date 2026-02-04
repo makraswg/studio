@@ -8,7 +8,14 @@
         "id": { "type": "string" },
         "name": { "type": "string" },
         "slug": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "ldapEnabled": { "type": "boolean" },
+        "ldapUrl": { "type": "string" },
+        "ldapPort": { "type": "string" },
+        "ldapBaseDn": { "type": "string" },
+        "ldapBindDn": { "type": "string" },
+        "ldapBindPassword": { "type": "string" },
+        "ldapUserFilter": { "type": "string" }
       },
       "required": ["id", "name", "slug", "createdAt"]
     },

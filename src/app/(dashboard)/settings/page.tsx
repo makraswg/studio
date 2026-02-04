@@ -28,6 +28,7 @@ import {
   Network
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -750,7 +751,7 @@ export default function SettingsPage() {
                       <Input placeholder="CN=SyncUser,CN=Users,DC=..." value={ldapBindDn} onChange={e => setLdapBindDn(e.target.value)} className="rounded-none h-10 font-mono text-xs" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Bind Passwort</Label>
+                      <Label className="text-[10px) font-bold uppercase text-muted-foreground">Bind Passwort</Label>
                       <Input type="password" value={ldapBindPassword} onChange={e => setLdapBindPassword(e.target.value)} className="rounded-none h-10" />
                     </div>
                   </div>

@@ -24,7 +24,8 @@ import {
   Info,
   Clock,
   Ticket,
-  AlertTriangle
+  AlertTriangle,
+  Layers
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -57,6 +58,7 @@ import { Assignment, User, Entitlement, Resource } from '@/lib/types';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { createJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function AssignmentsPage() {
   const db = useFirestore();
@@ -74,8 +76,9 @@ export default function AssignmentsPage() {
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   
-  // Create Form State
+  // Create Form State - OPTIMIZED
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedResourceId, setSelectedResourceId] = useState('');
   const [selectedEntitlementId, setSelectedEntitlementId] = useState('');
   const [validUntil, setValidUntil] = useState('');
 
@@ -110,6 +113,9 @@ export default function AssignmentsPage() {
     else setDocumentNonBlocking(doc(db, 'assignments', assignmentId), assignmentData);
     setIsCreateOpen(false);
     toast({ title: "Zuweisung erstellt" });
+    setSelectedUserId('');
+    setSelectedResourceId('');
+    setSelectedEntitlementId('');
     setTimeout(() => refreshAssignments(), 200);
   };
 
@@ -155,25 +161,16 @@ export default function AssignmentsPage() {
   const filteredAssignments = useMemo(() => {
     if (!assignments) return [];
     return assignments.filter(a => {
-      // 1. Mandant
       if (activeTenantId !== 'all' && a.tenantId !== activeTenantId) return false;
-      
       const user = users?.find(u => u.id === a.userId);
       const ent = entitlements?.find(e => e.id === a.entitlementId);
       const res = resources?.find(r => r.id === ent?.resourceId);
-      
-      // 2. Suche
       const matchSearch = (user?.displayName || '').toLowerCase().includes(search.toLowerCase()) || (res?.name || '').toLowerCase().includes(search.toLowerCase());
       if (!matchSearch) return false;
-      
-      // 3. Status Tab
       const matchTab = activeTab === 'all' || a.status === activeTab;
       if (!matchTab) return false;
-      
-      // 4. Admin Filter
       const isAdmin = !!(ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1");
       const matchAdmin = !adminOnly || isAdmin;
-      
       return matchAdmin;
     });
   }, [assignments, users, entitlements, resources, search, activeTab, adminOnly, activeTenantId]);
@@ -294,6 +291,78 @@ export default function AssignmentsPage() {
         </Table>
       </div>
 
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="rounded-none max-w-md">
+          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Zuweisung erstellen</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase">1. Benutzer auswählen</Label>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger className="rounded-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                <SelectContent className="rounded-none">
+                  <ScrollArea className="h-48">
+                    {users?.filter(u => activeTenantId === 'all' || u.tenantId === activeTenantId).map(u => 
+                      <SelectItem key={u.id} value={u.id}>{u.displayName} ({u.tenantId})</SelectItem>
+                    )}
+                  </ScrollArea>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedUserId && (
+              <div className="space-y-2 animate-in fade-in">
+                <Label className="text-[10px] font-bold uppercase">2. System auswählen</Label>
+                <Select value={selectedResourceId} onValueChange={(val) => { setSelectedResourceId(val); setSelectedEntitlementId(''); }}>
+                  <SelectTrigger className="rounded-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                  <SelectContent className="rounded-none">
+                    <ScrollArea className="h-48">
+                      {resources?.filter(r => {
+                        const user = users?.find(u => u.id === selectedUserId);
+                        return r.tenantId === 'global' || r.tenantId === user?.tenantId;
+                      }).map(r => 
+                        <SelectItem key={r.id} value={r.id}>
+                          <div className="flex items-center gap-2"><Layers className="w-3 h-3 text-muted-foreground" /> {r.name}</div>
+                        </SelectItem>
+                      )}
+                    </ScrollArea>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {selectedResourceId && (
+              <div className="space-y-2 animate-in fade-in">
+                <Label className="text-[10px] font-bold uppercase">3. Rolle wählen</Label>
+                <Select value={selectedEntitlementId} onValueChange={setSelectedEntitlementId}>
+                  <SelectTrigger className="rounded-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                  <SelectContent className="rounded-none">
+                    <ScrollArea className="h-48">
+                      {entitlements?.filter(e => e.resourceId === selectedResourceId).map(e => 
+                        <SelectItem key={e.id} value={e.id}>
+                          <div className="flex items-center gap-2">
+                            {e.isAdmin && <ShieldAlert className="w-3 h-3 text-red-600" />}
+                            {e.name}
+                          </div>
+                        </SelectItem>
+                      )}
+                    </ScrollArea>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase">Befristet bis (Optional)</Label>
+              <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="rounded-none" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)} className="rounded-none">Abbrechen</Button>
+            <Button onClick={handleCreateAssignment} disabled={!selectedEntitlementId} className="rounded-none font-bold uppercase text-[10px]">Zuweisen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="max-w-md rounded-none">
           <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Zuweisungs-Details</DialogTitle></DialogHeader>
@@ -307,45 +376,6 @@ export default function AssignmentsPage() {
             <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Anmerkungen</p><p className="italic">{selectedAssignment?.notes || 'Keine Anmerkungen vorhanden.'}</p></div>
           </div>
           <DialogFooter><Button onClick={() => setIsDetailsOpen(false)} className="rounded-none">Schließen</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="rounded-none">
-          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Zuweisung erstellen</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Benutzer</Label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger className="rounded-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                <SelectContent className="rounded-none">
-                  {users?.filter(u => activeTenantId === 'all' || u.tenantId === activeTenantId).map(u => 
-                    <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Rolle</Label>
-              <Select value={selectedEntitlementId} onValueChange={setSelectedEntitlementId}>
-                <SelectTrigger className="rounded-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                <SelectContent className="rounded-none">
-                  {entitlements?.map(e => {
-                    const res = resources?.find(r => r.id === e.resourceId);
-                    if (activeTenantId !== 'all' && res?.tenantId !== 'global' && res?.tenantId !== activeTenantId) return null;
-                    return <SelectItem key={e.id} value={e.id}>{e.name} ({res?.name})</SelectItem>
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Befristet bis (Optional)</Label>
-              <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="rounded-none" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={handleCreateAssignment} className="rounded-none font-bold uppercase text-[10px]">Zuweisen</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

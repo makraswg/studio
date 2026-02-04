@@ -1,7 +1,7 @@
-
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
+import bcrypt from 'bcryptjs';
 
 // Eine einfache Zuordnung von Anwendungs-Sammlungsnamen zu echten MySQL-Tabellennamen.
 const collectionToTableMap: { [key: string]: string } = {
@@ -52,6 +52,14 @@ export async function getCollectionData(collectionName: string): Promise<{ data:
         after: item.after ? (typeof item.after === 'string' ? JSON.parse(item.after) : item.after) : null,
       }));
     }
+
+    // Security: Passwörter niemals an das Frontend schicken
+    if (tableName === 'platformUsers') {
+      data = data.map((u: any) => {
+        const { password, ...rest } = u;
+        return rest;
+      });
+    }
     
     return { data, error: null };
 
@@ -86,6 +94,22 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     if (tableName === 'auditEvents') {
       if (preparedData.before && typeof preparedData.before === 'object') preparedData.before = JSON.stringify(preparedData.before);
       if (preparedData.after && typeof preparedData.after === 'object') preparedData.after = JSON.stringify(preparedData.after);
+    }
+
+    // Security: Handle platform user passwords (hashing)
+    if (tableName === 'platformUsers') {
+      if (preparedData.password && preparedData.password.trim() !== '') {
+        // Nur hashen, wenn es nicht bereits ein Hash ist (einfache Prüfung)
+        const isAlreadyHashed = /^\$2[ayb]\$.{56}$/.test(preparedData.password);
+        if (!isAlreadyHashed) {
+          const salt = bcrypt.genSaltSync(10);
+          preparedData.password = bcrypt.hashSync(preparedData.password, salt);
+        }
+      } else {
+        // Falls Passwort leer ist, entfernen wir es aus dem Datensatz, 
+        // damit das bestehende Passwort in der DB nicht überschrieben wird.
+        delete preparedData.password;
+      }
     }
 
     // MySQL spezifische Boolean-Konvertierung

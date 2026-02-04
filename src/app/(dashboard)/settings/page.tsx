@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -313,18 +312,31 @@ export default function SettingsPage() {
   const handleSavePlatformUser = async () => {
     if (!userName || !userEmail) return;
     const id = selectedUser?.id || `puser-${Math.random().toString(36).substring(2, 7)}`;
-    const data: PlatformUser = {
+    
+    // Wir bauen das Objekt dynamisch auf, um leere Passwörter (keine Änderung) 
+    // nicht mitzusenden, was das Überschreiben in der DB verhindert.
+    const userData: any = {
       id,
       email: userEmail,
       displayName: userName,
       role: userRole,
       tenantId: userTenantId,
       enabled: userEnabled,
-      password: userPassword || selectedUser?.password || '',
       createdAt: selectedUser?.createdAt || new Date().toISOString()
     };
-    if (dataSource === 'mysql') await saveCollectionRecord('platformUsers', id, data);
-    else setDocumentNonBlocking(doc(db, 'platformUsers', id), data);
+
+    // Nur mitsenden, wenn tatsächlich ein neues Passwort eingegeben wurde
+    if (userPassword && userPassword.trim() !== '') {
+      userData.password = userPassword;
+    }
+
+    if (dataSource === 'mysql') {
+      await saveCollectionRecord('platformUsers', id, userData);
+    } else {
+      // Für Firestore nutzen wir merge: true, um das Passwort nicht zu löschen, wenn es nicht gesendet wird
+      setDocumentNonBlocking(doc(db, 'platformUsers', id), userData, { merge: true });
+    }
+
     toast({ title: "Plattform-Nutzer gespeichert" });
     setIsUserDialogOpen(false);
     setTimeout(() => refreshPlatformUsers(), 200);
@@ -705,6 +717,7 @@ export default function SettingsPage() {
                 <Lock className="w-3 h-3" /> Passwort {selectedUser && '(Leer lassen für keine Änderung)'}
               </Label>
               <Input type="password" value={userPassword} onChange={e => setUserPassword(e.target.value)} className="rounded-none" />
+              <p className="text-[9px] text-muted-foreground italic uppercase">Wird bei Speicherung in MySQL automatisch sicher gehasht.</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

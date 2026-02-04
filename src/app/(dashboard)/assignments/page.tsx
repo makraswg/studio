@@ -12,10 +12,11 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { 
   Search, 
   Plus, 
-  MoreHorizontal,
+  MoreHorizontal, 
   ShieldAlert,
   Loader2,
   Zap,
@@ -45,8 +46,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
-  setDocumentNonBlocking,
   updateDocumentNonBlocking,
+  setDocumentNonBlocking,
   useUser as useAuthUser 
 } from '@/firebase';
 import { doc } from 'firebase/firestore';

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -48,7 +47,7 @@ export default function LoginPage() {
         throw new Error("Bitte E-Mail und Passwort eingeben.");
       }
 
-      // Check against MySQL Database
+      // Check against MySQL/Firestore Database via Server Action
       const result = await authenticatePlatformUserAction(email, password);
       
       if (!result.success) {
@@ -59,7 +58,7 @@ export default function LoginPage() {
       
       toast({ title: "Login erfolgreich", description: `Willkommen, ${result.user.displayName}` });
       
-      // Set the platform user session locally (No Firebase anonymous session used here anymore)
+      // Set the platform user session locally
       setUser(result.user);
       router.push('/dashboard');
     } catch (err: any) {
@@ -82,6 +81,27 @@ export default function LoginPage() {
     };
     setUser(guestUser);
     router.push('/dashboard');
+  };
+
+  const handleForgotSubmit = async () => {
+    if (!forgotEmail) {
+      toast({ variant: "destructive", title: "Fehler", description: "Bitte E-Mail Adresse eingeben." });
+      return;
+    }
+    
+    setIsForgotLoading(true);
+    try {
+      const res = await requestPasswordResetAction(forgotEmail);
+      if (res.success) {
+        setForgotSuccess(true);
+      } else {
+        toast({ variant: "destructive", title: "Fehler", description: res.message });
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: "Ein technischer Fehler ist aufgetreten." });
+    } finally {
+      setIsForgotLoading(false);
+    }
   };
 
   if (isUserLoading || user) {

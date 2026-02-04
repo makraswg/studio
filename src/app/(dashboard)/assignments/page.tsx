@@ -91,6 +91,12 @@ export default function AssignmentsPage() {
     setMounted(true);
   }, []);
 
+  const getTenantSlug = (id?: string | null) => {
+    if (!id || id === 'null' || id === 'undefined') return '—';
+    const tenant = tenants?.find(t => t.id === id);
+    return tenant ? tenant.slug : id;
+  };
+
   const handleCreateAssignment = async () => {
     if (!selectedUserId || !selectedEntitlementId) return;
     const targetTenantId = users?.find(u => u.id === selectedUserId)?.tenantId || 'global';
@@ -175,12 +181,6 @@ export default function AssignmentsPage() {
     });
   }, [assignments, users, entitlements, resources, search, activeTab, adminOnly, activeTenantId]);
 
-  const getTenantSlug = (id?: string) => {
-    if (!id) return '—';
-    const tenant = tenants?.find(t => t.id === id);
-    return tenant ? tenant.slug : id;
-  };
-
   if (!mounted) return null;
 
   return (
@@ -188,7 +188,7 @@ export default function AssignmentsPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Einzelzuweisungen</h1>
-          <p className="text-sm text-muted-foreground">Aktive und ausstehende Berechtigungen im Überblick.</p>
+          <p className="text-sm text-muted-foreground">Aktive und ausstehende Berechtigungen im Überblick für {activeTenantId === 'all' ? 'alle Standorte' : getTenantSlug(activeTenantId)}.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none border-amber-200 text-amber-700 bg-amber-50" onClick={handleBulkExpiredJira} disabled={isJiraActionLoading}>
@@ -346,7 +346,7 @@ export default function AssignmentsPage() {
                       {entitlements?.filter(e => e.resourceId === selectedResourceId).map(e => 
                         <SelectItem key={e.id} value={e.id}>
                           <div className="flex items-center gap-2">
-                            {e.isAdmin && <ShieldAlert className="w-3 h-3 text-red-600" />}
+                            {!!(e.isAdmin === true || e.isAdmin === 1 || e.isAdmin === "1") && <ShieldAlert className="w-3 h-3 text-red-600" />}
                             {e.name}
                           </div>
                         </SelectItem>
@@ -378,6 +378,7 @@ export default function AssignmentsPage() {
               <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Quelle</p><p>{selectedAssignment?.syncSource || 'Manuell'}</p></div>
             </div>
             <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Erteilt von</p><p>{selectedAssignment?.grantedBy} am {selectedAssignment?.grantedAt && new Date(selectedAssignment.grantedAt).toLocaleString()}</p></div>
+            <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Mandant</p><p className="font-bold uppercase">{getTenantSlug(selectedAssignment?.tenantId)}</p></div>
             <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Ticket / Referenz</p><p className="font-bold">{selectedAssignment?.ticketRef || selectedAssignment?.jiraIssueKey || 'N/A'}</p></div>
             <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Anmerkungen</p><p className="italic">{selectedAssignment?.notes || 'Keine Anmerkungen vorhanden.'}</p></div>
           </div>

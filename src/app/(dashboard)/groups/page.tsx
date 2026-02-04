@@ -102,6 +102,12 @@ export default function GroupsPage() {
     setMounted(true);
   }, []);
 
+  const getTenantSlug = (id?: string | null) => {
+    if (!id || id === 'null' || id === 'undefined') return '—';
+    const tenant = tenants?.find(t => t.id === id);
+    return tenant ? tenant.slug : id;
+  };
+
   const filteredGroups = useMemo(() => {
     if (!groups) return [];
     return groups.filter(g => {
@@ -207,11 +213,6 @@ export default function GroupsPage() {
     setSelectedEntitlementIds([]);
   };
 
-  const getTenantSlug = (id: string) => {
-    const tenant = tenants?.find(t => t.id === id);
-    return tenant ? tenant.slug : id;
-  };
-
   if (!mounted) return null;
 
   return (
@@ -219,7 +220,7 @@ export default function GroupsPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Zuweisungsgruppen</h1>
-          <p className="text-sm text-muted-foreground">Automatisierter Zugriff für Abteilungen und Teams.</p>
+          <p className="text-sm text-muted-foreground">Automatisierter Zugriff für Abteilungen und Teams von {activeTenantId === 'all' ? 'allen Standorten' : getTenantSlug(activeTenantId)}.</p>
         </div>
         <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none shadow-none" onClick={() => { resetForm(); setIsAddOpen(true); }}>
           <Plus className="w-3.5 h-3.5 mr-2" /> Neue Gruppe

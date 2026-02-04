@@ -114,6 +114,12 @@ export default function UsersPage() {
     setMounted(true);
   }, []);
 
+  const getTenantSlug = (id?: string | null) => {
+    if (!id || id === 'null' || id === 'undefined') return '—';
+    const tenant = tenants?.find(t => t.id === id);
+    return tenant ? tenant.slug : id;
+  };
+
   const handleSaveUser = async () => {
     if (!displayName || !email || !tenantId) {
       toast({ variant: "destructive", title: "Fehler", description: "Bitte alle Pflichtfelder ausfüllen." });
@@ -252,11 +258,6 @@ export default function UsersPage() {
     });
   }, [users, search, activeTenantId, activeStatusFilter, activeSourceFilter]);
 
-  const getTenantSlug = (id: string) => {
-    const tenant = tenants?.find(t => t.id === id);
-    return tenant ? tenant.slug : id;
-  };
-
   if (!mounted) return null;
 
   return (
@@ -264,7 +265,7 @@ export default function UsersPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Benutzerverzeichnis</h1>
-          <p className="text-sm text-muted-foreground">Zentrale Verwaltung der Identitäten für {activeTenantId === 'all' ? 'alle Firmen' : activeTenantId}.</p>
+          <p className="text-sm text-muted-foreground">Zentrale Verwaltung der Identitäten für {activeTenantId === 'all' ? 'alle Firmen' : getTenantSlug(activeTenantId)}.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none border-blue-200 text-blue-700 bg-blue-50" onClick={handleLdapSync} disabled={isSyncing}>
@@ -434,7 +435,7 @@ export default function UsersPage() {
                       {entitlements?.filter(e => e.resourceId === qaResourceId).map(e => (
                         <SelectItem key={e.id} value={e.id}>
                           <div className="flex items-center gap-2">
-                            {e.isAdmin && <ShieldAlert className="w-3 h-3 text-red-600" />}
+                            {!!(e.isAdmin === true || e.isAdmin === 1 || e.isAdmin === "1") && <ShieldAlert className="w-3 h-3 text-red-600" />}
                             <span>{e.name}</span>
                           </div>
                         </SelectItem>
@@ -506,8 +507,8 @@ export default function UsersPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-[9px] font-bold uppercase text-muted-foreground">Zugewiesen am</p>
-                          <p className="text-[10px] font-mono">{a.grantedAt ? new Date(a.grantedAt).toLocaleDateString() : '—'}</p>
+                          <p className="text-[9px] font-bold uppercase text-muted-foreground">Mandant</p>
+                          <p className="text-[10px] font-bold uppercase">{getTenantSlug(a.tenantId)}</p>
                         </div>
                       </div>
                     );
@@ -520,7 +521,7 @@ export default function UsersPage() {
                         <div className="absolute left-[-5px] top-0 w-2 h-2 rounded-full bg-primary" />
                         <div className="text-[9px] font-bold uppercase text-muted-foreground mb-1">{log.timestamp ? new Date(log.timestamp).toLocaleString() : '—'}</div>
                         <p className="text-xs font-bold">{log.action}</p>
-                        <p className="text-[10px] text-muted-foreground mt-1">Akteur: {log.actorUid}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">Akteur: {log.actorUid} ({getTenantSlug(log.tenantId)})</p>
                       </div>
                     ))}
                   </div>

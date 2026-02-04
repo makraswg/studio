@@ -29,7 +29,9 @@ import {
   Calendar,
   ShieldCheck,
   User as UserIcon,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Workflow,
+  Lock
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -163,6 +165,12 @@ export default function AssignmentsPage() {
   };
 
   const handleRevokeAssignment = async (assignment: Assignment) => {
+    // Sicherheitscheck: Gruppenzuweisungen dürfen hier nicht gelöscht werden
+    if (assignment.originGroupId || assignment.syncSource === 'group') {
+      toast({ variant: "destructive", title: "Aktion verweigert", description: "Gruppenbasierte Zuweisungen können nur über die Zuweisungsgruppe verwaltet werden." });
+      return;
+    }
+
     const updateData = { status: 'removed', lastReviewedAt: new Date().toISOString() };
     if (dataSource === 'mysql') await saveCollectionRecord('assignments', assignment.id, { ...assignment, ...updateData });
     else updateDocumentNonBlocking(doc(db, 'assignments', assignment.id), updateData);
@@ -281,7 +289,7 @@ export default function AssignmentsPage() {
             <TableRow>
               <TableHead className="py-4 font-bold uppercase text-[10px]">Mitarbeiter</TableHead>
               <TableHead className="font-bold uppercase text-[10px]">System / Rolle</TableHead>
-              <TableHead className="font-bold uppercase text-[10px]">Status</TableHead>
+              <TableHead className="font-bold uppercase text-[10px]">Status / Herkunft</TableHead>
               <TableHead className="font-bold uppercase text-[10px]">Gültigkeit</TableHead>
               <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
             </TableRow>
@@ -295,6 +303,7 @@ export default function AssignmentsPage() {
               const res = resources?.find(r => r.id === ent?.resourceId);
               const isAdmin = !!(ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1");
               const isExpired = a.validUntil && new Date(a.validUntil) < new Date() && a.status === 'active';
+              const isGroupManaged = !!a.originGroupId || a.syncSource === 'group';
 
               return (
                 <TableRow key={a.id} className="hover:bg-muted/5 border-b">
@@ -317,6 +326,11 @@ export default function AssignmentsPage() {
                         "rounded-none font-bold uppercase text-[9px] border-none px-2 w-fit",
                         a.status === 'active' ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
                       )}>{a.status}</Badge>
+                      {isGroupManaged && (
+                        <Badge variant="outline" className="rounded-none bg-indigo-50 text-indigo-700 border-none px-2 w-fit text-[8px] font-bold uppercase flex items-center gap-1">
+                          <Workflow className="w-2.5 h-2.5" /> Gruppe
+                        </Badge>
+                      )}
                       {a.jiraIssueKey && <Badge variant="outline" className="rounded-none bg-blue-50 text-blue-700 text-[8px] border-none px-2 w-fit">Jira: {a.jiraIssueKey}</Badge>}
                     </div>
                   </TableCell>
@@ -333,9 +347,14 @@ export default function AssignmentsPage() {
                         <DropdownMenuItem onSelect={() => { setSelectedAssignment(a); setIsDetailsOpen(true); }}>
                           <Info className="w-3.5 h-3.5 mr-2" /> Details einsehen
                         </DropdownMenuItem>
-                        {a.status !== 'removed' && (
+                        {a.status !== 'removed' && !isGroupManaged && (
                           <DropdownMenuItem className="text-red-600" onSelect={() => handleRevokeAssignment(a)}>
                             <Trash2 className="w-3.5 h-3.5 mr-2" /> Zugriff widerrufen
+                          </DropdownMenuItem>
+                        )}
+                        {isGroupManaged && (
+                          <DropdownMenuItem disabled className="text-muted-foreground italic">
+                            <Lock className="w-3.5 h-3.5 mr-2" /> Gruppenverwaltet
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -454,7 +473,10 @@ export default function AssignmentsPage() {
                 </div>
                 <div>
                   <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px] flex items-center gap-1.5"><LinkIcon className="w-3 h-3" /> Herkunft / Quelle</p>
-                  <p className="font-bold uppercase tracking-tight">{selectedAssignment?.syncSource || 'Manuelle Erfassung'}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold uppercase tracking-tight">{selectedAssignment?.syncSource || 'Manuelle Erfassung'}</p>
+                    {selectedAssignment?.originGroupId && <Badge variant="outline" className="rounded-none bg-indigo-50 text-indigo-700 border-indigo-100 text-[8px] font-bold uppercase">Gruppe</Badge>}
+                  </div>
                 </div>
                 <div>
                   <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px] flex items-center gap-1.5"><UserIcon className="w-3 h-3" /> Mandant</p>

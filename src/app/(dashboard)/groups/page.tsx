@@ -30,7 +30,8 @@ import {
   Layers,
   X,
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  Save as SaveIcon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -154,11 +155,22 @@ export default function GroupsPage() {
       for (const ec of eConfigs) {
         const assId = `ga_${groupId}_${uc.id}_${ec.id}`.replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 50);
         
-        // Nutze die restriktivere Gültigkeit (entweder vom Nutzer oder von der Rolle in der Gruppe)
-        const effectiveFrom = (uc.validFrom && ec.validFrom) ? (uc.validFrom > ec.validFrom ? uc.validFrom : ec.validFrom) : (uc.validFrom || ec.validFrom || timestamp.split('T')[0]);
+        // Regel: Nutze die restriktivere Gültigkeit
+        // Gültig ab: Das spätere der beiden Daten
+        const effectiveFrom = (uc.validFrom && ec.validFrom) 
+          ? (new Date(uc.validFrom) > new Date(ec.validFrom) ? uc.validFrom : ec.validFrom) 
+          : (uc.validFrom || ec.validFrom || timestamp.split('T')[0]);
         
-        // Wenn einer von beiden removed ist, wird das Ticket auf removed gesetzt
-        const isCurrentlyRemoved = (uc.validUntil && new Date(uc.validUntil) < new Date()) || (ec.validUntil && new Date(ec.validUntil) < new Date());
+        // Gültig bis: Das frühere der beiden Daten (falls vorhanden)
+        let effectiveUntil: string | null = null;
+        if (uc.validUntil && ec.validUntil) {
+          effectiveUntil = new Date(uc.validUntil) < new Date(ec.validUntil) ? uc.validUntil : ec.validUntil;
+        } else {
+          effectiveUntil = uc.validUntil || ec.validUntil || null;
+        }
+
+        // Status bestimmen
+        const isCurrentlyRemoved = effectiveUntil && new Date(effectiveUntil) < new Date();
 
         const assignmentData = {
           id: assId,
@@ -169,7 +181,7 @@ export default function GroupsPage() {
           grantedBy: authUser?.displayName || 'System',
           grantedAt: timestamp,
           validFrom: effectiveFrom,
-          validUntil: uc.validUntil || ec.validUntil || null,
+          validUntil: effectiveUntil,
           ticketRef: `GRUPPE: ${groupName}`,
           notes: `Automatisierte Zuweisung via Gruppe: ${groupName}`,
           tenantId: tenantId,
@@ -290,8 +302,6 @@ export default function GroupsPage() {
       };
       setList([...list, newConfig]);
     } else {
-      // Wenn entfernt wird, wird entweder das validUntil gesetzt (Soft Remove) 
-      // oder das Element wird komplett aus der Liste entfernt (Hard Remove)
       if (!tempValidUntil) {
         setList(list.filter(item => item.id !== id));
       } else {
@@ -525,7 +535,7 @@ export default function GroupsPage() {
               disabled={isSaving || !name || userConfigs.length === 0 || entitlementConfigs.length === 0} 
               className="rounded-none h-10 px-10 font-bold uppercase text-[10px] gap-2"
             >
-              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />}
               Gruppe & Zuweisungen speichern
             </Button>
           </DialogFooter>
@@ -588,25 +598,4 @@ export default function GroupsPage() {
       </AlertDialog>
     </div>
   );
-}
-
-function Save(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-      <polyline points="17 21 17 13 7 13 7 21" />
-      <polyline points="7 3 7 8 15 8" />
-    </svg>
-  )
 }

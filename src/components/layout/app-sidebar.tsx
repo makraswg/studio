@@ -1,7 +1,7 @@
 
 "use client";
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   Users, 
@@ -35,11 +35,11 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuPortal
 } from '@/components/ui/dropdown-menu';
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const auth = useAuth();
   const { user } = useUser();
 
@@ -59,7 +59,12 @@ export function AppSidebar() {
   ];
 
   const handleLogout = async () => {
-    await signOut(auth);
+    try {
+      await signOut(auth);
+      router.push('/');
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   return (
@@ -165,16 +170,16 @@ export function AppSidebar() {
           <DropdownMenuTrigger asChild>
             <Button 
               variant="ghost" 
-              className="w-full h-auto p-2 justify-start items-center gap-3 rounded-none hover:bg-white/5 hover:text-white border-none group transition-colors"
+              className="w-full h-auto p-2 justify-start items-center gap-3 rounded-none hover:bg-white/5 hover:text-white border-none group transition-colors focus-visible:ring-0 focus-visible:ring-offset-0"
             >
               <Avatar className="h-8 w-8 rounded-none border border-slate-700 shrink-0">
                 <AvatarFallback className="bg-primary/20 text-primary font-bold text-[10px] uppercase">
-                  {user?.email?.charAt(0) || 'A'}
+                  {user?.email?.charAt(0) || user?.displayName?.charAt(0) || 'A'}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 overflow-hidden text-left">
                 <p className="text-[11px] font-bold truncate group-hover:text-primary transition-colors text-slate-200">
-                  {user?.email || 'Administrator'}
+                  {user?.email || user?.displayName || 'Administrator'}
                 </p>
                 <p className="text-[10px] text-slate-500 truncate uppercase tracking-tighter">Mein Konto</p>
               </div>
@@ -190,10 +195,16 @@ export function AppSidebar() {
               Benutzerverwaltung
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-slate-800" />
-            <DropdownMenuItem className="gap-3 px-3 py-2 text-[11px] font-bold uppercase cursor-pointer hover:bg-white/5 focus:bg-white/5 focus:text-white transition-colors">
+            <DropdownMenuItem 
+              onSelect={() => router.push('/settings')}
+              className="gap-3 px-3 py-2 text-[11px] font-bold uppercase cursor-pointer hover:bg-white/5 focus:bg-white/5 focus:text-white transition-colors"
+            >
               <UserIcon className="w-3.5 h-3.5 text-slate-400" /> Profil
             </DropdownMenuItem>
-            <DropdownMenuItem className="gap-3 px-3 py-2 text-[11px] font-bold uppercase cursor-pointer hover:bg-white/5 focus:bg-white/5 focus:text-white transition-colors">
+            <DropdownMenuItem 
+              onSelect={() => router.push('/settings')}
+              className="gap-3 px-3 py-2 text-[11px] font-bold uppercase cursor-pointer hover:bg-white/5 focus:bg-white/5 focus:text-white transition-colors"
+            >
               <Lock className="w-3.5 h-3.5 text-slate-400" /> Passwort ändern
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-slate-800" />

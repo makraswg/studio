@@ -1,8 +1,10 @@
+
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { SettingsProvider } from '@/context/settings-context';
+import { AuthProvider } from '@/context/auth-context';
 
 export const metadata: Metadata = {
   title: 'ComplianceHub - Mandantenfähige Berechtigungsregistrierung',
@@ -23,10 +25,12 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased selection:bg-primary selection:text-primary-foreground">
         <SettingsProvider>
-          <FirebaseClientProvider { /* @ts-ignore */ ...{} }>
-            {children}
-            <Toaster />
-          </FirebaseClientProvider>
+          <AuthProvider>
+            <FirebaseClientProvider { /* @ts-ignore */ ...{} }>
+              {children}
+              <Toaster />
+            </FirebaseClientProvider>
+          </AuthProvider>
         </SettingsProvider>
       </body>
     </html>

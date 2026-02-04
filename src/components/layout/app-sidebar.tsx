@@ -50,12 +50,14 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 import { updatePlatformUserPasswordAction } from '@/app/actions/mysql-actions';
+import { usePlatformAuth } from '@/context/auth-context';
 
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuth();
   const { user } = useUser();
+  const { logout } = usePlatformAuth();
 
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -79,7 +81,10 @@ export function AppSidebar() {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      // Logout from custom session
+      logout();
+      // Also try to sign out from Firebase if a session existed
+      try { await signOut(auth); } catch(e) {}
       router.push('/');
     } catch (error) {
       console.error("Logout failed:", error);
@@ -105,7 +110,7 @@ export function AppSidebar() {
         setNewPassword('');
         setConfirmPassword('');
       } else {
-        throw new Error(res.error);
+        throw new Error(res.error || "Unbekannter Fehler beim Aktualisieren des Passworts.");
       }
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
@@ -226,7 +231,7 @@ export function AppSidebar() {
               </Avatar>
               <div className="flex-1 overflow-hidden text-left">
                 <p className="text-[11px] font-bold truncate group-hover:text-primary transition-colors text-slate-200">
-                  {user?.email || user?.displayName || 'Administrator'}
+                  {user?.displayName || user?.email || 'Administrator'}
                 </p>
                 <p className="text-[10px] text-slate-500 truncate uppercase tracking-tighter">Mein Konto</p>
               </div>

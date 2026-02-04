@@ -8,8 +8,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Shield, Loader2, AlertCircle, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { useAuth, useUser } from '@/firebase';
-import { initiateAnonymousSignIn, initiateEmailSignIn } from '@/firebase/non-blocking-login';
+import { usePlatformAuth } from '@/context/auth-context';
 import { useSettings } from '@/context/settings-context';
 import { authenticatePlatformUserAction } from '@/app/actions/mysql-actions';
 import { requestPasswordResetAction } from '@/app/actions/smtp-actions';
@@ -19,8 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 
 export default function LoginPage() {
   const router = useRouter();
-  const auth = useAuth();
-  const { user, isUserLoading } = useUser();
+  const { user, setUser, isUserLoading } = usePlatformAuth();
   const { dataSource } = useSettings();
   
   const [email, setEmail] = useState('');
@@ -46,27 +44,24 @@ export default function LoginPage() {
     setAuthError(null);
 
     try {
-      // Wenn MySQL aktiv ist und Zugangsdaten eingegeben wurden, prüfen wir erst gegen DB
-      if (dataSource === 'mysql' && email && password) {
-        const result = await authenticatePlatformUserAction(email, password);
-        
-        if (!result.success) {
-          setAuthError(result.error || "Authentifizierung fehlgeschlagen.");
-          setIsActionLoading(false);
-          return;
-        }
-        
-        toast({ title: "MySQL Login erfolgreich", description: `Willkommen, ${result.user.displayName}` });
-        
-        // Nach erfolgreichem DB-Check starten wir eine anonyme Firebase-Sitzung für die App-Infrastruktur
-        await initiateAnonymousSignIn(auth);
-      } else if (email && password) {
-        // Standard Firebase E-Mail Login (für Firestore Mode)
-        await initiateEmailSignIn(auth, email, password);
-      } else {
-        // Einfacher Gast-Zugang
-        await initiateAnonymousSignIn(auth);
+      if (!email || !password) {
+        throw new Error("Bitte E-Mail und Passwort eingeben.");
       }
+
+      // Check against MySQL Database
+      const result = await authenticatePlatformUserAction(email, password);
+      
+      if (!result.success) {
+        setAuthError(result.error || "Authentifizierung fehlgeschlagen.");
+        setIsActionLoading(false);
+        return;
+      }
+      
+      toast({ title: "Login erfolgreich", description: `Willkommen, ${result.user.displayName}` });
+      
+      // Set the platform user session locally (No Firebase anonymous session used here anymore)
+      setUser(result.user);
+      router.push('/dashboard');
     } catch (err: any) {
       setAuthError(err.message || "Ein unerwarteter Fehler ist aufgetreten.");
     } finally {
@@ -74,21 +69,19 @@ export default function LoginPage() {
     }
   };
 
-  const handleForgotSubmit = async () => {
-    if (!forgotEmail) return;
-    setIsForgotLoading(true);
-    try {
-      const res = await requestPasswordResetAction(forgotEmail);
-      if (res.success) {
-        setForgotSuccess(true);
-      } else {
-        toast({ variant: "destructive", title: "Fehler", description: res.message });
-      }
-    } catch (e) {
-      toast({ variant: "destructive", title: "Fehler", description: "Verbindung zum Server fehlgeschlagen." });
-    } finally {
-      setIsForgotLoading(false);
-    }
+  const handleGuestLogin = () => {
+    // For demo purposes, we create a fake guest user
+    const guestUser = {
+      id: 'guest',
+      email: 'guest@demo.local',
+      displayName: 'Gast Nutzer',
+      role: 'viewer' as any,
+      tenantId: 'all',
+      createdAt: new Date().toISOString(),
+      enabled: true
+    };
+    setUser(guestUser);
+    router.push('/dashboard');
   };
 
   if (isUserLoading || user) {
@@ -106,9 +99,7 @@ export default function LoginPage() {
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-headline uppercase">Anmeldung</CardTitle>
             <CardDescription>
-              {dataSource === 'mysql' 
-                ? "Verifizierung über die MySQL-Plattformdatenbank." 
-                : "Melden Sie sich an, um den ComplianceHub zu verwalten."}
+              Verifizierung über die Plattformdatenbank ({dataSource.toUpperCase()}).
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleLogin}>
@@ -152,7 +143,7 @@ export default function LoginPage() {
                 <span className="bg-background px-2 text-[10px] text-muted-foreground uppercase font-bold">Oder</span>
                 <div className="absolute top-1/2 left-0 right-0 -z-10 h-px bg-border" />
               </div>
-              <Button type="button" variant="outline" className="w-full rounded-none font-bold uppercase text-[10px]" onClick={() => initiateAnonymousSignIn(auth)} disabled={isActionLoading}>
+              <Button type="button" variant="outline" className="w-full rounded-none font-bold uppercase text-[10px]" onClick={handleGuestLogin} disabled={isActionLoading}>
                 Anonym fortfahren (Demo)
               </Button>
             </CardFooter>

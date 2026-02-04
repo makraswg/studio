@@ -1,37 +1,51 @@
+
 "use client";
 
-import { useSettings } from "@/context/settings-context";
-import { useFirestoreCollection } from "./use-firestore-collection";
-import { useMockCollection } from "./use-mock-collection";
-import { useMysqlCollection } from "./use-mysql-collection";
+import { useMemo } from 'react';
+import { collection, CollectionReference, DocumentData } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { useCollection as useFirestoreCollection, UseCollectionResult } from '@/firebase/firestore/use-collection';
+import { useMockCollection } from '@/hooks/data/use-mock-collection';
+import { useMysqlCollection } from '@/hooks/data/use-mysql-collection';
+import { useSettings } from '@/context/settings-context';
 
 /**
- * Universeller Hook, der die passende Datenquelle wählt und ein reaktives Interface bietet.
- * Stellt sicher, dass die refresh-Funktion in allen Modi verfügbar ist.
+ * Der zentrale Daten-Hook der Anwendung. Er wählt basierend auf der 
+ * globalen Einstellung (Firestore, MySQL oder Mock) die richtige Datenquelle.
  */
-export function usePluggableCollection<T>(collectionName: string) {
+export function usePluggableCollection<T>(collectionName: string): UseCollectionResult<T> {
   const { dataSource } = useSettings();
+  const db = useFirestore();
 
-  const firestoreState = useFirestoreCollection<T>(collectionName, dataSource === 'firestore');
-  const mockState = useMockCollection<T>(collectionName, dataSource === 'mock');
-  const mysqlState = useMysqlCollection<T>(collectionName, dataSource === 'mysql');
+  // Erstellt eine memoisierte Collection-Referenz für Firestore.
+  const collectionRef = useMemo(() => {
+    if (dataSource === 'firestore' && db) {
+      return collection(db, collectionName) as CollectionReference<T, DocumentData>;
+    }
+    return null;
+  }, [dataSource, db, collectionName]);
 
-  switch (dataSource) {
-    case 'mysql':
-      return {
-        ...mysqlState,
-        refresh: mysqlState.refresh || (() => {})
-      };
-    case 'mock':
-      return {
-        ...mockState,
-        refresh: mockState.refresh || (() => {})
-      };
-    case 'firestore':
-    default:
-      return {
-        ...firestoreState,
-        refresh: firestoreState.refresh || (() => {})
-      };
+  // Wir rufen alle Hooks auf, aber nur der aktive wird tatsächlich Daten laden.
+  const firestoreResult = useFirestoreCollection<T>(collectionRef);
+  const mysqlResult = useMysqlCollection<T>(collectionName, dataSource === 'mysql');
+  const mockResult = useMockCollection<T>(collectionName as any, { disabled: dataSource !== 'mock' });
+
+  // Gibt das Ergebnis basierend auf der ausgewählten Datenquelle zurück.
+  if (dataSource === 'firestore') {
+    return firestoreResult;
+  } else if (dataSource === 'mysql') {
+    return {
+      data: mysqlResult.data ? (mysqlResult.data as any) : null,
+      isLoading: mysqlResult.isLoading,
+      error: mysqlResult.error ? new Error(mysqlResult.error) : null,
+      refresh: mysqlResult.refresh
+    } as UseCollectionResult<T>;
+  } else {
+    return {
+      data: mockResult.data ? (mockResult.data as any) : null,
+      isLoading: mockResult.isLoading,
+      error: mockResult.error ? new Error(mockResult.error) : null,
+      refresh: mockResult.refresh
+    } as UseCollectionResult<T>;
   }
 }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -81,6 +82,7 @@ export default function UsersPage() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSavingAssignment, setIsSavingAssignment] = useState(false);
   
   const [isDialogOpen, setIsAddOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
@@ -151,12 +153,13 @@ export default function UsersPage() {
   const handleQuickAssign = async () => {
     if (!selectedUser || !qaEntitlementId) return;
     
+    setIsSavingAssignment(true);
     const assId = `ass-${Math.random().toString(36).substring(2, 9)}`;
     const assData = {
       id: assId,
       userId: selectedUser.id,
       entitlementId: qaEntitlementId,
-      tenantId: selectedUser.tenantId,
+      tenantId: selectedUser.tenantId || 'global',
       status: 'active',
       grantedBy: authUser?.uid || 'system',
       grantedAt: new Date().toISOString(),
@@ -167,15 +170,26 @@ export default function UsersPage() {
       syncSource: 'manual'
     };
 
-    if (dataSource === 'mysql') await saveCollectionRecord('assignments', assId, assData);
-    else setDocumentNonBlocking(doc(db, 'assignments', assId), assData);
+    try {
+      if (dataSource === 'mysql') {
+        const res = await saveCollectionRecord('assignments', assId, assData);
+        if (!res.success) throw new Error(res.error || "MySQL Fehler beim Speichern");
+      } else {
+        setDocumentNonBlocking(doc(db, 'assignments', assId), assData);
+      }
 
-    toast({ title: "Berechtigung zugewiesen" });
-    setIsQuickAssignOpen(false);
-    setQaResourceId('');
-    setQaEntitlementId('');
-    setQaValidUntil('');
-    setTimeout(() => refreshAssignments(), 200);
+      toast({ title: "Berechtigung zugewiesen" });
+      setIsQuickAssignOpen(false);
+      setQaResourceId('');
+      setQaEntitlementId('');
+      setQaValidUntil('');
+      
+      setTimeout(() => refreshAssignments(), 300);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler beim Speichern", description: e.message });
+    } finally {
+      setIsSavingAssignment(false);
+    }
   };
 
   const handleDeleteUser = async () => {
@@ -453,7 +467,10 @@ export default function UsersPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsQuickAssignOpen(false)} className="rounded-none">Abbrechen</Button>
-            <Button onClick={handleQuickAssign} disabled={!qaEntitlementId} className="rounded-none font-bold uppercase text-[10px]">Zuweisung erstellen</Button>
+            <Button onClick={handleQuickAssign} disabled={!qaEntitlementId || isSavingAssignment} className="rounded-none font-bold uppercase text-[10px] gap-2">
+              {isSavingAssignment && <Loader2 className="w-3 h-3 animate-spin" />}
+              Zuweisung erstellen
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

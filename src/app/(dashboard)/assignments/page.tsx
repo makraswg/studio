@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -70,6 +71,7 @@ export default function AssignmentsPage() {
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [adminOnly, setAdminOnly] = useState(false);
   const [isJiraActionLoading, setIsJiraActionLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
@@ -99,8 +101,12 @@ export default function AssignmentsPage() {
 
   const handleCreateAssignment = async () => {
     if (!selectedUserId || !selectedEntitlementId) return;
-    const targetTenantId = users?.find(u => u.id === selectedUserId)?.tenantId || 'global';
+    
+    setIsSaving(true);
+    const targetUser = users?.find(u => u.id === selectedUserId);
+    const targetTenantId = targetUser?.tenantId || activeTenantId || 'global';
     const assignmentId = `ass-${Math.random().toString(36).substring(2, 9)}`;
+    
     const assignmentData = {
       id: assignmentId,
       userId: selectedUserId,
@@ -115,14 +121,29 @@ export default function AssignmentsPage() {
       notes: 'Manuell über Konsole angelegt.',
       syncSource: 'manual'
     };
-    if (dataSource === 'mysql') await saveCollectionRecord('assignments', assignmentId, assignmentData);
-    else setDocumentNonBlocking(doc(db, 'assignments', assignmentId), assignmentData);
-    setIsCreateOpen(false);
-    toast({ title: "Zuweisung erstellt" });
-    setSelectedUserId('');
-    setSelectedResourceId('');
-    setSelectedEntitlementId('');
-    setTimeout(() => refreshAssignments(), 200);
+
+    try {
+      if (dataSource === 'mysql') {
+        const res = await saveCollectionRecord('assignments', assignmentId, assignmentData);
+        if (!res.success) throw new Error(res.error || "MySQL Fehler beim Speichern");
+      } else {
+        setDocumentNonBlocking(doc(db, 'assignments', assignmentId), assignmentData);
+      }
+      
+      setIsCreateOpen(false);
+      toast({ title: "Zuweisung erstellt" });
+      setSelectedUserId('');
+      setSelectedResourceId('');
+      setSelectedEntitlementId('');
+      setValidUntil('');
+      
+      // Lade Daten neu
+      setTimeout(() => refreshAssignments(), 300);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler beim Speichern", description: e.message });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleRevokeAssignment = async (assignment: Assignment) => {
@@ -203,9 +224,9 @@ export default function AssignmentsPage() {
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input 
+          <Input 
             placeholder="Mitarbeiter oder System suchen..." 
-            className="w-full pl-10 h-10 border border-input bg-white px-3 text-sm focus:outline-none"
+            className="w-full pl-10 h-10 border border-input bg-white px-3 text-sm focus:outline-none rounded-none"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -364,7 +385,10 @@ export default function AssignmentsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateOpen(false)} className="rounded-none">Abbrechen</Button>
-            <Button onClick={handleCreateAssignment} disabled={!selectedEntitlementId} className="rounded-none font-bold uppercase text-[10px]">Zuweisen</Button>
+            <Button onClick={handleCreateAssignment} disabled={!selectedEntitlementId || isSaving} className="rounded-none font-bold uppercase text-[10px] gap-2">
+              {isSaving && <Loader2 className="w-3 h-3 animate-spin" />}
+              Zuweisen
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -27,7 +28,9 @@ import {
   Users,
   ShieldCheck,
   Trash2,
-  Lock
+  Lock,
+  Mail,
+  Send
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +42,7 @@ import {
   getJiraSchemasAction,
   getJiraAttributesAction
 } from '@/app/actions/jira-actions';
+import { testSmtpConnectionAction } from '@/app/actions/smtp-actions';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { cn } from '@/lib/utils';
 import { 
@@ -58,7 +62,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlatformUser, Role } from '@/lib/types';
+import { PlatformUser, Role, SmtpConfig } from '@/lib/types';
 
 export default function SettingsPage() {
   const db = useFirestore();
@@ -68,6 +72,7 @@ export default function SettingsPage() {
 
   // Load Configs via Pluggable Hook
   const { data: jiraConfigs, refresh: refreshJira } = usePluggableCollection<any>('jiraConfigs');
+  const { data: smtpConfigs, refresh: refreshSmtp } = usePluggableCollection<SmtpConfig>('smtpConfigs');
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<any>('tenants');
   const { data: servicePartners, refresh: refreshPartners } = usePluggableCollection<any>('servicePartners');
   const { data: platformUsers, refresh: refreshPlatformUsers } = usePluggableCollection<PlatformUser>('platformUsers');
@@ -81,6 +86,18 @@ export default function SettingsPage() {
   const [userRole, setUserRole] = useState<Role>('viewer');
   const [userTenantId, setUserTenantId] = useState('all');
   const [userEnabled, setUserEnabled] = useState(true);
+
+  // SMTP State
+  const [smtpId, setSmtpId] = useState('');
+  const [smtpHost, setSmtpHost] = useState('');
+  const [smtpPort, setSmtpPort] = useState('587');
+  const [smtpUser, setSmtpUser] = useState('');
+  const [smtpPass, setSmtpPass] = useState('');
+  const [smtpFromEmail, setSmtpFromEmail] = useState('');
+  const [smtpFromName, setSmtpFromName] = useState('ComplianceHub');
+  const [smtpEncryption, setSmtpEncryption] = useState<'none' | 'ssl' | 'tls'>('tls');
+  const [smtpEnabled, setSmtpEnabled] = useState(false);
+  const [isTestingSmtp, setIsTestingSmtp] = useState(false);
 
   // Tenant Management State
   const [isTenantDialogOpen, setIsTenantDialogOpen] = useState(false);
@@ -135,6 +152,22 @@ export default function SettingsPage() {
   const [isDiscovering, setIsDiscovering] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // Hydrate SMTP Form
+  useEffect(() => {
+    if (smtpConfigs && smtpConfigs.length > 0) {
+      const s = smtpConfigs[0];
+      setSmtpId(s.id);
+      setSmtpHost(s.host || '');
+      setSmtpPort(s.port || '587');
+      setSmtpUser(s.user || '');
+      setSmtpPass(s.pass || '');
+      setSmtpFromEmail(s.fromEmail || '');
+      setSmtpFromName(s.fromName || 'ComplianceHub');
+      setSmtpEncryption(s.encryption || 'tls');
+      setSmtpEnabled(!!s.enabled);
+    }
+  }, [smtpConfigs]);
+
   // Hydrate Jira Form when data is loaded
   useEffect(() => {
     if (jiraConfigs && jiraConfigs.length > 0) {
@@ -174,6 +207,34 @@ export default function SettingsPage() {
     }
     return null;
   }, [jiraTokenExpiresAt]);
+
+  const handleSaveSmtp = async () => {
+    setIsSaving(true);
+    const id = smtpId || 'smtp-config-default';
+    const data = {
+      id, host: smtpHost, port: smtpPort, user: smtpUser, pass: smtpPass,
+      fromEmail: smtpFromEmail, fromName: smtpFromName, encryption: smtpEncryption,
+      enabled: smtpEnabled
+    };
+    try {
+      if (dataSource === 'mysql') await saveCollectionRecord('smtpConfigs', id, data);
+      else setDocumentNonBlocking(doc(db, 'smtpConfigs', id), data);
+      toast({ title: "SMTP Konfiguration gespeichert" });
+      setTimeout(() => refreshSmtp(), 200);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleTestSmtp = async () => {
+    setIsTestingSmtp(true);
+    const res = await testSmtpConnectionAction({ host: smtpHost, port: smtpPort, user: smtpUser });
+    setIsTestingSmtp(false);
+    if (res.success) toast({ title: "SMTP Test erfolgreich", description: res.message });
+    else toast({ variant: "destructive", title: "SMTP Test fehlgeschlagen", description: res.message });
+  };
 
   const handleSaveJira = async () => {
     setIsSaving(true);
@@ -375,6 +436,7 @@ export default function SettingsPage() {
           <TabsTrigger value="tenants" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Building2 className="w-3.5 h-3.5" /> Mandanten</TabsTrigger>
           <TabsTrigger value="partners" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Contact className="w-3.5 h-3.5" /> Service Partner</TabsTrigger>
           <TabsTrigger value="jira" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><ExternalLink className="w-3.5 h-3.5" /> JIRA Integration</TabsTrigger>
+          <TabsTrigger value="smtp" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Mail className="w-3.5 h-3.5" /> E-Mail (SMTP)</TabsTrigger>
           <TabsTrigger value="data" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Database className="w-3.5 h-3.5" /> Datenquelle</TabsTrigger>
         </TabsList>
 
@@ -459,6 +521,80 @@ export default function SettingsPage() {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="smtp">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <Card className="rounded-none border shadow-none">
+                <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-[10px] font-bold uppercase">SMTP Server Konfiguration</CardTitle>
+                    <CardDescription className="text-[9px] uppercase font-bold">Wird für Passwort-Reset und Benachrichtigungen benötigt.</CardDescription>
+                  </div>
+                  <Switch checked={smtpEnabled} onCheckedChange={setSmtpEnabled} />
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="col-span-2 space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Host</Label>
+                      <Input value={smtpHost} onChange={e => setSmtpHost(e.target.value)} placeholder="smtp.mailtrap.io" className="rounded-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Port</Label>
+                      <Input value={smtpPort} onChange={e => setSmtpPort(e.target.value)} placeholder="587" className="rounded-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Benutzer</Label>
+                      <Input value={smtpUser} onChange={e => setSmtpUser(e.target.value)} className="rounded-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Passwort</Label>
+                      <Input type="password" value={smtpPass} onChange={e => setSmtpPass(e.target.value)} className="rounded-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Verschlüsselung</Label>
+                      <Select value={smtpEncryption} onValueChange={(v: any) => setSmtpEncryption(v)}>
+                        <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          <SelectItem value="none">Keine</SelectItem>
+                          <SelectItem value="ssl">SSL (Port 465)</SelectItem>
+                          <SelectItem value="tls">TLS/STARTTLS</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Absender-E-Mail</Label>
+                      <Input value={smtpFromEmail} onChange={e => setSmtpFromEmail(e.target.value)} placeholder="no-reply@company.com" className="rounded-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Absender-Name</Label>
+                      <Input value={smtpFromName} onChange={e => setSmtpFromName(e.target.value)} className="rounded-none" />
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter className="bg-muted/5 border-t py-3 flex justify-end gap-2">
+                  <Button variant="outline" size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]" onClick={handleTestSmtp} disabled={isTestingSmtp}>
+                    {isTestingSmtp ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Send className="w-3 h-3 mr-2" />} Test Mail
+                  </Button>
+                  <Button size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]" onClick={handleSaveSmtp} disabled={isSaving}>
+                    <Save className="w-3 h-3 mr-2" /> Speichern
+                  </Button>
+                </CardFooter>
+              </Card>
+            </div>
+            <div className="space-y-6">
+              <Alert className="rounded-none border-blue-200 bg-blue-50 text-blue-800">
+                <Info className="h-4 w-4 text-blue-600" />
+                <AlertTitle className="text-[10px] font-bold uppercase">Hinweis</AlertTitle>
+                <AlertDescription className="text-xs">
+                  Die SMTP-Zugangsdaten werden lokal in Ihrer {dataSource.toUpperCase()} Datenbank gespeichert. Stellen Sie sicher, dass Ihr Server ausgehende Verbindungen auf dem gewählten Port erlaubt.
+                </AlertDescription>
+              </Alert>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="tenants">
@@ -788,7 +924,7 @@ export default function SettingsPage() {
 
       {/* Tenant Dialog */}
       <Dialog open={isTenantDialogOpen} onOpenChange={setIsTenantDialogOpen}>
-        <DialogContent className="rounded-none max-w-lg">
+        <DialogContent className="rounded-none max-lg">
           <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Mandant konfigurieren</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">

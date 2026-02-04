@@ -173,5 +173,18 @@ export const appSchema: AppSchema = {
       assetsRoleNameAttributeId: 'VARCHAR(255)',
       assetsSystemAttributeId: 'VARCHAR(255)',
     }
+  },
+  smtpConfigs: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      host: 'VARCHAR(255) NOT NULL',
+      port: 'VARCHAR(10) NOT NULL',
+      user: 'VARCHAR(255)',
+      pass: 'VARCHAR(255)',
+      fromEmail: 'VARCHAR(255)',
+      fromName: 'VARCHAR(255)',
+      encryption: 'VARCHAR(20)',
+      enabled: 'BOOLEAN DEFAULT FALSE',
+    }
   }
 };

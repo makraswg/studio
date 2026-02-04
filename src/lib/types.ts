@@ -144,6 +144,18 @@ export interface JiraConfig {
   assetsSystemAttributeId?: string;
 }
 
+export interface SmtpConfig {
+  id: string;
+  host: string;
+  port: string;
+  user: string;
+  pass: string;
+  fromEmail: string;
+  fromName: string;
+  encryption: 'none' | 'ssl' | 'tls';
+  enabled: boolean | number;
+}
+
 export interface JiraSyncItem {
   key: string;
   summary: string;

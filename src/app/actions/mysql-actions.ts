@@ -17,6 +17,7 @@ const collectionToTableMap: { [key: string]: string } = {
   jiraConfigs: 'jiraConfigs',
   bundles: 'bundles',
   servicePartners: 'servicePartners',
+  smtpConfigs: 'smtpConfigs',
 };
 
 /**

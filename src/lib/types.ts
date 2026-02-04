@@ -1,5 +1,6 @@
 
 export type Role = 'tenantOwner' | 'admin' | 'editor' | 'viewer' | 'superAdmin';
+export type DataSource = 'firestore' | 'mock' | 'mysql';
 
 export interface Tenant {
   id: string;

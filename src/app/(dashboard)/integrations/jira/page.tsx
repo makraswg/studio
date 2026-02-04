@@ -69,14 +69,14 @@ export default function JiraSyncPage() {
   const loadSyncData = async () => {
     setIsLoading(true);
     try {
-      const configs = await getJiraConfigs();
+      const configs = await getJiraConfigs(dataSource);
       if (configs.length > 0 && configs[0].enabled) {
         setActiveConfig(configs[0]);
         
         const [pending, approved, done] = await Promise.all([
-          fetchJiraSyncItems(configs[0].id, 'pending'),
-          fetchJiraSyncItems(configs[0].id, 'approved'),
-          fetchJiraSyncItems(configs[0].id, 'done')
+          fetchJiraSyncItems(configs[0].id, 'pending', dataSource),
+          fetchJiraSyncItems(configs[0].id, 'approved', dataSource),
+          fetchJiraSyncItems(configs[0].id, 'done', dataSource)
         ]);
         
         setPendingTickets(pending);
@@ -118,7 +118,7 @@ export default function JiraSyncPage() {
       const updateData = { status: newStatus, lastReviewedAt: timestamp };
       
       if (dataSource === 'mysql') {
-        await saveCollectionRecord('assignments', a.id, { ...a, ...updateData });
+        await saveCollectionRecord('assignments', a.id, { ...a, ...updateData }, dataSource);
       } else {
         updateDocumentNonBlocking(doc(db, 'assignments', a.id), updateData);
       }
@@ -129,7 +129,7 @@ export default function JiraSyncPage() {
       if (user) {
         const userData = { ...user, enabled: false, offboardingDate: timestamp.split('T')[0] };
         if (dataSource === 'mysql') {
-          await saveCollectionRecord('users', user.id, userData);
+          await saveCollectionRecord('users', user.id, userData, dataSource);
         } else {
           updateDocumentNonBlocking(doc(db, 'users', user.id), { enabled: false, offboardingDate: timestamp.split('T')[0] });
         }
@@ -156,7 +156,7 @@ export default function JiraSyncPage() {
     if (ticket.existingAssignment) {
       const updateData = { status: 'active', lastReviewedAt: timestamp };
       if (dataSource === 'mysql') {
-        await saveCollectionRecord('assignments', ticket.existingAssignment.id, { ...ticket.existingAssignment, ...updateData });
+        await saveCollectionRecord('assignments', ticket.existingAssignment.id, { ...ticket.existingAssignment, ...updateData }, dataSource);
       } else {
         updateDocumentNonBlocking(doc(db, 'assignments', ticket.existingAssignment.id), updateData);
       }
@@ -178,13 +178,13 @@ export default function JiraSyncPage() {
       };
 
       if (dataSource === 'mysql') {
-        await saveCollectionRecord('assignments', assignmentId, assignmentData);
+        await saveCollectionRecord('assignments', assignmentId, assignmentData, dataSource);
       } else {
         addDocumentNonBlocking(collection(db, 'assignments'), assignmentData);
       }
     }
 
-    await resolveJiraTicket(activeConfig.id, ticket.key, "Berechtigung im ComplianceHub aktiviert.");
+    await resolveJiraTicket(activeConfig.id, ticket.key, "Berechtigung im ComplianceHub aktiviert.", dataSource);
     setApprovedTickets(prev => prev.filter(t => t.key !== ticket.key));
     toast({ title: "Ticket verarbeitet" });
     setTimeout(() => refreshAssignments(), 200);

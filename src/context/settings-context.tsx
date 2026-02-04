@@ -2,8 +2,7 @@
 "use client";
 
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-
-export type DataSource = 'firestore' | 'mock' | 'mysql';
+import { DataSource } from '@/lib/types';
 
 interface SettingsContextType {
   dataSource: DataSource;
@@ -15,13 +14,11 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  // Der absolute Standard ist 'mysql'
   const [dataSource, setDataSource] = useState<DataSource>('mysql');
   const [activeTenantId, setActiveTenantId] = useState<string>('all');
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    // Nur beim ersten Laden prüfen wir auf Benutzereinstellungen
     const savedSource = typeof window !== 'undefined' ? localStorage.getItem('dataSource') : null;
     if (savedSource === 'firestore' || savedSource === 'mock' || savedSource === 'mysql') {
       setDataSource(savedSource as DataSource);

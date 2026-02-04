@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -234,13 +235,13 @@ export default function AssignmentsPage() {
 
     setIsJiraActionLoading(true);
     try {
-      const configs = await getJiraConfigs();
-      if (configs.length === 0 || !configs[0].enabled) throw new Error("Jira Integration nicht aktiv.");
+      const configs = await getJiraConfigs(dataSource);
+      if (configs.length === 0 || !configs[0].enabled) throw new Error("Jira Integration nicht aktiv oder nicht gefunden.");
 
       for (const a of expired) {
         const user = users?.find(u => u.id === a.userId);
         const summary = `ABLAUF: Berechtigung für ${user?.displayName || a.userId}`;
-        const res = await createJiraTicket(configs[0].id, summary, `Zuweisung abgelaufen am ${a.validUntil}. Bitte Entzug prüfen.`);
+        const res = await createJiraTicket(configs[0].id, summary, `Zuweisung abgelaufen am ${a.validUntil}. Bitte Entzug prüfen.`, dataSource);
         if (res.success) {
           const update = { jiraIssueKey: res.key };
           if (dataSource === 'mysql') await saveCollectionRecord('assignments', a.id, { ...a, ...update });
@@ -475,7 +476,6 @@ export default function AssignmentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Revoke Confirmation Dialog with Date Prompt */}
       <Dialog open={isRevokeOpen} onOpenChange={setIsRevokeOpen}>
         <DialogContent className="max-w-sm rounded-none border-2">
           <DialogHeader>
@@ -518,10 +518,8 @@ export default function AssignmentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* REFACTORED Detail Dialog with robust flex-based internal scrolling */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] h-[90vh] rounded-none p-0 overflow-hidden flex flex-col border shadow-2xl">
-          {/* Header Section (Static) */}
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-primary/20 flex items-center justify-center rounded-sm shrink-0">
@@ -537,10 +535,8 @@ export default function AssignmentsPage() {
             </div>
           </DialogHeader>
           
-          {/* Body Section (SCROLLABLE) */}
           <div className="flex-1 overflow-y-auto min-h-0 bg-white">
             <div className="p-6 space-y-6 pb-12">
-              {/* Status & Basic Info Row */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="p-3 border bg-slate-50/50">
                   <Label className="text-[9px] font-bold uppercase text-muted-foreground mb-1.5 block tracking-widest">Status</Label>
@@ -569,7 +565,6 @@ export default function AssignmentsPage() {
                 </div>
               </div>
 
-              {/* Identity Section */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Separator className="flex-1" />
@@ -621,7 +616,6 @@ export default function AssignmentsPage() {
                 </div>
               </div>
 
-              {/* Timeline Section */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Separator className="flex-1" />
@@ -660,7 +654,6 @@ export default function AssignmentsPage() {
                 </div>
               </div>
 
-              {/* Process & Notes */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Separator className="flex-1" />
@@ -697,7 +690,6 @@ export default function AssignmentsPage() {
             </div>
           </div>
           
-          {/* Footer Section (Static) */}
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
             <Button onClick={() => setIsDetailsOpen(false)} className="rounded-none h-9 px-8 font-bold uppercase text-[10px] tracking-widest bg-slate-900 hover:bg-slate-800 text-white">
               Fenster Schließen

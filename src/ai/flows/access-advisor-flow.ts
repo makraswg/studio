@@ -13,6 +13,7 @@ import { z } from 'genkit';
 import { getActiveAiConfig } from '@/app/actions/ai-actions';
 import { ollama } from 'genkitx-ollama';
 import { googleAI } from '@genkit-ai/google-genai';
+import { DataSource } from '@/lib/types';
 
 const AccessAdvisorInputSchema = z.object({
   userDisplayName: z.string(),
@@ -23,6 +24,7 @@ const AccessAdvisorInputSchema = z.object({
     entitlementName: z.string(),
     riskLevel: z.string(),
   })),
+  dataSource: z.enum(['mysql', 'firestore', 'mock']).optional(),
 });
 
 export type AccessAdvisorInput = z.infer<typeof AccessAdvisorInputSchema>;
@@ -44,8 +46,8 @@ Identify if there are too many high-risk permissions, if the access matches the 
 /**
  * Dynamically selects the model based on database configuration.
  */
-async function getAdvisorModel() {
-  const config = await getActiveAiConfig();
+async function getAdvisorModel(dataSource: DataSource = 'mysql') {
+  const config = await getActiveAiConfig(dataSource);
   
   if (config && config.provider === 'ollama' && config.enabled) {
     return ollama.model(config.ollamaModel || 'llama3');
@@ -56,7 +58,7 @@ async function getAdvisorModel() {
 }
 
 export async function getAccessAdvice(input: AccessAdvisorInput): Promise<AccessAdvisorOutput> {
-  const model = await getAdvisorModel();
+  const model = await getAdvisorModel(input.dataSource as DataSource);
   
   const assignmentsList = input.assignments
     .map(a => `- Resource: ${a.resourceName}, Entitlement: ${a.entitlementName}, Risk: ${a.riskLevel}`)

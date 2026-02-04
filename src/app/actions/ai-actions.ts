@@ -1,7 +1,7 @@
 
 'use server';
 
-import { AiConfig } from '@/lib/types';
+import { AiConfig, DataSource } from '@/lib/types';
 import { getCollectionData } from './mysql-actions';
 
 /**
@@ -40,8 +40,8 @@ export async function testOllamaConnectionAction(url: string): Promise<{ success
 /**
  * Ruft die aktive KI Konfiguration ab.
  */
-export async function getActiveAiConfig(): Promise<AiConfig | null> {
-  const result = await getCollectionData('aiConfigs');
+export async function getActiveAiConfig(dataSource: DataSource = 'mysql'): Promise<AiConfig | null> {
+  const result = await getCollectionData('aiConfigs', dataSource);
   if (result.data && result.data.length > 0) {
     return result.data.find(c => c.enabled === 1 || c.enabled === true) || result.data[0];
   }

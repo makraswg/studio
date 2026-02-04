@@ -2,9 +2,12 @@
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
+import { initializeFirebase } from '@/firebase';
+import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { getMockCollection } from '@/lib/mock-db';
+import { DataSource } from '@/lib/types';
 import bcrypt from 'bcryptjs';
 
-// Eine einfache Zuordnung von Anwendungs-Sammlungsnamen zu echten MySQL-Tabellennamen.
 const collectionToTableMap: { [key: string]: string } = {
   users: 'users',
   platformUsers: 'platformUsers',
@@ -22,11 +25,26 @@ const collectionToTableMap: { [key: string]: string } = {
 };
 
 /**
- * Führt eine sichere Leseoperation auf einer MySQL-Tabelle aus.
+ * Führt eine sichere Leseoperation auf einer Tabelle aus, unabhängig von der Datenquelle.
  */
-export async function getCollectionData(collectionName: string): Promise<{ data: any[] | null; error: string | null; }> {
-  const tableName = collectionToTableMap[collectionName];
+export async function getCollectionData(collectionName: string, dataSource: DataSource = 'mysql'): Promise<{ data: any[] | null; error: string | null; }> {
+  if (dataSource === 'mock') {
+    return { data: getMockCollection(collectionName), error: null };
+  }
 
+  if (dataSource === 'firestore') {
+    try {
+      const { firestore } = initializeFirebase();
+      const snap = await getDocs(collection(firestore, collectionName));
+      const data = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+      return { data, error: null };
+    } catch (e: any) {
+      return { data: null, error: `Firestore Fehler: ${e.message}` };
+    }
+  }
+
+  // DEFAULT: MySQL
+  const tableName = collectionToTableMap[collectionName];
   if (!tableName) {
     return { data: null, error: `Die Sammlung '${collectionName}' ist nicht für den Zugriff freigegeben.` };
   }
@@ -78,9 +96,19 @@ export async function getCollectionData(collectionName: string): Promise<{ data:
 }
 
 /**
- * Speichert oder aktualisiert einen Datensatz in MySQL.
+ * Speichert oder aktualisiert einen Datensatz in der gewählten Datenquelle.
  */
-export async function saveCollectionRecord(collectionName: string, id: string, data: any): Promise<{ success: boolean; error: string | null }> {
+export async function saveCollectionRecord(collectionName: string, id: string, data: any, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; error: string | null }> {
+  if (dataSource === 'firestore') {
+    try {
+      const { firestore } = initializeFirebase();
+      await setDoc(doc(firestore, collectionName, id), data, { merge: true });
+      return { success: true, error: null };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  }
+
   const tableName = collectionToTableMap[collectionName];
   if (!tableName) return { success: false, error: 'Ungültige Tabelle' };
 
@@ -142,6 +170,35 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
 }
 
 /**
+ * Löscht einen Datensatz aus der gewählten Datenquelle.
+ */
+export async function deleteCollectionRecord(collectionName: string, id: string, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; error: string | null }> {
+  if (dataSource === 'firestore') {
+    try {
+      const { firestore } = initializeFirebase();
+      await deleteDoc(doc(firestore, collectionName, id));
+      return { success: true, error: null };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  const tableName = collectionToTableMap[collectionName];
+  if (!tableName) return { success: false, error: 'Ungültige Tabelle' };
+
+  let connection;
+  try {
+    connection = await getMysqlConnection();
+    await connection.execute(`DELETE FROM \`${tableName}\` WHERE id = ?`, [id]);
+    connection.release();
+    return { success: true, error: null };
+  } catch (error: any) {
+    if (connection) connection.release();
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Aktualisiert das Passwort eines Plattform-Nutzers.
  */
 export async function updatePlatformUserPasswordAction(email: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
@@ -165,28 +222,6 @@ export async function updatePlatformUserPasswordAction(email: string, newPasswor
   }
 }
 
-/**
- * Löscht einen Datensatz aus MySQL.
- */
-export async function deleteCollectionRecord(collectionName: string, id: string): Promise<{ success: boolean; error: string | null }> {
-  const tableName = collectionToTableMap[collectionName];
-  if (!tableName) return { success: false, error: 'Ungültige Tabelle' };
-
-  let connection;
-  try {
-    connection = await getMysqlConnection();
-    await connection.execute(`DELETE FROM \`${tableName}\` WHERE id = ?`, [id]);
-    connection.release();
-    return { success: true, error: null };
-  } catch (error: any) {
-    if (connection) connection.release();
-    return { success: false, error: error.message };
-  }
-}
-
-/**
- * Führt einen sicheren Verbindungstest für MySQL aus.
- */
 export async function testMysqlConnectionAction(): Promise<{ success: boolean; message: string; }> {
     return await testMysqlConnection();
 }

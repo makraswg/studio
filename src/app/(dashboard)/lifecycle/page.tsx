@@ -212,13 +212,13 @@ export default function LifecyclePage() {
         lastSyncedAt: timestamp 
       };
 
-      if (dataSource === 'mysql') await saveCollectionRecord('users', userId, userData);
+      if (dataSource === 'mysql') await saveCollectionRecord('users', userId, userData, dataSource);
       else setDocumentNonBlocking(doc(db, 'users', userId), userData);
 
-      const configs = await getJiraConfigs();
+      const configs = await getJiraConfigs(dataSource);
       let jiraKey = 'MANUELL';
       if (configs.length > 0 && configs[0].enabled) {
-        const res = await createJiraTicket(configs[0].id, `ONBOARDING: ${newUserName}`, `Account für ${newUserName} (${targetTenantId})`);
+        const res = await createJiraTicket(configs[0].id, `ONBOARDING: ${newUserName}`, `Account für ${newUserName} (${targetTenantId})`, dataSource);
         if (res.success) jiraKey = res.key!;
       }
 
@@ -236,7 +236,7 @@ export default function LifecyclePage() {
           jiraIssueKey: jiraKey, 
           syncSource: 'manual' 
         };
-        if (dataSource === 'mysql') await saveCollectionRecord('assignments', assId, assData);
+        if (dataSource === 'mysql') await saveCollectionRecord('assignments', assId, assData, dataSource);
         else setDocumentNonBlocking(doc(db, 'assignments', assId), assData);
       }
 
@@ -266,17 +266,17 @@ export default function LifecyclePage() {
     setIsActionLoading(true);
     try {
       const userAssignments = assignments?.filter((a: any) => a.userId === userToOffboard.id && a.status === 'active') || [];
-      const configs = await getJiraConfigs();
+      const configs = await getJiraConfigs(dataSource);
       let jiraKey = 'OFFB-PENDING';
       
       if (configs.length > 0 && configs[0].enabled) {
-        const res = await createJiraTicket(configs[0].id, `OFFBOARDING: ${userToOffboard.displayName}`, `Deaktivierung für ${userToOffboard.email}`);
+        const res = await createJiraTicket(configs[0].id, `OFFBOARDING: ${userToOffboard.displayName}`, `Deaktivierung für ${userToOffboard.email}`, dataSource);
         if (res.success) jiraKey = res.key!;
       }
 
       for (const a of userAssignments) {
         const update = { status: 'pending_removal', jiraIssueKey: jiraKey };
-        if (dataSource === 'mysql') await saveCollectionRecord('assignments', a.id, { ...a, ...update });
+        if (dataSource === 'mysql') await saveCollectionRecord('assignments', a.id, { ...a, ...update }, dataSource);
         else updateDocumentNonBlocking(doc(db, 'assignments', a.id), update);
       }
 
@@ -614,7 +614,6 @@ export default function LifecyclePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
       <AlertDialog open={isBundleDeleteOpen} onOpenChange={setIsBundleDeleteOpen}>
         <AlertDialogContent className="rounded-none border-2">
           <AlertDialogHeader>
@@ -622,7 +621,7 @@ export default function LifecyclePage() {
               <Trash2 className="w-4 h-4" /> Paket permanent löschen?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs leading-relaxed">
-              Dies entfernt die Definition des Pakets **{selectedBundle?.name}**. 
+              Dies entfernt die definition des Pakets **{selectedBundle?.name}**. 
               Existierende Zuweisungen für Benutzer, die mit diesem Paket erstellt wurden, bleiben im System erhalten.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -633,7 +632,6 @@ export default function LifecyclePage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Offboarding Confirmation */}
       <AlertDialog open={isOffboardConfirmOpen} onOpenChange={setIsOffboardConfirmOpen}>
         <AlertDialogContent className="rounded-none border-2">
           <AlertDialogHeader>

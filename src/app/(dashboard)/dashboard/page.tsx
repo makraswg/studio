@@ -78,6 +78,35 @@ export default function DashboardPage() {
     return { users: fUsers, resources: fResources, assignments: fAssignments };
   }, [users, resources, assignments, activeTenantId]);
 
+  const handleExport = async (mode: 'user' | 'resource') => {
+    setIsExporting(true);
+    try {
+      const { users: fUsers, resources: fResources, assignments: fAssignments } = filteredData;
+      
+      await exportFullComplianceReportPdf(
+        fUsers,
+        fResources,
+        entitlements || [],
+        fAssignments,
+        mode
+      );
+      
+      toast({ 
+        title: "Bericht erstellt", 
+        description: `Der PDF-Bericht (nach ${mode === 'user' ? 'Benutzern' : 'Systemen'}) wurde generiert.` 
+      });
+      setIsReportDialogOpen(false);
+    } catch (e: any) {
+      toast({ 
+        variant: "destructive", 
+        title: "Export fehlgeschlagen", 
+        description: e.message 
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (!mounted) return null;
 
   const stats = [
@@ -92,10 +121,16 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">ComplianceHub Konsole</h1>
-          <p className="text-sm text-muted-foreground">Übersicht für {activeTenantId === 'all' ? 'die gesamte IT-Landschaft' : (activeTenantId === 't1' ? 'Acme Corp' : 'Global Tech')}.</p>
+          <p className="text-sm text-muted-foreground">Übersicht für {activeTenantId === 'all' ? 'die gesamte IT-Landschaft' : activeTenantId}.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px]" onClick={() => setIsReportDialogOpen(true)}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-9 font-bold uppercase text-[10px] rounded-none border-primary/20 hover:bg-primary/5" 
+            onClick={() => setIsReportDialogOpen(true)}
+          >
+            <FileText className="w-3.5 h-3.5 mr-2 text-primary" />
             Compliance Bericht
           </Button>
         </div>
@@ -109,7 +144,11 @@ export default function DashboardPage() {
                 <div className={cn("p-2 rounded-sm", stat.bg, stat.color)}><stat.icon className="w-4 h-4" /></div>
                 <div className="flex-1">
                   <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{stat.label}</p>
-                  <h3 className="text-2xl font-bold">{stat.value}</h3>
+                  {stat.loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mt-1" />
+                  ) : (
+                    <h3 className="text-2xl font-bold">{stat.value}</h3>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -119,32 +158,134 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 shadow-none rounded-none border">
-          <CardHeader className="border-b bg-muted/10 py-3"><CardTitle className="text-xs font-bold uppercase tracking-widest">Zertifizierungs-Kampagne</CardTitle></CardHeader>
+          <CardHeader className="border-b bg-muted/10 py-3">
+            <CardTitle className="text-xs font-bold uppercase tracking-widest">Zertifizierungs-Kampagne (Q1/2024)</CardTitle>
+          </CardHeader>
           <CardContent className="p-8">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-3xl font-bold">68%</p>
-              <Badge className="rounded-none bg-blue-600 uppercase text-[9px]">Laufend</Badge>
+              <div>
+                <p className="text-3xl font-bold">68%</p>
+                <p className="text-[10px] text-muted-foreground uppercase font-bold">Gesamtfortschritt der Reviews</p>
+              </div>
+              <Badge className="rounded-none bg-blue-600 uppercase text-[9px] px-3">Laufend</Badge>
             </div>
             <Progress value={68} className="h-2 rounded-none bg-slate-100" />
+            <div className="grid grid-cols-2 gap-4 mt-8">
+              <div className="p-4 border bg-muted/5">
+                <p className="text-[9px] font-bold uppercase text-muted-foreground mb-1">Offene Prüfungen</p>
+                <p className="text-xl font-bold">142</p>
+              </div>
+              <div className="p-4 border bg-muted/5">
+                <p className="text-[9px] font-bold uppercase text-muted-foreground mb-1">Abgeschlossen</p>
+                <p className="text-xl font-bold">312</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
         <Card className="shadow-none rounded-none border">
-          <CardHeader className="border-b bg-muted/10 py-3"><CardTitle className="text-xs font-bold uppercase tracking-widest">Risiko-Profil</CardTitle></CardHeader>
-          <CardContent className="p-6">
-            <div className="h-[200px]">
+          <CardHeader className="border-b bg-muted/10 py-3">
+            <CardTitle className="text-xs font-bold uppercase tracking-widest">Risiko-Profil</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 flex flex-col items-center">
+            <div className="h-[200px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={riskData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={2} dataKey="value" stroke="none">
+                  <Pie 
+                    data={riskData} 
+                    cx="50%" 
+                    cy="50%" 
+                    innerRadius={60} 
+                    outerRadius={80} 
+                    paddingAngle={5} 
+                    dataKey="value" 
+                    stroke="none"
+                  >
                     {riskData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                   </Pie>
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
             </div>
+            <div className="w-full space-y-2 mt-4">
+              {riskData.map((item) => (
+                <div key={item.name} className="flex items-center justify-between text-[10px] font-bold uppercase">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2" style={{ backgroundColor: item.color }} />
+                    <span className="text-muted-foreground">{item.name}</span>
+                  </div>
+                  <span>{item.value}%</span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Compliance Report Dialog */}
+      <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
+        <DialogContent className="rounded-none max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold uppercase">Compliance Bericht generieren</DialogTitle>
+            <DialogDescription className="text-xs">
+              Wählen Sie das Format und die Gruppierung für den detaillierten Audit-Bericht.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-1 gap-4 py-4">
+            <Button
+              variant="outline"
+              className="justify-start h-16 rounded-none border-primary/20 hover:border-primary hover:bg-primary/5 gap-4"
+              onClick={() => handleExport('user')}
+              disabled={isExporting}
+            >
+              <div className="p-2 bg-primary/10 rounded-sm">
+                <UserCircle className="w-5 h-5 text-primary" />
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-bold uppercase">PDF: Nach Benutzern</p>
+                <p className="text-[10px] text-muted-foreground">Alle aktiven Zugriffe pro Mitarbeiter aufgelistet.</p>
+              </div>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="justify-start h-16 rounded-none border-primary/20 hover:border-primary hover:bg-primary/5 gap-4"
+              onClick={() => handleExport('resource')}
+              disabled={isExporting}
+            >
+              <div className="p-2 bg-primary/10 rounded-sm">
+                <Layers className="w-5 h-5 text-primary" />
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-bold uppercase">PDF: Nach Ressourcen</p>
+                <p className="text-[10px] text-muted-foreground">Alle berechtigten Personen pro IT-System.</p>
+              </div>
+            </Button>
+          </div>
+
+          <div className="p-3 bg-muted/20 border text-[9px] font-bold uppercase text-muted-foreground flex items-center gap-2">
+            <ShieldCheck className="w-3 h-3 text-emerald-600" />
+            Bericht wird für Mandant: {activeTenantId === 'all' ? 'ALLE' : activeTenantId} erstellt.
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button 
+              variant="ghost" 
+              onClick={() => setIsReportDialogOpen(false)} 
+              className="rounded-none text-[10px] font-bold uppercase h-10"
+            >
+              Abbrechen
+            </Button>
+            {isExporting && (
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-primary">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Wird generiert...
+              </div>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -122,9 +122,9 @@ export default function LoginPage() {
           <CardHeader className="space-y-1 border-b bg-muted/10 pb-6">
             <div className="flex items-center justify-between">
               <CardTitle className="text-xl font-headline font-bold uppercase tracking-wider">Plattform Login</CardTitle>
-              <Badge variant="outline" className="rounded-none font-bold text-[9px] uppercase border-primary/20 text-primary">
-                {dataSource}
-              </Badge>
+              <div className="px-2 py-0.5 text-[8px] font-bold uppercase border rounded-none border-primary/20 text-primary">
+                {dataSource === 'mysql' ? 'Lokal' : dataSource === 'firestore' ? 'Cloud' : 'Demo'}
+              </div>
             </div>
             <CardDescription className="text-xs uppercase font-bold text-muted-foreground/60">
               Identitätsprüfung via {dataSource === 'mysql' ? 'Lokale Datenbank' : 'Cloud Verzeichnis'}
@@ -186,7 +186,7 @@ export default function LoginPage() {
               
               <div className="p-3 bg-muted/30 border border-dashed text-[9px] font-bold uppercase text-muted-foreground flex items-center gap-2">
                 <Shield className="w-3 h-3 text-primary" />
-                Sichere Verbindung zu: {dataSource.toUpperCase()}
+                Sichere Verbindung aktiv
               </div>
             </CardContent>
             
@@ -257,14 +257,6 @@ export default function LoginPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function Badge({ children, variant, className }: any) {
-  return (
-    <div className={`px-2 py-0.5 text-[8px] font-bold uppercase border ${className}`}>
-      {children}
     </div>
   );
 }

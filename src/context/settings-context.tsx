@@ -1,4 +1,3 @@
-
 "use client";
 
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
@@ -13,7 +12,7 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  // Der konsistente Startwert wird auf 'mysql' geändert.
+  // Der konsistente Startwert ist 'mysql'.
   const [dataSource, setDataSource] = useState<DataSource>('mysql');
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -22,7 +21,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     // Wenn im Local Storage ein gespeicherter Wert existiert, wird dieser verwendet.
     const savedSource = localStorage.getItem('dataSource');
     if (savedSource === 'firestore' || savedSource === 'mock' || savedSource === 'mysql') {
-      setDataSource(savedSource);
+      setDataSource(savedSource as DataSource);
     }
     // Markiert die Komponente als "hydriert", um Hydration-Fehler zu vermeiden.
     setIsHydrated(true);

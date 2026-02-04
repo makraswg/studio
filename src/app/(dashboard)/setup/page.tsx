@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -68,7 +67,7 @@ export default function SetupPage() {
   }, [dataSource]);
 
   const handleTestFirestore = async () => {
-    setFirestoreTest({ status: 'loading', message: 'Firestore-Verbindung wird geprüft...' });
+    setFirestoreTest({ status: 'loading', message: 'Cloud-Verbindung wird geprüft...' });
     try {
       const snap = await getDocs(collection(db, 'tenants'));
       setFirestoreTest({ status: 'success', message: `Verbindung ok (${snap.size} Mandanten gefunden)` });
@@ -142,11 +141,11 @@ export default function SetupPage() {
               <div className="flex items-center space-x-3">
                 <RadioGroupItem value="firestore" id="firestore" />
                 <div className="flex flex-col">
-                  <span className="font-bold text-sm">Google Firestore</span>
-                  <span className="text-[9px] font-bold text-primary uppercase tracking-widest">Empfohlen</span>
+                  <span className="font-bold text-sm">Cloud Datenbank (Zentral)</span>
+                  <span className="text-[9px] font-bold text-primary uppercase tracking-widest">Managed Service</span>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">Verwendet die skalierbare NoSQL-Cloud-Datenbank von Firebase.</p>
+              <p className="text-xs text-muted-foreground">Verwendet die skalierbare NoSQL-Zentralinstanz für globale Koordination.</p>
               <div className="w-full pt-2">
                   <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestFirestore(); }}>
                     <ShieldCheck className="w-3.5 h-3.5 mr-2" /> Cloud-Test
@@ -163,11 +162,11 @@ export default function SetupPage() {
               <div className="flex items-center space-x-3">
                 <RadioGroupItem value="mock" id="mock" />
                 <div className="flex flex-col">
-                  <span className="font-bold text-sm">Mock-Daten</span>
-                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Entwicklung</span>
+                  <span className="font-bold text-sm">Offline-Vorschau</span>
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Demo Modus</span>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">Statische Beispieldaten für schnelle Tests ohne Internetverbindung.</p>
+              <p className="text-xs text-muted-foreground">Statische Beispieldaten für schnelle Präsentationen ohne Internetverbindung.</p>
               <div className="w-full pt-2">
                   <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestMock(); }}>
                     <Beaker className="w-3.5 h-3.5 mr-2" /> Lokal-Test
@@ -184,11 +183,11 @@ export default function SetupPage() {
               <div className="flex items-center space-x-3">
                 <RadioGroupItem value="mysql" id="mysql" />
                 <div className="flex flex-col">
-                  <span className="font-bold text-sm">MySQL (Relational)</span>
-                  <span className="text-[9px] font-bold text-orange-600 uppercase tracking-widest">Experimentell</span>
+                  <span className="font-bold text-sm">MySQL (Self-Hosted)</span>
+                  <span className="text-[9px] font-bold text-orange-600 uppercase tracking-widest">On-Premise</span>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">Verwendet eine relationale SQL-Struktur via .env-Anbindung.</p>
+              <p className="text-xs text-muted-foreground">Verwendet Ihre eigene relationale SQL-Struktur für volle Datenhoheit.</p>
               <div className="w-full space-y-3 pt-2">
                   <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestMysql(); }}>
                       <Database className="w-3.5 h-3.5 mr-2" /> DB-Ping

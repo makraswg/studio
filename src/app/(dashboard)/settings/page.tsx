@@ -30,7 +30,9 @@ import {
   Trash2,
   Lock,
   Mail,
-  Send
+  Send,
+  BrainCircuit,
+  Cpu
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +45,7 @@ import {
   getJiraAttributesAction
 } from '@/app/actions/jira-actions';
 import { testSmtpConnectionAction } from '@/app/actions/smtp-actions';
+import { testOllamaConnectionAction } from '@/app/actions/ai-actions';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { cn } from '@/lib/utils';
 import { 
@@ -62,7 +65,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlatformUser, Role, SmtpConfig } from '@/lib/types';
+import { PlatformUser, Role, SmtpConfig, AiConfig } from '@/lib/types';
 
 export default function SettingsPage() {
   const db = useFirestore();
@@ -73,9 +76,19 @@ export default function SettingsPage() {
   // Load Configs via Pluggable Hook
   const { data: jiraConfigs, refresh: refreshJira } = usePluggableCollection<any>('jiraConfigs');
   const { data: smtpConfigs, refresh: refreshSmtp } = usePluggableCollection<SmtpConfig>('smtpConfigs');
+  const { data: aiConfigs, refresh: refreshAi } = usePluggableCollection<AiConfig>('aiConfigs');
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<any>('tenants');
   const { data: servicePartners, refresh: refreshPartners } = usePluggableCollection<any>('servicePartners');
   const { data: platformUsers, refresh: refreshPlatformUsers } = usePluggableCollection<PlatformUser>('platformUsers');
+
+  // AI State
+  const [aiId, setAiId] = useState('');
+  const [aiProvider, setAiProvider] = useState<'gemini' | 'ollama'>('gemini');
+  const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
+  const [ollamaModel, setOllamaModel] = useState('llama3');
+  const [geminiModel, setGeminiModel] = useState('gemini-2.5-flash');
+  const [aiEnabled, setAiEnabled] = useState(true);
+  const [isTestingAi, setIsTestingAi] = useState(false);
 
   // Platform User Management State
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
@@ -152,6 +165,19 @@ export default function SettingsPage() {
   const [isDiscovering, setIsDiscovering] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // Hydrate AI Config
+  useEffect(() => {
+    if (aiConfigs && aiConfigs.length > 0) {
+      const c = aiConfigs[0];
+      setAiId(c.id);
+      setAiProvider(c.provider || 'gemini');
+      setOllamaUrl(c.ollamaUrl || 'http://localhost:11434');
+      setOllamaModel(c.ollamaModel || 'llama3');
+      setGeminiModel(c.geminiModel || 'gemini-2.5-flash');
+      setAiEnabled(!!c.enabled);
+    }
+  }, [aiConfigs]);
+
   // Hydrate SMTP Form
   useEffect(() => {
     if (smtpConfigs && smtpConfigs.length > 0) {
@@ -207,6 +233,36 @@ export default function SettingsPage() {
     }
     return null;
   }, [jiraTokenExpiresAt]);
+
+  const handleSaveAi = async () => {
+    setIsSaving(true);
+    const id = aiId || 'ai-config-default';
+    const data = {
+      id, provider: aiProvider, ollamaUrl, ollamaModel, geminiModel, enabled: aiEnabled
+    };
+    try {
+      if (dataSource === 'mysql') await saveCollectionRecord('aiConfigs', id, data);
+      else setDocumentNonBlocking(doc(db, 'aiConfigs', id), data);
+      toast({ title: "KI Konfiguration gespeichert" });
+      setTimeout(() => refreshAi(), 200);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleTestAi = async () => {
+    if (aiProvider === 'ollama') {
+      setIsTestingAi(true);
+      const res = await testOllamaConnectionAction(ollamaUrl);
+      setIsTestingAi(false);
+      if (res.success) toast({ title: "Ollama Verbindung OK", description: res.message });
+      else toast({ variant: "destructive", title: "Ollama Fehler", description: res.message });
+    } else {
+      toast({ title: "Gemini Test", description: "Gemini nutzt die globalen API Keys aus der Umgebungskonfiguration." });
+    }
+  };
 
   const handleSaveSmtp = async () => {
     setIsSaving(true);
@@ -437,6 +493,7 @@ export default function SettingsPage() {
           <TabsTrigger value="partners" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Contact className="w-3.5 h-3.5" /> Service Partner</TabsTrigger>
           <TabsTrigger value="jira" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><ExternalLink className="w-3.5 h-3.5" /> JIRA Integration</TabsTrigger>
           <TabsTrigger value="smtp" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Mail className="w-3.5 h-3.5" /> E-Mail (SMTP)</TabsTrigger>
+          <TabsTrigger value="ai" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><BrainCircuit className="w-3.5 h-3.5" /> KI (Ollama)</TabsTrigger>
           <TabsTrigger value="data" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Database className="w-3.5 h-3.5" /> Datenquelle</TabsTrigger>
         </TabsList>
 
@@ -461,6 +518,72 @@ export default function SettingsPage() {
               <Button size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]"><Save className="w-3 h-3 mr-2" /> Speichern</Button>
             </CardFooter>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="ai">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <Card className="rounded-none border shadow-none">
+                <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-[10px] font-bold uppercase">KI Provider Konfiguration</CardTitle>
+                    <CardDescription className="text-[9px] uppercase font-bold">Wählen Sie zwischen Cloud (Gemini) oder lokalem Server (Ollama).</CardDescription>
+                  </div>
+                  <Switch checked={aiEnabled} onCheckedChange={setAiEnabled} />
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase">Aktiver Provider</Label>
+                    <Select value={aiProvider} onValueChange={(v: any) => setAiProvider(v)}>
+                      <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                      <SelectContent className="rounded-none">
+                        <SelectItem value="gemini">Google Gemini (Cloud)</SelectItem>
+                        <SelectItem value="ollama">Ollama (Lokal / Selbstgehostet)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {aiProvider === 'ollama' ? (
+                    <div className="space-y-4 pt-4 border-t animate-in fade-in">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase">Ollama Server URL</Label>
+                        <Input value={ollamaUrl} onChange={e => setOllamaUrl(e.target.value)} placeholder="http://localhost:11434" className="rounded-none" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase">Modell Name</Label>
+                        <Input value={ollamaModel} onChange={e => setOllamaModel(e.target.value)} placeholder="llama3" className="rounded-none" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 pt-4 border-t animate-in fade-in">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase">Gemini Modell</Label>
+                        <Input value={geminiModel} onChange={e => setGeminiModel(e.target.value)} className="rounded-none" />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground italic">Google API Keys werden sicher über Umgebungsvariablen geladen.</p>
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter className="bg-muted/5 border-t py-3 flex justify-end gap-2">
+                  <Button variant="outline" size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]" onClick={handleTestAi} disabled={isTestingAi}>
+                    {isTestingAi ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Cpu className="w-3 h-3 mr-2" />} Verbindung testen
+                  </Button>
+                  <Button size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]" onClick={handleSaveAi} disabled={isSaving}>
+                    <Save className="w-3 h-3 mr-2" /> Speichern
+                  </Button>
+                </CardFooter>
+              </Card>
+            </div>
+            <div className="space-y-6">
+              <Alert className="rounded-none border-indigo-200 bg-indigo-50 text-indigo-800">
+                <BrainCircuit className="h-4 w-4 text-indigo-600" />
+                <AlertTitle className="text-[10px] font-bold uppercase">KI Advisor</AlertTitle>
+                <AlertDescription className="text-xs">
+                  Der KI-Advisor analysiert Nutzerprofile und gibt Empfehlungen bei Access Reviews. Mit Ollama bleiben Ihre Daten vollständig in Ihrem eigenen Netzwerk.
+                </AlertDescription>
+              </Alert>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="users">

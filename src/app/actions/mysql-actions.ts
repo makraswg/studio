@@ -18,6 +18,7 @@ const collectionToTableMap: { [key: string]: string } = {
   bundles: 'bundles',
   servicePartners: 'servicePartners',
   smtpConfigs: 'smtpConfigs',
+  aiConfigs: 'aiConfigs',
 };
 
 /**

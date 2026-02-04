@@ -156,6 +156,15 @@ export interface SmtpConfig {
   enabled: boolean | number;
 }
 
+export interface AiConfig {
+  id: string;
+  provider: 'gemini' | 'ollama';
+  ollamaUrl: string;
+  ollamaModel: string;
+  geminiModel: string;
+  enabled: boolean | number;
+}
+
 export interface JiraSyncItem {
   key: string;
   summary: string;

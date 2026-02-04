@@ -186,5 +186,15 @@ export const appSchema: AppSchema = {
       encryption: 'VARCHAR(20)',
       enabled: 'BOOLEAN DEFAULT FALSE',
     }
+  },
+  aiConfigs: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      provider: 'VARCHAR(50) NOT NULL',
+      ollamaUrl: 'TEXT',
+      ollamaModel: 'VARCHAR(255)',
+      geminiModel: 'VARCHAR(255)',
+      enabled: 'BOOLEAN DEFAULT TRUE',
+    }
   }
 };

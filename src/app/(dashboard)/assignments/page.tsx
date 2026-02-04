@@ -444,10 +444,10 @@ export default function AssignmentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* FIXED Detail Dialog with robust scrollable area */}
+      {/* REFACTORED Detail Dialog with robust flex-based internal scrolling */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] rounded-none p-0 overflow-hidden flex flex-col border shadow-2xl">
-          {/* Header remains static */}
+        <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] h-[90vh] rounded-none p-0 overflow-hidden flex flex-col border shadow-2xl">
+          {/* Header Section (Static) */}
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-primary/20 flex items-center justify-center rounded-sm shrink-0">
@@ -463,9 +463,9 @@ export default function AssignmentsPage() {
             </div>
           </DialogHeader>
           
-          {/* Scrollable body with flex-1 and min-h-0 to allow scrolling */}
-          <ScrollArea className="flex-1 min-h-0 bg-white">
-            <div className="p-6 space-y-6">
+          {/* Body Section (SCROLLABLE) */}
+          <div className="flex-1 overflow-y-auto min-h-0 bg-white">
+            <div className="p-6 space-y-6 pb-12">
               {/* Status & Basic Info Row */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="p-3 border bg-slate-50/50">
@@ -614,18 +614,18 @@ export default function AssignmentsPage() {
                     <Label className="text-[9px] font-bold uppercase text-slate-500 flex items-center gap-1">
                       <Info className="w-2.5 h-2.5" /> Anmerkungen
                     </Label>
-                    <div className="p-3 bg-amber-50/30 border border-amber-100 min-h-[60px] max-h-[100px] overflow-y-auto text-[10px] italic leading-relaxed text-slate-600">
+                    <div className="p-3 bg-amber-50/30 border border-amber-100 min-h-[60px] max-h-[120px] overflow-y-auto text-[10px] italic leading-relaxed text-slate-600">
                       {selectedAssignment?.notes || 'Keine zusätzlichen Anmerkungen vorhanden.'}
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </ScrollArea>
+          </div>
           
-          {/* Footer remains static at bottom */}
+          {/* Footer Section (Static) */}
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
-            <Button onClick={() => setIsDetailsOpen(false)} className="rounded-none h-9 px-8 font-bold uppercase text-[10px] tracking-widest bg-slate-900 hover:bg-slate-800">
+            <Button onClick={() => setIsDetailsOpen(false)} className="rounded-none h-9 px-8 font-bold uppercase text-[10px] tracking-widest bg-slate-900 hover:bg-slate-800 text-white">
               Fenster Schließen
             </Button>
           </DialogFooter>

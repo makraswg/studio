@@ -16,25 +16,13 @@ import {
   Search, 
   RefreshCw,
   Plus,
-  UserCircle,
-  ShieldCheck,
   MoreHorizontal,
   Loader2,
-  ShieldAlert,
-  BrainCircuit,
-  Info,
-  X,
-  Shield,
-  Layers,
-  CheckCircle2,
-  AlertTriangle,
-  History,
-  Database,
-  Globe,
+  ShieldCheck,
   Trash2,
-  Filter,
-  Building2,
-  Network
+  Pencil,
+  Network,
+  User as UserIcon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -50,7 +38,6 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogFooter,
-  DialogDescription
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -64,16 +51,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
   setDocumentNonBlocking, 
-  addDocumentNonBlocking, 
   deleteDocumentNonBlocking,
   useUser as useAuthUser 
 } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -84,18 +69,24 @@ export default function UsersPage() {
   const db = useFirestore();
   const router = useRouter();
   const { dataSource, activeTenantId } = useSettings();
-  const { user: authUser } = useAuthUser();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   
-  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isDialogOpen, setIsAddOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+
+  // Form State
+  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
+  const [department, setDepartment] = useState('');
+  const [tenantId, setTenantId] = useState('');
 
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'disabled'>('all');
 
   const { data: users, isLoading, refresh: refreshUsers } = usePluggableCollection<any>('users');
+  const { data: tenants } = usePluggableCollection<any>('tenants');
   const { data: entitlements } = usePluggableCollection<any>('entitlements');
   const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
 
@@ -103,26 +94,65 @@ export default function UsersPage() {
     setMounted(true);
   }, []);
 
+  const handleSaveUser = async () => {
+    if (!displayName || !email || !tenantId) {
+      toast({ variant: "destructive", title: "Fehler", description: "Bitte alle Pflichtfelder ausfüllen." });
+      return;
+    }
+
+    const userId = selectedUser?.id || `u-${Math.random().toString(36).substring(2, 9)}`;
+    const userData = {
+      ...selectedUser,
+      id: userId,
+      displayName,
+      email,
+      department,
+      tenantId,
+      enabled: selectedUser ? selectedUser.enabled : true,
+      externalId: selectedUser?.externalId || `MANUAL_${userId}`,
+      lastSyncedAt: new Date().toISOString()
+    };
+
+    if (dataSource === 'mysql') {
+      await saveCollectionRecord('users', userId, userData);
+    } else {
+      setDocumentNonBlocking(doc(db, 'users', userId), userData);
+    }
+
+    toast({ title: selectedUser ? "Benutzer aktualisiert" : "Benutzer angelegt" });
+    setIsAddOpen(false);
+    resetForm();
+    setTimeout(() => refreshUsers(), 200);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+
+    if (dataSource === 'mysql') {
+      await deleteCollectionRecord('users', selectedUser.id);
+    } else {
+      deleteDocumentNonBlocking(doc(db, 'users', selectedUser.id));
+    }
+
+    toast({ title: "Benutzer gelöscht" });
+    setIsDeleteAlertOpen(false);
+    setSelectedUser(null);
+    setTimeout(() => refreshUsers(), 200);
+  };
+
   const handleLdapSync = async () => {
     setIsSyncing(true);
     const timestamp = new Date().toISOString();
     
     try {
-      // 1. Get all entitlements that have an external mapping
       const mappedEntitlements = entitlements?.filter(e => !!e.externalMapping) || [];
-      
-      // 2. Process each user (Mock logic representing AD Sync)
       for (const user of (users || [])) {
-        // Simulating that users in AD have a list of group DNs
-        // In a real scenario, this would come from the LDAP query results
         const mockAdGroups = user.adGroups || []; 
-        
         for (const ent of mappedEntitlements) {
           const hasGroup = mockAdGroups.includes(ent.externalMapping!);
           const existingAssignment = assignments?.find(a => a.userId === user.id && a.entitlementId === ent.id);
 
           if (hasGroup && (!existingAssignment || existingAssignment.status === 'removed')) {
-            // AUTO-ASSIGN ROLE
             const assId = `ldap-${user.id}-${ent.id}`.substring(0, 50);
             const assData = {
               id: assId,
@@ -133,47 +163,42 @@ export default function UsersPage() {
               grantedBy: 'LDAP-Sync',
               grantedAt: timestamp,
               syncSource: 'ldap',
-              notes: `Automatische Zuweisung via AD Gruppe: ${ent.externalMapping}`
+              notes: `Auto-Zuweisung via AD Gruppe: ${ent.externalMapping}`
             };
-
-            if (dataSource === 'mysql') {
-              await saveCollectionRecord('assignments', assId, assData);
-            } else {
-              setDocumentNonBlocking(doc(db, 'assignments', assId), assData);
-            }
+            if (dataSource === 'mysql') await saveCollectionRecord('assignments', assId, assData);
+            else setDocumentNonBlocking(doc(db, 'assignments', assId), assData);
           }
         }
-
-        // Update last sync timestamp for user
-        const updatedUser = { ...user, lastSyncedAt: timestamp };
-        if (dataSource === 'mysql') {
-          await saveCollectionRecord('users', user.id, updatedUser);
-        } else {
-          setDocumentNonBlocking(doc(db, 'users', user.id), updatedUser);
-        }
       }
-
-      toast({ 
-        title: "LDAP Sync abgeschlossen", 
-        description: "Nutzerdaten und Rollen-Mappings wurden aktualisiert." 
-      });
-      
-      setTimeout(() => {
-        refreshUsers();
-        refreshAssignments();
-        setIsSyncing(false);
-      }, 500);
-
+      toast({ title: "LDAP Sync abgeschlossen" });
+      setTimeout(() => { refreshUsers(); refreshAssignments(); setIsSyncing(false); }, 500);
     } catch (e: any) {
       toast({ variant: "destructive", title: "Sync Fehler", description: e.message });
       setIsSyncing(false);
     }
   };
 
+  const resetForm = () => {
+    setSelectedUser(null);
+    setDisplayName('');
+    setEmail('');
+    setDepartment('');
+    setTenantId(activeTenantId !== 'all' ? activeTenantId : '');
+  };
+
+  const openEdit = (user: any) => {
+    setSelectedUser(user);
+    setDisplayName(user.displayName);
+    setEmail(user.email);
+    setDepartment(user.department || '');
+    setTenantId(user.tenantId);
+    setIsAddOpen(true);
+  };
+
   const filteredUsers = users?.filter((user: any) => {
-    const displayName = user.name || user.displayName || '';
-    const email = user.email || '';
-    const matchesSearch = displayName.toLowerCase().includes(search.toLowerCase()) || email.toLowerCase().includes(search.toLowerCase());
+    const dName = user.displayName || '';
+    const uEmail = user.email || '';
+    const matchesSearch = dName.toLowerCase().includes(search.toLowerCase()) || uEmail.toLowerCase().includes(search.toLowerCase());
     const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
     const matchesStatus = activeFilter === 'all' || (activeFilter === 'active' && isEnabled) || (activeFilter === 'disabled' && !isEnabled);
     const matchesTenant = activeTenantId === 'all' || user.tenantId === activeTenantId;
@@ -187,7 +212,7 @@ export default function UsersPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Benutzerverzeichnis</h1>
-          <p className="text-sm text-muted-foreground">AD Sync mit Gruppen-Vererbung und Rollen-Mapping.</p>
+          <p className="text-sm text-muted-foreground">Zentrale Verwaltung der Identitäten für {activeTenantId === 'all' ? 'alle Firmen' : activeTenantId}.</p>
         </div>
         <div className="flex gap-2">
           <Button 
@@ -198,9 +223,9 @@ export default function UsersPage() {
             disabled={isSyncing}
           >
             {isSyncing ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} 
-            LDAP & Gruppen Sync
+            LDAP Sync
           </Button>
-          <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsAddOpen(true)}>
+          <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => { resetForm(); setIsAddOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> Benutzer anlegen
           </Button>
         </div>
@@ -209,9 +234,9 @@ export default function UsersPage() {
       <div className="flex flex-col md:flex-row gap-4 items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
-            placeholder="Name oder E-Mail..." 
-            className="pl-10 h-10 rounded-none shadow-none border-border bg-white"
+          <input 
+            placeholder="Name oder E-Mail suchen..." 
+            className="w-full pl-10 h-10 border border-input bg-white px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -219,7 +244,7 @@ export default function UsersPage() {
         <div className="flex border rounded-none p-1 bg-muted/20">
           {['all', 'active', 'disabled'].map(f => (
             <Button key={f} variant={activeFilter === f ? 'default' : 'ghost'} size="sm" className="h-8 text-[9px] font-bold uppercase px-4 rounded-none" onClick={() => setActiveFilter(f as any)}>
-              {f === 'all' ? 'Alle' : f === 'active' ? 'Aktiv' : 'Deaktiviert'}
+              {f === 'all' ? 'Alle' : f === 'active' ? 'Aktiv' : 'Inaktiv'}
             </Button>
           ))}
         </div>
@@ -229,27 +254,28 @@ export default function UsersPage() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Identitäten werden geladen...</p>
+            <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Lade Identitäten...</p>
           </div>
         ) : (
           <Table>
             <TableHeader className="bg-muted/30">
               <TableRow>
-                <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Identität</TableHead>
-                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Firma</TableHead>
-                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Zuweisungen (AD)</TableHead>
-                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Status</TableHead>
-                <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Aktionen</TableHead>
+                <TableHead className="py-4 font-bold uppercase text-[10px]">Identität</TableHead>
+                <TableHead className="font-bold uppercase text-[10px]">Mandant</TableHead>
+                <TableHead className="font-bold uppercase text-[10px]">Abteilung</TableHead>
+                <TableHead className="font-bold uppercase text-[10px]">Zuweisungen</TableHead>
+                <TableHead className="font-bold uppercase text-[10px]">Status</TableHead>
+                <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredUsers?.map((user: any) => {
                 const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
                 const userAssignments = assignments?.filter(a => a.userId === user.id && a.status === 'active') || [];
-                const adAssignedCount = userAssignments.filter(a => a.syncSource === 'ldap').length;
+                const adCount = userAssignments.filter(a => a.syncSource === 'ldap').length;
                 
                 return (
-                  <TableRow key={user.id} className="group transition-colors hover:bg-muted/5 border-b">
+                  <TableRow key={user.id} className="group hover:bg-muted/5 border-b">
                     <TableCell className="py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-slate-100 flex items-center justify-center text-slate-500 font-bold uppercase text-xs">
@@ -261,19 +287,12 @@ export default function UsersPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none border-slate-200">
-                        {user.tenantId}
-                      </Badge>
-                    </TableCell>
+                    <TableCell><Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none">{user.tenantId}</Badge></TableCell>
+                    <TableCell className="text-xs">{user.department || '—'}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs">{userAssignments.length} gesamt</span>
-                        {adAssignedCount > 0 && (
-                          <Badge className="bg-blue-50 text-blue-700 border-none rounded-none text-[8px] font-bold uppercase">
-                            <Network className="w-2 h-2 mr-1" /> {adAssignedCount} via AD
-                          </Badge>
-                        )}
+                        <span className="font-bold text-xs">{userAssignments.length}</span>
+                        {adCount > 0 && <Badge className="bg-blue-50 text-blue-700 border-none rounded-none text-[8px] font-bold uppercase"><Network className="w-2 h-2 mr-1" /> {adCount} AD</Badge>}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -288,6 +307,9 @@ export default function UsersPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56 rounded-none">
+                          <DropdownMenuItem onSelect={() => openEdit(user)}>
+                            <Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten
+                          </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => router.push(`/assignments?search=${user.displayName}`)}>
                             <ShieldCheck className="w-3.5 h-3.5 mr-2" /> Zugriffe prüfen
                           </DropdownMenuItem>
@@ -305,6 +327,54 @@ export default function UsersPage() {
           </Table>
         )}
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={(val) => { if (!val) setIsAddOpen(false); }}>
+        <DialogContent className="max-w-md rounded-none">
+          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">{selectedUser ? 'Benutzer bearbeiten' : 'Neuer Benutzer'}</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase">Anzeigename</Label>
+              <Input value={displayName} onChange={e => setDisplayName(e.target.value)} className="rounded-none" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase">E-Mail Adresse</Label>
+              <Input value={email} onChange={e => setEmail(e.target.value)} className="rounded-none" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase">Abteilung</Label>
+                <Input value={department} onChange={e => setDepartment(e.target.value)} className="rounded-none" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase">Mandant</Label>
+                <Select value={tenantId} onValueChange={setTenantId}>
+                  <SelectTrigger className="rounded-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                  <SelectContent className="rounded-none">
+                    {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddOpen(false)} className="rounded-none">Abbrechen</Button>
+            <Button onClick={handleSaveUser} className="rounded-none font-bold uppercase text-[10px]">Speichern</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+        <AlertDialogContent className="rounded-none">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600 font-bold uppercase text-sm">Benutzer löschen?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">Dies entfernt den Benutzer {selectedUser?.displayName} permanent aus dem System.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 rounded-none text-xs uppercase font-bold">Löschen</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -19,7 +19,11 @@ import {
   MoreHorizontal,
   ShieldAlert,
   Loader2,
-  Zap
+  Zap,
+  Trash2,
+  CheckCircle2,
+  Clock,
+  Info
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -28,13 +32,15 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogFooter
+  DialogFooter,
+  DialogDescription
 } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,6 +49,7 @@ import {
   useFirestore, 
   setDocumentNonBlocking,
   updateDocumentNonBlocking,
+  deleteDocumentNonBlocking,
   useUser as useAuthUser 
 } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -50,7 +57,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Assignment, User, Entitlement, Resource } from '@/lib/types';
 import { useSettings } from '@/context/settings-context';
-import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { createJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
 
 export default function AssignmentsPage() {
@@ -66,13 +73,13 @@ export default function AssignmentsPage() {
   const [isJiraActionLoading, setIsJiraActionLoading] = useState(false);
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   
+  // Create Form State
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedEntitlementId, setSelectedEntitlementId] = useState('');
-  const [jiraIssueKey, setJiraIssueKey] = useState('');
-  const [validFrom, setValidFrom] = useState(new Date().toISOString().split('T')[0]);
   const [validUntil, setValidUntil] = useState('');
-  const [notes, setNotes] = useState('');
 
   const { data: assignments, isLoading, refresh: refreshAssignments } = usePluggableCollection<Assignment>('assignments');
   const { data: users } = usePluggableCollection<User>('users');
@@ -83,38 +90,8 @@ export default function AssignmentsPage() {
     setMounted(true);
   }, []);
 
-  const filteredAssignments = useMemo(() => {
-    if (!assignments) return [];
-    
-    return assignments.filter(a => {
-      // 1. Tenant Filter
-      if (activeTenantId !== 'all' && a.tenantId !== activeTenantId) return false;
-
-      const user = users?.find(u => u.id === a.userId);
-      const ent = entitlements?.find(e => e.id === a.entitlementId);
-      const res = resources?.find(r => r.id === ent?.resourceId);
-      
-      // 2. Search Filter
-      const matchSearch = (user?.displayName || '').toLowerCase().includes(search.toLowerCase()) || 
-                          (res?.name || '').toLowerCase().includes(search.toLowerCase());
-      if (!matchSearch) return false;
-      
-      // 3. Status/Tab Filter
-      const matchTab = activeTab === 'all' || a.status === activeTab;
-      if (!matchTab) return false;
-      
-      // 4. Admin Filter
-      const isAdmin = !!(ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1");
-      const matchAdmin = !adminOnly || isAdmin;
-      if (!matchAdmin) return false;
-
-      return true;
-    });
-  }, [assignments, users, entitlements, resources, search, activeTab, adminOnly, activeTenantId]);
-
   const handleCreateAssignment = async () => {
     if (!selectedUserId || !selectedEntitlementId) return;
-    
     const targetTenantId = users?.find(u => u.id === selectedUserId)?.tenantId || 'global';
     const assignmentId = `ass-${Math.random().toString(36).substring(2, 9)}`;
     const assignmentData = {
@@ -124,84 +101,43 @@ export default function AssignmentsPage() {
       status: 'active',
       grantedBy: authUser?.uid || 'system',
       grantedAt: new Date().toISOString(),
-      validFrom,
+      validFrom: new Date().toISOString().split('T')[0],
       validUntil,
-      jiraIssueKey,
-      ticketRef: jiraIssueKey || 'MANUELL',
-      notes,
-      tenantId: targetTenantId
+      ticketRef: 'MANUELL',
+      tenantId: targetTenantId,
+      notes: 'Manuell über Konsole angelegt.'
     };
-
-    if (dataSource === 'mysql') {
-      await saveCollectionRecord('assignments', assignmentId, assignmentData);
-    } else {
-      setDocumentNonBlocking(doc(db, 'assignments', assignmentId), assignmentData);
-    }
-    
+    if (dataSource === 'mysql') await saveCollectionRecord('assignments', assignmentId, assignmentData);
+    else setDocumentNonBlocking(doc(db, 'assignments', assignmentId), assignmentData);
     setIsCreateOpen(false);
     toast({ title: "Zuweisung erstellt" });
     setTimeout(() => refreshAssignments(), 200);
   };
 
-  const handleBulkCreateJiraTickets = async () => {
-    const expiredWithoutTicket = filteredAssignments.filter(a => 
-      a.status === 'active' && 
-      a.validUntil && 
-      new Date(a.validUntil) < new Date() && 
-      !a.jiraIssueKey
-    );
-
-    if (expiredWithoutTicket.length === 0) return;
-
-    setIsJiraActionLoading(true);
-    let successCount = 0;
-    
-    try {
-      const configs = await getJiraConfigs();
-      if (configs.length === 0 || !configs[0].enabled) {
-        toast({ variant: "destructive", title: "Fehler", description: "Jira Integration nicht konfiguriert oder inaktiv." });
-        setIsJiraActionLoading(false);
-        return;
-      }
-
-      for (const a of expiredWithoutTicket) {
-        const user = users?.find(u => u.id === a.userId);
-        const ent = entitlements?.find(e => e.id === a.entitlementId);
-        const res = resources?.find(r => r.id === ent?.resourceId);
-
-        const summary = `VERLÄNGERUNG: ${user?.displayName} - ${res?.name}`;
-        const desc = `Die Berechtigung für [${user?.displayName}] (${user?.email}) im System [${res?.name}] (Rolle: ${ent?.name}) ist am ${a.validUntil} abgelaufen.\n\nBitte prüfen Sie, ob der Zugriff verlängert werden soll.`;
-
-        const result = await createJiraTicket(configs[0].id, summary, desc);
-        if (result.success) {
-          successCount++;
-          const updateData = { jiraIssueKey: result.key, ticketRef: result.key };
-          if (dataSource === 'mysql') {
-            await saveCollectionRecord('assignments', a.id, { ...a, ...updateData });
-          } else {
-            updateDocumentNonBlocking(doc(db, 'assignments', a.id), updateData);
-          }
-        }
-      }
-
-      toast({ 
-        title: "Bulk-Prozess abgeschlossen", 
-        description: `${successCount} von ${expiredWithoutTicket.length} Tickets wurden in Jira angelegt.` 
-      });
-      setTimeout(() => refreshAssignments(), 200);
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Kritischer Fehler", description: e.message });
-    } finally {
-      setIsJiraActionLoading(false);
-    }
+  const handleRevokeAssignment = async (assignment: Assignment) => {
+    const updateData = { status: 'removed', lastReviewedAt: new Date().toISOString() };
+    if (dataSource === 'mysql') await saveCollectionRecord('assignments', assignment.id, { ...assignment, ...updateData });
+    else updateDocumentNonBlocking(doc(db, 'assignments', assignment.id), updateData);
+    toast({ title: "Berechtigung widerrufen" });
+    setTimeout(() => refreshAssignments(), 200);
   };
 
-  const expiredCount = filteredAssignments.filter(a => 
-    a.status === 'active' && 
-    a.validUntil && 
-    new Date(a.validUntil) < new Date() && 
-    !a.jiraIssueKey
-  ).length;
+  const filteredAssignments = useMemo(() => {
+    if (!assignments) return [];
+    return assignments.filter(a => {
+      if (activeTenantId !== 'all' && a.tenantId !== activeTenantId) return false;
+      const user = users?.find(u => u.id === a.userId);
+      const ent = entitlements?.find(e => e.id === a.entitlementId);
+      const res = resources?.find(r => r.id === ent?.resourceId);
+      const matchSearch = (user?.displayName || '').toLowerCase().includes(search.toLowerCase()) || (res?.name || '').toLowerCase().includes(search.toLowerCase());
+      if (!matchSearch) return false;
+      const matchTab = activeTab === 'all' || a.status === activeTab;
+      if (!matchTab) return false;
+      const isAdmin = !!(ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1");
+      const matchAdmin = !adminOnly || isAdmin;
+      return matchAdmin;
+    });
+  }, [assignments, users, entitlements, resources, search, activeTab, adminOnly, activeTenantId]);
 
   if (!mounted) return null;
 
@@ -212,31 +148,17 @@ export default function AssignmentsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Einzelzuweisungen</h1>
           <p className="text-sm text-muted-foreground">Aktive und ausstehende Berechtigungen im Überblick.</p>
         </div>
-        <div className="flex gap-2">
-          {expiredCount > 0 && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-9 font-bold uppercase text-[10px] rounded-none border-orange-200 text-orange-700 bg-orange-50 hover:bg-orange-100"
-              onClick={handleBulkCreateJiraTickets}
-              disabled={isJiraActionLoading}
-            >
-              {isJiraActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Zap className="w-3.5 h-3.5 mr-2" />}
-              {expiredCount} Tickets erstellen
-            </Button>
-          )}
-          <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsCreateOpen(true)}>
-            <Plus className="w-3.5 h-3.5 mr-2" /> Zuweisung erstellen
-          </Button>
-        </div>
+        <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsCreateOpen(true)}>
+          <Plus className="w-3.5 h-3.5 mr-2" /> Zuweisung erstellen
+        </Button>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
+          <input 
             placeholder="Mitarbeiter oder System suchen..." 
-            className="pl-10 h-10 rounded-none bg-white"
+            className="w-full pl-10 h-10 border border-input bg-white px-3 text-sm focus:outline-none"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -247,9 +169,9 @@ export default function AssignmentsPage() {
           <Switch id="admin-filter" checked={adminOnly} onCheckedChange={setAdminOnly} />
         </div>
         <div className="flex border rounded-none p-1 bg-muted/20">
-          {['all', 'active', 'requested', 'pending_removal', 'removed'].map(id => (
+          {['all', 'active', 'requested', 'removed'].map(id => (
             <Button key={id} variant={activeTab === id ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab(id as any)} className="h-8 text-[9px] font-bold uppercase px-4 rounded-none">
-              {id === 'all' ? 'Alle' : id === 'active' ? 'Aktiv' : id === 'requested' ? 'Joiner' : id === 'pending_removal' ? 'Leaver' : 'Inaktiv'}
+              {id === 'all' ? 'Alle' : id === 'active' ? 'Aktiv' : id === 'requested' ? 'Pending' : 'Historie'}
             </Button>
           ))}
         </div>
@@ -262,8 +184,7 @@ export default function AssignmentsPage() {
               <TableHead className="py-4 font-bold uppercase text-[10px]">Mitarbeiter</TableHead>
               <TableHead className="font-bold uppercase text-[10px]">System / Rolle</TableHead>
               <TableHead className="font-bold uppercase text-[10px]">Status</TableHead>
-              <TableHead className="font-bold uppercase text-[10px]">Mandant</TableHead>
-              <TableHead className="font-bold uppercase text-[10px]">Ticket</TableHead>
+              <TableHead className="font-bold uppercase text-[10px]">Gültigkeit</TableHead>
               <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
             </TableRow>
           </TableHeader>
@@ -276,52 +197,63 @@ export default function AssignmentsPage() {
 
               return (
                 <TableRow key={a.id} className="hover:bg-muted/5 border-b">
-                  <TableCell className="py-4 font-bold text-sm">
-                    {user?.displayName || a.userId}
+                  <TableCell className="py-4">
+                    <div className="font-bold text-sm">{user?.displayName || a.userId}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase">{a.tenantId}</div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       {isAdmin && <ShieldAlert className="w-3.5 h-3.5 text-red-600" />}
                       <div>
                         <div className="font-bold text-sm">{res?.name}</div>
-                        <div className="text-xs text-muted-foreground flex items-center gap-1">
-                          {ent?.name}
-                          {isAdmin && <Badge className="h-3 text-[7px] bg-red-50 text-red-700 px-1 border-red-100 uppercase">ADMIN</Badge>}
-                        </div>
+                        <div className="text-xs text-muted-foreground">{ent?.name}</div>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={cn(
                       "rounded-none font-bold uppercase text-[9px] border-none px-2",
-                      a.status === 'active' ? "bg-emerald-50 text-emerald-700" :
-                      a.status === 'requested' ? "bg-amber-50 text-amber-700" :
-                      a.status === 'pending_removal' ? "bg-orange-50 text-orange-700" : "bg-red-50 text-red-700"
-                    )}>
-                      {a.status.replace('_', ' ')}
-                    </Badge>
+                      a.status === 'active' ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                    )}>{a.status}</Badge>
                   </TableCell>
-                  <TableCell className="text-[10px] font-bold uppercase text-muted-foreground">
-                    {a.tenantId || 'global'}
-                  </TableCell>
-                  <TableCell className="text-xs font-mono">{a.jiraIssueKey || '—'}</TableCell>
+                  <TableCell className="text-xs">{a.validUntil ? new Date(a.validUntil).toLocaleDateString() : 'Unbefristet'}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-5 h-5" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="rounded-none w-48">
-                        <DropdownMenuItem>Details</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => { setSelectedAssignment(a); setIsDetailsOpen(true); }}>
+                          <Info className="w-3.5 h-3.5 mr-2" /> Details einsehen
+                        </DropdownMenuItem>
+                        {a.status !== 'removed' && (
+                          <DropdownMenuItem className="text-red-600" onSelect={() => handleRevokeAssignment(a)}>
+                            <Trash2 className="w-3.5 h-3.5 mr-2" /> Zugriff widerrufen
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
               );
             })}
-            {filteredAssignments.length === 0 && !isLoading && (
-              <TableRow><TableCell colSpan={6} className="h-32 text-center text-xs text-muted-foreground italic">Keine Zuweisungen für diesen Filter gefunden.</TableCell></TableRow>
-            )}
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="max-w-md rounded-none">
+          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Zuweisungs-Details</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4 text-xs">
+            <div className="grid grid-cols-2 gap-4 border-b pb-4">
+              <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">ID</p><p className="font-mono">{selectedAssignment?.id}</p></div>
+              <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Quelle</p><p>{selectedAssignment?.syncSource || 'Manuell'}</p></div>
+            </div>
+            <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Erteilt von</p><p>{selectedAssignment?.grantedBy} am {selectedAssignment?.grantedAt && new Date(selectedAssignment.grantedAt).toLocaleString()}</p></div>
+            <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Ticket / Referenz</p><p className="font-bold">{selectedAssignment?.ticketRef}</p></div>
+            <div><p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Anmerkungen</p><p className="italic">{selectedAssignment?.notes || 'Keine Anmerkungen vorhanden.'}</p></div>
+          </div>
+          <DialogFooter><Button onClick={() => setIsDetailsOpen(false)} className="rounded-none">Schließen</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="rounded-none">
@@ -333,7 +265,7 @@ export default function AssignmentsPage() {
                 <SelectTrigger className="rounded-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                 <SelectContent className="rounded-none">
                   {users?.filter(u => activeTenantId === 'all' || u.tenantId === activeTenantId).map(u => 
-                    <SelectItem key={u.id} value={u.id}>{u.displayName} ({u.tenantId})</SelectItem>
+                    <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -353,8 +285,7 @@ export default function AssignmentsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)} className="rounded-none">Abbrechen</Button>
-            <Button onClick={handleCreateAssignment} className="rounded-none font-bold uppercase text-[10px]">Speichern</Button>
+            <Button onClick={handleCreateAssignment} className="rounded-none font-bold uppercase text-[10px]">Zuweisen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

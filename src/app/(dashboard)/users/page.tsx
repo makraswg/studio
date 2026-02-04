@@ -21,8 +21,7 @@ import {
   ShieldCheck,
   Trash2,
   Pencil,
-  Network,
-  User as UserIcon
+  Network
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -56,7 +55,6 @@ import {
   useFirestore, 
   setDocumentNonBlocking, 
   deleteDocumentNonBlocking,
-  useUser as useAuthUser 
 } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
@@ -113,11 +111,8 @@ export default function UsersPage() {
       lastSyncedAt: new Date().toISOString()
     };
 
-    if (dataSource === 'mysql') {
-      await saveCollectionRecord('users', userId, userData);
-    } else {
-      setDocumentNonBlocking(doc(db, 'users', userId), userData);
-    }
+    if (dataSource === 'mysql') await saveCollectionRecord('users', userId, userData);
+    else setDocumentNonBlocking(doc(db, 'users', userId), userData);
 
     toast({ title: selectedUser ? "Benutzer aktualisiert" : "Benutzer angelegt" });
     setIsAddOpen(false);
@@ -127,13 +122,8 @@ export default function UsersPage() {
 
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
-
-    if (dataSource === 'mysql') {
-      await deleteCollectionRecord('users', selectedUser.id);
-    } else {
-      deleteDocumentNonBlocking(doc(db, 'users', selectedUser.id));
-    }
-
+    if (dataSource === 'mysql') await deleteCollectionRecord('users', selectedUser.id);
+    else deleteDocumentNonBlocking(doc(db, 'users', selectedUser.id));
     toast({ title: "Benutzer gelöscht" });
     setIsDeleteAlertOpen(false);
     setSelectedUser(null);
@@ -143,15 +133,14 @@ export default function UsersPage() {
   const handleLdapSync = async () => {
     setIsSyncing(true);
     const timestamp = new Date().toISOString();
-    
     try {
       const mappedEntitlements = entitlements?.filter(e => !!e.externalMapping) || [];
       for (const user of (users || [])) {
+        if (activeTenantId !== 'all' && user.tenantId !== activeTenantId) continue;
         const mockAdGroups = user.adGroups || []; 
         for (const ent of mappedEntitlements) {
           const hasGroup = mockAdGroups.includes(ent.externalMapping!);
           const existingAssignment = assignments?.find(a => a.userId === user.id && a.entitlementId === ent.id);
-
           if (hasGroup && (!existingAssignment || existingAssignment.status === 'removed')) {
             const assId = `ldap-${user.id}-${ent.id}`.substring(0, 50);
             const assData = {
@@ -170,7 +159,7 @@ export default function UsersPage() {
           }
         }
       }
-      toast({ title: "LDAP Sync abgeschlossen" });
+      toast({ title: "LDAP & Gruppen Sync abgeschlossen" });
       setTimeout(() => { refreshUsers(); refreshAssignments(); setIsSyncing(false); }, 500);
     } catch (e: any) {
       toast({ variant: "destructive", title: "Sync Fehler", description: e.message });
@@ -196,13 +185,11 @@ export default function UsersPage() {
   };
 
   const filteredUsers = users?.filter((user: any) => {
-    const dName = user.displayName || '';
-    const uEmail = user.email || '';
-    const matchesSearch = dName.toLowerCase().includes(search.toLowerCase()) || uEmail.toLowerCase().includes(search.toLowerCase());
+    if (activeTenantId !== 'all' && user.tenantId !== activeTenantId) return false;
+    const matchesSearch = (user.displayName || '').toLowerCase().includes(search.toLowerCase()) || (user.email || '').toLowerCase().includes(search.toLowerCase());
     const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
     const matchesStatus = activeFilter === 'all' || (activeFilter === 'active' && isEnabled) || (activeFilter === 'disabled' && !isEnabled);
-    const matchesTenant = activeTenantId === 'all' || user.tenantId === activeTenantId;
-    return matchesSearch && matchesStatus && matchesTenant;
+    return matchesSearch && matchesStatus;
   });
 
   if (!mounted) return null;
@@ -215,15 +202,8 @@ export default function UsersPage() {
           <p className="text-sm text-muted-foreground">Zentrale Verwaltung der Identitäten für {activeTenantId === 'all' ? 'alle Firmen' : activeTenantId}.</p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="h-9 font-bold uppercase text-[10px] rounded-none border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100" 
-            onClick={handleLdapSync} 
-            disabled={isSyncing}
-          >
-            {isSyncing ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} 
-            LDAP Sync
+          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none border-blue-200 text-blue-700 bg-blue-50" onClick={handleLdapSync} disabled={isSyncing}>
+            {isSyncing ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} LDAP & Gruppen Sync
           </Button>
           <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => { resetForm(); setIsAddOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> Benutzer anlegen
@@ -236,7 +216,7 @@ export default function UsersPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input 
             placeholder="Name oder E-Mail suchen..." 
-            className="w-full pl-10 h-10 border border-input bg-white px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full pl-10 h-10 border border-input bg-white px-3 text-sm focus:outline-none"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -244,7 +224,7 @@ export default function UsersPage() {
         <div className="flex border rounded-none p-1 bg-muted/20">
           {['all', 'active', 'disabled'].map(f => (
             <Button key={f} variant={activeFilter === f ? 'default' : 'ghost'} size="sm" className="h-8 text-[9px] font-bold uppercase px-4 rounded-none" onClick={() => setActiveFilter(f as any)}>
-              {f === 'all' ? 'Alle' : f === 'active' ? 'Aktiv' : 'Inaktiv'}
+              {f === 'all' ? 'Alle' : f === 'active' ? 'Aktiv' : f === 'disabled' ? 'Inaktiv' : f}
             </Button>
           ))}
         </div>
@@ -252,10 +232,7 @@ export default function UsersPage() {
 
       <div className="admin-card overflow-hidden">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Lade Identitäten...</p>
-          </div>
+          <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
         ) : (
           <Table>
             <TableHeader className="bg-muted/30">
@@ -273,14 +250,11 @@ export default function UsersPage() {
                 const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
                 const userAssignments = assignments?.filter(a => a.userId === user.id && a.status === 'active') || [];
                 const adCount = userAssignments.filter(a => a.syncSource === 'ldap').length;
-                
                 return (
                   <TableRow key={user.id} className="group hover:bg-muted/5 border-b">
                     <TableCell className="py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-slate-100 flex items-center justify-center text-slate-500 font-bold uppercase text-xs">
-                          {user.displayName?.charAt(0)}
-                        </div>
+                        <div className="w-8 h-8 bg-slate-100 flex items-center justify-center text-slate-500 font-bold uppercase text-xs">{user.displayName?.charAt(0)}</div>
                         <div>
                           <div className="font-bold text-sm">{user.displayName}</div>
                           <div className="text-[10px] text-muted-foreground font-mono">{user.email}</div>
@@ -296,10 +270,7 @@ export default function UsersPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={cn(
-                        "text-[9px] font-bold uppercase rounded-none border-none px-2", 
-                        isEnabled ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
-                      )}>
+                      <Badge variant="outline" className={cn("text-[9px] font-bold uppercase rounded-none border-none px-2", isEnabled ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700")}>
                         {isEnabled ? "AKTIV" : "INAKTIV"}
                       </Badge>
                     </TableCell>
@@ -307,16 +278,10 @@ export default function UsersPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56 rounded-none">
-                          <DropdownMenuItem onSelect={() => openEdit(user)}>
-                            <Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => router.push(`/assignments?search=${user.displayName}`)}>
-                            <ShieldCheck className="w-3.5 h-3.5 mr-2" /> Zugriffe prüfen
-                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => openEdit(user)}><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => router.push(`/assignments?search=${user.displayName}`)}><ShieldCheck className="w-3.5 h-3.5 mr-2" /> Zugriffe prüfen</DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600" onSelect={() => { setSelectedUser(user); setIsDeleteAlertOpen(true); }}>
-                            <Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen
-                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600" onSelect={() => { setSelectedUser(user); setIsDeleteAlertOpen(true); }}><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -365,14 +330,8 @@ export default function UsersPage() {
 
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent className="rounded-none">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-600 font-bold uppercase text-sm">Benutzer löschen?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">Dies entfernt den Benutzer {selectedUser?.displayName} permanent aus dem System.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 rounded-none text-xs uppercase font-bold">Löschen</AlertDialogAction>
-          </AlertDialogFooter>
+          <AlertDialogHeader><AlertDialogTitle className="text-red-600 font-bold uppercase text-sm">Benutzer löschen?</AlertDialogTitle><AlertDialogDescription className="text-xs">Dies entfernt den Benutzer permanent aus dem System.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel><AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 rounded-none text-xs uppercase font-bold">Löschen</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

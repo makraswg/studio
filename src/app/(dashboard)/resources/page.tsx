@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -16,7 +16,6 @@ import {
   Plus, 
   Search, 
   MoreHorizontal, 
-  Shield, 
   Loader2, 
   Trash2, 
   Pencil, 
@@ -81,17 +80,14 @@ export default function ResourcesPage() {
   const [isEntitlementListOpen, setIsEntitlementListOpen] = useState(false);
   const [isEntitlementEditOpen, setIsEntitlementEditOpen] = useState(false);
 
-  // Selected Entities
   const [selectedResource, setSelectedResource] = useState<any>(null);
   const [editingEntitlement, setEditingEntitlement] = useState<Entitlement | null>(null);
 
-  // Resource Form State
   const [resName, setResName] = useState('');
   const [resType, setResType] = useState('SaaS');
   const [resCriticality, setResCriticality] = useState('medium');
   const [resTenantId, setResTenantId] = useState('global');
 
-  // Entitlement Form State
   const [entName, setEntName] = useState('');
   const [entRisk, setEntRisk] = useState<'low' | 'medium' | 'high'>('medium');
   const [entIsAdmin, setEntIsAdmin] = useState(false);
@@ -182,10 +178,9 @@ export default function ResourcesPage() {
   };
 
   const filteredResources = resources?.filter((res: any) => {
-    const matchesSearch = res.name.toLowerCase().includes(search.toLowerCase());
     const isGlobal = res.tenantId === 'global' || !res.tenantId;
-    const matchesTenant = activeTenantId === 'all' || isGlobal || res.tenantId === activeTenantId;
-    return matchesSearch && matchesTenant;
+    if (activeTenantId !== 'all' && !isGlobal && res.tenantId !== activeTenantId) return false;
+    return res.name.toLowerCase().includes(search.toLowerCase());
   });
 
   if (!mounted) return null;
@@ -204,12 +199,7 @@ export default function ResourcesPage() {
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input 
-          placeholder="Systeme suchen..." 
-          className="w-full pl-10 h-10 border border-input bg-white px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <input placeholder="Systeme suchen..." className="w-full pl-10 h-10 border border-input bg-white px-3 text-sm focus:outline-none" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
       <div className="admin-card overflow-hidden">
@@ -222,7 +212,7 @@ export default function ResourcesPage() {
                 <TableHead className="py-4 font-bold uppercase text-[10px]">Anwendung</TableHead>
                 <TableHead className="font-bold uppercase text-[10px]">Mandant</TableHead>
                 <TableHead className="font-bold uppercase text-[10px]">Kritikalität</TableHead>
-                <TableHead className="font-bold uppercase text-[10px]">Rollen / AD Sync</TableHead>
+                <TableHead className="font-bold uppercase text-[10px]">Rollen / AD Mapping</TableHead>
                 <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
@@ -235,15 +225,8 @@ export default function ResourcesPage() {
                       <div className="font-bold text-sm">{resource.name}</div>
                       <div className="text-[10px] text-muted-foreground font-bold uppercase">{resource.type}</div>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none">{resource.tenantId || 'global'}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={cn(
-                        "text-[8px] font-bold uppercase rounded-none",
-                        resource.criticality === 'high' ? "text-red-600 border-red-100" : "text-slate-600"
-                      )}>{resource.criticality}</Badge>
-                    </TableCell>
+                    <TableCell><Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none">{resource.tenantId || 'global'}</Badge></TableCell>
+                    <TableCell><Badge variant="outline" className={cn("text-[8px] font-bold uppercase rounded-none", resource.criticality === 'high' ? "text-red-600 border-red-100" : "text-slate-600")}>{resource.criticality}</Badge></TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {resourceEnts.slice(0, 3).map(e => (
@@ -259,16 +242,10 @@ export default function ResourcesPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56 rounded-none">
-                          <DropdownMenuItem onSelect={() => { setSelectedResource(resource); setIsEntitlementListOpen(true); }}>
-                            <Settings2 className="w-3.5 h-3.5 mr-2" /> Rollen verwalten
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => openResourceEdit(resource)}>
-                            <Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten
-                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => { setSelectedResource(resource); setIsEntitlementListOpen(true); }}><Settings2 className="w-3.5 h-3.5 mr-2" /> Rollen verwalten</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => openResourceEdit(resource)}><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600" onSelect={() => { setSelectedResource(resource); setIsResourceDeleteOpen(true); }}>
-                            <Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen
-                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600" onSelect={() => { setSelectedResource(resource); setIsResourceDeleteOpen(true); }}><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -280,67 +257,34 @@ export default function ResourcesPage() {
         )}
       </div>
 
-      {/* Resource Edit Dialog */}
       <Dialog open={isResourceDialogOpen} onOpenChange={setIsResourceDialogOpen}>
         <DialogContent className="max-w-md rounded-none">
           <DialogHeader><DialogTitle className="text-sm font-bold uppercase">{selectedResource ? 'System bearbeiten' : 'System registrieren'}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">System-Name</Label>
-              <Input value={resName} onChange={e => setResName(e.target.value)} className="rounded-none" />
-            </div>
+            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">System-Name</Label><Input value={resName} onChange={e => setResName(e.target.value)} className="rounded-none" /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase">Typ</Label>
-                <Select value={resType} onValueChange={setResType}>
-                  <SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    {['SaaS', 'OnPrem', 'IoT', 'Cloud'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase">Scope</Label>
-                <Select value={resTenantId} onValueChange={setResTenantId}>
-                  <SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    <SelectItem value="global">Global (Alle Firmen)</SelectItem>
-                    {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Typ</Label><Select value={resType} onValueChange={setResType}><SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger><SelectContent className="rounded-none">{['SaaS', 'OnPrem', 'IoT', 'Cloud'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Scope</Label><Select value={resTenantId} onValueChange={setResTenantId}><SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger><SelectContent className="rounded-none"><SelectItem value="global">Global (Alle Firmen)</SelectItem>{tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select></div>
             </div>
           </div>
-          <DialogFooter>
-            <Button onClick={handleSaveResource} className="rounded-none font-bold uppercase text-[10px]">Speichern</Button>
-          </DialogFooter>
+          <DialogFooter><Button onClick={handleSaveResource} className="rounded-none font-bold uppercase text-[10px]">Speichern</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Role Management Dialog */}
       <Dialog open={isEntitlementListOpen} onOpenChange={setIsEntitlementListOpen}>
         <DialogContent className="max-w-4xl rounded-none">
           <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Rollen für {selectedResource?.name}</DialogTitle></DialogHeader>
           <div className="py-4">
-            <Button size="sm" className="mb-4 h-8 text-[9px] font-bold uppercase rounded-none" onClick={() => openEntitlementEdit()}>
-              <Plus className="w-3 h-3 mr-1" /> Neue Rolle
-            </Button>
+            <Button size="sm" className="mb-4 h-8 text-[9px] font-bold uppercase rounded-none" onClick={() => openEntitlementEdit()}><Plus className="w-3 h-3 mr-1" /> Neue Rolle</Button>
             <Table>
-              <TableHeader><TableRow>
-                <TableHead className="text-[10px] font-bold uppercase">Name</TableHead>
-                <TableHead className="text-[10px] font-bold uppercase">AD Mapping</TableHead>
-                <TableHead className="text-[10px] font-bold uppercase">Admin</TableHead>
-                <TableHead className="text-right text-[10px] font-bold uppercase">Aktionen</TableHead>
-              </TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead className="text-[10px] font-bold uppercase">Name</TableHead><TableHead className="text-[10px] font-bold uppercase">AD Mapping</TableHead><TableHead className="text-[10px] font-bold uppercase">Admin</TableHead><TableHead className="text-right text-[10px] font-bold uppercase">Aktionen</TableHead></TableRow></TableHeader>
               <TableBody>
                 {entitlements?.filter(e => e.resourceId === selectedResource?.id).map(e => (
                   <TableRow key={e.id}>
                     <TableCell className="font-bold text-xs">{e.name}</TableCell>
                     <TableCell className="font-mono text-[9px] truncate max-w-[200px]">{e.externalMapping || '—'}</TableCell>
                     <TableCell>{e.isAdmin ? <Badge className="bg-red-50 text-red-700 text-[7px] uppercase border-none px-1">Admin</Badge> : 'Nein'}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEntitlementEdit(e)}><Pencil className="w-3 h-3" /></Button>
-                    </TableCell>
+                    <TableCell className="text-right"><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEntitlementEdit(e)}><Pencil className="w-3 h-3" /></Button></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -349,39 +293,20 @@ export default function ResourcesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Role Edit/Create Dialog */}
       <Dialog open={isEntitlementEditOpen} onOpenChange={setIsEntitlementEditOpen}>
         <DialogContent className="rounded-none">
           <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Rollendetails</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Rollenname</Label>
-              <Input value={entName} onChange={e => setEntName(e.target.value)} className="rounded-none" />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase flex items-center gap-2"><Network className="w-3 h-3" /> AD Gruppe (DN)</Label>
-              <Input value={entMapping} onChange={e => setEntMapping(e.target.value)} placeholder="CN=...,OU=..." className="rounded-none font-mono text-[10px]" />
-            </div>
-            <div className="flex items-center space-x-2 pt-2">
-              <Checkbox id="adm" checked={entIsAdmin} onCheckedChange={(val) => setEntIsAdmin(!!val)} />
-              <Label htmlFor="adm" className="text-[10px] font-bold uppercase cursor-pointer text-red-600">Admin-Rechte</Label>
-            </div>
+            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Rollenname</Label><Input value={entName} onChange={e => setEntName(e.target.value)} className="rounded-none" /></div>
+            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase flex items-center gap-2"><Network className="w-3 h-3" /> AD Gruppe (DN)</Label><Input value={entMapping} onChange={e => setEntMapping(e.target.value)} placeholder="CN=...,OU=..." className="rounded-none font-mono text-[10px]" /></div>
+            <div className="flex items-center space-x-2 pt-2"><Checkbox id="adm" checked={entIsAdmin} onCheckedChange={(val) => setEntIsAdmin(!!val)} /><Label htmlFor="adm" className="text-[10px] font-bold uppercase cursor-pointer text-red-600">Admin-Rechte</Label></div>
           </div>
           <DialogFooter><Button onClick={handleSaveEntitlement} className="rounded-none font-bold uppercase text-[10px]">Rolle speichern</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={isResourceDeleteOpen} onOpenChange={setIsResourceDeleteOpen}>
-        <AlertDialogContent className="rounded-none">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-600 font-bold uppercase text-sm">System löschen?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">Alle zugehörigen Rollen und Zuweisungen werden ebenfalls gelöscht.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteResource} className="bg-red-600 rounded-none text-xs uppercase font-bold">Löschen</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
+        <AlertDialogContent className="rounded-none"><AlertDialogHeader><AlertDialogTitle className="text-red-600 font-bold uppercase text-sm">System löschen?</AlertDialogTitle><AlertDialogDescription className="text-xs">Alle zugehörigen Rollen und Zuweisungen werden ebenfalls gelöscht.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel><AlertDialogAction onClick={handleDeleteResource} className="bg-red-600 rounded-none text-xs uppercase font-bold">Löschen</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
       </AlertDialog>
     </div>
   );

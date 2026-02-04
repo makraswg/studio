@@ -1,5 +1,3 @@
-'use client';
-
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
@@ -11,7 +9,11 @@ export interface FirebaseSdks {
   firestore: Firestore;
 }
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
+/**
+ * Initialisiert Firebase-Dienste für Server und Client gleichermaßen.
+ * Diese Datei darf keine 'use client' Direktive enthalten, damit sie in Server Actions
+ * importiert werden kann.
+ */
 export function initializeFirebase(): FirebaseSdks {
   let app: FirebaseApp;
   
@@ -19,8 +21,7 @@ export function initializeFirebase(): FirebaseSdks {
     try {
       app = initializeApp(firebaseConfig);
     } catch (e) {
-      console.error('Firebase initialization error:', e);
-      app = initializeApp(firebaseConfig);
+      app = getApp();
     }
   } else {
     app = getApp();

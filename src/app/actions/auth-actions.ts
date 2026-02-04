@@ -24,8 +24,8 @@ export async function authenticateUserAction(dataSource: DataSource, email: stri
       return await authenticateViaMysql(email, password);
 
     case 'firestore':
-      // Firestore-Login prüft hier nur die Existenz in der platformUsers Sammlung.
-      return await authenticateViaFirestore(email);
+      // Cloud-Login prüft die Existenz in der platformUsers Sammlung.
+      return await authenticateViaCloud(email);
       
     case 'mock':
       // Mock-Login prüft ebenfalls nur die Existenz.
@@ -74,8 +74,8 @@ async function authenticateViaMysql(email: string, password: string) {
   }
 }
 
-// --- Firestore Authentifizierungslogik ---
-async function authenticateViaFirestore(email: string) {
+// --- Cloud (Zentral) Authentifizierungslogik ---
+async function authenticateViaCloud(email: string) {
   try {
     const { firestore } = initializeFirebase();
     const q = query(
@@ -88,7 +88,7 @@ async function authenticateViaFirestore(email: string) {
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
-      return { success: false, error: 'Benutzer nicht in der Plattform-Datenbank gefunden oder deaktiviert.' };
+      return { success: false, error: 'Benutzer nicht im zentralen Verzeichnis gefunden.' };
     }
 
     const userDoc = snapshot.docs[0];
@@ -96,7 +96,7 @@ async function authenticateViaFirestore(email: string) {
     
     return { success: true, user };
   } catch (error: any) {
-    return { success: false, error: `Firestore-Fehler: ${error.message}` };
+    return { success: false, error: `Cloud-Fehler: ${error.message}` };
   }
 }
 
@@ -109,9 +109,9 @@ async function authenticateViaMock(email: string) {
     if (user) {
       return { success: true, user };
     } else {
-      return { success: false, error: 'Benutzer nicht in den Mock-Daten gefunden oder deaktiviert.' };
+      return { success: false, error: 'Benutzer nicht in den Demo-Daten gefunden.' };
     }
   } catch (error: any) {
-    return { success: false, error: `Fehler bei Mock-Daten: ${error.message}` };
+    return { success: false, error: `Fehler bei Demo-Daten: ${error.message}` };
   }
 }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -33,7 +34,8 @@ import {
   BrainCircuit,
   Cpu,
   Info,
-  List
+  List,
+  Check
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -492,7 +494,6 @@ export default function SettingsPage() {
           <TabsTrigger value="data" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Database className="w-3.5 h-3.5" /> Datenquelle</TabsTrigger>
         </TabsList>
 
-        {/* Organisation & AI Tabs OMITTED for brevity, assume they exist as before */}
         <TabsContent value="general">
           <Card className="rounded-none border shadow-none">
             <CardHeader className="bg-muted/10 border-b">
@@ -594,7 +595,6 @@ export default function SettingsPage() {
                 </Alert>
               )}
 
-              {/* Jira Connection */}
               <Card className="rounded-none border shadow-none">
                 <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
                   <div>
@@ -632,7 +632,6 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Workflow Mapping */}
               <Card className="rounded-none border shadow-none">
                 <CardHeader className="bg-muted/10 border-b">
                   <CardTitle className="text-[10px] font-bold uppercase">2. Workflow & Status Mapping</CardTitle>
@@ -645,8 +644,10 @@ export default function SettingsPage() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Issue Type Name</Label>
-                      <Input value={jiraIssueType} onChange={e => setJiraIssueType(e.target.value)} placeholder="Service Request" className="rounded-none" />
-                      <p className="text-[8px] text-muted-foreground uppercase font-bold italic">Muss exakt dem Namen in Jira entsprechen (z.B. "Service Request" oder "Serviceanfrage").</p>
+                      <div className="flex gap-2">
+                        <Input value={jiraIssueType} onChange={e => setJiraIssueType(e.target.value)} placeholder="Service Request" className="rounded-none" />
+                      </div>
+                      <p className="text-[8px] text-muted-foreground uppercase font-bold italic">Muss exakt dem Namen in Jira entsprechen (z.B. "Service Request").</p>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Status: Genehmigt (Trigger Sync)</Label>
@@ -660,7 +661,6 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Assets Configuration */}
               <Card className="rounded-none border shadow-none">
                 <CardHeader className="bg-muted/10 border-b">
                   <CardTitle className="text-[10px] font-bold uppercase">3. Jira Assets (JSM) Mapping</CardTitle>
@@ -731,17 +731,33 @@ export default function SettingsPage() {
                   <Button variant="outline" className="w-full h-10 rounded-none bg-white/5 border-white/10 text-white hover:bg-white/10 text-[10px] font-bold uppercase" onClick={handleTestJira} disabled={isTestingJira}>
                     {isTestingJira ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Unplug className="w-3.5 h-3.5 mr-2" />} Verbindung testen
                   </Button>
+                  
                   {testResult && (
-                    <div className={cn("p-3 text-[9px] font-bold uppercase border space-y-2", testResult.success ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "border-red-500/50 bg-red-500/10 text-red-400")}>
+                    <div className={cn("p-3 text-[9px] font-bold uppercase border space-y-3", testResult.success ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "border-red-500/50 bg-red-500/10 text-red-400")}>
                       <div className="flex items-center gap-2">
                         {testResult.success ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
                         {testResult.message}
                       </div>
+                      
                       {testResult.availableTypes && testResult.availableTypes.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-emerald-500/20">
-                          <p className="flex items-center gap-1.5 mb-1"><List className="w-2.5 h-2.5" /> Verfügbare Vorgangstypen:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {testResult.availableTypes.map(t => <Badge key={t} className="bg-emerald-500/20 text-emerald-300 text-[7px] py-0">{t}</Badge>)}
+                          <p className="flex items-center gap-1.5 mb-2 text-white"><List className="w-2.5 h-2.5" /> Verfügbare Typen (Klicken zum Setzen):</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {testResult.availableTypes.map(t => (
+                              <button
+                                key={t}
+                                onClick={() => { setJiraIssueType(t); toast({ title: "Typ gesetzt", description: t }); }}
+                                className={cn(
+                                  "px-2 py-0.5 border text-[8px] font-bold uppercase transition-colors rounded-none",
+                                  jiraIssueType === t 
+                                    ? "bg-emerald-500 border-emerald-500 text-slate-900" 
+                                    : "bg-white/5 border-white/20 text-emerald-300 hover:bg-white/10"
+                                )}
+                              >
+                                {t}
+                                {jiraIssueType === t && <Check className="w-2 h-2 ml-1 inline-block" />}
+                              </button>
+                            ))}
                           </div>
                         </div>
                       )}
@@ -759,7 +775,7 @@ export default function SettingsPage() {
                 <Info className="h-4 w-4 text-blue-600" />
                 <AlertTitle className="text-[10px] font-bold uppercase">Hinweis zu Issue Types</AlertTitle>
                 <AlertDescription className="text-[10px]">
-                  Jira unterscheidet zwischen Sprachen. Wenn Ihr Jira auf Deutsch ist, verwenden Sie „Serviceanfrage“ statt „Service Request“. Nutzen Sie „Verbindung testen“, um die genauen Namen aus Ihrer Instanz auszulesen.
+                  Verwenden Sie „Verbindung testen“, um die exakten Namen der Vorgangstypen aus Ihrer Jira-Instanz auszulesen und direkt per Klick zu übernehmen.
                 </AlertDescription>
               </Alert>
             </div>
@@ -826,7 +842,6 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Other Tabs Content OMITTED for brevity */}
         <TabsContent value="tenants">
           <Card className="rounded-none border shadow-none">
             <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
@@ -952,7 +967,7 @@ export default function SettingsPage() {
                 <Info className="h-4 w-4 text-blue-600" />
                 <AlertTitle className="text-[10px] font-bold uppercase">Hinweis</AlertTitle>
                 <AlertDescription className="text-xs">
-                  Die SMTP-Zugangsdaten werden lokal in Ihrer {dataSource.toUpperCase()} Datenbank gespeichert. Stellen Sie sicher, dass Ihr Server ausgehende Verbindungen auf dem gewählten Port erlaubt.
+                  Die SMTP-Zugangsdaten werden lokal in Ihrer {dataSource.toUpperCase()} Datenbank gespeichert.
                 </AlertDescription>
               </Alert>
             </div>
@@ -974,7 +989,6 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* platform user, tenant and partner dialogs OMITTED - assume same as before */}
       <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
         <DialogContent className="rounded-none max-md">
           <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Plattform-Nutzer verwalten</DialogTitle></DialogHeader>

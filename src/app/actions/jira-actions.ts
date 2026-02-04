@@ -10,7 +10,6 @@ function cleanJiraUrl(url: string): string {
   if (!url) return '';
   let cleaned = url.trim();
   
-  // Stelle sicher, dass ein Protokoll vorhanden ist
   if (!cleaned.startsWith('http')) {
     cleaned = 'https://' + cleaned;
   }
@@ -39,13 +38,14 @@ export async function getJiraConfigs(dataSource: DataSource = 'mysql'): Promise<
 }
 
 /**
- * Testet die Jira-Verbindung.
+ * Testet die Jira-Verbindung und ruft verfügbare Vorgangstypen ab.
  */
 export async function testJiraConnectionAction(configData: Partial<JiraConfig>): Promise<{ 
   success: boolean; 
   message: string; 
   details?: string;
   count?: number;
+  availableTypes?: string[];
 }> {
   if (!configData.url || !configData.email || !configData.apiToken) {
     return { success: false, message: 'Unvollständige Zugangsdaten.' };
@@ -55,6 +55,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
   try {
+    // 1. Verbindung prüfen
     const testRes = await fetch(`${url}/rest/api/3/myself`, {
       headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
       cache: 'no-store'
@@ -66,8 +67,23 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
     }
 
     const userData = await testRes.json();
+    let availableTypes: string[] = [];
+
+    // 2. Verfügbare Vorgangstypen für das Projekt abrufen (um dem User bei der Konfiguration zu helfen)
+    if (configData.projectKey) {
+      const projectRes = await fetch(`${url}/rest/api/3/project/${configData.projectKey}`, {
+        headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
+        cache: 'no-store'
+      });
+      if (projectRes.ok) {
+        const projectData = await projectRes.json();
+        if (projectData.issueTypes) {
+          availableTypes = projectData.issueTypes.map((t: any) => t.name);
+        }
+      }
+    }
+
     const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName}"`;
-    
     const searchRes = await fetch(`${url}/rest/api/3/search`, {
       method: 'POST',
       headers: {
@@ -83,8 +99,9 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
 
     return { 
       success: true, 
-      message: `Erfolgreich verbunden als ${userData.displayName}.`,
-      count: searchData.total
+      message: `Verbunden als ${userData.displayName}.`,
+      count: searchData.total,
+      availableTypes
     };
   } catch (e: any) {
     return { success: false, message: `Verbindungsfehler: ${e.message}` };
@@ -92,7 +109,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
 }
 
 /**
- * Erstellt ein Ticket in Jira Cloud unter Verwendung des Atlassian Document Format (ADF).
+ * Erstellt ein Ticket in Jira Cloud.
  */
 export async function createJiraTicket(
   configId: string, 
@@ -110,9 +127,8 @@ export async function createJiraTicket(
   const url = cleanJiraUrl(config.url);
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
 
-  // Zusammenfassung auf 255 Zeichen begrenzen (Jira Limit)
   const safeSummary = summary.substring(0, 250);
-  const safeDescription = description || 'Keine Beschreibung angegeben.';
+  const safeDescription = description || 'Automatischer Lifecycle Prozess.';
 
   try {
     const payload = {
@@ -125,12 +141,7 @@ export async function createJiraTicket(
           content: [
             {
               type: 'paragraph',
-              content: [
-                {
-                  type: 'text',
-                  text: safeDescription
-                }
-              ]
+              content: [{ type: 'text', text: safeDescription }]
             }
           ]
         },
@@ -152,21 +163,30 @@ export async function createJiraTicket(
     const data = await response.json();
     
     if (!response.ok) {
-      console.error("Jira API Error (400+):", JSON.stringify(data, null, 2));
-      const errorMsg = data.errorMessages?.join(', ') || 'Ungültige Anfrage (Fehler 400)';
-      const fieldErrors = data.errors ? Object.entries(data.errors).map(([k, v]) => `${k}: ${v}`).join('; ') : '';
-      
+      let errorMessage = `Jira API Fehler (${response.status})`;
+      let detailedErrors = '';
+
+      if (data.errorMessages && data.errorMessages.length > 0) {
+        detailedErrors = data.errorMessages.join('. ');
+      }
+
+      if (data.errors) {
+        const fieldErrors = Object.entries(data.errors)
+          .map(([field, msg]) => `${field}: ${msg}`)
+          .join('; ');
+        detailedErrors = detailedErrors ? `${detailedErrors}. ${fieldErrors}` : fieldErrors;
+      }
+
       return { 
         success: false, 
-        error: `Jira API Fehler (${response.status})`, 
-        details: `${errorMsg}. ${fieldErrors}`.trim()
+        error: detailedErrors || errorMessage,
+        details: JSON.stringify(data)
       };
     }
 
     return { success: true, key: data.key };
   } catch (e: any) {
-    console.error("Jira Exception:", e);
-    return { success: false, error: 'Netzwerkfehler oder ungültiges ADF-Format', details: e.message };
+    return { success: false, error: 'Netzwerkfehler zum Jira Server', details: e.message };
   }
 }
 

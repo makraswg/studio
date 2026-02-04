@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -25,7 +24,8 @@ import {
   UserCircle,
   Building2,
   User as UserIcon,
-  Plus
+  Plus,
+  AlertTriangle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -212,18 +212,25 @@ export default function LifecyclePage() {
         lastSyncedAt: timestamp 
       };
 
-      if (dataSource === 'mysql') await saveCollectionRecord('users', userId, userData, dataSource);
+      if (dataSource === 'mysql') await saveCollectionRecord('users', userId, userData);
       else setDocumentNonBlocking(doc(db, 'users', userId), userData);
 
       const configs = await getJiraConfigs(dataSource);
       let jiraKey = 'MANUELL';
+      let jiraSucceeded = false;
       
       if (configs.length > 0 && configs[0].enabled) {
         const res = await createJiraTicket(configs[0].id, `ONBOARDING: ${newUserName}`, `Account für ${newUserName} (Mandant: ${targetTenantId})`, dataSource);
         if (res.success) {
           jiraKey = res.key!;
+          jiraSucceeded = true;
         } else {
-          toast({ variant: "destructive", title: "Jira Hinweis", description: "Benutzer wurde angelegt, aber Jira Ticket konnte nicht erstellt werden: " + (res.error || "Unbekannt") });
+          // Zeige den Jira-Fehler deutlich an, bevor die Erfolgsmeldung kommt
+          toast({ 
+            variant: "destructive", 
+            title: "Jira API Fehler", 
+            description: res.error || "Unbekannter Fehler bei der Ticketerstellung." 
+          });
         }
       }
 
@@ -254,13 +261,20 @@ export default function LifecyclePage() {
         after: userData
       });
 
-      toast({ title: "Onboarding angestoßen" });
+      // Zeige die finale Erfolgsmeldung verzögert an, falls ein Jira-Fehler vorliegt
+      setTimeout(() => {
+        toast({ 
+          title: "Onboarding Prozess aktiv", 
+          description: jiraSucceeded ? "Identität angelegt und Jira Ticket erstellt." : "Identität angelegt, Jira Ticket muss manuell geprüft werden."
+        });
+      }, jiraSucceeded ? 0 : 1500);
+
       setNewUserName('');
       setNewEmail('');
       setSelectedBundleId(null);
       setTimeout(() => { refreshUsers(); refreshAssignments(); }, 300);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Fehler", description: error.message });
+      toast({ variant: "destructive", title: "Systemfehler", description: error.message });
     } finally {
       setIsActionLoading(false);
     }
@@ -273,13 +287,15 @@ export default function LifecyclePage() {
       const userAssignments = assignments?.filter((a: any) => a.userId === userToOffboard.id && a.status === 'active') || [];
       const configs = await getJiraConfigs(dataSource);
       let jiraKey = 'OFFB-PENDING';
+      let jiraSucceeded = false;
       
       if (configs.length > 0 && configs[0].enabled) {
         const res = await createJiraTicket(configs[0].id, `OFFBOARDING: ${userToOffboard.displayName}`, `Deaktivierung für ${userToOffboard.email}`, dataSource);
         if (res.success) {
           jiraKey = res.key!;
+          jiraSucceeded = true;
         } else {
-          toast({ variant: "destructive", title: "Jira Hinweis", description: "Offboarding eingeleitet, aber Jira Ticket fehlgeschlagen: " + (res.error || "Unbekannt") });
+          toast({ variant: "destructive", title: "Jira API Fehler", description: res.error || "Offboarding Ticket konnte nicht erstellt werden." });
         }
       }
 
@@ -297,7 +313,10 @@ export default function LifecyclePage() {
         entityId: userToOffboard.id
       });
 
-      toast({ title: "Offboarding eingeleitet" });
+      setTimeout(() => {
+        toast({ title: "Offboarding Prozess aktiv", description: jiraSucceeded ? "Jira Ticket erfolgreich erstellt." : "Prozess eingeleitet, Jira Ticket manuell erstellen." });
+      }, jiraSucceeded ? 0 : 1500);
+
       setIsOffboardConfirmOpen(false); 
       setTimeout(() => refreshAssignments(), 300);
     } catch (error: any) {

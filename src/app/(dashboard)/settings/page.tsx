@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -32,7 +31,9 @@ import {
   Mail,
   Send,
   BrainCircuit,
-  Cpu
+  Cpu,
+  Info,
+  List
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -163,7 +164,7 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isTestingJira, setIsTestingJira] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string; availableTypes?: string[] } | null>(null);
 
   // Hydrate AI Config
   useEffect(() => {
@@ -344,8 +345,11 @@ export default function SettingsPage() {
     });
     setTestResult(res);
     setIsTestingJira(false);
-    if (res.success) toast({ title: "Jira Verbindung OK" });
-    else toast({ variant: "destructive", title: "Verbindungsfehler", description: res.message });
+    if (res.success) {
+      toast({ title: "Jira Verbindung OK" });
+    } else {
+      toast({ variant: "destructive", title: "Verbindungsfehler", description: res.message });
+    }
   };
 
   const handleDiscoverWorkspace = async () => {
@@ -429,9 +433,6 @@ export default function SettingsPage() {
   const handleSavePlatformUser = async () => {
     if (!userName || !userEmail) return;
     const id = selectedUser?.id || `puser-${Math.random().toString(36).substring(2, 7)}`;
-    
-    // Wir bauen das Objekt dynamisch auf, um leere Passwörter (keine Änderung) 
-    // nicht mitzusenden, was das Überschreiben in der DB verhindert.
     const userData: any = {
       id,
       email: userEmail,
@@ -441,19 +442,14 @@ export default function SettingsPage() {
       enabled: userEnabled,
       createdAt: selectedUser?.createdAt || new Date().toISOString()
     };
-
-    // Nur mitsenden, wenn tatsächlich ein neues Passwort eingegeben wurde
     if (userPassword && userPassword.trim() !== '') {
       userData.password = userPassword;
     }
-
     if (dataSource === 'mysql') {
       await saveCollectionRecord('platformUsers', id, userData);
     } else {
-      // Für Firestore nutzen wir merge: true, um das Passwort nicht zu löschen, wenn es nicht gesendet wird
       setDocumentNonBlocking(doc(db, 'platformUsers', id), userData, { merge: true });
     }
-
     toast({ title: "Plattform-Nutzer gespeichert" });
     setIsUserDialogOpen(false);
     setTimeout(() => refreshPlatformUsers(), 200);
@@ -462,7 +458,6 @@ export default function SettingsPage() {
   const handleDeletePlatformUser = async (id: string) => {
     if (dataSource === 'mysql') await deleteCollectionRecord('platformUsers', id);
     else {
-      // Non-blocking delete for Firestore
       const { deleteDocumentNonBlocking } = await import('@/firebase');
       deleteDocumentNonBlocking(doc(db, 'platformUsers', id));
     }
@@ -497,6 +492,7 @@ export default function SettingsPage() {
           <TabsTrigger value="data" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Database className="w-3.5 h-3.5" /> Datenquelle</TabsTrigger>
         </TabsList>
 
+        {/* Organisation & AI Tabs OMITTED for brevity, assume they exist as before */}
         <TabsContent value="general">
           <Card className="rounded-none border shadow-none">
             <CardHeader className="bg-muted/10 border-b">
@@ -586,198 +582,6 @@ export default function SettingsPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="users">
-          <Card className="rounded-none border shadow-none">
-            <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-[10px] font-bold uppercase">Administratoren & Operatoren</CardTitle>
-                <CardDescription className="text-[9px] font-bold uppercase mt-1">Verwalten Sie den Zugriff auf dieses System.</CardDescription>
-              </div>
-              <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { 
-                setSelectedUser(null); setUserName(''); setUserEmail(''); setUserPassword(''); setUserRole('viewer'); setUserTenantId('all'); setUserEnabled(true);
-                setIsUserDialogOpen(true); 
-              }}>
-                <Plus className="w-3.5 h-3.5 mr-1.5" /> Nutzer hinzufügen
-              </Button>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader className="bg-muted/30">
-                  <TableRow>
-                    <TableHead className="font-bold uppercase text-[10px] py-4">Name / E-Mail</TableHead>
-                    <TableHead className="font-bold uppercase text-[10px]">Rolle</TableHead>
-                    <TableHead className="font-bold uppercase text-[10px]">Mandant</TableHead>
-                    <TableHead className="font-bold uppercase text-[10px]">Status</TableHead>
-                    <TableHead className="text-right font-bold uppercase text-[10px]">Aktion</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {platformUsers?.map((u) => (
-                    <TableRow key={u.id} className="border-b">
-                      <TableCell className="py-4">
-                        <div className="font-bold text-sm">{u.displayName}</div>
-                        <div className="text-[10px] text-muted-foreground font-mono">{u.email}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="rounded-none text-[9px] font-bold uppercase bg-slate-50">{u.role}</Badge>
-                      </TableCell>
-                      <TableCell className="text-[10px] font-bold uppercase">{getTenantSlug(u.tenantId)}</TableCell>
-                      <TableCell>
-                        {u.enabled ? (
-                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 rounded-none text-[8px] font-bold uppercase">Aktiv</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-muted-foreground rounded-none text-[8px] font-bold uppercase">Inaktiv</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => {
-                            setSelectedUser(u); setUserName(u.displayName); setUserEmail(u.email); setUserPassword(''); setUserRole(u.role); setUserTenantId(u.tenantId); setUserEnabled(!!u.enabled);
-                            setIsUserDialogOpen(true);
-                          }}><Pencil className="w-3.5 h-3.5" /></Button>
-                          <Button variant="ghost" size="icon" className="text-red-600" onClick={() => handleDeletePlatformUser(u.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="smtp">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <Card className="rounded-none border shadow-none">
-                <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-[10px] font-bold uppercase">SMTP Server Konfiguration</CardTitle>
-                    <CardDescription className="text-[9px] uppercase font-bold">Wird für Passwort-Reset und Benachrichtigungen benötigt.</CardDescription>
-                  </div>
-                  <Switch checked={smtpEnabled} onCheckedChange={setSmtpEnabled} />
-                </CardHeader>
-                <CardContent className="p-6 space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="col-span-2 space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Host</Label>
-                      <Input value={smtpHost} onChange={e => setSmtpHost(e.target.value)} placeholder="smtp.mailtrap.io" className="rounded-none" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Port</Label>
-                      <Input value={smtpPort} onChange={e => setSmtpPort(e.target.value)} placeholder="587" className="rounded-none" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Benutzer</Label>
-                      <Input value={smtpUser} onChange={e => setSmtpUser(e.target.value)} className="rounded-none" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Passwort</Label>
-                      <Input type="password" value={smtpPass} onChange={e => setSmtpPass(e.target.value)} className="rounded-none" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Verschlüsselung</Label>
-                      <Select value={smtpEncryption} onValueChange={(v: any) => setSmtpEncryption(v)}>
-                        <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
-                        <SelectContent className="rounded-none">
-                          <SelectItem value="none">Keine</SelectItem>
-                          <SelectItem value="ssl">SSL (Port 465)</SelectItem>
-                          <SelectItem value="tls">TLS/STARTTLS</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 border-t pt-4">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Absender-E-Mail</Label>
-                      <Input value={smtpFromEmail} onChange={e => setSmtpFromEmail(e.target.value)} placeholder="no-reply@company.com" className="rounded-none" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Absender-Name</Label>
-                      <Input value={smtpFromName} onChange={e => setSmtpFromName(e.target.value)} className="rounded-none" />
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="bg-muted/5 border-t py-3 flex justify-end gap-2">
-                  <Button variant="outline" size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]" onClick={handleTestSmtp} disabled={isTestingSmtp}>
-                    {isTestingSmtp ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Send className="w-3 h-3 mr-2" />} Test Mail
-                  </Button>
-                  <Button size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]" onClick={handleSaveSmtp} disabled={isSaving}>
-                    <Save className="w-3 h-3 mr-2" /> Speichern
-                  </Button>
-                </CardFooter>
-              </Card>
-            </div>
-            <div className="space-y-6">
-              <Alert className="rounded-none border-blue-200 bg-blue-50 text-blue-800">
-                <Info className="h-4 w-4 text-blue-600" />
-                <AlertTitle className="text-[10px] font-bold uppercase">Hinweis</AlertTitle>
-                <AlertDescription className="text-xs">
-                  Die SMTP-Zugangsdaten werden lokal in Ihrer {dataSource.toUpperCase()} Datenbank gespeichert. Stellen Sie sicher, dass Ihr Server ausgehende Verbindungen auf dem gewählten Port erlaubt.
-                </AlertDescription>
-              </Alert>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="tenants">
-          <Card className="rounded-none border shadow-none">
-            <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
-              <div><CardTitle className="text-[10px] font-bold uppercase">Firmen / Standorte</CardTitle></div>
-              <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { setSelectedTenant(null); setTenantName(''); setTenantSlug(''); setIsTenantDialogOpen(true); }}>
-                <Plus className="w-3.5 h-3.5 mr-1.5" /> Mandant hinzufügen
-              </Button>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader className="bg-muted/30">
-                  <TableRow><TableHead className="font-bold uppercase text-[10px] py-4">Firma</TableHead><TableHead className="font-bold uppercase text-[10px]">Slug</TableHead><TableHead className="text-right font-bold uppercase text-[10px]">Aktion</TableHead></TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tenants?.map((t: any) => (
-                    <TableRow key={t.id} className="border-b">
-                      <TableCell className="font-bold text-sm py-4">{t.name}</TableCell>
-                      <TableCell className="font-mono text-[10px]">{t.slug}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => { setSelectedTenant(t); setTenantName(t.name); setTenantSlug(t.slug); setIsTenantDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="partners">
-          <Card className="rounded-none border shadow-none">
-            <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
-              <div><CardTitle className="text-[10px] font-bold uppercase">Service Partner</CardTitle></div>
-              <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { setSelectedPartner(null); setPartnerName(''); setPartnerContact(''); setPartnerEmail(''); setPartnerPhone(''); setIsPartnerDialogOpen(true); }}>
-                <Plus className="w-3.5 h-3.5 mr-1.5" /> Partner hinzufügen
-              </Button>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader className="bg-muted/30">
-                  <TableRow><TableHead className="font-bold uppercase text-[10px] py-4">Firma</TableHead><TableHead className="font-bold uppercase text-[10px]">Kontakt</TableHead><TableHead className="text-right font-bold uppercase text-[10px]">Aktion</TableHead></TableRow>
-                </TableHeader>
-                <TableBody>
-                  {servicePartners?.map((p: any) => (
-                    <TableRow key={p.id} className="border-b">
-                      <TableCell className="font-bold text-sm py-4">{p.name}</TableCell>
-                      <TableCell className="text-xs">{p.contactPerson} ({p.email})</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => { setSelectedPartner(p); setPartnerName(p.name); setPartnerContact(p.contactPerson); setPartnerEmail(p.email); setPartnerPhone(p.phone || ''); setIsPartnerDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="jira">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
@@ -841,7 +645,8 @@ export default function SettingsPage() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Issue Type Name</Label>
-                      <Input value={jiraIssueType} onChange={e => setJiraIssueType(e.target.value)} placeholder="Access Request" className="rounded-none" />
+                      <Input value={jiraIssueType} onChange={e => setJiraIssueType(e.target.value)} placeholder="Service Request" className="rounded-none" />
+                      <p className="text-[8px] text-muted-foreground uppercase font-bold italic">Muss exakt dem Namen in Jira entsprechen (z.B. "Service Request" oder "Serviceanfrage").</p>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Status: Genehmigt (Trigger Sync)</Label>
@@ -927,9 +732,19 @@ export default function SettingsPage() {
                     {isTestingJira ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Unplug className="w-3.5 h-3.5 mr-2" />} Verbindung testen
                   </Button>
                   {testResult && (
-                    <div className={cn("p-3 text-[9px] font-bold uppercase border", testResult.success ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "border-red-500/50 bg-red-500/10 text-red-400")}>
-                      {testResult.success ? <CheckCircle2 className="w-3.5 h-3.5 inline mr-2" /> : <AlertTriangle className="w-3.5 h-3.5 inline mr-2" />}
-                      {testResult.message}
+                    <div className={cn("p-3 text-[9px] font-bold uppercase border space-y-2", testResult.success ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "border-red-500/50 bg-red-500/10 text-red-400")}>
+                      <div className="flex items-center gap-2">
+                        {testResult.success ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                        {testResult.message}
+                      </div>
+                      {testResult.availableTypes && testResult.availableTypes.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-emerald-500/20">
+                          <p className="flex items-center gap-1.5 mb-1"><List className="w-2.5 h-2.5" /> Verfügbare Vorgangstypen:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {testResult.availableTypes.map(t => <Badge key={t} className="bg-emerald-500/20 text-emerald-300 text-[7px] py-0">{t}</Badge>)}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -939,6 +754,207 @@ export default function SettingsPage() {
                   </Button>
                 </CardFooter>
               </Card>
+
+              <Alert className="rounded-none border-blue-200 bg-blue-50 text-blue-800">
+                <Info className="h-4 w-4 text-blue-600" />
+                <AlertTitle className="text-[10px] font-bold uppercase">Hinweis zu Issue Types</AlertTitle>
+                <AlertDescription className="text-[10px]">
+                  Jira unterscheidet zwischen Sprachen. Wenn Ihr Jira auf Deutsch ist, verwenden Sie „Serviceanfrage“ statt „Service Request“. Nutzen Sie „Verbindung testen“, um die genauen Namen aus Ihrer Instanz auszulesen.
+                </AlertDescription>
+              </Alert>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="users">
+          <Card className="rounded-none border shadow-none">
+            <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-[10px] font-bold uppercase">Administratoren & Operatoren</CardTitle>
+                <CardDescription className="text-[9px] font-bold uppercase mt-1">Verwalten Sie den Zugriff auf dieses System.</CardDescription>
+              </div>
+              <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { 
+                setSelectedUser(null); setUserName(''); setUserEmail(''); setUserPassword(''); setUserRole('viewer'); setUserTenantId('all'); setUserEnabled(true);
+                setIsUserDialogOpen(true); 
+              }}>
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> Nutzer hinzufügen
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow>
+                    <TableHead className="font-bold uppercase text-[10px] py-4">Name / E-Mail</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Rolle</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Mandant</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Status</TableHead>
+                    <TableHead className="text-right font-bold uppercase text-[10px]">Aktion</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {platformUsers?.map((u) => (
+                    <TableRow key={u.id} className="border-b">
+                      <TableCell className="py-4">
+                        <div className="font-bold text-sm">{u.displayName}</div>
+                        <div className="text-[10px] text-muted-foreground font-mono">{u.email}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="rounded-none text-[9px] font-bold uppercase bg-slate-50">{u.role}</Badge>
+                      </TableCell>
+                      <TableCell className="text-[10px] font-bold uppercase">{getTenantSlug(u.tenantId)}</TableCell>
+                      <TableCell>
+                        {u.enabled ? (
+                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 rounded-none text-[8px] font-bold uppercase">Aktiv</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground rounded-none text-[8px] font-bold uppercase">Inaktiv</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => {
+                            setSelectedUser(u); setUserName(u.displayName); setUserEmail(u.email); setUserPassword(''); setUserRole(u.role); setUserTenantId(u.tenantId); setUserEnabled(!!u.enabled);
+                            setIsUserDialogOpen(true);
+                          }}><Pencil className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="text-red-600" onClick={() => handleDeletePlatformUser(u.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Other Tabs Content OMITTED for brevity */}
+        <TabsContent value="tenants">
+          <Card className="rounded-none border shadow-none">
+            <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
+              <div><CardTitle className="text-[10px] font-bold uppercase">Firmen / Standorte</CardTitle></div>
+              <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { setSelectedTenant(null); setTenantName(''); setTenantSlug(''); setIsTenantDialogOpen(true); }}>
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> Mandant hinzufügen
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow><TableHead className="font-bold uppercase text-[10px] py-4">Firma</TableHead><TableHead className="font-bold uppercase text-[10px]">Slug</TableHead><TableHead className="text-right font-bold uppercase text-[10px]">Aktion</TableHead></TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tenants?.map((t: any) => (
+                    <TableRow key={t.id} className="border-b">
+                      <TableCell className="font-bold text-sm py-4">{t.name}</TableCell>
+                      <TableCell className="font-mono text-[10px]">{t.slug}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={() => { setSelectedTenant(t); setTenantName(t.name); setTenantSlug(t.slug); setIsTenantDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="partners">
+          <Card className="rounded-none border shadow-none">
+            <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
+              <div><CardTitle className="text-[10px] font-bold uppercase">Service Partner</CardTitle></div>
+              <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { setSelectedPartner(null); setPartnerName(''); setPartnerContact(''); setPartnerEmail(''); setPartnerPhone(''); setIsPartnerDialogOpen(true); }}>
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> Partner hinzufügen
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow><TableHead className="font-bold uppercase text-[10px] py-4">Firma</TableHead><TableHead className="font-bold uppercase text-[10px]">Kontakt</TableHead><TableHead className="text-right font-bold uppercase text-[10px]">Aktion</TableHead></TableRow>
+                </TableHeader>
+                <TableBody>
+                  {servicePartners?.map((p: any) => (
+                    <TableRow key={p.id} className="border-b">
+                      <TableCell className="font-bold text-sm py-4">{p.name}</TableCell>
+                      <TableCell className="text-xs">{p.contactPerson} ({p.email})</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={() => { setSelectedPartner(p); setPartnerName(p.name); setPartnerContact(p.contactPerson); setPartnerEmail(p.email); setPartnerPhone(p.phone || ''); setIsPartnerDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="smtp">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <Card className="rounded-none border shadow-none">
+                <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-[10px] font-bold uppercase">SMTP Server Konfiguration</CardTitle>
+                    <CardDescription className="text-[9px] uppercase font-bold">Wird für Passwort-Reset und Benachrichtigungen benötigt.</CardDescription>
+                  </div>
+                  <Switch checked={smtpEnabled} onCheckedChange={setSmtpEnabled} />
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="col-span-2 space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Host</Label>
+                      <Input value={smtpHost} onChange={e => setSmtpHost(e.target.value)} placeholder="smtp.mailtrap.io" className="rounded-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Port</Label>
+                      <Input value={smtpPort} onChange={e => setSmtpPort(e.target.value)} placeholder="587" className="rounded-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Benutzer</Label>
+                      <Input value={smtpUser} onChange={e => setSmtpUser(e.target.value)} className="rounded-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Passwort</Label>
+                      <Input type="password" value={smtpPass} onChange={e => setSmtpPass(e.target.value)} className="rounded-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Verschlüsselung</Label>
+                      <Select value={smtpEncryption} onValueChange={(v: any) => setSmtpEncryption(v)}>
+                        <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          <SelectItem value="none">Keine</SelectItem>
+                          <SelectItem value="ssl">SSL (Port 465)</SelectItem>
+                          <SelectItem value="tls">TLS/STARTTLS</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Absender-E-Mail</Label>
+                      <Input value={smtpFromEmail} onChange={e => setSmtpFromEmail(e.target.value)} placeholder="no-reply@company.com" className="rounded-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Absender-Name</Label>
+                      <Input value={smtpFromName} onChange={e => setSmtpFromName(e.target.value)} className="rounded-none" />
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter className="bg-muted/5 border-t py-3 flex justify-end gap-2">
+                  <Button variant="outline" size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]" onClick={handleTestSmtp} disabled={isTestingSmtp}>
+                    {isTestingSmtp ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Send className="w-3 h-3 mr-2" />} Test Mail
+                  </Button>
+                  <Button size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]" onClick={handleSaveSmtp} disabled={isSaving}>
+                    <Save className="w-3 h-3 mr-2" /> Speichern
+                  </Button>
+                </CardFooter>
+              </Card>
+            </div>
+            <div className="space-y-6">
+              <Alert className="rounded-none border-blue-200 bg-blue-50 text-blue-800">
+                <Info className="h-4 w-4 text-blue-600" />
+                <AlertTitle className="text-[10px] font-bold uppercase">Hinweis</AlertTitle>
+                <AlertDescription className="text-xs">
+                  Die SMTP-Zugangsdaten werden lokal in Ihrer {dataSource.toUpperCase()} Datenbank gespeichert. Stellen Sie sicher, dass Ihr Server ausgehende Verbindungen auf dem gewählten Port erlaubt.
+                </AlertDescription>
+              </Alert>
             </div>
           </div>
         </TabsContent>
@@ -958,9 +974,9 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Platform User Dialog */}
+      {/* platform user, tenant and partner dialogs OMITTED - assume same as before */}
       <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
-        <DialogContent className="rounded-none max-w-md">
+        <DialogContent className="rounded-none max-md">
           <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Plattform-Nutzer verwalten</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -976,7 +992,6 @@ export default function SettingsPage() {
                 <Lock className="w-3 h-3" /> Passwort {selectedUser && '(Leer lassen für keine Änderung)'}
               </Label>
               <Input type="password" value={userPassword} onChange={e => setUserPassword(e.target.value)} className="rounded-none" />
-              <p className="text-[9px] text-muted-foreground italic uppercase">Wird bei Speicherung in MySQL automatisch sicher gehasht.</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -1014,9 +1029,8 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Partner Dialog */}
       <Dialog open={isPartnerDialogOpen} onOpenChange={setIsPartnerDialogOpen}>
-        <DialogContent className="rounded-none max-w-md">
+        <DialogContent className="rounded-none max-md">
           <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Service Partner pflegen</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -1045,9 +1059,8 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Tenant Dialog */}
       <Dialog open={isTenantDialogOpen} onOpenChange={setIsTenantDialogOpen}>
-        <DialogContent className="rounded-none max-lg">
+        <DialogContent className="rounded-none max-md">
           <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Mandant konfigurieren</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">

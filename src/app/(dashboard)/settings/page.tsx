@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -18,11 +17,13 @@ import {
   AlertTriangle,
   Zap,
   Box,
-  Info,
-  HelpCircle,
+  Plus,
+  Building2,
+  Trash2,
+  Pencil,
   Search,
-  ChevronRight,
-  RefreshCw
+  RefreshCw,
+  ChevronRight
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
@@ -34,9 +35,17 @@ import {
   getJiraWorkspacesAction,
   getJiraAttributesAction
 } from '@/app/actions/jira-actions';
-import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { cn } from '@/lib/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { 
+  useFirestore, 
+  setDocumentNonBlocking, 
+  addDocumentNonBlocking,
+  deleteDocumentNonBlocking,
+  useUser as useAuthUser
+} from '@/firebase';
+import { doc, collection } from 'firebase/firestore';
+import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   Dialog,
   DialogContent,
@@ -45,12 +54,34 @@ import {
   DialogDescription,
   DialogFooter
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function SettingsPage() {
-  const [tenantName, setTenantName] = useState('Acme Corp');
-  const [tenantSlug, setTenantSlug] = useState('acme');
+  const db = useFirestore();
+  const { user: authUser } = useAuthUser();
   const { dataSource, setDataSource } = useSettings();
   
+  // Tabs state
+  const [activeTab, setActiveTab] = useState('general');
+
+  // Tenant Management State
+  const { data: tenants, isLoading: isTenantsLoading, refresh: refreshTenants } = usePluggableCollection<any>('tenants');
+  const [isTenantDialogOpen, setIsTenantDialogOpen] = useState(false);
+  const [isTenantDeleteOpen, setIsTenantDeleteOpen] = useState(false);
+  const [selectedTenant, setSelectedTenant] = useState<any>(null);
+  const [tenantName, setTenantName] = useState('');
+  const [tenantSlug, setTenantSlug] = useState('');
+
   // Jira State
   const [jiraUrl, setJiraUrl] = useState('');
   const [jiraEmail, setJiraEmail] = useState('');
@@ -70,7 +101,7 @@ export default function SettingsPage() {
   const [assetsRoleNameAttributeId, setAssetsRoleNameAttributeId] = useState('1');
   const [assetsSystemAttributeId, setAssetsSystemAttributeId] = useState('');
 
-  // Dropdown / Modal States
+  // Dropdown / Modal States for Jira
   const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>([]);
   const [isFetchingWorkspaces, setIsFetchingWorkspaces] = useState(false);
   const [isFetchingResAttributes, setIsFetchingResAttributes] = useState(false);
@@ -107,12 +138,89 @@ export default function SettingsPage() {
     loadJira();
   }, []);
 
+  // Tenant CRUD
+  const handleSaveTenant = async () => {
+    if (!tenantName || !tenantSlug) {
+      toast({ variant: "destructive", title: "Fehler", description: "Name und Slug sind erforderlich." });
+      return;
+    }
+
+    const id = selectedTenant?.id || `t-${Math.random().toString(36).substring(2, 7)}`;
+    const tenantData = {
+      id,
+      name: tenantName,
+      slug: tenantSlug.toLowerCase().replace(/\s+/g, '-'),
+      createdAt: selectedTenant?.createdAt || new Date().toISOString()
+    };
+
+    const auditId = `audit-${Math.random().toString(36).substring(2, 9)}`;
+    const auditData = {
+      id: auditId,
+      actorUid: authUser?.uid || 'system',
+      action: selectedTenant ? `Mandant [${tenantName}] aktualisiert` : `Neuer Mandant [${tenantName}] angelegt`,
+      entityType: 'tenant',
+      entityId: id,
+      timestamp: new Date().toISOString(),
+      tenantId: id,
+      before: selectedTenant || null,
+      after: tenantData
+    };
+
+    if (dataSource === 'mysql') {
+      await saveCollectionRecord('tenants', id, tenantData);
+      await saveCollectionRecord('auditEvents', auditId, auditData);
+    } else {
+      setDocumentNonBlocking(doc(db, 'tenants', id), tenantData);
+      addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
+    }
+
+    toast({ title: selectedTenant ? "Mandant aktualisiert" : "Mandant angelegt" });
+    setIsTenantDialogOpen(false);
+    resetTenantForm();
+    setTimeout(() => refreshTenants(), 200);
+  };
+
+  const handleDeleteTenant = async () => {
+    if (!selectedTenant) return;
+
+    const auditId = `audit-${Math.random().toString(36).substring(2, 9)}`;
+    const auditData = {
+      id: auditId,
+      actorUid: authUser?.uid || 'system',
+      action: `Mandant [${selectedTenant.name}] gelöscht`,
+      entityType: 'tenant',
+      entityId: selectedTenant.id,
+      timestamp: new Date().toISOString(),
+      tenantId: 'global',
+      before: selectedTenant
+    };
+
+    if (dataSource === 'mysql') {
+      await deleteCollectionRecord('tenants', selectedTenant.id);
+      await saveCollectionRecord('auditEvents', auditId, auditData);
+    } else {
+      deleteDocumentNonBlocking(doc(db, 'tenants', selectedTenant.id));
+      addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
+    }
+
+    toast({ title: "Mandant gelöscht" });
+    setIsTenantDeleteOpen(false);
+    setSelectedTenant(null);
+    setTimeout(() => refreshTenants(), 200);
+  };
+
+  const resetTenantForm = () => {
+    setSelectedTenant(null);
+    setTenantName('');
+    setTenantSlug('');
+  };
+
+  // Jira Actions (Unchanged)
   const fetchWorkspaces = async () => {
     if (!jiraUrl || !jiraEmail || !jiraToken) {
       toast({ variant: "destructive", title: "Fehlende Daten", description: "Bitte geben Sie zuerst URL, E-Mail und API Token ein." });
       return;
     }
-
     setIsFetchingWorkspaces(true);
     try {
       const res = await getJiraWorkspacesAction({ url: jiraUrl, email: jiraEmail, apiToken: jiraToken });
@@ -131,14 +239,11 @@ export default function SettingsPage() {
 
   const discoverNameAttribute = async (type: 'resource' | 'role') => {
     const objectTypeId = type === 'resource' ? assetsResourceObjectTypeId : assetsRoleObjectTypeId;
-    
     if (!assetsWorkspaceId || !objectTypeId) {
       toast({ variant: "destructive", title: "Fehlende Daten", description: "Workspace ID und Objekttyp ID werden benötigt." });
       return;
     }
-
     if (type === 'resource') setIsFetchingResAttributes(true); else setIsFetchingRoleAttributes(true);
-    
     try {
       const res = await getJiraAttributesAction({
         url: jiraUrl,
@@ -147,7 +252,6 @@ export default function SettingsPage() {
         workspaceId: assetsWorkspaceId,
         objectTypeId: objectTypeId
       });
-
       if (res.success && res.labelAttributeId) {
         if (type === 'resource') setAssetsResourceNameAttributeId(res.labelAttributeId);
         else setAssetsRoleNameAttributeId(res.labelAttributeId);
@@ -167,7 +271,6 @@ export default function SettingsPage() {
       toast({ variant: "destructive", title: "Fehlende Daten", description: "Workspace ID, Rollen-Typ ID und Ressourcen-Typ ID werden benötigt." });
       return;
     }
-
     setIsFetchingRefAttributes(true);
     try {
       const res = await getJiraAttributesAction({
@@ -178,7 +281,6 @@ export default function SettingsPage() {
         objectTypeId: assetsRoleObjectTypeId,
         targetObjectTypeId: assetsResourceObjectTypeId
       });
-
       if (res.success && res.referenceAttributeId) {
         setAssetsSystemAttributeId(res.referenceAttributeId);
         toast({ title: "Referenz-ID erkannt", description: `Die ID für die Systemverknüpfung ist ${res.referenceAttributeId}.` });
@@ -195,10 +297,6 @@ export default function SettingsPage() {
   const selectWorkspace = (ws: { id: string; name: string }) => {
     setAssetsWorkspaceId(ws.id);
     setIsWorkspaceDialogOpen(false);
-  };
-
-  const handleSaveGeneral = () => {
-    toast({ title: "Einstellungen gespeichert" });
   };
 
   const handleTestJira = async () => {
@@ -257,18 +355,70 @@ export default function SettingsPage() {
         <div className="flex items-center gap-2">
           <Search className="w-4 h-4 text-muted-foreground" />
           <div className="bg-primary/10 text-primary px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-wider">
-            Acme Corp
+            Plattform-Management
           </div>
         </div>
       </div>
 
-      <Tabs defaultValue="jira" className="space-y-6">
-        <TabsList className="bg-card border h-12 p-1 gap-1 rounded-none w-full justify-start">
-          <TabsTrigger value="general" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Settings className="w-3.5 h-3.5" /> Allgemein</TabsTrigger>
-          <TabsTrigger value="jira" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><ExternalLink className="w-3.5 h-3.5" /> JIRA Integration</TabsTrigger>
-          <TabsTrigger value="data" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Database className="w-3.5 h-3.5" /> Datenquelle</TabsTrigger>
-          <TabsTrigger value="security" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Lock className="w-3.5 h-3.5" /> Sicherheit</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="bg-card border h-12 p-1 gap-1 rounded-none w-full justify-start overflow-x-auto overflow-y-hidden">
+          <TabsTrigger value="general" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase shrink-0"><Settings className="w-3.5 h-3.5" /> Allgemein</TabsTrigger>
+          <TabsTrigger value="tenants" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase shrink-0"><Building2 className="w-3.5 h-3.5" /> Mandanten</TabsTrigger>
+          <TabsTrigger value="jira" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase shrink-0"><ExternalLink className="w-3.5 h-3.5" /> JIRA Integration</TabsTrigger>
+          <TabsTrigger value="data" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase shrink-0"><Database className="w-3.5 h-3.5" /> Datenquelle</TabsTrigger>
+          <TabsTrigger value="security" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase shrink-0"><Lock className="w-3.5 h-3.5" /> Sicherheit</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="tenants" className="space-y-6">
+          <Card className="rounded-none shadow-none border overflow-hidden">
+            <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Mandantenverwaltung</CardTitle>
+                <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">Verwalten Sie die Firmen in Ihrer IT-Landschaft.</CardDescription>
+              </div>
+              <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { resetTenantForm(); setIsTenantDialogOpen(true); }}>
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> Mandant hinzufügen
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow>
+                    <TableHead className="font-bold uppercase text-[10px] py-4">Name</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Slug / ID</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Erstellt am</TableHead>
+                    <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isTenantsLoading ? (
+                    <TableRow><TableCell colSpan={4} className="h-32 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                  ) : tenants?.length === 0 ? (
+                    <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic text-xs">Keine Mandanten konfiguriert.</TableCell></TableRow>
+                  ) : (
+                    tenants?.map((tenant: any) => (
+                      <TableRow key={tenant.id} className="hover:bg-muted/5 border-b">
+                        <TableCell className="font-bold text-sm py-4">{tenant.name}</TableCell>
+                        <TableCell className="font-mono text-[10px]">{tenant.slug}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{new Date(tenant.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => { setSelectedTenant(tenant); setTenantName(tenant.name); setTenantSlug(tenant.slug); setIsTenantDialogOpen(true); }}>
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => { setSelectedTenant(tenant); setIsTenantDeleteOpen(true); }}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="jira" className="space-y-6">
           <Card className="rounded-none shadow-none border overflow-hidden">
@@ -439,22 +589,22 @@ export default function SettingsPage() {
           <Card className="rounded-none shadow-none border">
             <CardHeader className="bg-muted/10 border-b">
               <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Organisation</CardTitle>
-              <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">Stammdaten Ihres Mandanten.</CardDescription>
+              <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">Stammdaten Ihrer Mandanten.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 p-6">
               <div className="grid grid-cols-2 gap-8">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">NAME DER ORGANISATION</Label>
-                  <Input value={tenantName} onChange={(e) => setTenantName(e.target.value)} className="rounded-none h-10" />
+                  <Input defaultValue="ComplianceHub Plattform" className="rounded-none h-10" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">MANDANTEN-SLUG (URL)</Label>
-                  <Input value={tenantSlug} onChange={(e) => setTenantSlug(e.target.value)} className="rounded-none h-10" />
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">INSTALLATIONS-SLUG</Label>
+                  <Input defaultValue="ch-primary" className="rounded-none h-10" />
                 </div>
               </div>
             </CardContent>
             <CardFooter className="border-t p-4 flex justify-end">
-              <Button onClick={handleSaveGeneral} className="rounded-none gap-2 font-bold uppercase text-[10px] h-11 px-8"><Save className="w-4 h-4" /> SPEICHERN</Button>
+              <Button className="rounded-none gap-2 font-bold uppercase text-[10px] h-11 px-8"><Save className="w-4 h-4" /> SPEICHERN</Button>
             </CardFooter>
           </Card>
         </TabsContent>
@@ -488,6 +638,53 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
 
+      {/* Tenant Management Dialog */}
+      <Dialog open={isTenantDialogOpen} onOpenChange={setIsTenantDialogOpen}>
+        <DialogContent className="rounded-none border shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold uppercase">
+              {selectedTenant ? 'Mandant bearbeiten' : 'Neuer Mandant'}
+            </DialogTitle>
+            <DialogDescription className="text-xs uppercase font-bold">
+              Konfigurieren Sie die Stammdaten der Organisation.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase tracking-widest">Name der Firma</Label>
+              <Input placeholder="z.B. Acme Corp" value={tenantName} onChange={e => setTenantName(e.target.value)} className="rounded-none h-10" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase tracking-widest">Slug / ID (für Filter)</Label>
+              <Input placeholder="z.B. acme" value={tenantSlug} onChange={e => setTenantSlug(e.target.value)} className="rounded-none h-10 font-mono text-xs" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" className="rounded-none" onClick={() => setIsTenantDialogOpen(false)}>Abbrechen</Button>
+            <Button className="rounded-none font-bold uppercase text-[10px]" onClick={handleSaveTenant}>Mandant speichern</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Tenant Delete Alert */}
+      <AlertDialog open={isTenantDeleteOpen} onOpenChange={setIsTenantDeleteOpen}>
+        <AlertDialogContent className="rounded-none shadow-2xl bg-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600 font-bold uppercase text-sm">
+              <AlertTriangle className="w-5 h-5" /> Mandant löschen?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              Möchten Sie den Mandanten "{selectedTenant?.name}" wirklich löschen? Dies hat keine direkten Auswirkungen auf die bereits zugewiesenen Nutzer oder Ressourcen, aber der Mandant erscheint nicht mehr in den Filtern.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTenant} className="bg-red-600 hover:bg-red-700 rounded-none font-bold uppercase text-xs">Unwiderruflich löschen</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Jira Workspace Dialog */}
       <Dialog open={isWorkspaceDialogOpen} onOpenChange={setIsWorkspaceDialogOpen}>
         <DialogContent className="rounded-none max-w-md">
           <DialogHeader>

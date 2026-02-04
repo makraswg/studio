@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -33,7 +32,8 @@ import {
   Workflow,
   Lock,
   ChevronRight,
-  UserCircle
+  UserCircle,
+  Building2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';

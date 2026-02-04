@@ -16,14 +16,31 @@ import {
   Workflow,
   Settings2,
   RefreshCw,
-  UserPlus
+  UserPlus,
+  User as UserIcon,
+  Lock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { 
+  useAuth, 
+  useUser 
+} from '@/firebase';
+import { signOut } from 'firebase/auth';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const auth = useAuth();
+  const { user } = useUser();
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -39,6 +56,10 @@ export function AppSidebar() {
   const integrationItems = [
     { name: 'Jira Sync', href: '/integrations/jira', icon: RefreshCw },
   ];
+
+  const handleLogout = async () => {
+    await signOut(auth);
+  };
 
   return (
     <div className="w-64 sidebar-admin flex flex-col h-screen sticky top-0 z-40">
@@ -139,25 +160,42 @@ export function AppSidebar() {
       </div>
 
       <div className="p-4 border-t border-slate-800">
-        <div className="flex items-center gap-3 mb-4 p-2 rounded-none hover:bg-white/5 cursor-pointer">
-          <Avatar className="h-8 w-8 rounded-none">
-            <AvatarFallback className="bg-primary/20 text-primary font-bold text-[10px]">AD</AvatarFallback>
-          </Avatar>
-          <div className="flex-1 overflow-hidden">
-            <p className="text-[11px] font-bold truncate">Acme Corp</p>
-            <p className="text-[10px] text-slate-500 truncate uppercase tracking-tighter">Super Admin</p>
-          </div>
-        </div>
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start text-slate-400 hover:text-red-400 hover:bg-red-400/10 gap-2 px-2 h-9 rounded-none transition-colors" 
-          asChild
-        >
-          <Link href="/">
-            <LogOut className="w-3.5 h-3.5" />
-            <span className="text-[11px] font-bold uppercase">Abmelden</span>
-          </Link>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <div className="flex items-center gap-3 p-2 rounded-none hover:bg-white/5 cursor-pointer outline-none transition-colors group">
+              <Avatar className="h-8 w-8 rounded-none border border-slate-700">
+                <AvatarFallback className="bg-primary/20 text-primary font-bold text-[10px] uppercase">
+                  {user?.email?.charAt(0) || 'A'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 overflow-hidden">
+                <p className="text-[11px] font-bold truncate group-hover:text-primary transition-colors">
+                  {user?.email || 'Administrator'}
+                </p>
+                <p className="text-[10px] text-slate-500 truncate uppercase tracking-tighter">Mein Konto</p>
+              </div>
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="end" sideOffset={12} className="w-56 rounded-none border-slate-800 bg-slate-900 text-slate-200">
+            <DropdownMenuLabel className="text-[9px] font-bold uppercase text-slate-500 px-3 py-2">
+              Benutzerverwaltung
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-slate-800" />
+            <DropdownMenuItem className="gap-3 px-3 py-2 text-[11px] font-bold uppercase cursor-pointer hover:bg-white/5 focus:bg-white/5 focus:text-white transition-colors">
+              <UserIcon className="w-3.5 h-3.5 text-slate-400" /> Profil
+            </DropdownMenuItem>
+            <DropdownMenuItem className="gap-3 px-3 py-2 text-[11px] font-bold uppercase cursor-pointer hover:bg-white/5 focus:bg-white/5 focus:text-white transition-colors">
+              <Lock className="w-3.5 h-3.5 text-slate-400" /> Passwort ändern
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-slate-800" />
+            <DropdownMenuItem 
+              onSelect={handleLogout}
+              className="gap-3 px-3 py-2 text-[11px] font-bold uppercase cursor-pointer text-red-400 hover:bg-red-400/10 focus:bg-red-400/10 focus:text-red-400 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Abmelden
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

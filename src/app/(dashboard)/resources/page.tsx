@@ -67,7 +67,7 @@ import { doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
-import { Entitlement } from '@/lib/types';
+import { Entitlement, Tenant } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 export default function ResourcesPage() {
@@ -96,11 +96,17 @@ export default function ResourcesPage() {
 
   const { data: resources, isLoading, refresh: refreshResources } = usePluggableCollection<any>('resources');
   const { data: entitlements, refresh: refreshEntitlements } = usePluggableCollection<any>('entitlements');
-  const { data: tenants } = usePluggableCollection<any>('tenants');
+  const { data: tenants } = usePluggableCollection<Tenant>('tenants');
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const getTenantSlug = (id?: string | null) => {
+    if (!id || id === 'global' || id === 'null' || id === 'undefined') return 'global';
+    const tenant = tenants?.find(t => t.id === id);
+    return tenant ? tenant.slug : id;
+  };
 
   const handleSaveResource = async () => {
     if (!resName) return;
@@ -191,7 +197,7 @@ export default function ResourcesPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Ressourcenkatalog</h1>
-          <p className="text-sm text-muted-foreground">Inventar für {activeTenantId === 'all' ? 'alle Standorte' : activeTenantId}.</p>
+          <p className="text-sm text-muted-foreground">Inventar für {activeTenantId === 'all' ? 'alle Standorte' : getTenantSlug(activeTenantId)}.</p>
         </div>
         <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => { setSelectedResource(null); setResName(''); setIsResourceDialogOpen(true); }}>
           <Plus className="w-3.5 h-3.5 mr-2" /> System registrieren
@@ -226,8 +232,16 @@ export default function ResourcesPage() {
                       <div className="font-bold text-sm">{resource.name}</div>
                       <div className="text-[10px] text-muted-foreground font-bold uppercase">{resource.type}</div>
                     </TableCell>
-                    <TableCell><Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none">{resource.tenantId || 'global'}</Badge></TableCell>
-                    <TableCell><Badge variant="outline" className={cn("text-[8px] font-bold uppercase rounded-none", resource.criticality === 'high' ? "text-red-600 border-red-100" : "text-slate-600")}>{resource.criticality}</Badge></TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none">
+                        {getTenantSlug(resource.tenantId)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={cn("text-[8px] font-bold uppercase rounded-none", resource.criticality === 'high' ? "text-red-600 border-red-100" : "text-slate-600")}>
+                        {resource.criticality}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {resourceEnts.slice(0, 3).map(e => (
@@ -265,7 +279,18 @@ export default function ResourcesPage() {
             <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">System-Name</Label><Input value={resName} onChange={e => setResName(e.target.value)} className="rounded-none" /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Typ</Label><Select value={resType} onValueChange={setResType}><SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger><SelectContent className="rounded-none">{['SaaS', 'OnPrem', 'IoT', 'Cloud'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></div>
-              <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Scope</Label><Select value={resTenantId} onValueChange={setResTenantId}><SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger><SelectContent className="rounded-none"><SelectItem value="global">Global (Alle Firmen)</SelectItem>{tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase">Scope</Label>
+                <Select value={resTenantId} onValueChange={setResTenantId}>
+                  <SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger>
+                  <SelectContent className="rounded-none">
+                    <SelectItem value="global">Global (Alle Firmen)</SelectItem>
+                    {tenants?.map((t: any) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name} ({t.slug})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter><Button onClick={handleSaveResource} className="rounded-none font-bold uppercase text-[10px]">Speichern</Button></DialogFooter>

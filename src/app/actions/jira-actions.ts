@@ -75,7 +75,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
         cache: 'no-store'
       });
       if (projectRes.ok) {
-        const projectData = await projectRes.ok ? await projectRes.json() : null;
+        const projectData = await projectRes.json();
         if (projectData && projectData.issueTypes) {
           availableTypes = projectData.issueTypes
             .filter((t: any) => !t.subtask)
@@ -187,6 +187,7 @@ export type JiraSyncResponse = {
 
 /**
  * Ruft Tickets ab, basierend auf ihrem Typ.
+ * Nutzt den neuen /rest/api/3/search/jql Endpunkt.
  */
 export async function fetchJiraSyncItems(
   configId: string, 
@@ -225,7 +226,8 @@ export async function fetchJiraSyncItems(
 
     jql += ' ORDER BY created DESC';
 
-    const response = await fetch(`${url}/rest/api/3/search`, {
+    // WICHTIG: Jira hat /rest/api/3/search auf /rest/api/3/search/jql migriert für POST Anfragen
+    const response = await fetch(`${url}/rest/api/3/search/jql`, {
       method: 'POST',
       headers: { 
         'Authorization': `Basic ${auth}`,
@@ -240,17 +242,17 @@ export async function fetchJiraSyncItems(
       cache: 'no-store'
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const errorBody = await response.text();
       return { 
         success: false, 
         items: [], 
         error: `Jira API Fehler (${response.status})`, 
-        details: errorBody 
+        details: JSON.stringify(data)
       };
     }
 
-    const data = await response.json();
     if (!data.issues) return { success: true, items: [] };
 
     const items = data.issues.map((issue: any) => {

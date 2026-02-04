@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,11 +14,14 @@ import { requestPasswordResetAction } from '@/app/actions/smtp-actions';
 import { toast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useAuth } from '@/firebase';
+import { signInAnonymously } from 'firebase/auth';
 
 export default function LoginPage() {
   const router = useRouter();
   const { user, setUser, isUserLoading } = usePlatformAuth();
   const { dataSource } = useSettings();
+  const auth = useAuth();
   
   const [mounted, setMounted] = useState(false);
   const [email, setEmail] = useState('');
@@ -53,12 +55,24 @@ export default function LoginPage() {
         throw new Error("Bitte E-Mail und Passwort eingeben.");
       }
 
+      // 1. Authentifizierung gegen die gewählte Datenquelle (MySQL oder Cloud)
       const result = await authenticateUserAction(dataSource, email, password);
       
       if (!result.success || !result.user) {
         setAuthError(result.error || "Zugriff verweigert. Bitte prüfen Sie Ihre Daten.");
         setIsActionLoading(false);
         return;
+      }
+
+      // 2. Falls im Cloud-Modus, stellen wir sicher, dass auch der Firebase Auth State aktiv ist
+      // Dies erlaubt den Zugriff auf Sammlungen, die 'isSignedIn()' in den Rules erfordern.
+      if (dataSource === 'firestore' && auth) {
+        try {
+          await signInAnonymously(auth);
+        } catch (fbErr) {
+          console.error("Firebase Auth Bridge failed", fbErr);
+          // Wir fahren trotzdem fort, da die Hub-Auth erfolgreich war
+        }
       }
       
       toast({ title: "Erfolgreich angemeldet" });

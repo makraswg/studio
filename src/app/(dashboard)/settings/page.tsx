@@ -30,7 +30,10 @@ import {
   ShieldCheck,
   Globe,
   Terminal,
-  Unplug
+  Unplug,
+  Wand2,
+  FileSearch,
+  Fingerprint
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +43,9 @@ import {
   getJiraConfigs, 
   testJiraConnectionAction, 
   getJiraWorkspacesAction,
+  getJiraSchemasAction,
+  getJiraObjectTypesAction,
+  getJiraAttributesAction
 } from '@/app/actions/jira-actions';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { cn } from '@/lib/utils';
@@ -116,6 +122,7 @@ export default function SettingsPage() {
   // UI States
   const [isSaving, setIsSaving] = useState(false);
   const [isTestingJira, setIsTestingJira] = useState(false);
+  const [isDiscovering, setIsDiscovering] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   useEffect(() => {
@@ -193,6 +200,57 @@ export default function SettingsPage() {
     setIsTestingJira(false);
     if (res.success) toast({ title: "Jira Verbindung OK" });
     else toast({ variant: "destructive", title: "Verbindungsfehler", description: res.message });
+  };
+
+  const handleDiscoverWorkspace = async () => {
+    setIsDiscovering('workspace');
+    const res = await getJiraWorkspacesAction({ url: jiraUrl, email: jiraEmail, apiToken: jiraToken });
+    setIsDiscovering(null);
+    if (res.success && res.workspaces && res.workspaces.length > 0) {
+      setAssetsWorkspaceId(res.workspaces[0].id);
+      toast({ title: "Workspace gefunden", description: `Verwende: ${res.workspaces[0].name}` });
+    } else {
+      toast({ variant: "destructive", title: "Fehler", description: res.error || "Kein Workspace gefunden." });
+    }
+  };
+
+  const handleDiscoverSchema = async () => {
+    if (!assetsWorkspaceId) return toast({ title: "Hinweis", description: "Zuerst Workspace ID benötigt." });
+    setIsDiscovering('schema');
+    const res = await getJiraSchemasAction({ url: jiraUrl, email: jiraEmail, apiToken: jiraToken, workspaceId: assetsWorkspaceId });
+    setIsDiscovering(null);
+    if (res.success && res.schemas && res.schemas.length > 0) {
+      setAssetsSchemaId(res.schemas[0].id);
+      toast({ title: "Schema gefunden", description: `Verwende: ${res.schemas[0].name}` });
+    } else {
+      toast({ variant: "destructive", title: "Fehler", description: res.error || "Kein Schema gefunden." });
+    }
+  };
+
+  const handleDiscoverAttributes = async (type: 'resource' | 'role') => {
+    const objectTypeId = type === 'resource' ? assetsResourceObjectTypeId : assetsRoleObjectTypeId;
+    if (!objectTypeId || !assetsWorkspaceId) return toast({ title: "Hinweis", description: "Objekttyp ID und Workspace ID erforderlich." });
+    
+    setIsDiscovering(`attr-${type}`);
+    const res = await getJiraAttributesAction({ 
+      url: jiraUrl, email: jiraEmail, apiToken: jiraToken, 
+      workspaceId: assetsWorkspaceId, 
+      objectTypeId,
+      targetObjectTypeId: type === 'role' ? assetsResourceObjectTypeId : undefined
+    });
+    setIsDiscovering(null);
+
+    if (res.success) {
+      if (type === 'resource') {
+        if (res.labelAttributeId) setAssetsResourceNameAttributeId(res.labelAttributeId);
+      } else {
+        if (res.labelAttributeId) setAssetsRoleNameAttributeId(res.labelAttributeId);
+        if (res.referenceAttributeId) setAssetsSystemAttributeId(res.referenceAttributeId);
+      }
+      toast({ title: "Attribute analysiert", description: "Mapping-Felder wurden automatisch befüllt." });
+    } else {
+      toast({ variant: "destructive", title: "Fehler", description: res.error });
+    }
   };
 
   const handleSaveTenant = async () => {
@@ -386,11 +444,21 @@ export default function SettingsPage() {
                 <CardContent className="p-6 space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Assets Workspace ID</Label>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-bold uppercase">Assets Workspace ID</Label>
+                        <Button variant="ghost" size="sm" className="h-6 px-2 text-[8px] uppercase gap-1" onClick={handleDiscoverWorkspace} disabled={isDiscovering === 'workspace'}>
+                          {isDiscovering === 'workspace' ? <Loader2 className="w-2 h-2 animate-spin" /> : <Wand2 className="w-2 h-2" />} Auto-Find
+                        </Button>
+                      </div>
                       <Input value={assetsWorkspaceId} onChange={e => setAssetsWorkspaceId(e.target.value)} className="rounded-none" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Object Schema ID</Label>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-bold uppercase">Object Schema ID</Label>
+                        <Button variant="ghost" size="sm" className="h-6 px-2 text-[8px] uppercase gap-1" onClick={handleDiscoverSchema} disabled={isDiscovering === 'schema'}>
+                          {isDiscovering === 'schema' ? <Loader2 className="w-2 h-2 animate-spin" /> : <Wand2 className="w-2 h-2" />} Auto-Find
+                        </Button>
+                      </div>
                       <Input value={assetsSchemaId} onChange={e => setAssetsSchemaId(e.target.value)} className="rounded-none" />
                     </div>
                   </div>
@@ -402,6 +470,30 @@ export default function SettingsPage() {
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Object Type: Rollen</Label>
                       <Input value={assetsRoleObjectTypeId} onChange={e => setAssetsRoleObjectTypeId(e.target.value)} className="rounded-none" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-bold uppercase">Attr: Ressourcen-Name</Label>
+                        <Button variant="ghost" size="sm" className="h-6 px-2 text-[8px] uppercase gap-1" onClick={() => handleDiscoverAttributes('resource')} disabled={isDiscovering === 'attr-resource'}>
+                          <FileSearch className="w-2 h-2" /> Scan
+                        </Button>
+                      </div>
+                      <Input value={assetsResourceNameAttributeId} onChange={e => setAssetsResourceNameAttributeId(e.target.value)} className="rounded-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-bold uppercase">Attr: Rollen-Name</Label>
+                        <Button variant="ghost" size="sm" className="h-6 px-2 text-[8px] uppercase gap-1" onClick={() => handleDiscoverAttributes('role')} disabled={isDiscovering === 'attr-role'}>
+                          <FileSearch className="w-2 h-2" /> Scan
+                        </Button>
+                      </div>
+                      <Input value={assetsRoleNameAttributeId} onChange={e => setAssetsRoleNameAttributeId(e.target.value)} className="rounded-none" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Attr: System-Referenz</Label>
+                      <Input value={assetsSystemAttributeId} onChange={e => setAssetsSystemAttributeId(e.target.value)} placeholder="Verknüpfung ID" className="rounded-none" />
                     </div>
                   </div>
                 </CardContent>

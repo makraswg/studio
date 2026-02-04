@@ -82,6 +82,61 @@ export async function getJiraWorkspacesAction(configData: { url: string; email: 
 }
 
 /**
+ * Ruft Schemas für einen Workspace ab.
+ */
+export async function getJiraSchemasAction(configData: { 
+  url: string; 
+  email: string; 
+  apiToken: string;
+  workspaceId: string;
+}): Promise<{ success: boolean; schemas?: any[]; error?: string }> {
+  const baseUrl = cleanJiraUrl(configData.url);
+  const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
+  const apiUrl = `${baseUrl}/gateway/api/jsm/assets/workspace/${configData.workspaceId}/v1/objectschema/list`;
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+    if (!response.ok) return { success: false, error: `Fehler ${response.status}` };
+    const data = await response.json();
+    return { success: true, schemas: data.values || [] };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Ruft Objekttypen für ein Schema ab.
+ */
+export async function getJiraObjectTypesAction(configData: { 
+  url: string; 
+  email: string; 
+  apiToken: string;
+  workspaceId: string;
+  schemaId: string;
+}): Promise<{ success: boolean; objectTypes?: any[]; error?: string }> {
+  const baseUrl = cleanJiraUrl(configData.url);
+  const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
+  const apiUrl = `${baseUrl}/gateway/api/jsm/assets/workspace/${configData.workspaceId}/v1/objectschema/${configData.schemaId}/objecttypes/flat`;
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+    if (!response.ok) return { success: false, error: `Fehler ${response.status}` };
+    const data = await response.json();
+    return { success: true, objectTypes: data || [] };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
  * Ruft Attribute eines Objekttyps ab, um IDs automatisch zu finden.
  */
 export async function getJiraAttributesAction(configData: { 
@@ -287,7 +342,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
     return { success: false, message: 'Unvollständige Zugangsdaten.' };
   }
 
-  const url = cleanJiraUrl(configData.url);
+  const url = cleanJiraUrl(configData.url!);
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
   try {

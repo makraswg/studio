@@ -2,9 +2,11 @@
 "use client";
 
 import { AppSidebar } from '@/components/layout/app-sidebar';
-import { Bell, ChevronDown, Globe, Building2 } from 'lucide-react';
+import { Bell, ChevronDown, Globe, Building2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SettingsProvider, useSettings } from '@/context/settings-context';
+import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
+import { Tenant } from '@/lib/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,11 +18,12 @@ import {
 
 function HeaderContent() {
   const { activeTenantId, setActiveTenantId } = useSettings();
+  const { data: tenants, isLoading } = usePluggableCollection<Tenant>('tenants');
 
   const getTenantLabel = () => {
-    if (activeTenantId === 't1') return 'Acme Corp';
-    if (activeTenantId === 't2') return 'Global Tech';
-    return 'Alle Firmen';
+    if (activeTenantId === 'all') return 'Alle Firmen';
+    const current = tenants?.find(t => t.id === activeTenantId);
+    return current ? current.name : 'Unbekannter Mandant';
   };
 
   return (
@@ -37,24 +40,36 @@ function HeaderContent() {
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 gap-2 rounded-none border-primary/20 bg-primary/5 text-primary hover:bg-primary/10">
-                {activeTenantId === 'all' ? <Globe className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
-                <span className="text-[10px] font-bold uppercase tracking-wider">{getTenantLabel()}</span>
+              <Button variant="outline" size="sm" className="h-9 gap-2 rounded-none border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 min-w-[140px] justify-between">
+                <div className="flex items-center gap-2">
+                  {activeTenantId === 'all' ? <Globe className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
+                  <span className="text-[10px] font-bold uppercase tracking-wider">{getTenantLabel()}</span>
+                </div>
                 <ChevronDown className="w-3 h-3 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 rounded-none">
+            <DropdownMenuContent align="end" className="w-64 rounded-none">
               <DropdownMenuLabel className="text-[9px] font-bold uppercase text-muted-foreground">Mandant auswählen</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => setActiveTenantId('all')} className="gap-2 text-xs font-bold uppercase">
                 <Globe className="w-3.5 h-3.5" /> Alle Firmen (Global)
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setActiveTenantId('t1')} className="gap-2 text-xs font-bold uppercase">
-                <Building2 className="w-3.5 h-3.5" /> Acme Corp
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setActiveTenantId('t2')} className="gap-2 text-xs font-bold uppercase">
-                <Building2 className="w-3.5 h-3.5" /> Global Tech
-              </DropdownMenuItem>
+              
+              {isLoading ? (
+                <div className="p-2 flex justify-center">
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                tenants?.map((tenant) => (
+                  <DropdownMenuItem 
+                    key={tenant.id} 
+                    onSelect={() => setActiveTenantId(tenant.id)} 
+                    className="gap-2 text-xs font-bold uppercase"
+                  >
+                    <Building2 className="w-3.5 h-3.5" /> {tenant.name}
+                  </DropdownMenuItem>
+                ))
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

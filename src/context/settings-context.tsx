@@ -4,7 +4,8 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 export type DataSource = 'firestore' | 'mock' | 'mysql';
-export type TenantId = 'all' | 't1' | 't2';
+// We change TenantId to string to allow dynamic IDs from the database
+export type TenantId = string; 
 
 interface SettingsContextType {
   dataSource: DataSource;
@@ -23,11 +24,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const savedSource = localStorage.getItem('dataSource');
     if (savedSource === 'firestore' || savedSource === 'mock' || savedSource === 'mysql') {
-      setDataSource(savedSource);
+      setDataSource(savedSource as DataSource);
     }
     const savedTenant = localStorage.getItem('activeTenantId');
-    if (savedTenant === 'all' || savedTenant === 't1' || savedTenant === 't2') {
-      setActiveTenantId(savedTenant as TenantId);
+    if (savedTenant) {
+      setActiveTenantId(savedTenant);
     }
     setIsHydrated(true);
   }, []);

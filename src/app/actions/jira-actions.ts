@@ -116,7 +116,6 @@ export async function createJiraTicket(
   const issueTypeName = (config.issueTypeName || 'Task').trim();
 
   // Konvertiert die Beschreibung in das Atlassian Document Format (ADF)
-  // Wir unterstützen einfache Zeilenumbrüche (\n)
   const descriptionContent = description.split('\n').map(line => ({
     type: 'paragraph',
     content: [
@@ -188,24 +187,35 @@ export async function fetchJiraSyncItems(
 ): Promise<JiraSyncItem[]> {
   const configs = await getJiraConfigs(dataSource);
   const config = configs.find(c => c.id === configId);
-  if (!config || !config.enabled) return [];
+  if (!config || !config.enabled || !config.projectKey) return [];
 
   const url = cleanJiraUrl(config.url);
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
 
   try {
-    let jql = '';
+    let jql = `project = "${config.projectKey}"`;
     const approvedStatus = config.approvedStatusName || 'Approved';
     const doneStatus = config.doneStatusName || 'Done';
 
     if (type === 'approved') {
-      jql = `project = "${config.projectKey}" AND status = "${approvedStatus}"`;
+      jql += ` AND status = "${approvedStatus}"`;
     } else if (type === 'done') {
-      jql = `project = "${config.projectKey}" AND status = "${doneStatus}"`;
+      jql += ` AND status = "${doneStatus}"`;
     } else {
-      // Pending: Alles was nicht Approved oder Done (oder abgebrochen) ist
-      jql = `project = "${config.projectKey}" AND status NOT IN ("${approvedStatus}", "${doneStatus}", "Canceled", "Rejected", "Abgelehnt")`;
+      // Pending: Alles was nicht Approved oder Done (oder explizit abgelehnt) ist
+      // Wir schließen typische Abbruch-Status aus
+      const excludeStatus = [approvedStatus, doneStatus, "Canceled", "Rejected", "Abgelehnt", "Storniert"]
+        .filter(s => !!s)
+        .map(s => `"${s}"`)
+        .join(', ');
+      
+      if (excludeStatus) {
+        jql += ` AND status NOT IN (${excludeStatus})`;
+      }
     }
+
+    // Wir sortieren nach Erstellungsdatum (neueste zuerst)
+    jql += ' ORDER BY created DESC';
 
     const response = await fetch(`${url}/rest/api/3/search`, {
       method: 'POST',
@@ -216,7 +226,7 @@ export async function fetchJiraSyncItems(
       },
       body: JSON.stringify({
         jql: jql,
-        maxResults: 50,
+        maxResults: 100,
         fields: ["summary", "status", "reporter", "created", "description"]
       }),
       cache: 'no-store'
@@ -228,16 +238,22 @@ export async function fetchJiraSyncItems(
 
     return data.issues.map((issue: any) => {
       let extractedEmail = '';
+      
+      // Suche nach E-Mail-Adressen in der Beschreibung oder Feldern (für Onboarding Match)
       const findInObject = (obj: any) => {
         if (!obj) return;
         if (obj.emailAddress) extractedEmail = obj.emailAddress;
         if (!extractedEmail) {
-          const text = JSON.stringify(obj).toLowerCase();
+          const text = typeof obj === 'string' ? obj : JSON.stringify(obj).toLowerCase();
           const match = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
           if (match) extractedEmail = match[0];
         }
       };
-      for (const key in issue.fields) findInObject(issue.fields[key]);
+      
+      for (const key in issue.fields) {
+        findInObject(issue.fields[key]);
+        if (extractedEmail) break;
+      }
 
       return {
         key: issue.key,
@@ -249,6 +265,7 @@ export async function fetchJiraSyncItems(
       };
     });
   } catch (e) {
+    console.error("fetchJiraSyncItems error:", e);
     return [];
   }
 }

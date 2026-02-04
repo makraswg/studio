@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -28,7 +28,8 @@ import {
   Clock,
   ArrowRight,
   Zap,
-  Ticket
+  Ticket,
+  UserMinus
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
@@ -41,6 +42,7 @@ import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 export default function JiraSyncPage() {
   const { dataSource } = useSettings();
@@ -48,7 +50,7 @@ export default function JiraSyncPage() {
   const { user: authUser } = useAuthUser();
   const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'completed'>('approved');
+  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'completed'>('pending');
   
   const [pendingTickets, setPendingTickets] = useState<any[]>([]);
   const [approvedTickets, setApprovedTickets] = useState<any[]>([]);
@@ -105,19 +107,32 @@ export default function JiraSyncPage() {
    */
   const handleApplyCompletedTicket = async (ticket: any) => {
     const linkedAssignments = assignments?.filter(a => a.jiraIssueKey === ticket.key) || [];
-    if (linkedAssignments.length === 0) {
+    
+    // Fallback: Suche nach User via Email, falls keine Ticket-Key Verknüpfung in Assignments existiert
+    let targetAssignments = linkedAssignments;
+    let affectedUserId = linkedAssignments.length > 0 ? linkedAssignments[0].userId : null;
+
+    if (targetAssignments.length === 0 && ticket.requestedUserEmail) {
+      const user = users?.find(u => u.email.toLowerCase() === ticket.requestedUserEmail.toLowerCase());
+      if (user) {
+        affectedUserId = user.id;
+        // Suche alle Assignments für diesen User, die "pending_removal" oder "requested" sind
+        targetAssignments = assignments?.filter(a => a.userId === user.id && (a.status === 'requested' || a.status === 'pending_removal')) || [];
+      }
+    }
+
+    if (targetAssignments.length === 0) {
       toast({ variant: "destructive", title: "Keine Daten", description: "Keine ausstehenden Änderungen für dieses Ticket gefunden." });
       return;
     }
 
     const isLeaver = ticket.summary.toLowerCase().includes('offboarding');
     const timestamp = new Date().toISOString();
-    let affectedUserId = linkedAssignments[0].userId;
 
     // Verarbeite alle verknüpften Zuweisungen
-    for (const a of linkedAssignments) {
-      // Wenn Onboarding: requested -> active
-      // Wenn Offboarding: pending_removal -> removed
+    for (const a of targetAssignments) {
+      // Onboarding: requested -> active
+      // Offboarding: pending_removal -> removed
       let newStatus: 'active' | 'removed' = 'active';
       if (isLeaver || a.status === 'pending_removal') {
         newStatus = 'removed';
@@ -137,7 +152,7 @@ export default function JiraSyncPage() {
     }
 
     // Bei Offboarding auch den Benutzer deaktivieren
-    if (isLeaver) {
+    if (isLeaver && affectedUserId) {
       const user = users?.find(u => u.id === affectedUserId);
       if (user) {
         const userData = { ...user, enabled: false, offboardingDate: timestamp.split('T')[0] };
@@ -220,165 +235,209 @@ export default function JiraSyncPage() {
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab as any} className="space-y-6">
-        <TabsList className="bg-muted/50 p-1 h-12 rounded-none border w-full justify-start gap-2">
-          <TabsTrigger value="pending" className="rounded-none px-8 gap-2 text-[10px] font-bold uppercase data-[state=active]:bg-white">
-            1. Warteschlange ({pendingTickets.length})
-          </TabsTrigger>
-          <TabsTrigger value="approved" className="rounded-none px-8 gap-2 text-[10px] font-bold uppercase data-[state=active]:bg-white">
-            2. Genehmigungen ({approvedTickets.length})
-          </TabsTrigger>
-          <TabsTrigger value="completed" className="rounded-none px-8 gap-2 text-[10px] font-bold uppercase data-[state=active]:bg-white">
-            3. Erledigte Tickets ({doneTickets.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="pending" className="admin-card overflow-hidden">
-          <Table>
-            <TableHeader className="bg-muted/30">
-              <TableRow>
-                <TableHead className="py-4 font-bold uppercase text-[10px]">Key</TableHead>
-                <TableHead className="font-bold uppercase text-[10px]">Inhalt</TableHead>
-                <TableHead className="font-bold uppercase text-[10px]">Erstellt</TableHead>
-                <TableHead className="text-right font-bold uppercase text-[10px]">Jira Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pendingTickets.map((ticket) => (
-                <TableRow key={ticket.key} className="hover:bg-muted/5 border-b">
-                  <TableCell className="py-4 font-bold text-primary text-xs">{ticket.key}</TableCell>
-                  <TableCell>
-                    <div className="font-bold text-sm">{ticket.summary}</div>
-                    <div className="text-[9px] text-muted-foreground uppercase">Reporter: {ticket.reporter}</div>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {new Date(ticket.created).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Badge variant="outline" className="rounded-none text-[9px] font-bold uppercase border-blue-200 bg-blue-50/30 text-blue-700">
-                      {ticket.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {pendingTickets.length === 0 && !isLoading && (
-                <TableRow><TableCell colSpan={4} className="h-32 text-center text-xs text-muted-foreground italic">Keine Tickets in der Warteschlange.</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TabsContent>
-
-        <TabsContent value="approved" className="admin-card overflow-hidden">
-          <Table>
-            <TableHeader className="bg-muted/30">
-              <TableRow>
-                <TableHead className="py-4 font-bold uppercase text-[10px]">Key</TableHead>
-                <TableHead className="font-bold uppercase text-[10px]">Inhalt</TableHead>
-                <TableHead className="font-bold uppercase text-[10px]">Zugeordnete Rolle</TableHead>
-                <TableHead className="text-right font-bold uppercase text-[10px]">Aktion</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {approvedTickets.map((ticket) => (
-                <TableRow key={ticket.key} className="hover:bg-muted/5 border-b">
-                  <TableCell className="py-4 font-bold text-primary text-xs">{ticket.key}</TableCell>
-                  <TableCell>
-                    <div className="font-bold text-sm">{ticket.summary}</div>
-                    <div className="text-[9px] text-muted-foreground uppercase">{ticket.requestedUserEmail}</div>
-                  </TableCell>
-                  <TableCell>
-                    {ticket.matchedRole ? (
-                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-none rounded-none text-[9px] font-bold uppercase">{ticket.matchedRole.name}</Badge>
-                    ) : (
-                      <Select onValueChange={(val) => handleUpdateMatchedRole(ticket.key, val)}>
-                        <SelectTrigger className="h-8 text-[9px] font-bold uppercase rounded-none border-dashed">
-                          <SelectValue placeholder="Rolle wählen..." />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-none">
-                          {entitlements?.map(e => (
-                            <SelectItem key={e.id} value={e.id} className="text-xs">
-                              {resources?.find(r => r.id === e.resourceId)?.name}: {e.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button 
-                      size="sm" 
-                      className="h-8 text-[9px] font-bold uppercase rounded-none" 
-                      disabled={!ticket.matchedRole} 
-                      onClick={() => handleAssignFromApproved(ticket)}
-                    >
-                      Bestätigen
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {approvedTickets.length === 0 && !isLoading && (
-                <TableRow><TableCell colSpan={4} className="h-32 text-center text-xs text-muted-foreground italic">Keine genehmigten Tickets zur Verarbeitung.</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TabsContent>
-
-        <TabsContent value="completed" className="space-y-4">
-          <div className="p-4 bg-blue-50 border border-blue-100 text-[10px] font-bold uppercase text-blue-700 leading-relaxed">
-            Hinweis: Tickets, die in Jira auf 'Erledigt' stehen, müssen hier finalisiert werden, damit die Status-Änderungen (Onboarding/Offboarding) im ComplianceHub wirksam werden.
+      {!activeConfig && !isLoading && (
+        <div className="p-10 border-2 border-dashed flex flex-col items-center justify-center text-center gap-4 bg-muted/10">
+          <AlertTriangle className="w-10 h-10 text-amber-500" />
+          <div>
+            <h3 className="font-bold uppercase text-sm">Jira nicht konfiguriert</h3>
+            <p className="text-xs text-muted-foreground max-w-xs mt-1">Bitte hinterlegen Sie eine valide Jira-Verbindung in den Einstellungen (inkl. Projekt-Key), um Tickets zu synchronisieren.</p>
           </div>
-          <div className="admin-card overflow-hidden">
+          <Button variant="outline" size="sm" className="rounded-none uppercase font-bold text-[10px]" onClick={() => window.location.href='/settings'}>Zu den Einstellungen</Button>
+        </div>
+      )}
+
+      {activeConfig && (
+        <Tabs value={activeTab} onValueChange={setActiveTab as any} className="space-y-6">
+          <TabsList className="bg-muted/50 p-1 h-12 rounded-none border w-full justify-start gap-2">
+            <TabsTrigger value="pending" className="rounded-none px-8 gap-2 text-[10px] font-bold uppercase data-[state=active]:bg-white">
+              1. Warteschlange ({pendingTickets.length})
+            </TabsTrigger>
+            <TabsTrigger value="approved" className="rounded-none px-8 gap-2 text-[10px] font-bold uppercase data-[state=active]:bg-white">
+              2. Genehmigungen ({approvedTickets.length})
+            </TabsTrigger>
+            <TabsTrigger value="completed" className="rounded-none px-8 gap-2 text-[10px] font-bold uppercase data-[state=active]:bg-white">
+              3. Erledigte Tickets ({doneTickets.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="pending" className="admin-card overflow-hidden">
             <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   <TableHead className="py-4 font-bold uppercase text-[10px]">Key</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px]">Prozess / Betreff</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px]">Hub-Status</TableHead>
-                  <TableHead className="text-right font-bold uppercase text-[10px]">Finalisierung</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px]">Prozess / Inhalt</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px]">Erstellt</TableHead>
+                  <TableHead className="text-right font-bold uppercase text-[10px]">Jira Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {doneTickets.map((ticket) => {
-                  const linkedAssignments = assignments?.filter(a => a.jiraIssueKey === ticket.key) || [];
-                  const linkedCount = linkedAssignments.length;
-                  const isAlreadyProcessed = linkedAssignments.every(a => a.status === 'active' || a.status === 'removed');
-
+                {pendingTickets.map((ticket) => {
+                  const isOffboarding = ticket.summary.toLowerCase().includes('offboarding');
                   return (
                     <TableRow key={ticket.key} className="hover:bg-muted/5 border-b">
-                      <TableCell className="py-4 font-bold text-xs">{ticket.key}</TableCell>
+                      <TableCell className="py-4 font-bold text-primary text-xs">{ticket.key}</TableCell>
                       <TableCell>
-                        <div className="font-bold text-sm">{ticket.summary}</div>
-                        <div className="text-[9px] text-muted-foreground uppercase">Status: {ticket.status}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <Badge variant="outline" className="rounded-none text-[9px] font-bold uppercase border-slate-200 w-fit">
-                            {linkedCount} Zuweisungen
-                          </Badge>
-                          {isAlreadyProcessed && <Badge className="bg-emerald-50 text-emerald-700 rounded-none text-[8px] w-fit">VERARBEITET</Badge>}
+                        <div className="flex items-center gap-2 mb-1">
+                          {isOffboarding ? (
+                            <Badge className="bg-red-50 text-red-700 rounded-none text-[8px] border-red-100 font-black px-1.5 h-4.5"><UserMinus className="w-2.5 h-2.5 mr-1" /> OFFBOARDING</Badge>
+                          ) : (
+                            <Badge className="bg-blue-50 text-blue-700 rounded-none text-[8px] border-blue-100 font-black px-1.5 h-4.5"><UserPlus className="w-2.5 h-2.5 mr-1" /> ONBOARDING</Badge>
+                          )}
                         </div>
+                        <div className="font-bold text-sm">{ticket.summary}</div>
+                        <div className="text-[9px] text-muted-foreground uppercase">Reporter: {ticket.reporter}</div>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(ticket.created).toLocaleDateString()}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button 
-                          size="sm" 
-                          className="h-8 text-[9px] font-bold uppercase rounded-none bg-blue-600 hover:bg-blue-700" 
-                          onClick={() => handleApplyCompletedTicket(ticket)}
-                          disabled={linkedCount === 0 || isAlreadyProcessed}
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Änderungen übernehmen
-                        </Button>
+                        <Badge variant="outline" className="rounded-none text-[9px] font-bold uppercase border-slate-200 bg-slate-50 text-slate-700">
+                          {ticket.status}
+                        </Badge>
                       </TableCell>
                     </TableRow>
                   );
                 })}
-                {doneTickets.length === 0 && !isLoading && (
-                  <TableRow><TableCell colSpan={4} className="h-32 text-center text-xs text-muted-foreground italic">Keine abgeschlossenen Tickets zur Finalisierung gefunden.</TableCell></TableRow>
+                {pendingTickets.length === 0 && !isLoading && (
+                  <TableRow><TableCell colSpan={4} className="h-32 text-center text-xs text-muted-foreground italic">Keine Tickets in der Warteschlange.</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
-          </div>
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+
+          <TabsContent value="approved" className="admin-card overflow-hidden">
+            <Table>
+              <TableHeader className="bg-muted/30">
+                <TableRow>
+                  <TableHead className="py-4 font-bold uppercase text-[10px]">Key</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px]">Inhalt</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px]">Zugeordnete Rolle</TableHead>
+                  <TableHead className="text-right font-bold uppercase text-[10px]">Aktion</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {approvedTickets.map((ticket) => (
+                  <TableRow key={ticket.key} className="hover:bg-muted/5 border-b">
+                    <TableCell className="py-4 font-bold text-primary text-xs">{ticket.key}</TableCell>
+                    <TableCell>
+                      <div className="font-bold text-sm">{ticket.summary}</div>
+                      <div className="text-[9px] text-muted-foreground uppercase">{ticket.requestedUserEmail}</div>
+                    </TableCell>
+                    <TableCell>
+                      {ticket.matchedRole ? (
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-none rounded-none text-[9px] font-bold uppercase">{ticket.matchedRole.name}</Badge>
+                      ) : (
+                        <Select onValueChange={(val) => handleUpdateMatchedRole(ticket.key, val)}>
+                          <SelectTrigger className="h-8 text-[9px] font-bold uppercase rounded-none border-dashed">
+                            <SelectValue placeholder="Rolle wählen..." />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-none">
+                            {entitlements?.map(e => (
+                              <SelectItem key={e.id} value={e.id} className="text-xs">
+                                {resources?.find(r => r.id === e.resourceId)?.name}: {e.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button 
+                        size="sm" 
+                        className="h-8 text-[9px] font-bold uppercase rounded-none" 
+                        disabled={!ticket.matchedRole} 
+                        onClick={() => handleAssignFromApproved(ticket)}
+                      >
+                        Bestätigen
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {approvedTickets.length === 0 && !isLoading && (
+                  <TableRow><TableCell colSpan={4} className="h-32 text-center text-xs text-muted-foreground italic">Keine genehmigten Tickets zur Verarbeitung.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TabsContent>
+
+          <TabsContent value="completed" className="space-y-4">
+            <div className="p-4 bg-blue-50 border border-blue-100 text-[10px] font-bold uppercase text-blue-700 leading-relaxed">
+              Hinweis: Tickets, die in Jira auf 'Erledigt' stehen, müssen hier finalisiert werden, damit die Status-Änderungen (Onboarding/Offboarding) im ComplianceHub wirksam werden.
+            </div>
+            <div className="admin-card overflow-hidden">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow>
+                    <TableHead className="py-4 font-bold uppercase text-[10px]">Key</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Prozess / Betreff</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Hub-Status</TableHead>
+                    <TableHead className="text-right font-bold uppercase text-[10px]">Finalisierung</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {doneTickets.map((ticket) => {
+                    // Suche nach verknüpften Zuweisungen (via Ticket-Key oder E-Mail)
+                    const linkedViaKey = assignments?.filter(a => a.jiraIssueKey === ticket.key) || [];
+                    let linkedAssignments = linkedViaKey;
+                    
+                    if (linkedAssignments.length === 0 && ticket.requestedUserEmail) {
+                      const user = users?.find(u => u.email.toLowerCase() === ticket.requestedUserEmail.toLowerCase());
+                      if (user) {
+                        linkedAssignments = assignments?.filter(a => a.userId === user.id && (a.status === 'requested' || a.status === 'pending_removal')) || [];
+                      }
+                    }
+
+                    const linkedCount = linkedAssignments.length;
+                    const isAlreadyProcessed = linkedCount > 0 && linkedAssignments.every(a => a.status === 'active' || a.status === 'removed');
+                    const isOffboarding = ticket.summary.toLowerCase().includes('offboarding');
+
+                    return (
+                      <TableRow key={ticket.key} className="hover:bg-muted/5 border-b">
+                        <TableCell className="py-4 font-bold text-xs">{ticket.key}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2 mb-1">
+                            {isOffboarding ? (
+                              <Badge className="bg-red-50 text-red-700 rounded-none text-[8px] border-red-100 font-black px-1.5 h-4.5"><UserMinus className="w-2.5 h-2.5 mr-1" /> OFFBOARDING</Badge>
+                            ) : (
+                              <Badge className="bg-blue-50 text-blue-700 rounded-none text-[8px] border-blue-100 font-black px-1.5 h-4.5"><UserPlus className="w-2.5 h-2.5 mr-1" /> ONBOARDING</Badge>
+                            )}
+                          </div>
+                          <div className="font-bold text-sm">{ticket.summary}</div>
+                          <div className="text-[9px] text-muted-foreground uppercase">Status: {ticket.status}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className="rounded-none text-[9px] font-bold uppercase border-slate-200 w-fit">
+                              {linkedCount} Zuweisungen
+                            </Badge>
+                            {isAlreadyProcessed && <Badge className="bg-emerald-50 text-emerald-700 rounded-none text-[8px] w-fit">VERARBEITET</Badge>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button 
+                            size="sm" 
+                            className={cn(
+                              "h-8 text-[9px] font-bold uppercase rounded-none",
+                              isOffboarding ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"
+                            )}
+                            onClick={() => handleApplyCompletedTicket(ticket)}
+                            disabled={linkedCount === 0 || isAlreadyProcessed}
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> {isOffboarding ? 'Entzug finalisieren' : 'Rechte aktivieren'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {doneTickets.length === 0 && !isLoading && (
+                    <TableRow><TableCell colSpan={4} className="h-32 text-center text-xs text-muted-foreground italic">Keine abgeschlossenen Tickets zur Finalisierung gefunden.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }

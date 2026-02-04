@@ -643,11 +643,16 @@ export default function SettingsPage() {
                       <Input value={jiraProject} onChange={e => setJiraProject(e.target.value)} placeholder="IAM" className="rounded-none" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Issue Type Name</Label>
+                      <Label className="text-[10px] font-bold uppercase">Standard Vorgangstyp (Issue Type)</Label>
                       <div className="flex gap-2">
-                        <Input value={jiraIssueType} onChange={e => setJiraIssueType(e.target.value)} placeholder="Service Request" className="rounded-none" />
+                        <Input 
+                          value={jiraIssueType} 
+                          onChange={e => setJiraIssueType(e.target.value)} 
+                          placeholder="z.B. Service Request" 
+                          className={cn("rounded-none h-10 transition-colors", testResult?.availableTypes?.includes(jiraIssueType) && "border-emerald-500 bg-emerald-50/30 text-emerald-900")} 
+                        />
                       </div>
-                      <p className="text-[8px] text-muted-foreground uppercase font-bold italic">Muss exakt dem Namen in Jira entsprechen (z.B. "Service Request").</p>
+                      <p className="text-[8px] text-muted-foreground uppercase font-bold italic">Wichtig: Muss exakt mit Jira übereinstimmen. Nutzen Sie „Verbindung testen“ unten zur Auswahl.</p>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Status: Genehmigt (Trigger Sync)</Label>

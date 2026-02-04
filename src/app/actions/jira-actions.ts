@@ -11,6 +11,11 @@ function cleanJiraUrl(url: string): string {
   if (!url) return '';
   let cleaned = url.trim();
   
+  // Stelle sicher, dass ein Protokoll vorhanden ist
+  if (!cleaned.startsWith('http')) {
+    cleaned = 'https://' + cleaned;
+  }
+  
   try {
     const parsed = new URL(cleaned);
     return `${parsed.protocol}//${parsed.host}`;
@@ -97,7 +102,11 @@ export async function createJiraTicket(
 ): Promise<{ success: boolean; key?: string; error?: string; details?: string }> {
   const configs = await getJiraConfigs(dataSource);
   const config = configs.find(c => c.id === configId);
-  if (!config || !config.enabled) return { success: false, error: 'Jira nicht konfiguriert oder deaktiviert.' };
+  
+  if (!config || !config.enabled) {
+    console.error("Jira Ticket Fehler: Konfiguration nicht gefunden oder deaktiviert.", { configId, dataSource });
+    return { success: false, error: 'Jira nicht konfiguriert oder deaktiviert.' };
+  }
 
   const url = cleanJiraUrl(config.url);
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
@@ -128,6 +137,7 @@ export async function createJiraTicket(
     const data = await response.json();
     
     if (!response.ok) {
+      console.error("Jira API Response Fehler:", data);
       const errorMsg = data.errorMessages?.join(', ') || 'Unbekannter API Fehler';
       const fieldsErrors = data.errors ? JSON.stringify(data.errors) : '';
       return { 
@@ -139,6 +149,7 @@ export async function createJiraTicket(
 
     return { success: true, key: data.key };
   } catch (e: any) {
+    console.error("Jira Netzwerkfehler:", e);
     return { success: false, error: 'Netzwerkfehler beim Jira-Aufruf', details: e.message };
   }
 }

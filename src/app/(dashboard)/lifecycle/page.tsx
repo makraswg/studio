@@ -217,9 +217,14 @@ export default function LifecyclePage() {
 
       const configs = await getJiraConfigs(dataSource);
       let jiraKey = 'MANUELL';
+      
       if (configs.length > 0 && configs[0].enabled) {
-        const res = await createJiraTicket(configs[0].id, `ONBOARDING: ${newUserName}`, `Account für ${newUserName} (${targetTenantId})`, dataSource);
-        if (res.success) jiraKey = res.key!;
+        const res = await createJiraTicket(configs[0].id, `ONBOARDING: ${newUserName}`, `Account für ${newUserName} (Mandant: ${targetTenantId})`, dataSource);
+        if (res.success) {
+          jiraKey = res.key!;
+        } else {
+          toast({ variant: "destructive", title: "Jira Hinweis", description: "Benutzer wurde angelegt, aber Jira Ticket konnte nicht erstellt werden: " + (res.error || "Unbekannt") });
+        }
       }
 
       for (const eid of bundle.entitlementIds) {
@@ -253,7 +258,7 @@ export default function LifecyclePage() {
       setNewUserName('');
       setNewEmail('');
       setSelectedBundleId(null);
-      refreshUsers(); refreshAssignments();
+      setTimeout(() => { refreshUsers(); refreshAssignments(); }, 300);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Fehler", description: error.message });
     } finally {
@@ -271,7 +276,11 @@ export default function LifecyclePage() {
       
       if (configs.length > 0 && configs[0].enabled) {
         const res = await createJiraTicket(configs[0].id, `OFFBOARDING: ${userToOffboard.displayName}`, `Deaktivierung für ${userToOffboard.email}`, dataSource);
-        if (res.success) jiraKey = res.key!;
+        if (res.success) {
+          jiraKey = res.key!;
+        } else {
+          toast({ variant: "destructive", title: "Jira Hinweis", description: "Offboarding eingeleitet, aber Jira Ticket fehlgeschlagen: " + (res.error || "Unbekannt") });
+        }
       }
 
       for (const a of userAssignments) {
@@ -290,7 +299,7 @@ export default function LifecyclePage() {
 
       toast({ title: "Offboarding eingeleitet" });
       setIsOffboardConfirmOpen(false); 
-      refreshAssignments();
+      setTimeout(() => refreshAssignments(), 300);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Fehler", description: error.message });
     } finally {
@@ -365,22 +374,22 @@ export default function LifecyclePage() {
                         <div 
                           key={bundle.id} 
                           className={cn(
-                            "p-3 border cursor-pointer transition-all flex items-center justify-between group rounded-none",
+                            "p-2.5 border cursor-pointer transition-all flex items-center justify-between group rounded-none",
                             selectedBundleId === bundle.id 
                               ? "border-primary bg-primary/5 ring-1 ring-inset ring-primary" 
                               : "bg-white border-slate-200 hover:border-slate-300"
                           )}
                           onClick={() => setSelectedBundleId(bundle.id)}
                         >
-                          <div>
-                            <div className="font-bold text-[11px] uppercase group-hover:text-primary transition-colors">{bundle.name}</div>
+                          <div className="min-w-0">
+                            <div className="font-bold text-[10px] uppercase group-hover:text-primary transition-colors truncate">{bundle.name}</div>
                             <div className="flex items-center gap-2 mt-0.5">
                               <span className="text-[8px] text-muted-foreground uppercase font-bold">{(bundle.entitlementIds || []).length} Rollen</span>
                               <span className="text-[8px] text-slate-300">|</span>
-                              <span className="text-[8px] text-muted-foreground truncate max-w-[150px] italic">{bundle.description}</span>
+                              <span className="text-[8px] text-muted-foreground truncate max-w-[120px] italic">{bundle.description}</span>
                             </div>
                           </div>
-                          {selectedBundleId === bundle.id && <CheckCircle2 className="w-3.5 h-3.5 text-primary" />}
+                          {selectedBundleId === bundle.id && <CheckCircle2 className="w-3 h-3 text-primary shrink-0 ml-2" />}
                         </div>
                       ))}
                       {(!bundles || bundles.length === 0) && (
@@ -469,7 +478,7 @@ export default function LifecyclePage() {
             <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow>
-                  <TableHead className="py-4 font-bold uppercase text-[10px]">Paket-Name</TableHead>
+                  <TableHead className="py-3 font-bold uppercase text-[10px]">Paket-Name</TableHead>
                   <TableHead className="font-bold uppercase text-[10px]">Mandant</TableHead>
                   <TableHead className="font-bold uppercase text-[10px]">Inhalt</TableHead>
                   <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
@@ -480,20 +489,20 @@ export default function LifecyclePage() {
                   <TableRow><TableCell colSpan={4} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                 ) : bundles?.filter((b: any) => activeTenantId === 'all' || b.tenantId === activeTenantId).map((bundle: any) => (
                   <TableRow key={bundle.id} className="hover:bg-muted/5 border-b">
-                    <TableCell className="py-3">
-                      <div className="font-bold text-[13px] uppercase tracking-tight">{bundle.name}</div>
-                      <div className="text-[10px] text-muted-foreground italic truncate max-w-md">{bundle.description || 'Keine Beschreibung'}</div>
+                    <TableCell className="py-2.5">
+                      <div className="font-bold text-[11px] uppercase tracking-tight">{bundle.name}</div>
+                      <div className="text-[9px] text-muted-foreground italic truncate max-w-xs">{bundle.description || 'Keine Beschreibung'}</div>
                     </TableCell>
-                    <TableCell><Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none">{getTenantSlug(bundle.tenantId)}</Badge></TableCell>
+                    <TableCell><Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none px-1.5 h-4.5">{getTenantSlug(bundle.tenantId)}</Badge></TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs">{(bundle.entitlementIds || []).length}</span>
-                        <span className="text-[9px] text-muted-foreground uppercase font-bold">Rollen</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-[10px]">{(bundle.entitlementIds || []).length}</span>
+                        <span className="text-[8px] text-muted-foreground uppercase font-bold">Rollen</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-5 h-5" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-none w-48">
                           <DropdownMenuItem onSelect={() => openEditBundle(bundle)}>
                             <Pencil className="w-3.5 h-3.5 mr-2" /> Paket bearbeiten
@@ -574,7 +583,7 @@ export default function LifecyclePage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                   {filteredRoles.map((ent: any) => {
                     const isSelected = selectedEntitlementIds.includes(ent.id);
                     const res = resources?.find((r: any) => r.id === ent.resourceId);
@@ -582,7 +591,7 @@ export default function LifecyclePage() {
                       <div 
                         key={ent.id} 
                         className={cn(
-                          "p-2.5 border cursor-pointer transition-all flex items-start justify-between gap-3 group rounded-none",
+                          "p-2 border cursor-pointer transition-all flex items-start justify-between gap-2 group rounded-none",
                           isSelected 
                             ? "bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500" 
                             : "bg-white hover:bg-slate-50 border-slate-200"
@@ -590,12 +599,12 @@ export default function LifecyclePage() {
                         onClick={() => setSelectedEntitlementIds(prev => isSelected ? prev.filter(id => id !== ent.id) : [...prev, ent.id])}
                       >
                         <div className="min-w-0">
-                          <p className="font-bold text-[10px] truncate group-hover:text-primary transition-colors">{ent.name}</p>
+                          <p className="font-bold text-[9px] uppercase truncate group-hover:text-primary transition-colors">{ent.name}</p>
                           <p className="text-[8px] text-muted-foreground uppercase font-bold mt-0.5 truncate">{res?.name || 'System'}</p>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {ent.isAdmin && <ShieldAlert className="w-3 h-3 text-red-600" />}
-                          {isSelected && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {ent.isAdmin && <ShieldAlert className="w-2.5 h-2.5 text-red-600" />}
+                          {isSelected && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />}
                         </div>
                       </div>
                     );

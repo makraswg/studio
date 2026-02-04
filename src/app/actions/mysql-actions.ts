@@ -83,6 +83,18 @@ export async function getCollectionData(collectionName: string, dataSource: Data
         return rest;
       });
     }
+
+    // Global: Booleans für alle Tabellen normalisieren (MySQL TINYINT(1) -> Boolean)
+    data = data.map((item: any) => {
+      const normalized = { ...item };
+      const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'ldapEnabled'];
+      boolFields.forEach(f => {
+        if (normalized[f] !== undefined && normalized[f] !== null) {
+          normalized[f] = normalized[f] === 1 || normalized[f] === true || normalized[f] === '1';
+        }
+      });
+      return normalized;
+    });
     
     return { data, error: null };
 

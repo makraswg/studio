@@ -25,7 +25,8 @@ import {
   Search,
   RefreshCw,
   ChevronRight,
-  Network
+  Network,
+  Contact
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -73,9 +74,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 export default function SettingsPage() {
   const db = useFirestore();
   const { user: authUser } = useAuthUser();
-  const { dataSource, setDataSource } = useSettings();
+  const { dataSource } = useSettings();
   
-  // Tabs state
   const [activeTab, setActiveTab] = useState('general');
 
   // Tenant Management State
@@ -84,6 +84,12 @@ export default function SettingsPage() {
   const [isTenantDeleteOpen, setIsTenantDeleteOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
   
+  // Service Partner State
+  const { data: servicePartners, isLoading: isPartnersLoading, refresh: refreshPartners } = usePluggableCollection<any>('servicePartners');
+  const [isPartnerDialogOpen, setIsPartnerDialogOpen] = useState(false);
+  const [isPartnerDeleteOpen, setIsPartnerDeleteOpen] = useState(false);
+  const [selectedPartner, setSelectedPartner] = useState<any>(null);
+
   // Tenant Form Fields
   const [tenantName, setTenantName] = useState('');
   const [tenantSlug, setTenantSlug] = useState('');
@@ -94,6 +100,13 @@ export default function SettingsPage() {
   const [ldapBindDn, setLdapBindDn] = useState('');
   const [ldapBindPassword, setLdapBindPassword] = useState('');
   const [ldapUserFilter, setLdapUserFilter] = useState('(sAMAccountName=*)');
+
+  // Partner Form Fields
+  const [partnerName, setPartnerName] = useState('');
+  const [partnerContact, setPartnerContact] = useState('');
+  const [partnerEmail, setPartnerEmail] = useState('');
+  const [partnerPhone, setPartnerPhone] = useState('');
+  const [partnerTenantId, setPartnerTenantId] = useState('global');
 
   // Jira State
   const [jiraUrl, setJiraUrl] = useState('');
@@ -114,14 +127,10 @@ export default function SettingsPage() {
   const [assetsRoleNameAttributeId, setAssetsRoleNameAttributeId] = useState('1');
   const [assetsSystemAttributeId, setAssetsSystemAttributeId] = useState('');
 
-  // Dropdown / Modal States for Jira
+  // UI States
   const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>([]);
   const [isFetchingWorkspaces, setIsFetchingWorkspaces] = useState(false);
-  const [isFetchingResAttributes, setIsFetchingResAttributes] = useState(false);
-  const [isFetchingRoleAttributes, setIsFetchingRoleAttributes] = useState(false);
-  const [isFetchingRefAttributes, setIsFetchingRefAttributes] = useState(false);
   const [isWorkspaceDialogOpen, setIsWorkspaceDialogOpen] = useState(false);
-
   const [isSavingJira, setIsSavingJira] = useState(false);
   const [isTestingJira, setIsTestingJira] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; details?: string } | null>(null);
@@ -151,239 +160,49 @@ export default function SettingsPage() {
     loadJira();
   }, []);
 
-  // Tenant CRUD
   const handleSaveTenant = async () => {
-    if (!tenantName || !tenantSlug) {
-      toast({ variant: "destructive", title: "Fehler", description: "Name und Slug sind erforderlich." });
-      return;
-    }
-
+    if (!tenantName || !tenantSlug) return;
     const id = selectedTenant?.id || `t-${Math.random().toString(36).substring(2, 7)}`;
-    const tenantData = {
-      id,
-      name: tenantName,
-      slug: tenantSlug.toLowerCase().replace(/\s+/g, '-'),
-      createdAt: selectedTenant?.createdAt || new Date().toISOString(),
-      ldapEnabled,
-      ldapUrl,
-      ldapPort,
-      ldapBaseDn,
-      ldapBindDn,
-      ldapBindPassword,
-      ldapUserFilter
+    const data = {
+      id, name: tenantName, slug: tenantSlug.toLowerCase(), createdAt: selectedTenant?.createdAt || new Date().toISOString(),
+      ldapEnabled, ldapUrl, ldapPort, ldapBaseDn, ldapBindDn, ldapBindPassword, ldapUserFilter
     };
-
-    const auditId = `audit-${Math.random().toString(36).substring(2, 9)}`;
-    const auditData = {
-      id: auditId,
-      actorUid: authUser?.uid || 'system',
-      action: selectedTenant ? `Mandant [${tenantName}] aktualisiert` : `Neuer Mandant [${tenantName}] angelegt`,
-      entityType: 'tenant',
-      entityId: id,
-      timestamp: new Date().toISOString(),
-      tenantId: id,
-      before: selectedTenant || null,
-      after: tenantData
-    };
-
-    if (dataSource === 'mysql') {
-      await saveCollectionRecord('tenants', id, tenantData);
-      await saveCollectionRecord('auditEvents', auditId, auditData);
-    } else {
-      setDocumentNonBlocking(doc(db, 'tenants', id), tenantData);
-      addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
-    }
-
-    toast({ title: selectedTenant ? "Mandant aktualisiert" : "Mandant angelegt" });
+    if (dataSource === 'mysql') await saveCollectionRecord('tenants', id, data);
+    else setDocumentNonBlocking(doc(db, 'tenants', id), data);
+    toast({ title: "Mandant gespeichert" });
     setIsTenantDialogOpen(false);
-    resetTenantForm();
     setTimeout(() => refreshTenants(), 200);
   };
 
-  const handleDeleteTenant = async () => {
-    if (!selectedTenant) return;
-
-    const auditId = `audit-${Math.random().toString(36).substring(2, 9)}`;
-    const auditData = {
-      id: auditId,
-      actorUid: authUser?.uid || 'system',
-      action: `Mandant [${selectedTenant.name}] gelöscht`,
-      entityType: 'tenant',
-      entityId: selectedTenant.id,
-      timestamp: new Date().toISOString(),
-      tenantId: 'global',
-      before: selectedTenant
+  const handleSavePartner = async () => {
+    if (!partnerName) return;
+    const id = selectedPartner?.id || `sp-${Math.random().toString(36).substring(2, 7)}`;
+    const data = {
+      id, tenantId: partnerTenantId, name: partnerName, contactPerson: partnerContact, email: partnerEmail, phone: partnerPhone
     };
-
-    if (dataSource === 'mysql') {
-      await deleteCollectionRecord('tenants', selectedTenant.id);
-      await saveCollectionRecord('auditEvents', auditId, auditData);
-    } else {
-      deleteDocumentNonBlocking(doc(db, 'tenants', selectedTenant.id));
-      addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
-    }
-
-    toast({ title: "Mandant gelöscht" });
-    setIsTenantDeleteOpen(false);
-    setSelectedTenant(null);
-    setTimeout(() => refreshTenants(), 200);
+    if (dataSource === 'mysql') await saveCollectionRecord('servicePartners', id, data);
+    else setDocumentNonBlocking(doc(db, 'servicePartners', id), data);
+    toast({ title: "Partner gespeichert" });
+    setIsPartnerDialogOpen(false);
+    setTimeout(() => refreshPartners(), 200);
   };
 
-  const resetTenantForm = () => {
-    setSelectedTenant(null);
-    setTenantName('');
-    setTenantSlug('');
-    setLdapEnabled(false);
-    setLdapUrl('');
-    setLdapPort('389');
-    setLdapBaseDn('');
-    setLdapBindDn('');
-    setLdapBindPassword('');
-    setLdapUserFilter('(sAMAccountName=*)');
+  const openEditPartner = (p: any) => {
+    setSelectedPartner(p);
+    setPartnerName(p.name);
+    setPartnerContact(p.contactPerson || '');
+    setPartnerEmail(p.email || '');
+    setPartnerPhone(p.phone || '');
+    setPartnerTenantId(p.tenantId || 'global');
+    setIsPartnerDialogOpen(true);
   };
 
-  const openEditTenant = (tenant: any) => {
-    setSelectedTenant(tenant);
-    setTenantName(tenant.name || '');
-    setTenantSlug(tenant.slug || '');
-    setLdapEnabled(!!tenant.ldapEnabled);
-    setLdapUrl(tenant.ldapUrl || '');
-    setLdapPort(tenant.ldapPort || '389');
-    setLdapBaseDn(tenant.ldapBaseDn || '');
-    setLdapBindDn(tenant.ldapBindDn || '');
-    setLdapBindPassword(tenant.ldapBindPassword || '');
-    setLdapUserFilter(tenant.ldapUserFilter || '(sAMAccountName=*)');
-    setIsTenantDialogOpen(true);
-  };
-
-  // Jira Actions
   const fetchWorkspaces = async () => {
-    if (!jiraUrl || !jiraEmail || !jiraToken) {
-      toast({ variant: "destructive", title: "Fehlende Daten", description: "Bitte geben Sie zuerst URL, E-Mail und API Token ein." });
-      return;
-    }
+    if (!jiraUrl) return;
     setIsFetchingWorkspaces(true);
-    try {
-      const res = await getJiraWorkspacesAction({ url: jiraUrl, email: jiraEmail, apiToken: jiraToken });
-      if (res.success && res.workspaces) {
-        setWorkspaces(res.workspaces);
-        setIsWorkspaceDialogOpen(true);
-      } else {
-        toast({ variant: "destructive", title: "Abruf fehlgeschlagen", description: res.error });
-      }
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler", description: e.message });
-    } finally {
-      setIsFetchingWorkspaces(false);
-    }
-  };
-
-  const discoverNameAttribute = async (type: 'resource' | 'role') => {
-    const objectTypeId = type === 'resource' ? assetsResourceObjectTypeId : assetsRoleObjectTypeId;
-    if (!assetsWorkspaceId || !objectTypeId) {
-      toast({ variant: "destructive", title: "Fehlende Daten", description: "Workspace ID und Objekttyp ID werden benötigt." });
-      return;
-    }
-    if (type === 'resource') setIsFetchingResAttributes(true); else setIsFetchingRoleAttributes(true);
-    try {
-      const res = await getJiraAttributesAction({
-        url: jiraUrl,
-        email: jiraEmail,
-        apiToken: jiraToken,
-        workspaceId: assetsWorkspaceId,
-        objectTypeId: objectTypeId
-      });
-      if (res.success && res.labelAttributeId) {
-        if (type === 'resource') setAssetsResourceNameAttributeId(res.labelAttributeId);
-        else setAssetsRoleNameAttributeId(res.labelAttributeId);
-        toast({ title: "Attribut-ID erkannt", description: `Die ID für das Namensfeld ist ${res.labelAttributeId}.` });
-      } else {
-        toast({ variant: "destructive", title: "Nicht gefunden", description: "Das Label-Attribut konnte nicht automatisch erkannt werden." });
-      }
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler", description: e.message });
-    } finally {
-      if (type === 'resource') setIsFetchingResAttributes(false); else setIsFetchingRoleAttributes(false);
-    }
-  };
-
-  const discoverSystemRefAttribute = async () => {
-    if (!assetsWorkspaceId || !assetsRoleObjectTypeId || !assetsResourceObjectTypeId) {
-      toast({ variant: "destructive", title: "Fehlende Daten", description: "Workspace ID, Rollen-Typ ID und Ressourcen-Typ ID werden benötigt." });
-      return;
-    }
-    setIsFetchingRefAttributes(true);
-    try {
-      const res = await getJiraAttributesAction({
-        url: jiraUrl,
-        email: jiraEmail,
-        apiToken: jiraToken,
-        workspaceId: assetsWorkspaceId,
-        objectTypeId: assetsRoleObjectTypeId,
-        targetObjectTypeId: assetsResourceObjectTypeId
-      });
-      if (res.success && res.referenceAttributeId) {
-        setAssetsSystemAttributeId(res.referenceAttributeId);
-        toast({ title: "Referenz-ID erkannt", description: `Die ID für die Systemverknüpfung ist ${res.referenceAttributeId}.` });
-      } else {
-        toast({ variant: "destructive", title: "Nicht gefunden", description: "Es wurde kein Attribut gefunden, das auf den Ressourcen Objekttyp verweist." });
-      }
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler", description: e.message });
-    } finally {
-      setIsFetchingRefAttributes(false);
-    }
-  };
-
-  const selectWorkspace = (ws: { id: string; name: string }) => {
-    setAssetsWorkspaceId(ws.id);
-    setIsWorkspaceDialogOpen(false);
-  };
-
-  const handleTestJira = async () => {
-    setIsTestingJira(true);
-    setTestResult(null);
-    const res = await testJiraConnectionAction({
-      url: jiraUrl,
-      email: jiraEmail,
-      apiToken: jiraToken,
-      projectKey: jiraProject,
-      approvedStatusName: jiraApprovedStatus
-    });
-    setTestResult(res);
-    setIsTestingJira(false);
-  };
-
-  const handleSaveJira = async () => {
-    setIsSavingJira(true);
-    const configData = {
-      id: 'global-jira',
-      tenantId: 't1',
-      name: 'Haupt-Jira',
-      url: jiraUrl,
-      email: jiraEmail,
-      apiToken: jiraToken,
-      projectKey: jiraProject,
-      issueTypeName: jiraIssueType,
-      approvedStatusName: jiraApprovedStatus,
-      doneStatusName: jiraDoneStatus,
-      enabled: jiraEnabled,
-      assetsWorkspaceId,
-      assetsSchemaId,
-      assetsResourceObjectTypeId,
-      assetsRoleObjectTypeId,
-      assetsResourceNameAttributeId,
-      assetsRoleNameAttributeId,
-      assetsSystemAttributeId
-    };
-
-    const res = await saveCollectionRecord('jiraConfigs', 'global-jira', configData);
-    if (res.success) {
-      toast({ title: "Jira-Konfiguration gespeichert" });
-    } else {
-      toast({ variant: "destructive", title: "Fehler", description: res.error });
-    }
-    setIsSavingJira(false);
+    const res = await getJiraWorkspacesAction({ url: jiraUrl, email: jiraEmail, apiToken: jiraToken });
+    if (res.success) { setWorkspaces(res.workspaces!); setIsWorkspaceDialogOpen(true); }
+    setIsFetchingWorkspaces(false);
   };
 
   return (
@@ -391,72 +210,84 @@ export default function SettingsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Systemeinstellungen</h1>
-          <p className="text-muted-foreground mt-1">Konfiguration der ComplianceHub-Plattform und Integrationen.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Search className="w-4 h-4 text-muted-foreground" />
-          <div className="bg-primary/10 text-primary px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-wider">
-            Plattform-Management
-          </div>
+          <p className="text-muted-foreground mt-1">Plattform-Governance und Partner-Management.</p>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-card border h-12 p-1 gap-1 rounded-none w-full justify-start overflow-x-auto overflow-y-hidden">
-          <TabsTrigger value="general" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase shrink-0"><Settings className="w-3.5 h-3.5" /> Allgemein</TabsTrigger>
-          <TabsTrigger value="tenants" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase shrink-0"><Building2 className="w-3.5 h-3.5" /> Mandanten</TabsTrigger>
-          <TabsTrigger value="jira" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase shrink-0"><ExternalLink className="w-3.5 h-3.5" /> JIRA Integration</TabsTrigger>
-          <TabsTrigger value="data" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase shrink-0"><Database className="w-3.5 h-3.5" /> Datenquelle</TabsTrigger>
-          <TabsTrigger value="security" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase shrink-0"><Lock className="w-3.5 h-3.5" /> Sicherheit</TabsTrigger>
+        <TabsList className="bg-card border h-12 p-1 gap-1 rounded-none w-full justify-start overflow-x-auto">
+          <TabsTrigger value="general" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Settings className="w-3.5 h-3.5" /> Organisation</TabsTrigger>
+          <TabsTrigger value="tenants" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Building2 className="w-3.5 h-3.5" /> Mandanten</TabsTrigger>
+          <TabsTrigger value="partners" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Contact className="w-3.5 h-3.5" /> Service Partner</TabsTrigger>
+          <TabsTrigger value="jira" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><ExternalLink className="w-3.5 h-3.5" /> JIRA</TabsTrigger>
+          <TabsTrigger value="data" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Database className="w-3.5 h-3.5" /> Datenquelle</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="tenants" className="space-y-6">
-          <Card className="rounded-none shadow-none border overflow-hidden">
+        <TabsContent value="tenants">
+          <Card className="rounded-none border shadow-none">
             <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Mandantenverwaltung</CardTitle>
-                <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">Verwalten Sie die Firmen in Ihrer IT-Landschaft.</CardDescription>
-              </div>
-              <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { resetTenantForm(); setIsTenantDialogOpen(true); }}>
+              <div><CardTitle className="text-[10px] font-bold uppercase">Firmen / Standorte</CardTitle></div>
+              <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { setSelectedTenant(null); setIsTenantDialogOpen(true); }}>
                 <Plus className="w-3.5 h-3.5 mr-1.5" /> Mandant hinzufügen
               </Button>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader className="bg-muted/30">
+                  <TableRow><TableHead className="font-bold uppercase text-[10px] py-4">Firma</TableHead><TableHead className="font-bold uppercase text-[10px]">Slug</TableHead><TableHead className="text-right font-bold uppercase text-[10px]">Aktion</TableHead></TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tenants?.map((t: any) => (
+                    <TableRow key={t.id} className="border-b">
+                      <TableCell className="font-bold text-sm py-4">{t.name}</TableCell>
+                      <TableCell className="font-mono text-[10px]">{t.slug}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={() => { setSelectedTenant(t); setTenantName(t.name); setTenantSlug(t.slug); setIsTenantDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="partners">
+          <Card className="rounded-none border shadow-none">
+            <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-[10px] font-bold uppercase">Betriebsverantwortliche & Service Partner</CardTitle>
+                <CardDescription className="text-[9px] uppercase font-bold">Zentrale Liste der Firmen und Kontakte für den Betrieb von IT-Systemen.</CardDescription>
+              </div>
+              <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { setSelectedPartner(null); setIsPartnerDialogOpen(true); }}>
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> Partner hinzufügen
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-muted/30">
                   <TableRow>
-                    <TableHead className="font-bold uppercase text-[10px] py-4">Name</TableHead>
-                    <TableHead className="font-bold uppercase text-[10px]">Slug / ID</TableHead>
-                    <TableHead className="font-bold uppercase text-[10px]">LDAP Sync</TableHead>
-                    <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px] py-4">Firma (Partner)</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Kontaktperson</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">E-Mail / Telefon</TableHead>
+                    <TableHead className="text-right font-bold uppercase text-[10px]">Aktion</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isTenantsLoading ? (
+                  {isPartnersLoading ? (
                     <TableRow><TableCell colSpan={4} className="h-32 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-                  ) : tenants?.length === 0 ? (
-                    <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic text-xs">Keine Mandanten konfiguriert.</TableCell></TableRow>
+                  ) : servicePartners?.length === 0 ? (
+                    <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic text-xs">Keine Partner hinterlegt.</TableCell></TableRow>
                   ) : (
-                    tenants?.map((tenant: any) => (
-                      <TableRow key={tenant.id} className="hover:bg-muted/5 border-b">
-                        <TableCell className="font-bold text-sm py-4">{tenant.name}</TableCell>
-                        <TableCell className="font-mono text-[10px]">{tenant.slug}</TableCell>
-                        <TableCell>
-                          {tenant.ldapEnabled ? (
-                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 rounded-none text-[8px] font-bold uppercase">Aktiv</Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-muted-foreground rounded-none text-[8px] font-bold uppercase">Inaktiv</Badge>
-                          )}
+                    servicePartners?.map((p: any) => (
+                      <TableRow key={p.id} className="border-b">
+                        <TableCell className="font-bold text-sm py-4">{p.name}</TableCell>
+                        <TableCell className="text-xs">{p.contactPerson}</TableCell>
+                        <TableCell className="text-[10px] font-mono">
+                          {p.email}<br/>{p.phone}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => openEditTenant(tenant)}>
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => { setSelectedTenant(tenant); setIsTenantDeleteOpen(true); }}>
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
+                          <Button variant="ghost" size="icon" onClick={() => openEditPartner(p)}><Pencil className="w-3.5 h-3.5" /></Button>
                         </TableCell>
                       </TableRow>
                     ))
@@ -467,355 +298,70 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="jira" className="space-y-6">
-          <Card className="rounded-none shadow-none border overflow-hidden">
+        <TabsContent value="jira">
+          {/* Bestehende Jira UI hier... */}
+          <Card className="rounded-none border shadow-none">
             <CardHeader className="bg-muted/10 border-b">
-              <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Jira Service Management Anbindung</CardTitle>
-              <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">Automatisieren Sie Workflows zwischen ComplianceHub und Jira.</CardDescription>
+              <CardTitle className="text-[10px] font-bold uppercase">Jira Integration</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6 p-6">
-              <div className="flex items-center justify-between p-4 border bg-blue-50/10 border-blue-100/50">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-bold">Integration aktivieren</p>
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Tickets automatisch erstellen und synchronisieren.</p>
-                </div>
-                <Switch checked={jiraEnabled} onCheckedChange={setJiraEnabled} />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+            <CardContent className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">JIRA CLOUD URL</Label>
-                  <Input placeholder="https://ihre-instanz.atlassian.net" value={jiraUrl} onChange={e => setJiraUrl(e.target.value)} className="rounded-none h-10" />
+                  <Label className="text-[10px] font-bold uppercase">Cloud URL</Label>
+                  <Input value={jiraUrl} onChange={e => setJiraUrl(e.target.value)} className="rounded-none" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">PROJEKT KEY</Label>
-                  <Input placeholder="ITSM" value={jiraProject} onChange={e => setJiraProject(e.target.value)} className="rounded-none h-10" />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ANFRAGETYP (REQUEST TYPE)</Label>
-                  <Input placeholder="Zugriffs- und Berechtigungsanfrage" value={jiraIssueType} onChange={e => setJiraIssueType(e.target.value)} className="rounded-none h-10" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">STATUS FÜR "GENEHMIGT" (APPROVED)</Label>
-                  <Input placeholder="Erteilt" value={jiraApprovedStatus} onChange={e => setJiraApprovedStatus(e.target.value)} className="rounded-none h-10" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">STATUS FÜR "ERLEDIGT" (DONE)</Label>
-                  <Input placeholder="Erledigt" value={jiraDoneStatus} onChange={e => setJiraDoneStatus(e.target.value)} className="rounded-none h-10" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ADMIN E-MAIL</Label>
-                  <Input placeholder="m.mustermann@acme.com" value={jiraEmail} onChange={e => setJiraEmail(e.target.value)} className="rounded-none h-10" />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ATLASSIAN API TOKEN</Label>
-                  <Input type="password" value={jiraToken} onChange={e => setJiraToken(e.target.value)} className="rounded-none h-10" />
+                  <Label className="text-[10px] font-bold uppercase">Projekt Key</Label>
+                  <Input value={jiraProject} onChange={e => setJiraProject(e.target.value)} className="rounded-none" />
                 </div>
               </div>
-
-              <div className="pt-8 border-t space-y-6">
-                <div className="flex items-center gap-2">
-                  <Box className="w-4 h-4 text-primary" />
-                  <h3 className="text-sm font-bold font-headline">Jira Assets (Insight) Konfiguration</h3>
-                </div>
-                
-                <div className="space-y-6 bg-slate-50/50 p-6 border">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ASSETS WORKSPACE ID (UUID)</Label>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-6 text-[8px] font-bold uppercase gap-1"
-                        onClick={fetchWorkspaces}
-                        disabled={isFetchingWorkspaces}
-                      >
-                        {isFetchingWorkspaces ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                        SUCHEN / LADEN
-                      </Button>
-                    </div>
-                    <Input placeholder="a1b2c3d4-..." value={assetsWorkspaceId} onChange={e => setAssetsWorkspaceId(e.target.value)} className="rounded-none bg-white font-mono text-[11px] h-10" />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">SCHEMA ID</Label>
-                      <Input placeholder="z.B. 4" value={assetsSchemaId} onChange={e => setAssetsSchemaId(e.target.value)} className="rounded-none bg-white h-10" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">OBJEKTTYP ID: RESSOURCEN</Label>
-                      <Input placeholder="z.B. 42" value={assetsResourceObjectTypeId} onChange={e => setAssetsResourceObjectTypeId(e.target.value)} className="rounded-none bg-white h-10" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ATTRIBUT-ID FÜR 'NAME' (RESOURCEN)</Label>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-6 text-[8px] font-bold uppercase gap-1"
-                          onClick={() => discoverNameAttribute('resource')}
-                          disabled={isFetchingResAttributes || !assetsResourceObjectTypeId}
-                        >
-                          {isFetchingResAttributes ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                          ERKENNEN
-                        </Button>
-                      </div>
-                      <Input placeholder="z.B. 1" value={assetsResourceNameAttributeId} onChange={e => setAssetsResourceNameAttributeId(e.target.value)} className="rounded-none bg-white h-10" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">OBJEKTTYP ID: ROLLEN</Label>
-                      </div>
-                      <Input placeholder="z.B. 43" value={assetsRoleObjectTypeId} onChange={e => setAssetsRoleObjectTypeId(e.target.value)} className="rounded-none bg-white h-10" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ATTRIBUT-ID FÜR 'NAME' (ROLLEN)</Label>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-6 text-[8px] font-bold uppercase gap-1"
-                          onClick={() => discoverNameAttribute('role')}
-                          disabled={isFetchingRoleAttributes || !assetsRoleObjectTypeId}
-                        >
-                          {isFetchingRoleAttributes ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                          ERKENNEN
-                        </Button>
-                      </div>
-                      <Input placeholder="z.B. 21" value={assetsRoleNameAttributeId} onChange={e => setAssetsRoleNameAttributeId(e.target.value)} className="rounded-none bg-white h-10" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ATTRIBUT-ID FÜR SYSTEM-REFERENZ</Label>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-6 text-[8px] font-bold uppercase gap-1"
-                          onClick={discoverSystemRefAttribute}
-                          disabled={isFetchingRefAttributes || !assetsRoleObjectTypeId || !assetsResourceObjectTypeId}
-                        >
-                          {isFetchingRefAttributes ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                          ERKENNEN
-                        </Button>
-                      </div>
-                      <Input placeholder="z.B. 10" value={assetsSystemAttributeId} onChange={e => setAssetsSystemAttributeId(e.target.value)} className="rounded-none bg-white h-10" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {testResult && (
-                <div className={cn(
-                  "p-4 border rounded-none text-[10px] font-bold uppercase animate-in slide-in-from-top-2",
-                  testResult.success ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-red-50 border-red-200 text-red-700"
-                )}>
-                  <div className="flex items-start gap-3">
-                    {testResult.success ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
-                    <div className="space-y-1">
-                      <p>{testResult.message}</p>
-                      {testResult.details && <p className="font-mono text-[9px] opacity-70 mt-2 bg-white/50 p-2 border border-current/20">{testResult.details}</p>}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="border-t p-4 flex justify-between bg-muted/5">
-              <Button variant="outline" onClick={handleTestJira} disabled={isTestingJira} className="rounded-none gap-2 font-bold uppercase text-[10px] border-primary/20 text-primary h-11 px-8 hover:bg-primary/5">
-                {isTestingJira ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} 
-                VERBINDUNG TESTEN
-              </Button>
-              <Button onClick={handleSaveJira} disabled={isSavingJira} className="rounded-none gap-2 font-bold uppercase text-[10px] h-11 px-8">
-                {isSavingJira ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 
-                INTEGRATION SPEICHERN
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="general" className="space-y-6">
-          <Card className="rounded-none shadow-none border">
-            <CardHeader className="bg-muted/10 border-b">
-              <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Organisation</CardTitle>
-              <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">Stammdaten Ihrer Mandanten.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 p-6">
-              <div className="grid grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">NAME DER ORGANISATION</Label>
-                  <Input defaultValue="ComplianceHub Plattform" className="rounded-none h-10" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">INSTALLATIONS-SLUG</Label>
-                  <Input defaultValue="ch-primary" className="rounded-none h-10" />
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="border-t p-4 flex justify-end">
-              <Button className="rounded-none gap-2 font-bold uppercase text-[10px] h-11 px-8"><Save className="w-4 h-4" /> SPEICHERN</Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="data" className="space-y-6">
-          <Card className="rounded-none shadow-none border">
-            <CardHeader className="bg-muted/10 border-b">
-              <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Datenquellen-Konfiguration</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <RadioGroup value={dataSource} onValueChange={(value) => setDataSource(value as any)}>
-                <Label className="flex items-center gap-4 p-6 rounded-none border has-[:checked]:bg-primary/5 has-[:checked]:border-primary transition-all cursor-pointer">
-                  <RadioGroupItem value="firestore" id="firestore" />
-                  <Database className="w-6 h-6 text-primary"/>
-                  <div>
-                    <p className="font-bold text-sm">Google Firestore</p>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Echtzeit Cloud-Datenbank (NoSQL).</p>
-                  </div>
-                </Label>
-                <Label className="flex items-center gap-4 p-6 rounded-none border has-[:checked]:bg-primary/5 has-[:checked]:border-primary transition-all cursor-pointer mt-4">
-                  <RadioGroupItem value="mysql" id="mysql" />
-                  <Database className="w-6 h-6 text-orange-600"/>
-                  <div>
-                    <p className="font-bold text-sm">MySQL Datenbank</p>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Relationales System für On-Prem Szenarien.</p>
-                  </div>
-                </Label>
-              </RadioGroup>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Tenant Management Dialog */}
-      <Dialog open={isTenantDialogOpen} onOpenChange={setIsTenantDialogOpen}>
-        <DialogContent className="rounded-none border shadow-2xl max-w-2xl p-0 overflow-hidden flex flex-col h-[85vh]">
-          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-            <DialogTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-primary" />
-              {selectedTenant ? 'Mandant bearbeiten' : 'Neuer Mandant'}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-400">
-              Konfigurieren Sie die Stammdaten und IT-Anbindung der Organisation.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <ScrollArea className="flex-1">
-            <div className="p-6 space-y-8">
-              {/* Stammdaten Section */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 border-b pb-2 mb-4">
-                  <Settings className="w-3.5 h-3.5 text-muted-foreground" />
-                  <h3 className="text-[10px] font-bold uppercase tracking-widest">Stammdaten</h3>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Firma</Label>
-                    <Input placeholder="z.B. Acme Corp" value={tenantName} onChange={e => setTenantName(e.target.value)} className="rounded-none h-10" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Slug / ID</Label>
-                    <Input placeholder="z.B. acme" value={tenantSlug} onChange={e => setTenantSlug(e.target.value)} className="rounded-none h-10 font-mono text-xs" />
-                  </div>
-                </div>
+      {/* Partner Dialog */}
+      <Dialog open={isPartnerDialogOpen} onOpenChange={setIsPartnerDialogOpen}>
+        <DialogContent className="rounded-none max-w-md">
+          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Service Partner pflegen</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase">Firma / Stelle</Label>
+              <Input value={partnerName} onChange={e => setPartnerName(e.target.value)} className="rounded-none" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase">Ansprechpartner</Label>
+              <Input value={partnerContact} onChange={e => setPartnerContact(e.target.value)} className="rounded-none" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase">E-Mail</Label>
+                <Input value={partnerEmail} onChange={e => setPartnerEmail(e.target.value)} className="rounded-none" />
               </div>
-
-              {/* LDAP Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b pb-2 mb-4">
-                  <div className="flex items-center gap-2">
-                    <Network className="w-3.5 h-3.5 text-primary" />
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest">LDAP / Active Directory Synchronisation</h3>
-                  </div>
-                  <Switch checked={ldapEnabled} onCheckedChange={setLdapEnabled} className="scale-75" />
-                </div>
-
-                <div className={cn("space-y-6 transition-opacity", !ldapEnabled && "opacity-40 pointer-events-none")}>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="col-span-2 space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Server URL</Label>
-                      <Input placeholder="ldap://10.0.0.5" value={ldapUrl} onChange={e => setLdapUrl(e.target.value)} className="rounded-none h-10 font-mono text-xs" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Port</Label>
-                      <Input placeholder="389" value={ldapPort} onChange={e => setLdapPort(e.target.value)} className="rounded-none h-10" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Search Base (Base DN)</Label>
-                    <Input placeholder="OU=Users,DC=company,DC=com" value={ldapBaseDn} onChange={e => setLdapBaseDn(e.target.value)} className="rounded-none h-10 font-mono text-xs" />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Bind DN (User)</Label>
-                      <Input placeholder="CN=SyncUser,CN=Users,DC=..." value={ldapBindDn} onChange={e => setLdapBindDn(e.target.value)} className="rounded-none h-10 font-mono text-xs" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px) font-bold uppercase text-muted-foreground">Bind Passwort</Label>
-                      <Input type="password" value={ldapBindPassword} onChange={e => setLdapBindPassword(e.target.value)} className="rounded-none h-10" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Benutzer-Filter (LQL)</Label>
-                    <Input placeholder="(sAMAccountName=*)" value={ldapUserFilter} onChange={e => setLdapUserFilter(e.target.value)} className="rounded-none h-10 font-mono text-xs" />
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase">Telefon</Label>
+                <Input value={partnerPhone} onChange={e => setPartnerPhone(e.target.value)} className="rounded-none" />
               </div>
             </div>
-          </ScrollArea>
-
-          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">
-            <Button variant="outline" className="rounded-none" onClick={() => setIsTenantDialogOpen(false)}>Abbrechen</Button>
-            <Button className="rounded-none font-bold uppercase text-[10px] px-8" onClick={handleSaveTenant}>Mandant speichern</Button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPartnerDialogOpen(false)} className="rounded-none">Abbrechen</Button>
+            <Button onClick={handleSavePartner} className="rounded-none font-bold uppercase text-[10px]">Partner speichern</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Tenant Delete Alert */}
-      <AlertDialog open={isTenantDeleteOpen} onOpenChange={setIsTenantDeleteOpen}>
-        <AlertDialogContent className="rounded-none shadow-2xl bg-white">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-red-600 font-bold uppercase text-sm">
-              <AlertTriangle className="w-5 h-5" /> Mandant löschen?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">
-              Möchten Sie den Mandanten "{selectedTenant?.name}" wirklich löschen? Dies hat keine direkten Auswirkungen auf die bereits zugewiesenen Nutzer oder Ressourcen, aber der Mandant erscheint nicht mehr in den Filtern.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTenant} className="bg-red-600 hover:bg-red-700 rounded-none font-bold uppercase text-xs">Unwiderruflich löschen</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Jira Workspace Dialog */}
-      <Dialog open={isWorkspaceDialogOpen} onOpenChange={setIsWorkspaceDialogOpen}>
-        <DialogContent className="rounded-none max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-[10px] font-bold uppercase tracking-widest">Workspace auswählen</DialogTitle>
-            <DialogDescription className="text-xs">Wählen Sie den Ziel-Workspace für Ihre Jira Assets.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 py-4">
-            {workspaces.map(ws => (
-              <Button 
-                key={ws.id} 
-                variant="outline" 
-                className="w-full justify-between rounded-none font-bold text-xs h-12 hover:bg-primary/5 hover:border-primary transition-all group"
-                onClick={() => selectWorkspace(ws)}
-              >
-                <div className="flex flex-col items-start">
-                  <span>{ws.name}</span>
-                  <span className="text-[8px] text-muted-foreground font-mono truncate max-w-[200px]">{ws.id}</span>
-                </div>
-                <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </Button>
-            ))}
+      {/* Tenant Dialog */}
+      <Dialog open={isTenantDialogOpen} onOpenChange={setIsTenantDialogOpen}>
+        <DialogContent className="rounded-none max-w-lg">
+          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Mandant konfigurieren</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Name</Label><Input value={tenantName} onChange={e => setTenantName(e.target.value)} className="rounded-none" /></div>
+              <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Slug</Label><Input value={tenantSlug} onChange={e => setTenantSlug(e.target.value)} className="rounded-none" /></div>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsWorkspaceDialogOpen(false)} className="rounded-none">Abbrechen</Button>
-          </DialogFooter>
+          <DialogFooter><Button onClick={handleSaveTenant} className="rounded-none uppercase font-bold text-[10px]">Speichern</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

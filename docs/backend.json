@@ -19,23 +19,18 @@
       },
       "required": ["id", "name", "slug", "createdAt"]
     },
-    "User": {
-      "title": "User",
+    "ServicePartner": {
+      "title": "ServicePartner",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "tenantId": { "type": "string" },
-        "externalId": { "type": "string" },
-        "displayName": { "type": "string" },
+        "name": { "type": "string" },
+        "contactPerson": { "type": "string" },
         "email": { "type": "string" },
-        "department": { "type": "string" },
-        "title": { "type": "string" },
-        "enabled": { "type": "boolean" },
-        "onboardingDate": { "type": "string" },
-        "offboardingDate": { "type": "string" },
-        "lastSyncedAt": { "type": "string", "format": "date-time" }
+        "phone": { "type": "string" }
       },
-      "required": ["id", "tenantId", "externalId", "displayName", "email", "enabled"]
+      "required": ["id", "name", "tenantId"]
     },
     "Resource": {
       "title": "Resource",
@@ -44,12 +39,19 @@
         "id": { "type": "string" },
         "tenantId": { "type": "string" },
         "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["it_tool", "business_critical", "test", "standard_app", "infrastructure"] },
         "type": { "type": "string", "enum": ["SaaS", "OnPrem", "Private Cloud", "Webshop", "IoT", "Andere"] },
-        "owner": { "type": "string" },
+        "operatorId": { "type": "string" },
+        "dataClassification": { "type": "string", "enum": ["public", "internal", "confidential", "strictly_confidential"] },
+        "dataLocation": { "type": "string" },
+        "mfaType": { "type": "string", "enum": ["none", "standard_otp", "standard_mail", "optional_otp", "optional_mail"] },
+        "authMethod": { "type": "string" },
         "url": { "type": "string" },
-        "criticality": { "type": "string", "enum": ["low", "medium", "high"] }
+        "documentationUrl": { "type": "string" },
+        "criticality": { "type": "string", "enum": ["low", "medium", "high"] },
+        "notes": { "type": "string" }
       },
-      "required": ["id", "tenantId", "name", "type", "owner", "criticality"]
+      "required": ["id", "tenantId", "name", "type", "criticality"]
     },
     "Entitlement": {
       "title": "Entitlement",
@@ -59,7 +61,9 @@
         "tenantId": { "type": "string" },
         "resourceId": { "type": "string" },
         "name": { "type": "string" },
-        "riskLevel": { "type": "string", "enum": ["low", "medium", "high"] }
+        "riskLevel": { "type": "string", "enum": ["low", "medium", "high"] },
+        "isAdmin": { "type": "boolean" },
+        "externalMapping": { "type": "string" }
       },
       "required": ["id", "tenantId", "resourceId", "name", "riskLevel"]
     },
@@ -71,39 +75,15 @@
         "tenantId": { "type": "string" },
         "userId": { "type": "string" },
         "entitlementId": { "type": "string" },
-        "status": { "type": "string", "enum": ["active", "requested", "removed"] },
-        "originGroupId": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "requested", "removed", "pending_removal"] },
+        "grantedBy": { "type": "string" },
+        "grantedAt": { "type": "string" },
         "validFrom": { "type": "string" },
         "validUntil": { "type": "string" },
-        "jiraIssueKey": { "type": "string" }
+        "jiraIssueKey": { "type": "string" },
+        "syncSource": { "type": "string" }
       },
       "required": ["id", "tenantId", "userId", "entitlementId", "status"]
-    },
-    "Bundle": {
-      "title": "Bundle",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "tenantId": { "type": "string" },
-        "name": { "type": "string" },
-        "description": { "type": "string" },
-        "entitlementIds": { "type": "array", "items": { "type": "string" } }
-      },
-      "required": ["id", "tenantId", "name", "entitlementIds"]
-    },
-    "JiraConfig": {
-      "title": "JiraConfig",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "url": { "type": "string" },
-        "email": { "type": "string" },
-        "apiToken": { "type": "string" },
-        "projectKey": { "type": "string" },
-        "issueTypeName": { "type": "string" },
-        "enabled": { "type": "boolean" }
-      }
     }
   },
   "auth": {
@@ -112,12 +92,11 @@
   "firestore": {
     "structure": [
       { "path": "tenants/{tenantId}", "definition": { "schema": { "$ref": "#/backend/entities/Tenant" } } },
+      { "path": "servicePartners/{partnerId}", "definition": { "schema": { "$ref": "#/backend/entities/ServicePartner" } } },
       { "path": "users/{userId}", "definition": { "schema": { "$ref": "#/backend/entities/User" } } },
       { "path": "resources/{resourceId}", "definition": { "schema": { "$ref": "#/backend/entities/Resource" } } },
       { "path": "entitlements/{entitlementId}", "definition": { "schema": { "$ref": "#/backend/entities/Entitlement" } } },
-      { "path": "assignments/{assignmentId}", "definition": { "schema": { "$ref": "#/backend/entities/Assignment" } } },
-      { "path": "bundles/{bundleId}", "definition": { "schema": { "$ref": "#/backend/entities/Bundle" } } },
-      { "path": "jiraConfigs/{configId}", "definition": { "schema": { "$ref": "#/backend/entities/JiraConfig" } } }
+      { "path": "assignments/{assignmentId}", "definition": { "schema": { "$ref": "#/backend/entities/Assignment" } } }
     ]
   }
 }

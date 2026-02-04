@@ -25,6 +25,16 @@ export const appSchema: AppSchema = {
       ldapUserFilter: 'TEXT',
     },
   },
+  servicePartners: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      contactPerson: 'VARCHAR(255)',
+      email: 'VARCHAR(255)',
+      phone: 'VARCHAR(50)',
+    },
+  },
   users: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -38,7 +48,7 @@ export const appSchema: AppSchema = {
       onboardingDate: 'VARCHAR(50)',
       offboardingDate: 'VARCHAR(50)',
       lastSyncedAt: 'VARCHAR(50)',
-      adGroups: 'TEXT', // Stored as JSON string
+      adGroups: 'TEXT',
     },
   },
   groups: {
@@ -67,8 +77,13 @@ export const appSchema: AppSchema = {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
+      category: 'VARCHAR(50)',
       type: 'VARCHAR(100)',
-      owner: 'VARCHAR(255)',
+      operatorId: 'VARCHAR(255)',
+      dataClassification: 'VARCHAR(50)',
+      dataLocation: 'VARCHAR(255)',
+      mfaType: 'VARCHAR(50)',
+      authMethod: 'VARCHAR(255)',
       url: 'TEXT',
       documentationUrl: 'TEXT',
       criticality: 'VARCHAR(20) DEFAULT "medium"',
@@ -88,7 +103,7 @@ export const appSchema: AppSchema = {
       isAdmin: 'BOOLEAN DEFAULT FALSE',
       isSharedAccount: 'BOOLEAN DEFAULT FALSE',
       passwordManagerUrl: 'TEXT',
-      externalMapping: 'TEXT', // AD Group DN
+      externalMapping: 'TEXT',
     },
   },
   assignments: {

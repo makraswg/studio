@@ -28,15 +28,29 @@ export interface User {
   onboardingDate?: string;
   offboardingDate?: string;
   lastSyncedAt: string;
-  adGroups?: string[]; // New: List of group DNs from AD
+  adGroups?: string[];
+}
+
+export interface ServicePartner {
+  id: string;
+  tenantId: string;
+  name: string; // Company Name
+  contactPerson: string;
+  email: string;
+  phone?: string;
 }
 
 export interface Resource {
   id: string;
   tenantId: string;
   name: string;
+  category: 'it_tool' | 'business_critical' | 'test' | 'standard_app' | 'infrastructure';
   type: 'SaaS' | 'OnPrem' | 'Private Cloud' | 'Webshop' | 'IoT' | 'Andere';
-  owner: string;
+  operatorId: string; // Reference to ServicePartner
+  dataClassification: 'public' | 'internal' | 'confidential' | 'strictly_confidential';
+  dataLocation: string;
+  mfaType: 'none' | 'standard_otp' | 'standard_mail' | 'optional_otp' | 'optional_mail';
+  authMethod: 'direct' | string; // 'direct' or ID of another resource (SSO)
   url: string;
   documentationUrl?: string;
   criticality: 'low' | 'medium' | 'high';
@@ -55,7 +69,7 @@ export interface Entitlement {
   isSharedAccount?: boolean | number;
   passwordManagerUrl?: string;
   tenantId?: string;
-  externalMapping?: string; // New: AD Group DN or ID for auto-assignment
+  externalMapping?: string;
 }
 
 export interface Assignment {
@@ -74,7 +88,7 @@ export interface Assignment {
   lastReviewedAt?: string;
   reviewedBy?: string;
   tenantId?: string;
-  syncSource?: 'manual' | 'ldap' | 'group'; // New: Track source of assignment
+  syncSource?: 'manual' | 'ldap' | 'group';
 }
 
 export interface AssignmentGroup {
@@ -108,7 +122,6 @@ export interface JiraConfig {
   approvedStatusName: string;
   doneStatusName: string;
   enabled: boolean;
-  // Assets Config
   assetsWorkspaceId?: string;
   assetsSchemaId?: string;
   assetsResourceObjectTypeId?: string;
@@ -127,4 +140,9 @@ export interface JiraSyncItem {
   requestedUserEmail?: string;
   requestedRoleName?: string;
   requestedResourceName?: string;
+}
+
+export interface Document {
+  id: string;
+  [key: string]: any;
 }

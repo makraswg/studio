@@ -71,6 +71,7 @@ import { toast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
+import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -110,7 +111,7 @@ export default function UsersPage() {
   const { data: entitlements } = usePluggableCollection<any>('entitlements');
   const { data: resources } = usePluggableCollection<any>('resources');
   const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
-  const { data: auditLogs } = usePluggableCollection<any>('auditEvents');
+  const { data: auditLogs, refresh: refreshAudit } = usePluggableCollection<any>('auditEvents');
 
   useEffect(() => {
     setMounted(true);
@@ -129,6 +130,8 @@ export default function UsersPage() {
     }
 
     const userId = selectedUser?.id || `u-${Math.random().toString(36).substring(2, 9)}`;
+    const isNew = !selectedUser;
+    
     const userData = {
       ...selectedUser,
       id: userId,
@@ -144,10 +147,20 @@ export default function UsersPage() {
     if (dataSource === 'mysql') await saveCollectionRecord('users', userId, userData);
     else setDocumentNonBlocking(doc(db, 'users', userId), userData);
 
+    // Audit Log
+    await logAuditEventAction(dataSource, {
+      tenantId: tenantId,
+      actorUid: authUser?.email || 'system',
+      action: isNew ? 'Benutzer erstellt' : 'Benutzer aktualisiert',
+      entityType: 'user',
+      entityId: userId,
+      after: userData
+    });
+
     toast({ title: selectedUser ? "Benutzer aktualisiert" : "Benutzer angelegt" });
     setIsAddOpen(false);
     resetForm();
-    setTimeout(() => refreshUsers(), 200);
+    setTimeout(() => { refreshUsers(); refreshAudit(); }, 200);
   };
 
   const handleQuickAssign = async () => {
@@ -178,13 +191,25 @@ export default function UsersPage() {
         setDocumentNonBlocking(doc(db, 'assignments', assId), assData);
       }
 
+      // Audit Log
+      const role = entitlements?.find(e => e.id === qaEntitlementId);
+      const res = resources?.find(r => r.id === role?.resourceId);
+      await logAuditEventAction(dataSource, {
+        tenantId: selectedUser.tenantId || 'global',
+        actorUid: authUser?.email || 'system',
+        action: `Rolle zugewiesen: ${res?.name} / ${role?.name}`,
+        entityType: 'assignment',
+        entityId: selectedUser.id,
+        after: assData
+      });
+
       toast({ title: "Berechtigung zugewiesen" });
       setIsQuickAssignOpen(false);
       setQaResourceId('');
       setQaEntitlementId('');
       setQaValidUntil('');
       
-      setTimeout(() => refreshAssignments(), 300);
+      setTimeout(() => { refreshAssignments(); refreshAudit(); }, 300);
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler beim Speichern", description: e.message });
     } finally {
@@ -196,15 +221,27 @@ export default function UsersPage() {
     if (!selectedUser) return;
     if (dataSource === 'mysql') await deleteCollectionRecord('users', selectedUser.id);
     else deleteDocumentNonBlocking(doc(db, 'users', selectedUser.id));
+
+    // Audit Log
+    await logAuditEventAction(dataSource, {
+      tenantId: selectedUser.tenantId || 'global',
+      actorUid: authUser?.email || 'system',
+      action: 'Benutzer gelöscht',
+      entityType: 'user',
+      entityId: selectedUser.id,
+      before: selectedUser
+    });
+
     toast({ title: "Benutzer gelöscht" });
     setIsDeleteAlertOpen(false);
     setSelectedUser(null);
-    setTimeout(() => refreshUsers(), 200);
+    setTimeout(() => { refreshUsers(); refreshAudit(); }, 200);
   };
 
   const handleLdapSync = async () => {
     setIsSyncing(true);
     const timestamp = new Date().toISOString();
+    let syncCount = 0;
     try {
       const mappedEntitlements = entitlements?.filter(e => !!e.externalMapping) || [];
       for (const user of (users || [])) {
@@ -228,11 +265,23 @@ export default function UsersPage() {
             };
             if (dataSource === 'mysql') await saveCollectionRecord('assignments', assId, assData);
             else setDocumentNonBlocking(doc(db, 'assignments', assId), assData);
+            syncCount++;
           }
         }
       }
-      toast({ title: "LDAP & Gruppen Sync abgeschlossen" });
-      setTimeout(() => { refreshUsers(); refreshAssignments(); setIsSyncing(false); }, 500);
+
+      if (syncCount > 0) {
+        await logAuditEventAction(dataSource, {
+          tenantId: activeTenantId === 'all' ? 'global' : activeTenantId,
+          actorUid: authUser?.email || 'system',
+          action: `LDAP Sync durchgeführt: ${syncCount} Zuweisungen aktualisiert.`,
+          entityType: 'system',
+          entityId: 'ldap-sync'
+        });
+      }
+
+      toast({ title: "LDAP & Gruppen Sync abgeschlossen", description: `${syncCount} Änderungen vorgenommen.` });
+      setTimeout(() => { refreshUsers(); refreshAssignments(); refreshAudit(); setIsSyncing(false); }, 500);
     } catch (e: any) {
       toast({ variant: "destructive", title: "Sync Fehler", description: e.message });
       setIsSyncing(false);
@@ -533,7 +582,7 @@ export default function UsersPage() {
                 </TabsContent>
                 <TabsContent value="history" className="mt-0">
                   <div className="space-y-6">
-                    {auditLogs?.filter(log => log.entityId === selectedUser?.id || log.entityId === selectedUser?.displayName).map(log => (
+                    {auditLogs?.filter(log => log.entityId === selectedUser?.id || (log.entityType === 'user' && log.entityId === selectedUser?.id)).map(log => (
                       <div key={log.id} className="relative pl-6 pb-6 border-l last:border-0 last:pb-0">
                         <div className="absolute left-[-5px] top-0 w-2 h-2 rounded-full bg-primary" />
                         <div className="text-[9px] font-bold uppercase text-muted-foreground mb-1">{log.timestamp ? new Date(log.timestamp).toLocaleString() : '—'}</div>

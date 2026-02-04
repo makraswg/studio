@@ -57,6 +57,7 @@ import { toast } from '@/hooks/use-toast';
 import { Assignment, User, Entitlement, Resource, Tenant } from '@/lib/types';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { createJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -88,6 +89,7 @@ export default function AssignmentsPage() {
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
+  const { refresh: refreshAudit } = usePluggableCollection<any>('auditEvents');
 
   useEffect(() => {
     setMounted(true);
@@ -112,7 +114,7 @@ export default function AssignmentsPage() {
       userId: selectedUserId,
       entitlementId: selectedEntitlementId,
       status: 'active',
-      grantedBy: authUser?.uid || 'system',
+      grantedBy: authUser?.email || 'system',
       grantedAt: new Date().toISOString(),
       validFrom: new Date().toISOString().split('T')[0],
       validUntil,
@@ -130,6 +132,17 @@ export default function AssignmentsPage() {
         setDocumentNonBlocking(doc(db, 'assignments', assignmentId), assignmentData);
       }
       
+      const role = entitlements?.find(e => e.id === selectedEntitlementId);
+      const res = resources?.find(r => r.id === role?.resourceId);
+      await logAuditEventAction(dataSource, {
+        tenantId: targetTenantId,
+        actorUid: authUser?.email || 'system',
+        action: `Einzelzuweisung erstellt: ${targetUser?.displayName} -> ${res?.name}/${role?.name}`,
+        entityType: 'assignment',
+        entityId: assignmentId,
+        after: assignmentData
+      });
+
       setIsCreateOpen(false);
       toast({ title: "Zuweisung erstellt" });
       setSelectedUserId('');
@@ -137,8 +150,7 @@ export default function AssignmentsPage() {
       setSelectedEntitlementId('');
       setValidUntil('');
       
-      // Lade Daten neu
-      setTimeout(() => refreshAssignments(), 300);
+      setTimeout(() => { refreshAssignments(); refreshAudit(); }, 300);
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler beim Speichern", description: e.message });
     } finally {
@@ -150,8 +162,22 @@ export default function AssignmentsPage() {
     const updateData = { status: 'removed', lastReviewedAt: new Date().toISOString() };
     if (dataSource === 'mysql') await saveCollectionRecord('assignments', assignment.id, { ...assignment, ...updateData });
     else updateDocumentNonBlocking(doc(db, 'assignments', assignment.id), updateData);
+    
+    const user = users?.find(u => u.id === assignment.userId);
+    const ent = entitlements?.find(e => e.id === assignment.entitlementId);
+    const res = resources?.find(r => r.id === ent?.resourceId);
+
+    await logAuditEventAction(dataSource, {
+      tenantId: assignment.tenantId || 'global',
+      actorUid: authUser?.email || 'system',
+      action: `Zugriff entzogen: ${user?.displayName} -> ${res?.name}/${ent?.name}`,
+      entityType: 'assignment',
+      entityId: assignment.id,
+      after: { ...assignment, ...updateData }
+    });
+
     toast({ title: "Berechtigung widerrufen" });
-    setTimeout(() => refreshAssignments(), 200);
+    setTimeout(() => { refreshAssignments(); refreshAudit(); }, 200);
   };
 
   const handleBulkExpiredJira = async () => {

@@ -34,7 +34,8 @@ import {
   Database,
   Fingerprint,
   ChevronRight,
-  Shield
+  Shield,
+  RefreshCw
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -80,6 +81,7 @@ import { doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
+import { triggerSyncJobAction } from '@/app/actions/sync-actions';
 import { Entitlement, Tenant, Resource, ServicePartner } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -90,6 +92,7 @@ export default function ResourcesPage() {
   const { dataSource, activeTenantId } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
   
   const [isResourceDialogOpen, setIsResourceDialogOpen] = useState(false);
   const [isResourceDeleteOpen, setIsResourceDeleteOpen] = useState(false);
@@ -136,6 +139,26 @@ export default function ResourcesPage() {
     if (!id || id === 'global') return 'global';
     const tenant = tenants?.find(t => t.id === id);
     return tenant ? tenant.slug : id;
+  };
+
+  const handleSyncAssets = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await triggerSyncJobAction('job-assets-sync', dataSource);
+      if (res.success) {
+        toast({ title: "Synchronisation gestartet", description: "Jira Assets werden im Hintergrund abgeglichen." });
+        setTimeout(() => {
+          refreshResources();
+          refreshEntitlements();
+        }, 2000);
+      } else {
+        toast({ variant: "destructive", title: "Sync fehlgeschlagen", description: res.error });
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleSaveResource = async () => {
@@ -243,16 +266,27 @@ export default function ResourcesPage() {
           <h1 className="text-2xl font-bold tracking-tight">Ressourcenkatalog</h1>
           <p className="text-sm text-muted-foreground">Compliance-Inventar für {activeTenantId === 'all' ? 'alle Firmen' : getTenantSlug(activeTenantId)}.</p>
         </div>
-        <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => { setSelectedResource(null); setIsResourceDialogOpen(true); }}>
-          <Plus className="w-3.5 h-3.5 mr-2" /> System registrieren
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-9 font-bold uppercase text-[10px] rounded-none border-blue-200 text-blue-700 bg-blue-50"
+            onClick={handleSyncAssets}
+            disabled={isSyncing}
+          >
+            {isSyncing ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} Jira Assets Sync
+          </Button>
+          <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => { setSelectedResource(null); setIsResourceDialogOpen(true); }}>
+            <Plus className="w-3.5 h-3.5 mr-2" /> System registrieren
+          </Button>
+        </div>
       </div>
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input 
           placeholder="Nach Systemen suchen..." 
-          className="pl-10 h-10 border border-input bg-white px-3 text-sm focus:outline-none rounded-none" 
+          className="pl-10 h-10 border border-input bg-white dark:bg-slate-950 px-3 text-sm focus:outline-none rounded-none" 
           value={search} onChange={(e) => setSearch(e.target.value)} 
         />
       </div>
@@ -462,7 +496,7 @@ export default function ResourcesPage() {
             </div>
           </ScrollArea>
 
-          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">
+          <DialogFooter className="p-6 bg-slate-50 dark:bg-slate-900 border-t shrink-0">
             <Button variant="outline" onClick={() => setIsResourceDialogOpen(false)} className="rounded-none h-10 px-8">Abbrechen</Button>
             <Button onClick={handleSaveResource} className="rounded-none font-bold uppercase text-[10px] px-10">System speichern</Button>
           </DialogFooter>
@@ -522,7 +556,7 @@ export default function ResourcesPage() {
               </Table>
             </div>
           </ScrollArea>
-          <div className="p-4 bg-slate-50 border-t flex justify-end shrink-0">
+          <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t flex justify-end shrink-0">
             <Button onClick={() => setIsEntitlementListOpen(false)} className="rounded-none h-10 px-8">Schließen</Button>
           </div>
         </DialogContent>
@@ -586,7 +620,7 @@ export default function ResourcesPage() {
               <Switch checked={entIsAdmin} onCheckedChange={setEntIsAdmin} />
             </div>
           </div>
-          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">
+          <DialogFooter className="p-6 bg-slate-50 dark:bg-slate-900 border-t shrink-0">
             <Button variant="outline" onClick={() => setIsEntitlementEditOpen(false)} className="rounded-none h-10 px-8">Abbrechen</Button>
             <Button onClick={handleSaveEntitlement} className="rounded-none font-bold uppercase text-[10px] px-10">Rolle speichern</Button>
           </DialogFooter>

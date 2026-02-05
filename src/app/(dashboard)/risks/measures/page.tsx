@@ -36,6 +36,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
@@ -58,8 +64,8 @@ export default function RiskMeasuresPage() {
   const [effectiveness, setEffectiveness] = useState('3');
   const [description, setDescription] = useState('');
 
-  const { data: measures, isLoading, refresh } = usePluggableCollection<RiskMeasure>('riskMeasures');
-  const { data: risks } = usePluggableCollection<Risk>('risks');
+  const { data: measures, isLoading: isMeasuresLoading, refresh } = usePluggableCollection<RiskMeasure>('riskMeasures');
+  const { data: risks, isLoading: isRisksLoading } = usePluggableCollection<Risk>('risks');
 
   useEffect(() => {
     setMounted(true);
@@ -132,11 +138,18 @@ export default function RiskMeasuresPage() {
     }
   };
 
+  const filteredRisksForSelection = useMemo(() => {
+    if (!risks) return [];
+    return risks.filter(r => activeTenantId === 'all' || r.tenantId === activeTenantId);
+  }, [risks, activeTenantId]);
+
   const filteredMeasures = useMemo(() => {
     if (!measures) return [];
     return measures.filter(m => {
-      const risk = risks?.find(r => r.id === m.riskId);
-      if (activeTenantId !== 'all' && risk?.tenantId !== activeTenantId) return false;
+      // Wenn Risiken noch laden, zeigen wir alle an, anstatt sie wegzufiltern
+      if (!risks) return true;
+      const risk = risks.find(r => r.id === m.riskId);
+      if (activeTenantId !== 'all' && risk && risk.tenantId !== activeTenantId) return false;
       return m.title.toLowerCase().includes(search.toLowerCase()) || m.owner.toLowerCase().includes(search.toLowerCase());
     });
   }, [measures, risks, search, activeTenantId]);
@@ -165,12 +178,12 @@ export default function RiskMeasuresPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
             placeholder="Maßnahmen oder Verantwortliche suchen..." 
-            className="pl-10 h-11 border-2 bg-white rounded-none shadow-none"
+            className="pl-10 h-11 border-2 bg-white dark:bg-slate-950 rounded-none shadow-none"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex border bg-white h-11 p-1 gap-1">
+        <div className="flex border bg-card h-11 p-1 gap-1">
           <Button variant="ghost" size="sm" className="h-full text-[9px] font-bold uppercase px-4 rounded-none border-r"><Filter className="w-3 h-3 mr-2" /> Filter</Button>
           <Button variant="ghost" size="sm" className="h-full text-[9px] font-bold uppercase px-4 rounded-none bg-muted/20">Alle Status</Button>
         </div>
@@ -188,7 +201,7 @@ export default function RiskMeasuresPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isMeasuresLoading ? (
               <TableRow><TableCell colSpan={5} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : filteredMeasures.map((m) => {
               const risk = risks?.find(r => r.id === m.riskId);
@@ -243,13 +256,16 @@ export default function RiskMeasuresPage() {
                 </TableRow>
               );
             })}
+            {!isMeasuresLoading && filteredMeasures.length === 0 && (
+              <TableRow><TableCell colSpan={5} className="py-20 text-center text-xs text-muted-foreground italic">Keine Maßnahmen gefunden.</TableCell></TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
 
       {/* Measure Editor Dialog */}
       <Dialog open={isMeasureDialogOpen} onOpenChange={setIsMeasureDialogOpen}>
-        <DialogContent className="max-w-2xl rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-2xl">
+        <DialogContent className="max-w-2xl rounded-none p-0 flex flex-col border-2 shadow-2xl bg-card">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center gap-3">
               <ClipboardCheck className="w-5 h-5 text-emerald-500" />
@@ -259,32 +275,38 @@ export default function RiskMeasuresPage() {
             </div>
           </DialogHeader>
           
-          <div className="p-8 space-y-6 bg-white">
+          <div className="p-8 space-y-6 bg-card">
             <div className="space-y-2">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Zugeordnetes Risiko</Label>
               <Select value={riskId} onValueChange={setRiskId}>
-                <SelectTrigger className="rounded-none h-10 border-2"><SelectValue placeholder="Risiko auswählen..." /></SelectTrigger>
+                <SelectTrigger className="rounded-none h-10 border-2 bg-background">
+                  <SelectValue placeholder={isRisksLoading ? "Lade Risiken..." : "Risiko auswählen..."} />
+                </SelectTrigger>
                 <SelectContent className="rounded-none">
-                  {risks?.filter(r => activeTenantId === 'all' || r.tenantId === activeTenantId).map(r => (
-                    <SelectItem key={r.id} value={r.id}>{r.title}</SelectItem>
-                  ))}
+                  {filteredRisksForSelection.length > 0 ? (
+                    filteredRisksForSelection.map(r => (
+                      <SelectItem key={r.id} value={r.id}>{r.title}</SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>Keine Risiken verfügbar</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Titel der Maßnahme</Label>
-              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="z.B. Einführung von 2FA für alle Administrator-Logins" className="rounded-none h-10 font-bold border-2" />
+              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="z.B. Einführung von 2FA für alle Administrator-Logins" className="rounded-none h-10 font-bold border-2 bg-background" />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Verantwortlicher (Implementierung)</Label>
-                <Input value={owner} onChange={e => setOwner(e.target.value)} placeholder="Name oder Team" className="rounded-none h-10 border-2" />
+                <Input value={owner} onChange={e => setOwner(e.target.value)} placeholder="Name oder Team" className="rounded-none h-10 border-2 bg-background" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Frist (Deadline)</Label>
-                <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="rounded-none h-10 border-2" />
+                <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="rounded-none h-10 border-2 bg-background" />
               </div>
             </div>
 
@@ -292,7 +314,7 @@ export default function RiskMeasuresPage() {
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Status</Label>
                 <Select value={status} onValueChange={(v: any) => setStatus(v)}>
-                  <SelectTrigger className="rounded-none h-10 border-2"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="rounded-none h-10 border-2 bg-background"><SelectValue /></SelectTrigger>
                   <SelectContent className="rounded-none">
                     <SelectItem value="planned">Geplant</SelectItem>
                     <SelectItem value="active">In Umsetzung</SelectItem>
@@ -304,7 +326,7 @@ export default function RiskMeasuresPage() {
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Geplante Wirksamkeit (1-5)</Label>
                 <Select value={effectiveness} onValueChange={setEffectiveness}>
-                  <SelectTrigger className="rounded-none h-10 border-2"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="rounded-none h-10 border-2 bg-background"><SelectValue /></SelectTrigger>
                   <SelectContent className="rounded-none">
                     <SelectItem value="1">1 - Sehr Gering</SelectItem>
                     <SelectItem value="2">2 - Gering</SelectItem>
@@ -318,13 +340,13 @@ export default function RiskMeasuresPage() {
 
             <div className="space-y-2">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Detailbeschreibung / Schritte</Label>
-              <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Welche technischen oder organisatorischen Schritte werden unternommen?" className="rounded-none min-h-[100px] border-2" />
+              <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Welche technischen oder organisatorischen Schritte werden unternommen?" className="rounded-none min-h-[100px] border-2 bg-background" />
             </div>
           </div>
 
-          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">
+          <DialogFooter className="p-6 bg-muted/30 border-t shrink-0">
             <Button variant="outline" onClick={() => setIsMeasureDialogOpen(false)} className="rounded-none h-10 px-8">Abbrechen</Button>
-            <Button onClick={handleSaveMeasure} disabled={isSaving} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] tracking-widest bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={handleSaveMeasure} disabled={isSaving} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white">
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />} Maßnahme speichern
             </Button>
           </DialogFooter>
@@ -333,10 +355,3 @@ export default function RiskMeasuresPage() {
     </div>
   );
 }
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';

@@ -164,6 +164,42 @@ export async function deleteCollectionRecord(collectionName: string, id: string,
   }
 }
 
+export async function truncateDatabaseAreasAction(): Promise<{ success: boolean; message: string }> {
+  let connection;
+  try {
+    connection = await getMysqlConnection();
+    
+    // Tabellen die geleert werden sollen (Kataloge, Risiken, Ressourcen, Zuweisungen, Audits)
+    const tablesToClear = [
+      'auditEvents',
+      'catalogs',
+      'hazardModules',
+      'hazards',
+      'hazardMeasures',
+      'hazardMeasureRelations',
+      'importRuns',
+      'risks',
+      'riskMeasures',
+      'resources',
+      'entitlements',
+      'assignments',
+      'groups',
+      'bundles'
+    ];
+
+    for (const table of tablesToClear) {
+      await connection.execute(`DELETE FROM \`${table}\``);
+    }
+
+    connection.release();
+    return { success: true, message: "Ausgewählte Datenbereiche wurden erfolgreich geleert." };
+  } catch (error: any) {
+    if (connection) connection.release();
+    console.error("Truncate failed:", error);
+    return { success: false, message: `Fehler beim Leeren der Tabellen: ${error.message}` };
+  }
+}
+
 export async function testMysqlConnectionAction(): Promise<{ success: boolean; message: string; }> {
     return await testMysqlConnection();
 }

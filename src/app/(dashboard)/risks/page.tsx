@@ -105,6 +105,9 @@ function RiskDashboardContent() {
   // Advisor State
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
   const [advisorRisk, setAdvisorRisk] = useState<Risk | null>(null);
+  const [adoptingId, setAdoptingId] = useState<string | null>(null);
+  const [customMeasureTitle, setCustomMeasureTitle] = useState('');
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
 
   // Linked Measures State
   const [isMeasuresViewOpen, setIsMeasuresViewOpen] = useState(false);
@@ -244,6 +247,7 @@ function RiskDashboardContent() {
 
   const handleAdoptMeasure = async (measure: any) => {
     if (!advisorRisk) return;
+    setAdoptingId(measure.id);
     const msrId = `msr-adopt-${Math.random().toString(36).substring(2, 9)}`;
     
     const newMeasure: RiskMeasure = {
@@ -262,9 +266,43 @@ function RiskDashboardContent() {
       if (res.success) {
         toast({ title: "Maßnahme übernommen", description: "Sie wurde dem Risiko als geplante Maßnahme hinzugefügt." });
         refreshMeasures();
+        refresh(); // Refresh risks to update the measure count in table
+      } else {
+        toast({ variant: "destructive", title: "Fehler beim Speichern", description: res.error || "Unbekannter Fehler" });
       }
-    } catch (e) {
-      toast({ variant: "destructive", title: "Fehler beim Übernehmen" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Systemfehler", description: e.message });
+    } finally {
+      setAdoptingId(null);
+    }
+  };
+
+  const handleAddCustomMeasure = async () => {
+    if (!advisorRisk || !customMeasureTitle) return;
+    setIsAddingCustom(true);
+    const msrId = `msr-custom-${Math.random().toString(36).substring(2, 9)}`;
+    
+    const newMeasure: RiskMeasure = {
+      id: msrId,
+      riskIds: [advisorRisk.id],
+      title: customMeasureTitle,
+      description: 'Manuell im Advisor erstellte Maßnahme.',
+      owner: authUser?.displayName || advisorRisk.owner || 'Noch offen',
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      status: 'planned',
+      effectiveness: 3
+    };
+
+    try {
+      const res = await saveCollectionRecord('riskMeasures', msrId, newMeasure, dataSource);
+      if (res.success) {
+        toast({ title: "Maßnahme erstellt" });
+        setCustomMeasureTitle('');
+        refreshMeasures();
+        refresh();
+      }
+    } finally {
+      setIsAddingCustom(false);
     }
   };
 
@@ -476,7 +514,7 @@ function RiskDashboardContent() {
                           variant="ghost" 
                           size="sm" 
                           className="h-5 text-[8px] font-black uppercase bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-none gap-1 px-1.5 w-fit"
-                          onClick={() => { setAdvisorRisk(risk); setIsAdvisorOpen(true); }}
+                          onClick={() => { setAdvisorRisk(risk); setCustomMeasureTitle(''); setIsAdvisorOpen(true); }}
                         >
                           <Zap className="w-2.5 h-2.5 fill-current" /> BSI Advisor
                         </Button>
@@ -797,68 +835,91 @@ function RiskDashboardContent() {
             </div>
 
             <ScrollArea className="flex-1">
-              <div className="p-6 space-y-4">
-                <p className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
-                  <ClipboardCheck className="w-3.5 h-3.5" /> Passende Kontrollen aus Kreuztabelle:
-                </p>
-                
-                {!advisorRisk?.hazardId ? (
-                  <div className="py-10 text-center space-y-4 border-2 border-dashed bg-white p-6">
-                    <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto" />
-                    <div className="space-y-2">
-                      <p className="text-xs font-bold uppercase">Kein Gefährdungs-Bezug</p>
-                      <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        Um BSI-Vorschläge zu erhalten, muss das Risiko mit einer Gefährdung aus dem Katalog verknüpft sein.
-                      </p>
+              <div className="p-6 space-y-6">
+                <div className="space-y-4">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
+                    <ClipboardCheck className="w-3.5 h-3.5" /> Passende Kontrollen aus Kreuztabelle:
+                  </p>
+                  
+                  {!advisorRisk?.hazardId ? (
+                    <div className="py-10 text-center space-y-4 border-2 border-dashed bg-white p-6">
+                      <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto" />
+                      <div className="space-y-2">
+                        <p className="text-xs font-bold uppercase">Kein Gefährdungs-Bezug</p>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                          Um BSI-Vorschläge zu erhalten, muss das Risiko mit einer Gefährdung aus dem Katalog verknüpft sein.
+                        </p>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="rounded-none text-[9px] font-black uppercase w-full"
+                        onClick={() => { setIsAdvisorOpen(false); if(advisorRisk) openEdit(advisorRisk); }}
+                      >
+                        Bezug jetzt herstellen
+                      </Button>
+                    </div>
+                  ) : suggestedMeasures.length === 0 ? (
+                    <div className="py-10 text-center space-y-4 bg-white border p-6">
+                      <Info className="w-10 h-10 text-slate-200 mx-auto" />
+                      <p className="text-[10px] text-muted-foreground font-medium italic">Keine spezifischen BSI-Maßnahmen für diesen Code gefunden.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3">
+                      {suggestedMeasures.map((m: any) => (
+                        <Card key={m.id} className="rounded-none border shadow-sm bg-white hover:border-blue-400 transition-colors group">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Badge className="bg-slate-100 text-slate-600 rounded-none text-[8px] font-black px-1.5 h-4.5 border-none">{m.code}</Badge>
+                                  <span className="text-[8px] font-black text-blue-600 uppercase">Baustein: {m.baustein}</span>
+                                </div>
+                                <p className="text-[11px] font-bold leading-snug group-hover:text-blue-700 transition-colors">{m.title}</p>
+                              </div>
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="h-8 w-8 rounded-none hover:bg-emerald-50 hover:text-emerald-600 text-emerald-600 shrink-0"
+                                onClick={() => handleAdoptMeasure(m)}
+                                disabled={adoptingId === m.id}
+                              >
+                                {adoptingId === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
+                    <Pencil className="w-3.5 h-3.5" /> Eigene Maßnahme hinzufügen
+                  </p>
+                  <div className="p-4 bg-white border space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-[9px] font-black uppercase text-slate-400">Titel der Maßnahme</Label>
+                      <Input 
+                        placeholder="z.B. Monatliche Schulung..." 
+                        className="rounded-none h-9 text-xs" 
+                        value={customMeasureTitle}
+                        onChange={e => setCustomMeasureTitle(e.target.value)}
+                      />
                     </div>
                     <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="rounded-none text-[9px] font-black uppercase w-full"
-                      onClick={() => { setIsAdvisorOpen(false); if(advisorRisk) openEdit(advisorRisk); }}
+                      className="w-full h-9 rounded-none font-black uppercase text-[9px] gap-2"
+                      onClick={handleAddCustomMeasure}
+                      disabled={isAddingCustom || !customMeasureTitle}
                     >
-                      Bezug jetzt herstellen
+                      {isAddingCustom ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                      Maßnahme Planen
                     </Button>
                   </div>
-                ) : suggestedMeasures.length === 0 ? (
-                  <div className="py-16 text-center space-y-4 bg-white border">
-                    <Info className="w-10 h-10 text-slate-200 mx-auto" />
-                    <p className="text-[10px] text-muted-foreground font-medium italic px-10">Keine spezifischen BSI-Maßnahmen für diesen Code gefunden.</p>
-                    <Button 
-                      variant="ghost" 
-                      className="text-[9px] font-black uppercase text-blue-600 gap-2"
-                      onClick={() => router.push('/risks/measures')}
-                    >
-                      <Plus className="w-3 h-3" /> Manuelle Maßnahme anlegen
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-3">
-                    {suggestedMeasures.map((m: any) => (
-                      <Card key={m.id} className="rounded-none border shadow-sm bg-white hover:border-blue-400 transition-colors group">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <Badge className="bg-slate-100 text-slate-600 rounded-none text-[8px] font-black px-1.5 h-4.5 border-none">{m.code}</Badge>
-                                <span className="text-[8px] font-black text-blue-600 uppercase">Baustein: {m.baustein}</span>
-                              </div>
-                              <p className="text-[11px] font-bold leading-snug group-hover:text-blue-700 transition-colors">{m.title}</p>
-                            </div>
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
-                              className="h-8 w-8 rounded-none hover:bg-emerald-50 hover:text-emerald-600 text-slate-300"
-                              onClick={() => handleAdoptMeasure(m)}
-                            >
-                              <Plus className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
+                </div>
               </div>
             </ScrollArea>
 

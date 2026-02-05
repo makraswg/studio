@@ -146,7 +146,6 @@ export default function RiskMeasuresPage() {
   const filteredMeasures = useMemo(() => {
     if (!measures) return [];
     return measures.filter(m => {
-      // Wenn Risiken noch laden, zeigen wir alle an, anstatt sie wegzufiltern
       if (!risks) return true;
       const risk = risks.find(r => r.id === m.riskId);
       if (activeTenantId !== 'all' && risk && risk.tenantId !== activeTenantId) return false;
@@ -285,7 +284,9 @@ export default function RiskMeasuresPage() {
                 <SelectContent className="rounded-none">
                   {filteredRisksForSelection.length > 0 ? (
                     filteredRisksForSelection.map(r => (
-                      <SelectItem key={r.id} value={r.id}>{r.title}</SelectItem>
+                      <SelectItem key={r.id} value={r.id}>
+                        <span className="text-muted-foreground font-black mr-2">[{r.category}]</span> {r.title}
+                      </SelectItem>
                     ))
                   ) : (
                     <SelectItem value="none" disabled>Keine Risiken verfügbar</SelectItem>

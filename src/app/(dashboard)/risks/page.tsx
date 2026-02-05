@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -397,21 +396,28 @@ function RiskDashboardContent() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-none w-56">
-                          <DropdownMenuItem onSelect={() => handleReviewRisk(risk)} className="text-emerald-600 font-bold">
-                            <CalendarCheck className="w-3.5 h-3.5 mr-2" /> Jetzt Prüfen (Review)
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onSelect={() => openEdit(risk)}>
-                            <Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600" onSelect={() => { if(confirm("Risiko permanent löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}>
-                            <Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-none gap-1.5"
+                          onClick={() => handleReviewRisk(risk)}
+                          disabled={isSaving}
+                        >
+                          <CalendarCheck className="w-3 h-3" /> Review
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="rounded-none w-56">
+                            <DropdownMenuItem onSelect={() => openEdit(risk)}>
+                              <Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-red-600" onSelect={() => { if(confirm("Risiko permanent löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}>
+                              <Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

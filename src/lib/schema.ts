@@ -207,5 +207,80 @@ export const appSchema: AppSchema = {
       lastStatus: 'VARCHAR(20)',
       lastMessage: 'TEXT',
     }
+  },
+  bundles: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      entitlementIds: 'TEXT'
+    }
+  },
+  groups: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      userConfigs: 'TEXT',
+      entitlementConfigs: 'TEXT',
+      userIds: 'TEXT',
+      entitlementIds: 'TEXT'
+    }
+  },
+  entitlements: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      resourceId: 'VARCHAR(255) NOT NULL',
+      parentId: 'VARCHAR(255)',
+      name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      riskLevel: 'VARCHAR(50)',
+      isAdmin: 'BOOLEAN DEFAULT FALSE',
+      isSharedAccount: 'BOOLEAN DEFAULT FALSE',
+      passwordManagerUrl: 'TEXT',
+      tenantId: 'VARCHAR(255)',
+      externalMapping: 'VARCHAR(255)'
+    }
+  },
+  resources: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      category: 'VARCHAR(100)',
+      type: 'VARCHAR(100)',
+      operatorId: 'VARCHAR(255)',
+      dataClassification: 'VARCHAR(100)',
+      dataLocation: 'VARCHAR(255)',
+      mfaType: 'VARCHAR(100)',
+      authMethod: 'VARCHAR(255)',
+      url: 'TEXT',
+      documentationUrl: 'TEXT',
+      criticality: 'VARCHAR(50)',
+      notes: 'TEXT',
+      createdAt: 'VARCHAR(50)'
+    }
+  },
+  assignments: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      userId: 'VARCHAR(255) NOT NULL',
+      entitlementId: 'VARCHAR(255) NOT NULL',
+      originGroupId: 'VARCHAR(255)',
+      status: 'VARCHAR(50) NOT NULL',
+      grantedBy: 'VARCHAR(255)',
+      grantedAt: 'VARCHAR(50)',
+      validFrom: 'VARCHAR(50)',
+      validUntil: 'VARCHAR(50)',
+      ticketRef: 'VARCHAR(255)',
+      jiraIssueKey: 'VARCHAR(255)',
+      notes: 'TEXT',
+      lastReviewedAt: 'VARCHAR(50)',
+      reviewedBy: 'VARCHAR(255)',
+      tenantId: 'VARCHAR(255)',
+      syncSource: 'VARCHAR(50)'
+    }
   }
 };

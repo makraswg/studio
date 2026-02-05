@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
@@ -8,6 +7,11 @@ import { getMockCollection } from '@/lib/mock-db';
 import { DataSource } from '@/lib/types';
 import bcrypt from 'bcryptjs';
 
+/**
+ * Mapping von Frontend-Kollektionsnamen zu echten MySQL-Tabellennamen.
+ * CRITICAL: Alle Tabellen, die via saveCollectionRecord gespeichert werden sollen,
+ * MÜSSEN hier eingetragen sein.
+ */
 const collectionToTableMap: { [key: string]: string } = {
   users: 'users',
   platformUsers: 'platformUsers',
@@ -25,7 +29,12 @@ const collectionToTableMap: { [key: string]: string } = {
   entitlements: 'entitlements',
   assignments: 'assignments',
   groups: 'groups',
-  bundles: 'bundles'
+  bundles: 'bundles',
+  // NEU: Konfigurations-Tabellen
+  jiraConfigs: 'jiraConfigs',
+  aiConfigs: 'aiConfigs',
+  smtpConfigs: 'smtpConfigs',
+  syncJobs: 'syncJobs'
 };
 
 function normalizeRecord(item: any, tableName: string) {
@@ -49,7 +58,7 @@ function normalizeRecord(item: any, tableName: string) {
     });
   }
 
-  const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled'];
+  const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets'];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
       normalized[f] = normalized[f] === 1 || normalized[f] === true || normalized[f] === '1';
@@ -69,7 +78,7 @@ export async function getCollectionData(collectionName: string, dataSource: Data
     } catch (e: any) { return { data: null, error: e.message }; }
   }
   const tableName = collectionToTableMap[collectionName];
-  if (!tableName) return { data: null, error: `Invalid collection: ${collectionName}` };
+  if (!tableName) return { data: null, error: `Invalid collection mapping: ${collectionName}` };
   let connection;
   try {
     connection = await getMysqlConnection();
@@ -94,7 +103,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     } catch (e: any) { return { success: false, error: e.message }; }
   }
   const tableName = collectionToTableMap[collectionName];
-  if (!tableName) return { success: false, error: 'Invalid table' };
+  if (!tableName) return { success: false, error: `Invalid table mapping for collection: ${collectionName}` };
   let connection;
   try {
     connection = await getMysqlConnection();
@@ -115,7 +124,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       });
     }
 
-    const boolKeys = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled'];
+    const boolKeys = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets'];
     boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
     
     const keys = Object.keys(preparedData);
@@ -129,6 +138,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     return { success: true, error: null };
   } catch (error: any) {
     if (connection) connection.release();
+    console.error(`Error saving to ${tableName}:`, error);
     return { success: false, error: error.message };
   }
 }

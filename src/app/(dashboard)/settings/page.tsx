@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -55,7 +54,9 @@ import {
   testJiraConnectionAction, 
   getJiraConfigs, 
   getJiraWorkspacesAction, 
-  getJiraSchemasAction 
+  getJiraSchemasAction,
+  getJiraObjectTypesAction,
+  getJiraAttributesAction
 } from '@/app/actions/jira-actions';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { RiskCategorySetting, Catalog, ImportRun, Tenant, JiraConfig, SmtpConfig, AiConfig, PlatformUser } from '@/lib/types';
@@ -83,6 +84,7 @@ export default function SettingsPage() {
   // Discovery States for Jira
   const [jiraWorkspaces, setJiraWorkspaces] = useState<any[]>([]);
   const [jiraSchemas, setJiraSchemas] = useState<any[]>([]);
+  const [jiraObjectTypes, setJiraObjectTypes] = useState<any[]>([]);
   const [isDiscoveryLoading, setIsDiscoveryLoading] = useState(false);
 
   // Modals for CRUD
@@ -123,7 +125,7 @@ export default function SettingsPage() {
     if (current) setTenantDraft(current);
   }, [tenants, activeTenantId]);
 
-  const handleDiscoverJiraStructure = async () => {
+  const handleDiscoverWorkspaces = async () => {
     if (!jiraDraft.url || !jiraDraft.apiToken) return;
     setIsDiscoveryLoading(true);
     try {
@@ -132,21 +134,57 @@ export default function SettingsPage() {
         email: jiraDraft.email || '', 
         apiToken: jiraDraft.apiToken 
       });
-      if (res.success && res.workspaces) {
-        setJiraWorkspaces(res.workspaces);
-        if (jiraDraft.workspaceId) {
-          const sRes = await getJiraSchemasAction({ 
-            url: jiraDraft.url,
-            email: jiraDraft.email || '',
-            apiToken: jiraDraft.apiToken,
-            workspaceId: jiraDraft.workspaceId 
-          });
-          if (sRes.success) setJiraSchemas(sRes.schemas || []);
-        }
-      }
+      if (res.success && res.workspaces) setJiraWorkspaces(res.workspaces);
     } catch (e) {} finally {
       setIsDiscoveryLoading(false);
     }
+  };
+
+  const handleDiscoverSchemas = async (workspaceId: string) => {
+    if (!jiraDraft.url || !jiraDraft.apiToken) return;
+    setIsDiscoveryLoading(true);
+    try {
+      const res = await getJiraSchemasAction({ 
+        url: jiraDraft.url, email: jiraDraft.email || '', apiToken: jiraDraft.apiToken, workspaceId 
+      });
+      if (res.success) setJiraSchemas(res.schemas || []);
+    } catch (e) {} finally {
+      setIsDiscoveryLoading(false);
+    }
+  };
+
+  const handleDiscoverObjectTypes = async (schemaId: string) => {
+    if (!jiraDraft.url || !jiraDraft.workspaceId) return;
+    setIsDiscoveryLoading(true);
+    try {
+      const res = await getJiraObjectTypesAction({
+        url: jiraDraft.url, email: jiraDraft.email || '', apiToken: jiraDraft.apiToken!, workspaceId: jiraDraft.workspaceId, schemaId
+      });
+      if (res.success) setJiraObjectTypes(res.objectTypes || []);
+    } catch (e) {} finally {
+      setIsDiscoveryLoading(false);
+    }
+  };
+
+  const handleDiscoverAttributes = async (type: 'resource' | 'entitlement', objectTypeId: string) => {
+    if (!jiraDraft.url || !jiraDraft.workspaceId) return;
+    try {
+      const res = await getJiraAttributesAction({
+        url: jiraDraft.url,
+        email: jiraDraft.email || '',
+        apiToken: jiraDraft.apiToken!,
+        workspaceId: jiraDraft.workspaceId,
+        objectTypeId,
+        targetObjectTypeId: type === 'entitlement' ? jiraDraft.resourceObjectTypeId : undefined
+      });
+      if (res.success) {
+        if (type === 'resource') {
+          setJiraDraft(prev => ({ ...prev, resourceLabelAttrId: res.labelAttributeId }));
+        } else {
+          setJiraDraft(prev => ({ ...prev, entitlementLabelAttrId: res.labelAttributeId, resourceToEntitlementAttrId: res.referenceAttributeId }));
+        }
+      }
+    } catch (e) {}
   };
 
   const handleSaveConfig = async (collection: string, id: string, data: any) => {
@@ -221,7 +259,6 @@ export default function SettingsPage() {
         </aside>
 
         <div className="flex-1 min-w-0">
-          
           <TabsContent value="general" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4">
@@ -245,170 +282,6 @@ export default function SettingsPage() {
                 <div className="flex justify-end">
                   <Button onClick={() => handleSaveConfig('tenants', tenantDraft.id!, tenantDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] gap-2">
                     {isSaving && <Loader2 className="w-3 h-3 animate-spin" />} <Save className="w-3.5 h-3.5" /> Mandant speichern
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {authUser?.role === 'superAdmin' && (
-              <Card className="rounded-none border shadow-none">
-                <CardHeader className="bg-slate-900 text-white py-3 flex flex-row items-center justify-between shrink-0">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Alle Mandanten (Global)</CardTitle>
-                  <Button size="sm" variant="outline" className="h-7 text-[9px] border-white/20 hover:bg-white/10 text-white rounded-none" onClick={() => setIsTenantAddOpen(true)}>
-                    <Plus className="w-3 h-3 mr-1" /> Neu
-                  </Button>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader className="bg-muted/30">
-                      <TableRow><TableHead className="text-[9px] font-bold uppercase py-3">Name</TableHead><TableHead className="text-[9px] font-bold uppercase">Slug</TableHead><TableHead className="text-[9px] font-bold uppercase text-right">Aktionen</TableHead></TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {tenants?.map(t => (
-                        <TableRow key={t.id} className="hover:bg-muted/5">
-                          <TableCell className="text-xs font-bold py-3">{t.name}</TableCell>
-                          <TableCell className="text-[10px] font-mono">{t.slug}</TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="w-3 h-3" /></Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="pusers" className="mt-0 space-y-6">
-            <Card className="rounded-none border shadow-none">
-              <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
-                <div className="space-y-1">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Plattform-Benutzerverwaltung</CardTitle>
-                  <CardDescription className="text-[9px] uppercase font-medium">Berechtigte Personen für den ComplianceHub</CardDescription>
-                </div>
-                <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsUserAddOpen(true)}>
-                  <Plus className="w-3.5 h-3.5 mr-2" /> Administrator hinzufügen
-                </Button>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader className="bg-muted/20">
-                    <TableRow>
-                      <TableHead className="text-[10px] font-bold uppercase py-4">Benutzer</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase">Rolle</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase">Mandant</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase">Status</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase text-right pr-6">Aktionen</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pUsers?.map(pu => (
-                      <TableRow key={pu.id} className="hover:bg-muted/5">
-                        <TableCell className="py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-none bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px] uppercase">
-                              {pu.displayName?.charAt(0)}
-                            </div>
-                            <div>
-                              <div className="font-bold text-xs">{pu.displayName}</div>
-                              <div className="text-[9px] text-muted-foreground font-mono">{pu.email}</div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="rounded-none text-[8px] font-black uppercase border-primary/20 text-primary">
-                            {pu.role}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-[10px] font-bold uppercase text-slate-500">
-                          {pu.tenantId === 'all' ? 'Global (Alle)' : pu.tenantId}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1.5">
-                            <div className={cn("w-1.5 h-1.5 rounded-full", pu.enabled ? "bg-emerald-500" : "bg-red-500")} />
-                            <span className="text-[9px] font-bold uppercase">{pu.enabled ? 'Aktiv' : 'Gesperrt'}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right pr-6">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="rounded-none w-48">
-                              <DropdownMenuItem><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
-                              <DropdownMenuItem><Lock className="w-3.5 h-3.5 mr-2" /> Passwort zurücksetzen</DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-600"><Trash2 className="w-3.5 h-3.5 mr-2" /> Deaktivieren</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="sync" className="mt-0 space-y-6">
-            <Card className="rounded-none border shadow-none">
-              <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">LDAP / Active Directory Anbindung</CardTitle>
-                <Switch 
-                  checked={!!tenantDraft.ldapEnabled} 
-                  onCheckedChange={(val) => setTenantDraft({ ...tenantDraft, ldapEnabled: val })} 
-                />
-              </CardHeader>
-              <CardContent className="p-8 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2 col-span-2 md:col-span-1">
-                    <Label className="text-[10px] font-bold uppercase">LDAP URL</Label>
-                    <Input 
-                      placeholder="ldap://dc01.firma.local" 
-                      value={tenantDraft.ldapUrl || ''} 
-                      onChange={(e) => setTenantDraft({ ...tenantDraft, ldapUrl: e.target.value })} 
-                      className="rounded-none h-10"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Port</Label>
-                    <Input 
-                      placeholder="389" 
-                      value={tenantDraft.ldapPort || ''} 
-                      onChange={(e) => setTenantDraft({ ...tenantDraft, ldapPort: e.target.value })} 
-                      className="rounded-none h-10"
-                    />
-                  </div>
-                  <div className="space-y-2 col-span-2">
-                    <Label className="text-[10px] font-bold uppercase">Base DN</Label>
-                    <Input 
-                      placeholder="DC=firma,DC=local" 
-                      value={tenantDraft.ldapBaseDn || ''} 
-                      onChange={(e) => setTenantDraft({ ...tenantDraft, ldapBaseDn: e.target.value })} 
-                      className="rounded-none h-10 font-mono text-xs"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Bind DN</Label>
-                    <Input 
-                      placeholder="CN=svc_compliance,OU=ServiceAccounts,..." 
-                      value={tenantDraft.ldapBindDn || ''} 
-                      onChange={(e) => setTenantDraft({ ...tenantDraft, ldapBindDn: e.target.value })} 
-                      className="rounded-none h-10 font-mono text-xs"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Bind Passwort</Label>
-                    <Input 
-                      type="password" 
-                      value={tenantDraft.ldapBindPassword || ''} 
-                      onChange={(e) => setTenantDraft({ ...tenantDraft, ldapBindPassword: e.target.value })} 
-                      className="rounded-none h-10"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <Button onClick={() => handleSaveConfig('tenants', tenantDraft.id!, tenantDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] gap-2">
-                    {isSaving && <Loader2 className="w-3 h-3 animate-spin" />} <Save className="w-3.5 h-3.5" /> Sync-Daten speichern
                   </Button>
                 </div>
               </CardContent>
@@ -470,46 +343,142 @@ export default function SettingsPage() {
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="assets" className="space-y-6">
-                    <div className="p-4 bg-blue-50/50 border border-blue-100 flex items-start gap-3">
-                      <Info className="w-4 h-4 text-blue-600 mt-0.5" />
-                      <p className="text-[10px] text-blue-800 leading-relaxed font-bold uppercase">
-                        Konfigurieren Sie hier den Abgleich Ihrer IT-Assets (Systeme und Rollen) direkt aus der Jira Assets Datenbank (Insight).
-                      </p>
-                    </div>
+                  <TabsContent value="assets" className="space-y-8">
                     <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase">Workspace ID</Label>
-                        <Select value={jiraDraft.workspaceId || ''} onValueChange={(val) => setJiraDraft({...jiraDraft, workspaceId: val})}>
-                          <SelectTrigger className="rounded-none h-10">
-                            <SelectValue placeholder={isDiscoveryLoading ? "Lade..." : "Workspace wählen..."} />
-                          </SelectTrigger>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-[10px] font-bold uppercase">1. Workspace</Label>
+                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={handleDiscoverWorkspaces}><RefreshCw className="w-3 h-3" /></Button>
+                        </div>
+                        <Select value={jiraDraft.workspaceId || ''} onValueChange={(val) => { setJiraDraft({...jiraDraft, workspaceId: val, schemaId: undefined}); handleDiscoverSchemas(val); }}>
+                          <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                           <SelectContent className="rounded-none">
                             {jiraWorkspaces.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase">Schema ID</Label>
-                        <Select value={jiraDraft.schemaId || ''} onValueChange={(val) => setJiraDraft({...jiraDraft, schemaId: val})}>
-                          <SelectTrigger className="rounded-none h-10">
-                            <SelectValue placeholder="Schema wählen..." />
-                          </SelectTrigger>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-[10px] font-bold uppercase">2. Schema</Label>
+                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => jiraDraft.workspaceId && handleDiscoverSchemas(jiraDraft.workspaceId)}><RefreshCw className="w-3 h-3" /></Button>
+                        </div>
+                        <Select value={jiraDraft.schemaId || ''} onValueChange={(val) => { setJiraDraft({...jiraDraft, schemaId: val}); handleDiscoverObjectTypes(val); }}>
+                          <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                           <SelectContent className="rounded-none">
                             {jiraSchemas.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm" className="h-8 text-[9px] font-bold uppercase" onClick={handleDiscoverJiraStructure}>
-                      <RefreshCw className="w-3 h-3 mr-2" /> Assets-Struktur laden
-                    </Button>
+
+                    <Separator />
+
+                    <div className="grid grid-cols-2 gap-12">
+                      {/* IT System Mapping */}
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] font-black uppercase text-primary border-b pb-1">IT-Systeme Mapping</h4>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label className="text-[9px] font-bold uppercase">Objekttyp (z.B. IT Assets)</Label>
+                            <Select value={jiraDraft.resourceObjectTypeId || ''} onValueChange={(val) => { setJiraDraft({...jiraDraft, resourceObjectTypeId: val}); handleDiscoverAttributes('resource', val); }}>
+                              <SelectTrigger className="rounded-none h-9"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                              <SelectContent className="rounded-none">
+                                {jiraObjectTypes.map(ot => <SelectItem key={ot.id} value={ot.id}>{ot.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-[9px] font-bold uppercase">Namens-Attribut (Label)</Label>
+                            <Input value={jiraDraft.resourceLabelAttrId || ''} onChange={e => setJiraDraft({...jiraDraft, resourceLabelAttrId: e.target.value})} className="rounded-none h-9 font-mono text-[10px]" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Entitlement Mapping */}
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] font-black uppercase text-primary border-b pb-1">Rollen Mapping</h4>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label className="text-[9px] font-bold uppercase">Objekttyp (z.B. Rollen)</Label>
+                            <Select value={jiraDraft.entitlementObjectTypeId || ''} onValueChange={(val) => { setJiraDraft({...jiraDraft, entitlementObjectTypeId: val}); handleDiscoverAttributes('entitlement', val); }}>
+                              <SelectTrigger className="rounded-none h-9"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                              <SelectContent className="rounded-none">
+                                {jiraObjectTypes.map(ot => <SelectItem key={ot.id} value={ot.id}>{ot.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-[9px] font-bold uppercase">Verknüpfung zu System (Ref-ID)</Label>
+                            <Input value={jiraDraft.resourceToEntitlementAttrId || ''} onChange={e => setJiraDraft({...jiraDraft, resourceToEntitlementAttrId: e.target.value})} className="rounded-none h-9 font-mono text-[10px]" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </TabsContent>
                 </Tabs>
                 <Separator className="my-8" />
                 <div className="flex justify-end">
                   <Button onClick={() => handleSaveConfig('jiraConfigs', jiraDraft.id!, jiraDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] gap-2 px-12 h-11">
                     {isSaving && <Loader2 className="w-3 h-3 animate-spin" />} <Save className="w-4 h-4" /> Jira Konfiguration speichern
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="pusers" className="mt-0 space-y-6">
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
+                <div className="space-y-1">
+                  <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Plattform-Benutzerverwaltung</CardTitle>
+                </div>
+                <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsUserAddOpen(true)}>
+                  <Plus className="w-3.5 h-3.5 mr-2" /> Administrator hinzufügen
+                </Button>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader className="bg-muted/20">
+                    <TableRow>
+                      <TableHead className="text-[10px] font-bold uppercase py-4">Benutzer</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase">Rolle</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase text-right pr-6">Aktionen</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pUsers?.map(pu => (
+                      <TableRow key={pu.id}>
+                        <TableCell className="py-4">
+                          <div className="font-bold text-xs">{pu.displayName}</div>
+                          <div className="text-[9px] text-muted-foreground">{pu.email}</div>
+                        </TableCell>
+                        <TableCell><Badge variant="outline" className="text-[8px] uppercase">{pu.role}</Badge></TableCell>
+                        <TableCell className="text-right pr-6">
+                          <Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="sync" className="mt-0 space-y-6">
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">LDAP / Active Directory Anbindung</CardTitle>
+                <Switch checked={!!tenantDraft.ldapEnabled} onCheckedChange={(val) => setTenantDraft({ ...tenantDraft, ldapEnabled: val })} />
+              </CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2 col-span-2 md:col-span-1"><Label className="text-[10px] font-bold uppercase">LDAP URL</Label><Input placeholder="ldap://dc01.firma.local" value={tenantDraft.ldapUrl || ''} onChange={(e) => setTenantDraft({ ...tenantDraft, ldapUrl: e.target.value })} className="rounded-none h-10" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Port</Label><Input placeholder="389" value={tenantDraft.ldapPort || ''} onChange={(e) => setTenantDraft({ ...tenantDraft, ldapPort: e.target.value })} className="rounded-none h-10" /></div>
+                  <div className="space-y-2 col-span-2"><Label className="text-[10px] font-bold uppercase">Base DN</Label><Input placeholder="DC=firma,DC=local" value={tenantDraft.ldapBaseDn || ''} onChange={(e) => setTenantDraft({ ...tenantDraft, ldapBaseDn: e.target.value })} className="rounded-none h-10 font-mono text-xs" /></div>
+                </div>
+                <div className="flex justify-end">
+                  <Button onClick={() => handleSaveConfig('tenants', tenantDraft.id!, tenantDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] gap-2">
+                    {isSaving && <Loader2 className="w-3 h-3 animate-spin" />} <Save className="w-3.5 h-3.5" /> Sync speichern
                   </Button>
                 </div>
               </CardContent>
@@ -535,24 +504,22 @@ export default function SettingsPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Endpoint / Modell</Label>
+                    <Label className="text-[10px] font-bold uppercase">Modell / URL</Label>
                     {aiDraft.provider === 'ollama' ? (
                       <Input placeholder="http://localhost:11434" value={aiDraft.ollamaUrl || ''} onChange={(e) => setAiDraft({ ...aiDraft, ollamaUrl: e.target.value })} className="rounded-none h-10" />
                     ) : (
                       <Select value={aiDraft.geminiModel || ''} onValueChange={(val) => setAiDraft({ ...aiDraft, geminiModel: val })}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-none">
-                          <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash (Schnell)</SelectItem>
-                          <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro (Präzise)</SelectItem>
+                          <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
+                          <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
                         </SelectContent>
                       </Select>
                     )}
                   </div>
                 </div>
                 <div className="flex justify-end">
-                  <Button onClick={() => handleSaveConfig('aiConfigs', aiDraft.id!, aiDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] gap-2 px-12 h-11">
-                    {isSaving && <Loader2 className="w-3 h-3 animate-spin" />} <Save className="w-4 h-4" /> KI Konfiguration speichern
-                  </Button>
+                  <Button onClick={() => handleSaveConfig('aiConfigs', aiDraft.id!, aiDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] h-11 px-12">Speichern</Button>
                 </div>
               </CardContent>
             </Card>
@@ -560,32 +527,11 @@ export default function SettingsPage() {
 
           <TabsContent value="email" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
-              <CardHeader className="bg-muted/10 border-b py-4">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">E-Mail (SMTP) Benachrichtigungen</CardTitle>
-              </CardHeader>
-              <CardContent className="p-8 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2 col-span-2 md:col-span-1">
-                    <Label className="text-[10px] font-bold uppercase">SMTP Host</Label>
-                    <Input placeholder="smtp.office365.com" className="rounded-none h-10" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Port</Label>
-                    <Input placeholder="587" className="rounded-none h-10" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Benutzer</Label>
-                    <Input className="rounded-none h-10" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Passwort</Label>
-                    <Input type="password" title="Passwort" className="rounded-none h-10" />
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <Button disabled className="rounded-none font-bold uppercase text-[10px] gap-2">
-                    <Save className="w-3.5 h-3.5" /> SMTP speichern
-                  </Button>
+              <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">E-Mail (SMTP)</CardTitle></CardHeader>
+              <CardContent className="p-8">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">SMTP Host</Label><Input className="rounded-none" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Port</Label><Input className="rounded-none" /></div>
                 </div>
               </CardContent>
             </Card>
@@ -593,28 +539,15 @@ export default function SettingsPage() {
 
           <TabsContent value="risks" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
-              <CardHeader className="bg-muted/10 border-b py-4">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Globale Risiko Review Zyklen</CardTitle>
-              </CardHeader>
+              <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Risiko Review Zyklen</CardTitle></CardHeader>
               <CardContent className="p-8">
-                <div className="grid grid-cols-1 gap-4">
-                  {['IT-Sicherheit', 'Datenschutz', 'Rechtlich', 'Betrieblich'].map(cat => {
-                    const setting = riskCategorySettings?.find(s => s.id === cat);
-                    return (
-                      <div key={cat} className="flex items-center justify-between p-4 border bg-slate-50/50">
-                        <span className="font-bold text-xs uppercase">{cat}</span>
-                        <div className="flex items-center gap-3">
-                          <Input 
-                            type="number" 
-                            defaultValue={setting?.defaultReviewDays || 365} 
-                            onBlur={(e) => handleSaveConfig('riskCategorySettings', cat, { id: cat, tenantId: activeTenantId, defaultReviewDays: parseInt(e.target.value) })}
-                            className="w-24 h-9 rounded-none text-center font-bold" 
-                          />
-                          <span className="text-[9px] font-black text-slate-400 uppercase">Tage</span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="space-y-4">
+                  {['IT-Sicherheit', 'Datenschutz', 'Rechtlich', 'Betrieblich'].map(cat => (
+                    <div key={cat} className="flex justify-between items-center p-4 border bg-muted/5">
+                      <span className="font-bold text-xs">{cat}</span>
+                      <Input type="number" defaultValue="365" className="w-24 h-9 rounded-none text-center" />
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -622,93 +555,15 @@ export default function SettingsPage() {
 
           <TabsContent value="data" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
-              <CardHeader className="bg-muted/10 border-b py-4 text-center">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">BSI Katalog Import Engine</CardTitle>
-              </CardHeader>
+              <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">BSI Katalog Import</CardTitle></CardHeader>
               <CardContent className="p-12 flex flex-col items-center gap-6">
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                  <FileJson className="w-8 h-8 text-primary opacity-60" />
-                </div>
-                <Button className="rounded-none text-[10px] font-bold uppercase h-12 px-12 gap-3 tracking-widest">
-                  Import-Prozess Starten
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-none border shadow-none overflow-hidden">
-              <CardHeader className="bg-slate-900 text-white py-3">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Import Historie</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <ScrollArea className="h-[250px]">
-                  <Table>
-                    <TableHeader className="bg-muted/30">
-                      <TableRow>
-                        <TableHead className="text-[9px] font-black uppercase py-4">Zeitpunkt</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase">Status</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase text-center">Elemente</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {importRuns?.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map(run => (
-                        <TableRow key={run.id}>
-                          <TableCell className="text-[10px] font-mono py-4">{new Date(run.timestamp).toLocaleString()}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className={cn("rounded-none text-[8px] uppercase", run.status === 'success' ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700")}>
-                              {run.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center font-bold text-[10px]">{run.itemCount}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
+                <FileJson className="w-12 h-12 text-muted-foreground opacity-40" />
+                <Button className="rounded-none font-bold uppercase text-[10px] h-12 px-12">Import Starten</Button>
               </CardContent>
             </Card>
           </TabsContent>
-
         </div>
       </Tabs>
-
-      {/* User CRUD Dialog */}
-      <Dialog open={isUserDialogOpen} onOpenChange={setIsUserAddOpen}>
-        <DialogContent className="rounded-none max-w-md">
-          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Plattform-Nutzer hinzufügen</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Anzeigename</Label><Input className="rounded-none" /></div>
-            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">E-Mail Adresse</Label><Input className="rounded-none" /></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase">Rolle</Label>
-                <Select defaultValue="admin">
-                  <SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    <SelectItem value="superAdmin">Super Admin</SelectItem>
-                    <SelectItem value="admin">Administrator</SelectItem>
-                    <SelectItem value="editor">Bearbeiter</SelectItem>
-                    <SelectItem value="viewer">Betrachter</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase">Zuständigkeit</Label>
-                <Select defaultValue="all">
-                  <SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    <SelectItem value="all">Alle Standorte</SelectItem>
-                    {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsUserAddOpen(false)} className="rounded-none uppercase text-[10px]">Abbrechen</Button>
-            <Button className="rounded-none uppercase text-[10px] font-bold px-8">Nutzer speichern</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

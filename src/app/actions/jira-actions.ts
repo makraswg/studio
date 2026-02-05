@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getCollectionData } from './mysql-actions';
@@ -226,7 +225,6 @@ export async function fetchJiraSyncItems(
 
     jql += ' ORDER BY created DESC';
 
-    // WICHTIG: Jira hat /rest/api/3/search auf /rest/api/3/search/jql migriert für POST Anfragen
     const response = await fetch(`${url}/rest/api/3/search/jql`, {
       method: 'POST',
       headers: { 
@@ -362,10 +360,7 @@ export async function getJiraWorkspacesAction(configData: { url: string; email: 
   try {
     const response = await fetch(`${baseUrl}/rest/servicedeskapi/assets/workspace`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Basic ${auth}`,
-        'Accept': 'application/json'
-      },
+      headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
       cache: 'no-store'
     });
 
@@ -409,6 +404,31 @@ export async function getJiraSchemasAction(configData: {
     if (!response.ok) return { success: false, error: `Fehler ${response.status}` };
     const data = await response.json();
     return { success: true, schemas: data.values || [] };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
+
+export async function getJiraObjectTypesAction(configData: {
+  url: string;
+  email: string;
+  apiToken: string;
+  workspaceId: string;
+  schemaId: string;
+}): Promise<{ success: boolean; objectTypes?: any[]; error?: string }> {
+  const baseUrl = cleanJiraUrl(configData.url);
+  const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
+  const apiUrl = `${baseUrl}/gateway/api/jsm/assets/workspace/${configData.workspaceId}/v1/objectschema/${configData.schemaId}/objecttypes/flat`;
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+    if (!response.ok) return { success: false, error: `Fehler ${response.status}` };
+    const data = await response.json();
+    return { success: true, objectTypes: data || [] };
   } catch (e: any) {
     return { success: false, error: e.message };
   }

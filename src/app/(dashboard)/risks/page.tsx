@@ -39,7 +39,8 @@ import {
   GitPullRequest,
   Calculator,
   AlertCircle,
-  ChevronRight as ChevronRightIcon
+  ChevronRight as ChevronRightIcon,
+  RotateCcw
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -79,6 +80,7 @@ import {
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 function RiskDashboardContent() {
   const router = useRouter();
@@ -160,19 +162,22 @@ function RiskDashboardContent() {
 
   useEffect(() => {
     if (isRiskDialogOpen && parentId === 'none') {
-      const calcImpact = getCalculatedValue(selectedRisk?.id || '', 'impact');
+      const riskId = selectedRisk?.id || '';
+      if (!riskId) return;
+
+      const calcImpact = getCalculatedValue(riskId, 'impact');
       if (calcImpact !== null && !isImpactOverridden) setImpact(calcImpact.toString());
 
-      const calcProb = getCalculatedValue(selectedRisk?.id || '', 'probability');
+      const calcProb = getCalculatedValue(riskId, 'probability');
       if (calcProb !== null && !isProbabilityOverridden) setProbability(calcProb.toString());
 
-      const calcResImpact = getCalculatedValue(selectedRisk?.id || '', 'residualImpact');
+      const calcResImpact = getCalculatedValue(riskId, 'residualImpact');
       if (calcResImpact !== null && !isResImpactOverridden) setResImpact(calcResImpact.toString());
 
-      const calcResProb = getCalculatedValue(selectedRisk?.id || '', 'residualProbability');
+      const calcResProb = getCalculatedValue(riskId, 'residualProbability');
       if (calcResProb !== null && !isResProbabilityOverridden) setResProbability(calcResProb.toString());
     }
-  }, [parentId, isImpactOverridden, isProbabilityOverridden, isResImpactOverridden, isResProbabilityOverridden, selectedRisk]);
+  }, [parentId, isImpactOverridden, isProbabilityOverridden, isResImpactOverridden, isResProbabilityOverridden, selectedRisk, isRiskDialogOpen]);
 
   // Effekt für die Ableitung aus dem Katalog
   useEffect(() => {
@@ -266,7 +271,6 @@ function RiskDashboardContent() {
     setIsSaving(true);
     const now = new Date().toISOString();
     
-    // Bestimme ob sich Werte gegenüber dem aktuellen Zustand geändert haben (Override Logic)
     const hasBruttoChanged = parseInt(revImpact) !== reviewRisk.impact || parseInt(revProbability) !== reviewRisk.probability;
     const hasNettoChanged = parseInt(revResImpact) !== (reviewRisk.residualImpact || 0) || parseInt(revResProbability) !== (reviewRisk.residualProbability || 0);
 
@@ -279,7 +283,6 @@ function RiskDashboardContent() {
       bruttoReason: revBruttoReason,
       nettoReason: revNettoReason,
       lastReviewDate: now,
-      // Wenn der Benutzer im Review Werte anpasst, markieren wir dies als Override falls es ein Haupt-Risiko ist
       isImpactOverridden: reviewRisk.isImpactOverridden || (hasBruttoChanged && !reviewRisk.parentId),
       isProbabilityOverridden: reviewRisk.isProbabilityOverridden || (hasBruttoChanged && !reviewRisk.parentId),
       isResidualImpactOverridden: reviewRisk.isResidualImpactOverridden || (hasNettoChanged && !reviewRisk.parentId),
@@ -292,12 +295,12 @@ function RiskDashboardContent() {
         await logAuditEventAction(dataSource as any, {
           tenantId: reviewRisk.tenantId,
           actorUid: authUser?.email || 'system',
-          action: `Risiko-Review durchgeführt (Werte aktualisiert/bestätigt): ${reviewRisk.title}`,
+          action: `Risiko-Review durchgeführt: ${reviewRisk.title}`,
           entityType: 'risk',
           entityId: reviewRisk.id,
           after: updatedRisk
         });
-        toast({ title: "Review abgeschlossen", description: "Werte wurden aktualisiert und das Review-Datum gesetzt." });
+        toast({ title: "Review abgeschlossen" });
         setIsReviewDialogOpen(false);
         setReviewRisk(null);
         refresh();
@@ -330,11 +333,11 @@ function RiskDashboardContent() {
     try {
       const res = await saveCollectionRecord('riskMeasures', msrId, newMeasure, dataSource);
       if (res.success) {
-        toast({ title: "Maßnahme übernommen", description: "Sie wurde dem Risiko als geplante Maßnahme hinzugefügt." });
+        toast({ title: "Maßnahme übernommen" });
         refreshMeasures();
         refresh();
       } else {
-        toast({ variant: "destructive", title: "Fehler beim Speichern", description: res.error || "Unbekannter Fehler" });
+        toast({ variant: "destructive", title: "Fehler", description: res.error });
       }
     } catch (e: any) {
       toast({ variant: "destructive", title: "Systemfehler", description: e.message });
@@ -569,6 +572,11 @@ function RiskDashboardContent() {
                 const subs = getSubRisks(risk.id);
                 const hasSubs = subs.length > 0;
                 
+                const showCalcBrutto = hasSubs && !risk.isImpactOverridden && !risk.isProbabilityOverridden;
+                const showOverrideBrutto = (risk.isImpactOverridden || risk.isProbabilityOverridden);
+                const showCalcNetto = hasSubs && !risk.isResidualImpactOverridden && !risk.isResidualProbabilityOverridden;
+                const showOverrideNetto = (risk.isResidualImpactOverridden || risk.isResidualProbabilityOverridden);
+
                 return (
                   <TableRow key={risk.id} className={cn("hover:bg-muted/5 group border-b last:border-0", isSub && "bg-slate-50/50")}>
                     <TableCell className="py-4">
@@ -594,7 +602,7 @@ function RiskDashboardContent() {
                         <div className={cn("inline-flex items-center px-2 py-0.5 border font-black text-xs", scoreRaw >= 15 ? "text-red-600 bg-red-50" : "text-orange-600 bg-orange-50")}>
                           {scoreRaw}
                         </div>
-                        {hasSubs && !risk.isImpactOverridden && !risk.isProbabilityOverridden && (
+                        {showCalcBrutto && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild><Calculator className="w-3 h-3 text-indigo-400" /></TooltipTrigger>
@@ -602,7 +610,7 @@ function RiskDashboardContent() {
                             </Tooltip>
                           </TooltipProvider>
                         )}
-                        {(risk.isImpactOverridden || risk.isProbabilityOverridden) && (
+                        {showOverrideBrutto && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild><AlertCircle className="w-3 h-3 text-orange-400" /></TooltipTrigger>
@@ -618,8 +626,8 @@ function RiskDashboardContent() {
                         <div className={cn("inline-flex items-center px-2 py-0.5 border font-black text-xs", scoreRes >= 8 ? "text-orange-600 bg-orange-50" : "text-emerald-600 bg-emerald-50")}>
                           {scoreRes || '-'}
                         </div>
-                        {hasSubs && !risk.isResidualImpactOverridden && !risk.isResidualProbabilityOverridden && <Calculator className="w-3 h-3 text-indigo-400" />}
-                        {(risk.isResidualImpactOverridden || risk.isResidualProbabilityOverridden) && <AlertCircle className="w-3 h-3 text-orange-400" />}
+                        {showCalcNetto && <Calculator className="w-3 h-3 text-indigo-400" />}
+                        {showOverrideNetto && <AlertCircle className="w-3 h-3 text-orange-400" />}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -791,27 +799,53 @@ function RiskDashboardContent() {
                       <div className="flex items-center justify-between">
                         <Label className="text-[9px] font-bold uppercase">Wahrscheinlichkeit (1-5)</Label>
                         {parentId === 'none' && getSubRisks(selectedRisk?.id || '').length > 0 && (
-                          <button onClick={() => setIsProbabilityOverridden(!isProbabilityOverridden)} className={cn("text-[8px] font-bold uppercase hover:underline", isProbabilityOverridden ? "text-orange-600" : "text-slate-400")}>
-                            {isProbabilityOverridden ? "Überschrieben" : "Berechnet"}
-                          </button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className={cn("h-5 px-1.5 text-[8px] font-bold uppercase gap-1", isProbabilityOverridden ? "text-orange-600" : "text-indigo-600")}
+                            onClick={() => setIsProbabilityOverridden(!isProbabilityOverridden)}
+                          >
+                            {isProbabilityOverridden ? <><RotateCcw className="w-2.5 h-2.5" /> Reset auf Berechnung</> : <><AlertCircle className="w-2.5 h-2.5" /> Manuell anpassen</>}
+                          </Button>
                         )}
                       </div>
-                      <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => { setProbability(v); if(parentId === 'none') setIsProbabilityOverridden(true); }} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", probability === v ? "bg-red-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                      <div className="flex gap-1">
+                        {['1','2','3','4','5'].map(v => (
+                          <button 
+                            key={v} 
+                            onClick={() => { setProbability(v); if(parentId === 'none' && getSubRisks(selectedRisk?.id || '').length > 0) setIsProbabilityOverridden(true); }} 
+                            className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", probability === v ? "bg-red-600 text-white" : "bg-muted/30")}
+                          >{v}</button>
+                        ))}
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label className="text-[9px] font-bold uppercase">Auswirkung (1-5)</Label>
                         {parentId === 'none' && getSubRisks(selectedRisk?.id || '').length > 0 && (
-                          <button onClick={() => setIsImpactOverridden(!isImpactOverridden)} className={cn("text-[8px] font-bold uppercase hover:underline", isImpactOverridden ? "text-orange-600" : "text-slate-400")}>
-                            {isImpactOverridden ? "Überschrieben" : "Berechnet"}
-                          </button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className={cn("h-5 px-1.5 text-[8px] font-bold uppercase gap-1", isImpactOverridden ? "text-orange-600" : "text-indigo-600")}
+                            onClick={() => setIsImpactOverridden(!isImpactOverridden)}
+                          >
+                            {isImpactOverridden ? <><RotateCcw className="w-2.5 h-2.5" /> Reset auf Berechnung</> : <><AlertCircle className="w-2.5 h-2.5" /> Manuell anpassen</>}
+                          </Button>
                         )}
                       </div>
-                      <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => { setImpact(v); if(parentId === 'none') setIsImpactOverridden(true); }} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", impact === v ? "bg-red-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                      <div className="flex gap-1">
+                        {['1','2','3','4','5'].map(v => (
+                          <button 
+                            key={v} 
+                            onClick={() => { setImpact(v); if(parentId === 'none' && getSubRisks(selectedRisk?.id || '').length > 0) setIsImpactOverridden(true); }} 
+                            className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", impact === v ? "bg-red-600 text-white" : "bg-muted/30")}
+                          >{v}</button>
+                        ))}
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[9px] font-bold uppercase">Begründung Brutto-Bewertung</Label>
-                      <Textarea value={bruttoReason} onChange={e => setBruttoReason(e.target.value)} placeholder="Warum diese Einstufung ohne Maßnahmen?" className="rounded-none min-h-[80px] text-xs" />
+                      <Textarea value={bruttoReason} onChange={e => setBruttoReason(e.target.value)} placeholder="Warum diese Einstufung?" className="rounded-none min-h-[80px] text-xs" />
                     </div>
                   </div>
                 </div>
@@ -825,27 +859,53 @@ function RiskDashboardContent() {
                       <div className="flex items-center justify-between">
                         <Label className="text-[9px] font-bold uppercase">Wahrscheinlichkeit (Netto)</Label>
                         {parentId === 'none' && getSubRisks(selectedRisk?.id || '').length > 0 && (
-                          <button onClick={() => setIsResProbabilityOverridden(!isResProbabilityOverridden)} className={cn("text-[8px] font-bold uppercase hover:underline", isResProbabilityOverridden ? "text-orange-600" : "text-slate-400")}>
-                            {isResProbabilityOverridden ? "Überschrieben" : "Berechnet"}
-                          </button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className={cn("h-5 px-1.5 text-[8px] font-bold uppercase gap-1", isResProbabilityOverridden ? "text-orange-600" : "text-indigo-600")}
+                            onClick={() => setIsResProbabilityOverridden(!isResProbabilityOverridden)}
+                          >
+                            {isResProbabilityOverridden ? <><RotateCcw className="w-2.5 h-2.5" /> Reset</> : <><AlertCircle className="w-2.5 h-2.5" /> Override</>}
+                          </Button>
                         )}
                       </div>
-                      <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => { setResProbability(v); if(parentId === 'none') setIsResProbabilityOverridden(true); }} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", resProbability === v ? "bg-emerald-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                      <div className="flex gap-1">
+                        {['1','2','3','4','5'].map(v => (
+                          <button 
+                            key={v} 
+                            onClick={() => { setResProbability(v); if(parentId === 'none' && getSubRisks(selectedRisk?.id || '').length > 0) setIsResProbabilityOverridden(true); }} 
+                            className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", resProbability === v ? "bg-emerald-600 text-white" : "bg-muted/30")}
+                          >{v}</button>
+                        ))}
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label className="text-[9px] font-bold uppercase">Auswirkung (Netto)</Label>
                         {parentId === 'none' && getSubRisks(selectedRisk?.id || '').length > 0 && (
-                          <button onClick={() => setIsResImpactOverridden(!isResImpactOverridden)} className={cn("text-[8px] font-bold uppercase hover:underline", isResImpactOverridden ? "text-orange-600" : "text-slate-400")}>
-                            {isResImpactOverridden ? "Überschrieben" : "Berechnet"}
-                          </button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className={cn("h-5 px-1.5 text-[8px] font-bold uppercase gap-1", isResImpactOverridden ? "text-orange-600" : "text-indigo-600")}
+                            onClick={() => setIsResImpactOverridden(!isResImpactOverridden)}
+                          >
+                            {isResImpactOverridden ? <><RotateCcw className="w-2.5 h-2.5" /> Reset</> : <><AlertCircle className="w-2.5 h-2.5" /> Override</>}
+                          </Button>
                         )}
                       </div>
-                      <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => { setResImpact(v); if(parentId === 'none') setIsResImpactOverridden(true); }} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", resImpact === v ? "bg-emerald-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                      <div className="flex gap-1">
+                        {['1','2','3','4','5'].map(v => (
+                          <button 
+                            key={v} 
+                            onClick={() => { setResImpact(v); if(parentId === 'none' && getSubRisks(selectedRisk?.id || '').length > 0) setIsResImpactOverridden(true); }} 
+                            className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", resImpact === v ? "bg-emerald-600 text-white" : "bg-muted/30")}
+                          >{v}</button>
+                        ))}
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[9px] font-bold uppercase">Begründung Netto-Bewertung</Label>
-                      <Textarea value={nettoReason} onChange={e => setNettoReason(e.target.value)} placeholder="Wie mindern die Maßnahmen das Risiko?" className="rounded-none min-h-[80px] text-xs" />
+                      <Textarea value={nettoReason} onChange={e => setNettoReason(e.target.value)} placeholder="Wie wirken die Maßnahmen?" className="rounded-none min-h-[80px] text-xs" />
                     </div>
                   </div>
                 </div>
@@ -882,6 +942,16 @@ function RiskDashboardContent() {
               <h4 className="font-bold text-base leading-tight">{reviewRisk?.title}</h4>
               <Badge variant="outline" className="rounded-none uppercase text-[8px] font-bold mt-1">{reviewRisk?.category}</Badge>
             </div>
+
+            {reviewRisk && getSubRisks(reviewRisk.id).length > 0 && (
+              <Alert variant="destructive" className="rounded-none border-orange-200 bg-orange-50 text-orange-800">
+                <AlertCircle className="h-4 w-4 text-orange-600" />
+                <AlertTitle className="text-[10px] font-black uppercase">Haupt-Risiko mit Sub-Risiken</AlertTitle>
+                <AlertDescription className="text-[10px] leading-relaxed">
+                  Dieses Risiko aggregiert Werte aus {getSubRisks(reviewRisk.id).length} Sub-Risiken. Manuelle Änderungen während des Reviews überschreiben die automatische Berechnung (Override).
+                </AlertDescription>
+              </Alert>
+            )}
 
             <div className="grid grid-cols-2 gap-8 pt-6 border-t">
               <div className="space-y-4">

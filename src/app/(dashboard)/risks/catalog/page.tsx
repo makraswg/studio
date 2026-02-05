@@ -1,27 +1,34 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   Library, 
   Search, 
-  ChevronRight, 
   Plus, 
   Loader2, 
-  ArrowRight,
-  Info,
   Database,
   FileJson,
-  Filter
+  ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import { 
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Hazard, HazardModule, Catalog } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 
@@ -32,8 +39,8 @@ export default function CatalogBrowserPage() {
   const [selectedCatalogId, setSelectedCatalogId] = useState<string>('all');
   const [selectedModuleId, setSelectedModuleId] = useState<string>('all');
 
-  const { data: catalogs, isLoading: isCatsLoading } = usePluggableCollection<Catalog>('catalogs');
-  const { data: modules, isLoading: isModsLoading } = usePluggableCollection<HazardModule>('hazardModules');
+  const { data: catalogs } = usePluggableCollection<Catalog>('catalogs');
+  const { data: modules } = usePluggableCollection<HazardModule>('hazardModules');
   const { data: hazards, isLoading: isHazardsLoading } = usePluggableCollection<Hazard>('hazards');
 
   const filteredHazards = useMemo(() => {
@@ -52,7 +59,7 @@ export default function CatalogBrowserPage() {
   }, [modules, selectedCatalogId]);
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-8 pb-20 max-w-6xl mx-auto">
       <div className="flex items-center justify-between border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-blue-500/10 text-blue-600 flex items-center justify-center border-2 border-blue-500/20">
@@ -100,91 +107,63 @@ export default function CatalogBrowserPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-2 space-y-4">
-          <div className="admin-card overflow-hidden">
-            <ScrollArea className="h-[650px]">
-              {isHazardsLoading ? (
-                <div className="flex flex-col items-center justify-center py-40 gap-4">
-                  <Loader2 className="w-10 h-10 animate-spin text-primary" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Lade Gefährdungen...</p>
-                </div>
-              ) : (
-                <div className="divide-y">
-                  {filteredHazards.map(h => {
-                    const mod = modules?.find(m => m.id === h.moduleId);
-                    return (
-                      <div key={h.id} className="p-4 hover:bg-muted/5 transition-colors relative">
-                        <div className="flex items-center justify-between gap-6">
-                          <div className="min-w-0 flex-1 space-y-1">
-                            <div className="flex items-center gap-2">
-                              <Badge className="bg-blue-600 text-white rounded-none text-[8px] font-black h-4 px-1">{h.code}</Badge>
-                              <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-tight truncate">{h.title}</h3>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">
-                              {h.description}
-                            </p>
-                            <div className="flex items-center gap-2 pt-1">
-                              <span className="text-[8px] font-black uppercase text-slate-400 bg-slate-100 px-1 py-0.5">Modul: {mod?.code || '---'}</span>
-                              <span className="text-[8px] font-bold uppercase text-slate-400 truncate">{mod?.title}</span>
-                            </div>
-                          </div>
-                          <Button 
-                            className="shrink-0 bg-orange-600 hover:bg-orange-700 text-white rounded-none text-[9px] font-black uppercase h-8 px-3 gap-1.5 shadow-sm"
-                            onClick={() => router.push(`/risks?derive=${h.id}`)}
-                          >
-                            <Plus className="w-3 h-3" /> Ableiten
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {filteredHazards.length === 0 && (
-                    <div className="py-40 text-center space-y-4">
-                      <FileJson className="w-12 h-12 text-muted-foreground mx-auto opacity-20" />
-                      <p className="text-sm font-bold uppercase text-muted-foreground tracking-widest">Keine Ergebnisse für diese Auswahl.</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </ScrollArea>
+      <div className="admin-card overflow-hidden">
+        {isHazardsLoading ? (
+          <div className="flex flex-col items-center justify-center py-40 gap-4">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Lade Gefährdungen...</p>
           </div>
-        </div>
-
-        <div className="space-y-6">
-          <Card className="rounded-none border-2 border-primary/20 shadow-none bg-primary/5">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                <Info className="w-3.5 h-3.5 text-primary" /> Wissensbasis
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-[11px] leading-relaxed text-slate-700 dark:text-slate-300 italic">
-                Der IT-Grundschutz-Katalog des BSI bietet eine standardisierte Basis für die Identifikation von Risiken.
-              </p>
-              <div className="p-3 bg-white dark:bg-slate-900 border text-[8px] font-black uppercase text-muted-foreground space-y-2">
-                <div className="flex justify-between border-b pb-1"><span>Kataloge:</span> <span className="text-primary">{catalogs?.length || 0}</span></div>
-                <div className="flex justify-between"><span>Gefährdungen:</span> <span className="text-primary">{hazards?.length || 0}</span></div>
+        ) : (
+          <Accordion type="single" collapsible className="w-full">
+            {filteredHazards.map(h => {
+              const mod = modules?.find(m => m.id === h.moduleId);
+              return (
+                <AccordionItem key={h.id} value={h.id} className="border-b last:border-0 px-4">
+                  <AccordionTrigger className="hover:no-underline py-4 group">
+                    <div className="flex items-center gap-4 text-left w-full">
+                      <Badge className="bg-blue-600 text-white rounded-none text-[10px] font-black h-5 px-2 shrink-0">{h.code}</Badge>
+                      <span className="font-bold text-sm text-slate-900 dark:text-white leading-tight truncate group-hover:text-primary transition-colors">
+                        {h.title}
+                      </span>
+                      <div className="hidden sm:flex items-center gap-2 ml-auto mr-4 shrink-0">
+                        <span className="text-[8px] font-black uppercase text-slate-400 bg-slate-100 px-1.5 py-0.5">Modul: {mod?.code || '---'}</span>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-6 pt-2 px-1">
+                    <div className="space-y-6">
+                      <div className="p-4 bg-slate-50 dark:bg-slate-900 border rounded-none">
+                        <p className="text-xs font-bold uppercase text-muted-foreground mb-2">Beschreibung der Gefährdung</p>
+                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                          {h.description}
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-muted-foreground">
+                          <span>Quell-Modul:</span>
+                          <span className="text-slate-900 dark:text-white">{mod?.title}</span>
+                        </div>
+                        <Button 
+                          className="bg-orange-600 hover:bg-orange-700 text-white rounded-none text-[10px] font-black uppercase h-10 px-8 gap-2 shadow-md transition-all active:scale-95"
+                          onClick={() => router.push(`/risks?derive=${h.id}`)}
+                        >
+                          <Plus className="w-4 h-4" /> Als Risiko ableiten
+                        </Button>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+            {filteredHazards.length === 0 && (
+              <div className="py-40 text-center space-y-4">
+                <FileJson className="w-12 h-12 text-muted-foreground mx-auto opacity-20" />
+                <p className="text-sm font-bold uppercase text-muted-foreground tracking-widest">Keine Ergebnisse für diese Auswahl.</p>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-none border shadow-none bg-slate-900 text-white">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-[9px] font-black uppercase text-orange-500 tracking-[0.2em]">Risiko-Ableitung</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-[10px] leading-relaxed text-slate-300 uppercase font-bold">
-                Klicken Sie auf „Ableiten“, um eine Gefährdung in Ihr aktives Risikoinventar zu übernehmen.
-              </p>
-              <ul className="text-[9px] space-y-2 text-slate-400 font-bold uppercase">
-                <li className="flex items-center gap-2"><ArrowRight className="w-2.5 h-2.5 text-orange-500" /> Titel & Beschreibung kopieren</li>
-                <li className="flex items-center gap-2"><ArrowRight className="w-2.5 h-2.5 text-orange-500" /> Katalog-Referenz verknüpfen</li>
-                <li className="flex items-center gap-2"><ArrowRight className="w-2.5 h-2.5 text-orange-500" /> Kategorie-Vorschlag setzen</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </Accordion>
+        )}
       </div>
     </div>
   );

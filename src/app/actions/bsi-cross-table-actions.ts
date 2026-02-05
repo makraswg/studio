@@ -1,18 +1,23 @@
 
 'use server';
 
-import { DataSource } from '@/lib/types';
+import { DataSource, ImportRun } from '@/lib/types';
 import { saveCollectionRecord } from './mysql-actions';
 import * as XLSX from 'xlsx';
 
 /**
  * Importiert Maßnahmen und deren Relationen zu Gefährdungen aus der BSI Kreuztabelle (Excel).
  * Diese Version ist extrem robust gegenüber Header-Variationen und Blatt-Strukturen.
+ * Berücksichtigt, dass Zelle A1 oft Metadaten/Titel enthält.
  */
 export async function runBsiCrossTableImportAction(
   base64Content: string, 
   dataSource: DataSource = 'mysql'
 ): Promise<{ success: boolean; message: string; count: number }> {
+  const runId = `run-excel-${Math.random().toString(36).substring(2, 9)}`;
+  const now = new Date().toISOString();
+  let log = `Excel Kreuztabellen-Import gestartet um ${now}\n`;
+  
   try {
     const buffer = Buffer.from(base64Content, 'base64');
     const workbook = XLSX.read(buffer, { type: 'buffer' });
@@ -21,11 +26,16 @@ export async function runBsiCrossTableImportAction(
     let totalRelations = 0;
     let processedSheets = 0;
 
+    log += `Workbook geladen. ${workbook.SheetNames.length} Blätter gefunden.\n`;
+
     for (const sheetName of workbook.SheetNames) {
       const sheet = workbook.Sheets[sheetName];
       const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-      if (rows.length === 0) continue;
+      if (rows.length === 0) {
+        log += `Blatt "${sheetName}" ist leer.\n`;
+        continue;
+      }
 
       // --- SCHRITT 1: Header suchen ---
       let headerRowIndex = -1;
@@ -36,7 +46,7 @@ export async function runBsiCrossTableImportAction(
         hazards: [] as { code: string, index: number }[]
       };
 
-      // Scan die ersten 50 Zeilen (BSI Excel hat oft lange Header/Legenden)
+      // Scan die ersten 50 Zeilen (BSI Excel hat oft lange Header/Legenden oder Titel in A1)
       for (let i = 0; i < Math.min(rows.length, 50); i++) {
         const row = rows[i];
         if (!row || !Array.isArray(row)) continue;
@@ -53,12 +63,12 @@ export async function runBsiCrossTableImportAction(
           if (!val) return;
           
           // Baustein-Spalte erkennen
-          if (val.includes('BAUSTEIN') || val === 'ELEMENT' || val === 'GRUPPE') {
+          if (val.includes('BAUSTEIN') || val === 'ELEMENT' || val === 'GRUPPE' || val.includes('KOMPONENTE')) {
             currentMap.baustein = idx;
           }
           
           // Maßnahmen-Code erkennen
-          if (val.includes('ID') || val.includes('CODE') || val.includes('NR.') || val.includes('MASSNAHMEN-NR') || val === 'NR') {
+          if (val.includes('ID') || val.includes('CODE') || val.includes('NR.') || val.includes('MASSNAHMEN-NR') || val === 'NR' || val.includes('BEZEICHNER')) {
             currentMap.mCode = idx;
           }
           
@@ -79,6 +89,7 @@ export async function runBsiCrossTableImportAction(
         });
 
         // Ein Blatt ist relevant, wenn Gefährdungen UND Identifikations-Spalten vorhanden sind
+        // Wir sind hier etwas toleranter: Entweder Baustein oder Code muss da sein
         if (currentMap.hazards.length >= 1 && (currentMap.mCode !== -1 || currentMap.baustein !== -1)) {
           headerRowIndex = i;
           colMap = currentMap;
@@ -86,7 +97,12 @@ export async function runBsiCrossTableImportAction(
         }
       }
 
-      if (headerRowIndex === -1) continue;
+      if (headerRowIndex === -1) {
+        log += `Blatt "${sheetName}" übersprungen (Keine Kopfzeile mit G 0.x gefunden).\n`;
+        continue;
+      }
+
+      log += `Verarbeite Blatt "${sheetName}" (Daten ab Zeile ${headerRowIndex + 1}).\n`;
       processedSheets++;
 
       // --- SCHRITT 2: Daten verarbeiten ---
@@ -101,7 +117,7 @@ export async function runBsiCrossTableImportAction(
         // Zeile überspringen wenn keine Identifikation möglich
         if (!mCode && !baustein) continue;
 
-        // Schlüsselbildung: Baustein + Code
+        // Schlüsselbildung: Baustein + Code (Normalisiert)
         const cleanMCode = mCode || 'M-UNKNOWN';
         const cleanBaustein = baustein || 'GLOBAL';
         const measureId = `m-${cleanBaustein}-${cleanMCode}`.replace(/[^a-z0-9]/gi, '_').toLowerCase();
@@ -119,7 +135,7 @@ export async function runBsiCrossTableImportAction(
         for (const hCol of colMap.hazards) {
           const cellVal = row[hCol.index];
           
-          // Boolean Presence Logik
+          // Boolean Presence Logik: Wenn Zelle nicht leer ist, besteht eine Relation
           if (cellVal !== undefined && cellVal !== null && String(cellVal).trim() !== '') {
             const relId = `rel-${measureId}-${hCol.code.replace(/[^a-z0-9]/gi, '_')}`.toLowerCase();
             
@@ -135,20 +151,40 @@ export async function runBsiCrossTableImportAction(
     }
 
     if (processedSheets === 0) {
-      return { 
-        success: false, 
-        message: "Keine relevanten Kreuztabellen-Blätter gefunden. Stellen Sie sicher, dass Spalten wie 'G 0.1' und 'Maßnahmen-Nr' vorhanden sind.",
-        count: 0 
-      };
+      const errorMsg = "Keine relevanten Kreuztabellen-Blätter gefunden. Stellen Sie sicher, dass Spalten wie 'G 0.1' und 'Baustein' vorhanden sind.";
+      await saveCollectionRecord('importRuns', runId, {
+        id: runId,
+        catalogId: 'excel-krt',
+        timestamp: now,
+        status: 'failed',
+        itemCount: 0,
+        log: log + `FEHLER: ${errorMsg}`
+      }, dataSource);
+      
+      return { success: false, message: errorMsg, count: 0 };
     }
 
-    return { 
-      success: true, 
-      message: `Import abgeschlossen: ${totalMeasures} Maßnahmen und ${totalRelations} Relationen aus ${processedSheets} relevanten Blättern identifiziert.`,
-      count: totalMeasures
-    };
+    const successMsg = `Import abgeschlossen: ${totalMeasures} Maßnahmen und ${totalRelations} Relationen aus ${processedSheets} Blättern identifiziert.`;
+    await saveCollectionRecord('importRuns', runId, {
+      id: runId,
+      catalogId: 'excel-krt',
+      timestamp: now,
+      status: 'success',
+      itemCount: totalMeasures,
+      log: log + `ERFOLG: ${successMsg}`
+    }, dataSource);
+
+    return { success: true, message: successMsg, count: totalMeasures };
   } catch (error: any) {
     console.error("Excel Import Error:", error);
+    await saveCollectionRecord('importRuns', runId, {
+      id: runId,
+      catalogId: 'excel-krt',
+      timestamp: now,
+      status: 'failed',
+      itemCount: 0,
+      log: log + `FEHLER: ${error.message}`
+    }, dataSource);
     return { success: false, message: `Fehler beim Import: ${error.message}`, count: 0 };
   }
 }

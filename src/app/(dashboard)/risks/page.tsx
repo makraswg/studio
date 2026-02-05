@@ -30,7 +30,8 @@ import {
   Check,
   Zap,
   Sparkles,
-  X
+  X,
+  CalendarCheck
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -64,7 +65,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
@@ -123,8 +125,6 @@ function RiskDashboardContent() {
         setHazardId(hazard.id);
         setIsRiskDialogOpen(true);
         
-        // WICHTIG: Entferne den Parameter aus der URL, damit beim Schließen des Dialogs 
-        // dieser Effekt nicht sofort erneut triggert (Endlosschleife verhindern).
         const params = new URLSearchParams(searchParams.toString());
         params.delete('derive');
         const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
@@ -139,6 +139,7 @@ function RiskDashboardContent() {
     const id = selectedRisk?.id || `risk-${Math.random().toString(36).substring(2, 9)}`;
     
     const riskData: Risk = {
+      ...selectedRisk,
       id,
       tenantId: activeTenantId === 'all' ? 't1' : activeTenantId,
       assetId: assetId === 'none' ? undefined : assetId,
@@ -159,9 +160,44 @@ function RiskDashboardContent() {
     try {
       const res = await saveCollectionRecord('risks', id, riskData, dataSource);
       if (res.success) {
+        await logAuditEventAction(dataSource as any, {
+          tenantId: riskData.tenantId,
+          actorUid: authUser?.email || 'system',
+          action: selectedRisk ? `Risiko aktualisiert: ${title}` : `Neues Risiko angelegt: ${title}`,
+          entityType: 'risk',
+          entityId: id,
+          after: riskData
+        });
         toast({ title: "Risiko gespeichert" });
         setIsRiskDialogOpen(false);
         resetForm();
+        refresh();
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleReviewRisk = async (risk: Risk) => {
+    setIsSaving(true);
+    const now = new Date().toISOString();
+    const updatedRisk = {
+      ...risk,
+      lastReviewDate: now,
+    };
+
+    try {
+      const res = await saveCollectionRecord('risks', risk.id, updatedRisk, dataSource);
+      if (res.success) {
+        await logAuditEventAction(dataSource as any, {
+          tenantId: risk.tenantId,
+          actorUid: authUser?.email || 'system',
+          action: `Risiko-Review durchgeführt: ${risk.title}`,
+          entityType: 'risk',
+          entityId: risk.id,
+          after: updatedRisk
+        });
+        toast({ title: "Review abgeschlossen", description: "Das Datum der letzten Prüfung wurde auf heute aktualisiert." });
         refresh();
       }
     } finally {
@@ -314,14 +350,20 @@ function RiskDashboardContent() {
                 const scoreRaw = risk.impact * risk.probability;
                 const scoreRes = (risk.residualImpact || 0) * (risk.residualProbability || 0);
                 const asset = resources?.find(r => r.id === risk.assetId);
+                const lastReview = risk.lastReviewDate ? new Date(risk.lastReviewDate).toLocaleDateString() : 'N/A';
                 
                 return (
                   <TableRow key={risk.id} className="hover:bg-muted/5 group border-b last:border-0">
                     <TableCell className="py-4">
                       <div className="font-bold text-sm">{risk.title}</div>
-                      <div className="flex items-center gap-2 mt-1 text-[9px] font-bold uppercase text-muted-foreground">
-                        {risk.category} 
-                        {asset && <><span className="text-slate-300">|</span> <Layers className="w-2.5 h-2.5" /> {asset.name}</>}
+                      <div className="flex flex-col gap-1 mt-1">
+                        <div className="flex items-center gap-2 text-[9px] font-bold uppercase text-muted-foreground">
+                          {risk.category} 
+                          {asset && <><span className="text-slate-300">|</span> <Layers className="w-2.5 h-2.5" /> {asset.name}</>}
+                        </div>
+                        <div className="flex items-center gap-1 text-[8px] font-black uppercase text-slate-400">
+                          <Clock className="w-2.5 h-2.5" /> Letzte Prüfung: {lastReview}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -352,9 +394,17 @@ function RiskDashboardContent() {
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-none w-48">
-                          <DropdownMenuItem onSelect={() => openEdit(risk)}><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600" onSelect={() => { if(confirm("Risiko permanent löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
+                        <DropdownMenuContent align="end" className="rounded-none w-56">
+                          <DropdownMenuItem onSelect={() => handleReviewRisk(risk)} className="text-emerald-600 font-bold">
+                            <CalendarCheck className="w-3.5 h-3.5 mr-2" /> Jetzt Prüfen (Review)
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onSelect={() => openEdit(risk)}>
+                            <Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600" onSelect={() => { if(confirm("Risiko permanent löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}>
+                            <Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

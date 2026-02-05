@@ -113,11 +113,11 @@ export default function RiskReportsPage() {
             </div>
           </CardHeader>
           <CardContent className="p-8">
-            <div className="grid grid-cols-6 gap-2 aspect-[4/3] max-w-2xl mx-auto">
-              <div className="col-span-1 row-span-5 flex flex-col justify-between text-[10px] font-black text-slate-400 uppercase py-4">
-                <span>Sehr Hoch</span>
+            <div className="grid grid-cols-[40px_repeat(5,1fr)] gap-2 aspect-[4/3] max-w-2xl mx-auto">
+              <div className="row-span-5 flex flex-col justify-between text-[8px] font-black text-slate-400 uppercase py-4 pr-2 text-right">
+                <span>Hoch</span>
                 <span>Mittel</span>
-                <span>Sehr Gering</span>
+                <span>Gering</span>
               </div>
               <div className="col-span-5 grid grid-cols-5 grid-rows-5 gap-2">
                 {Array.from({ length: 25 }).map((_, i) => {
@@ -144,7 +144,7 @@ export default function RiskReportsPage() {
                   );
                 })}
               </div>
-              <div className="col-start-2 col-span-5 flex justify-between text-[10px] font-black text-slate-400 uppercase px-4 pt-2">
+              <div className="col-start-2 col-span-5 flex justify-between text-[8px] font-black text-slate-400 uppercase px-4 pt-2">
                 <span>Selten</span>
                 <span>Mittel</span>
                 <span>Häufig</span>
@@ -173,7 +173,7 @@ export default function RiskReportsPage() {
                     {riskPieData.map((entry, index) => <Cell key={index} fill={entry.color} />)}
                   </Pie>
                   <RechartsTooltip />
-                  <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
+                  <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase' }} />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
@@ -185,10 +185,10 @@ export default function RiskReportsPage() {
             </CardHeader>
             <CardContent className="p-6 h-[250px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.catData} layout="vertical">
+                <BarChart data={stats.catData} layout="vertical" margin={{ left: -10, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" hide />
-                  <YAxis dataKey="name" type="category" width={100} style={{ fontSize: '9px', fontWeight: 'bold' }} />
+                  <YAxis dataKey="name" type="category" width={80} style={{ fontSize: '8px', fontWeight: 'bold' }} />
                   <RechartsTooltip />
                   <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
                 </BarChart>

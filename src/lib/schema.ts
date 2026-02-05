@@ -289,7 +289,7 @@ export const appSchema: AppSchema = {
       section: 'VARCHAR(255)',
       title: 'VARCHAR(255)',
       content: 'LONGTEXT',
-      'order': 'INT DEFAULT 0'
+      order: 'INT DEFAULT 0'
     }
   }
 };

@@ -708,7 +708,7 @@ function RiskDashboardContent() {
                           className="h-5 text-[8px] font-black uppercase bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-none gap-1 px-1.5 w-fit"
                           onClick={() => { setAdvisorRisk(risk); setCustomMeasureTitle(''); setIsAdvisorOpen(true); }}
                         >
-                          <Zap className="w-2.5 h-2.5 fill-current" /> BSI Advisor
+                          <Zap className="w-2.5 h-2.5 fill-current" /> Maßnahmen hinzufügen
                         </Button>
                       </div>
                     </TableCell>
@@ -1187,8 +1187,8 @@ function RiskDashboardContent() {
                 <Sparkles className="w-5 h-5 text-blue-400" />
               </div>
               <div>
-                <SheetTitle className="text-white uppercase font-black text-sm tracking-widest">Maßnahmen-Advisor</SheetTitle>
-                <SheetDescription className="text-slate-400 text-[10px] uppercase font-bold">IT-Grundschutz Empfehlungen</SheetDescription>
+                <SheetTitle className="text-white uppercase font-black text-sm tracking-widest">Maßnahmen hinzufügen</SheetTitle>
+                <SheetDescription className="text-slate-400 text-[10px] uppercase font-bold">IT-Grundschutz Empfehlungen & Eigene Maßnahmen</SheetDescription>
               </div>
             </div>
           </SheetHeader>

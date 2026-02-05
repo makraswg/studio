@@ -42,7 +42,8 @@ function extractTextContent(node: any): string {
     if (node['#text']) text += node['#text'];
     
     // Verarbeite bekannte DocBook Tags in der richtigen Reihenfolge
-    const relevantKeys = ['para', 'formalpara', 'itemizedlist', 'orderedlist', 'table', 'listitem'];
+    // Wir prüfen sowohl mit als auch ohne db: Präfix (da removeNSPrefix genutzt wird)
+    const relevantKeys = ['para', 'formalpara', 'itemizedlist', 'orderedlist', 'table', 'listitem', 'simpara'];
     for (const key of relevantKeys) {
       if (node[key]) {
         text += '\n' + extractTextContent(node[key]);
@@ -64,17 +65,18 @@ export interface BsiImportInput {
  */
 export async function runBsiXmlImportAction(input: BsiImportInput, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; runId: string; message: string }> {
   const runId = `run-${Math.random().toString(36).substring(2, 9)}`;
-  const catalogId = `cat-${input.catalogName.toLowerCase().replace(/\s+/g, '-')}-${input.version.replace(/\./g, '_')}`;
+  const catalogId = `cat-${input.catalogName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${input.version.replace(/\./g, '_')}`;
   const now = new Date().toISOString();
   
   let itemCount = 0;
+  let moduleCount = 0;
   let log = `DocBook 5 Import gestartet um ${now}\n`;
 
   try {
     const parser = new XMLParser({
       ignoreAttributes: false,
       attributeNamePrefix: "@_",
-      removeNSPrefix: true, // Entfernt db: Präfixe für leichteren Zugriff
+      removeNSPrefix: true, 
       trimValues: true,
       parseTagValue: true,
       alwaysCreateTextNode: false
@@ -82,13 +84,14 @@ export async function runBsiXmlImportAction(input: BsiImportInput, dataSource: D
     
     const jsonObj = parser.parse(input.xmlContent);
     
-    // Root-Element Suche (DocBook <book>)
-    const book = jsonObj.book;
-    if (!book) {
-      throw new Error("Kein <book> Element gefunden. Ungültiges DocBook Format.");
+    // Root-Element Suche (DocBook <book>, <article> oder <part>)
+    const root = jsonObj.book || jsonObj.article || jsonObj.part || jsonObj.set;
+    if (!root) {
+      console.error("XML Root keys found:", Object.keys(jsonObj));
+      throw new Error(`Kein DocBook Root-Element (book/article) gefunden. Gefundene Keys: ${Object.keys(jsonObj).join(', ')}`);
     }
 
-    log += `DocBook Struktur erkannt.\n`;
+    log += `DocBook Struktur erkannt. Katalog: ${input.catalogName}\n`;
 
     // 1. Katalog-Stammsatz anlegen
     const catalog: Catalog = {
@@ -100,50 +103,60 @@ export async function runBsiXmlImportAction(input: BsiImportInput, dataSource: D
     };
     await saveCollectionRecord('catalogs', catalogId, catalog, dataSource);
 
-    // Kapitelerkennung (<chapter>)
-    const chapters = ensureArray(book.chapter);
-    log += `${chapters.length} Kapitel gefunden.\n`;
+    // Kapitelerkennung (<chapter> oder <section> auf oberster Ebene)
+    const chapters = [...ensureArray(root.chapter), ...ensureArray(root.section), ...ensureArray(root.part)];
+    log += `${chapters.length} potenzielle Haupt-Kapitel gefunden.\n`;
 
     for (const chapter of chapters) {
-      const chapterTitle = typeof chapter.title === 'string' ? chapter.title : extractTextContent(chapter.title);
+      if (!chapter) continue;
       
-      // Prüfen, ob das Kapitel eine Gefährdungsgruppe ist (enthält "Gefährdungen")
-      if (!chapterTitle.toLowerCase().includes('gefährdungen')) {
+      const chapterTitle = typeof chapter.title === 'string' ? chapter.title : extractTextContent(chapter.title);
+      if (!chapterTitle) continue;
+
+      // Wir suchen nach Kapiteln, die "Gefährdungen" im Titel haben
+      const isHazardGroup = /Gefährdung/i.test(chapterTitle);
+      
+      if (!isHazardGroup) {
+        log += `Überspringe Kapitel: "${chapterTitle.substring(0, 40)}..." (kein Gefährdungsbezug)\n`;
         continue;
       }
 
-      log += `Verarbeite Gefährdungsgruppe: ${chapterTitle}\n`;
+      log += `Verarbeite Gefährdungsgruppe: "${chapterTitle}"\n`;
+
+      // Ableitung des Gruppen-Codes (G 0, G 1, etc.)
+      let groupCode = 'G X';
+      const codeMatch = chapterTitle.match(/G\s*([0-9]+)/i);
+      if (codeMatch) groupCode = `G ${codeMatch[1]}`;
 
       const moduleId = `mod-${catalogId}-${chapter['@_xml:id'] || Math.random().toString(36).substring(2, 7)}`;
       const moduleRecord: HazardModule = {
         id: moduleId,
         catalogId: catalogId,
-        code: chapterTitle.includes('G 0') ? 'G 0' : 
-              chapterTitle.includes('G 1') ? 'G 1' : 
-              chapterTitle.includes('G 2') ? 'G 2' : 
-              chapterTitle.includes('G 3') ? 'G 3' : 'G X',
+        code: groupCode,
         title: chapterTitle
       };
       await saveCollectionRecord('hazardModules', moduleId, moduleRecord, dataSource);
+      moduleCount++;
 
       // Gefährdungen sind <section> innerhalb des Kapitels
       const sections = ensureArray(chapter.section);
       
       for (const section of sections) {
-        const fullTitle = extractTextContent(section.title);
+        if (!section) continue;
+        const sectionTitle = typeof section.title === 'string' ? section.title : extractTextContent(section.title);
         
         // Erkennung einzelner Gefährdungen: "G <Gruppe>.<Nummer>"
-        const hazardMatch = fullTitle.match(/^(G\s*[0-9]+\.[0-9]+)\s*(.*)$/);
+        const hazardMatch = sectionTitle.match(/^(G\s*[0-9]+\.[0-9]+)[\s:]*(.*)$/);
         
         if (!hazardMatch) {
           continue;
         }
 
-        const hazardCode = hazardMatch[1].replace(/\s+/g, ' '); // Normalisiere Leerzeichen (G 0.1)
-        const hazardTitle = hazardMatch[2].trim();
-        const hazardId = `haz-${catalogId}-${section['@_xml:id'] || hazardCode.replace(/\./g, '_')}`;
+        const hazardCode = hazardMatch[1].replace(/\s+/g, ' '); 
+        const hazardTitle = hazardMatch[2].trim() || hazardCode;
+        const hazardId = `haz-${catalogId}-${section['@_xml:id'] || hazardCode.replace(/[^a-z0-9]/gi, '_')}`;
 
-        // Beschreibung extrahieren aus para und anderen Elementen
+        // Beschreibung extrahieren
         const hazardDescription = extractTextContent(section);
 
         // Content-Hashing zur Dublettenprüfung
@@ -164,29 +177,39 @@ export async function runBsiXmlImportAction(input: BsiImportInput, dataSource: D
       }
     }
 
-    log += `Import erfolgreich. ${itemCount} Gefährdungen aus DocBook extrahiert.\n`;
+    if (itemCount === 0) {
+      log += `WARNUNG: Keine Gefährdungen gefunden, die dem Muster "G x.y" entsprechen.\n`;
+    } else {
+      log += `Import erfolgreich. ${itemCount} Gefährdungen in ${moduleCount} Gruppen extrahiert.\n`;
+    }
     
     const run: ImportRun = {
       id: runId,
       catalogId,
       timestamp: now,
-      status: 'success',
+      status: itemCount > 0 ? 'success' : 'partial',
       itemCount,
       log
     };
     await saveCollectionRecord('importRuns', runId, run, dataSource);
 
-    return { success: true, runId, message: `${itemCount} Gefährdungen erfolgreich aus DocBook XML importiert.` };
+    return { 
+      success: itemCount > 0, 
+      runId, 
+      message: itemCount > 0 
+        ? `${itemCount} Gefährdungen erfolgreich importiert.` 
+        : `Import abgeschlossen, aber 0 Einträge gefunden. Prüfen Sie das Protokoll.` 
+    };
 
   } catch (error: any) {
     console.error("DocBook Import Error:", error);
     const errorRun: ImportRun = {
       id: runId,
-      catalogId,
+      catalogId: 'unknown',
       timestamp: now,
       status: 'failed',
       itemCount: 0,
-      log: log + `FEHLER: ${error.message}`
+      log: log + `FEHLER: ${error.message}\n${error.stack}`
     };
     await saveCollectionRecord('importRuns', runId, errorRun, dataSource);
     return { success: false, runId, message: `Import Fehler: ${error.message}` };

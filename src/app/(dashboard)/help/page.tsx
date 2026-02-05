@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -21,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
@@ -183,7 +183,7 @@ export default function HelpPage() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input 
           placeholder="Nach Themen oder Inhalten suchen..." 
-          className="pl-10 h-12 border-2 border-border bg-white text-sm focus:outline-none rounded-none shadow-none focus:ring-0 focus:border-primary"
+          className="pl-10 h-12 border-2 border-border bg-white dark:bg-slate-900 text-sm focus:outline-none rounded-none shadow-none focus:ring-0 focus:border-primary"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -197,7 +197,7 @@ export default function HelpPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="md:col-span-1 space-y-4">
-            <div className="bg-white border p-1 rounded-none">
+            <div className="bg-card border p-1 rounded-none">
               <p className="px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-muted/30">
                 Themenbereiche
               </p>
@@ -242,7 +242,7 @@ export default function HelpPage() {
                 
                 <div className="grid grid-cols-1 gap-4">
                   {filteredHelp.filter(h => h.section === s).map(item => (
-                    <Card key={item.id} className="rounded-none border shadow-none group hover:border-primary/30 transition-all bg-white relative">
+                    <Card key={item.id} className="rounded-none border shadow-none group hover:border-primary/30 transition-all bg-card relative">
                       {isEditMode && (
                         <div className="absolute top-4 right-4 flex gap-2 z-10">
                           <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-blue-50 text-blue-600" onClick={() => openEdit(item)}>
@@ -257,7 +257,7 @@ export default function HelpPage() {
                         <CardTitle className="text-lg font-bold font-headline">{item.title}</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
+                        <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
                           {item.content}
                         </p>
                       </CardContent>
@@ -280,7 +280,7 @@ export default function HelpPage() {
 
       {/* Help Editor Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl rounded-none border-2 shadow-2xl p-0 overflow-hidden flex flex-col">
+        <DialogContent className="max-w-2xl rounded-none border-2 shadow-2xl p-0 overflow-hidden flex flex-col bg-card">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center gap-3">
               <Settings2 className="w-5 h-5 text-primary" />
@@ -333,7 +333,7 @@ export default function HelpPage() {
             </div>
           </div>
 
-          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">
+          <DialogFooter className="p-6 bg-muted/30 border-t shrink-0">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
             <Button onClick={handleSaveHelp} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] px-10 gap-2">
               {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}

@@ -277,6 +277,29 @@ function RiskDashboardContent() {
     }
   };
 
+  const handleResetOverrides = async (risk: Risk) => {
+    setIsSaving(true);
+    const updatedRisk: Risk = {
+      ...risk,
+      isImpactOverridden: false,
+      isProbabilityOverridden: false,
+      isResidualImpactOverridden: false,
+      isResidualProbabilityOverridden: false,
+    };
+
+    try {
+      const res = await saveCollectionRecord('risks', risk.id, updatedRisk, dataSource);
+      if (res.success) {
+        toast({ title: "Berechnung reaktiviert", description: "Werte werden nun wieder automatisch aggregiert." });
+        refresh();
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler beim Zurücksetzen", description: e.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const openReviewDialog = (risk: Risk) => {
     setReviewRisk(risk);
     setRevImpact(risk.impact.toString());
@@ -600,6 +623,8 @@ function RiskDashboardContent() {
                 const showCalcNetto = hasSubs && !risk.isResidualImpactOverridden && !risk.isResidualProbabilityOverridden;
                 const showOverrideNetto = hasSubs && (risk.isResidualImpactOverridden || risk.isResidualProbabilityOverridden);
 
+                const isAnyOverridden = !!(risk.isImpactOverridden || risk.isProbabilityOverridden || risk.isResidualImpactOverridden || risk.isResidualProbabilityOverridden);
+
                 return (
                   <TableRow key={risk.id} className={cn("hover:bg-muted/5 group border-b last:border-0", isSub && "bg-slate-50/50")}>
                     <TableCell className="py-4">
@@ -695,6 +720,14 @@ function RiskDashboardContent() {
                             <DropdownMenuItem onSelect={() => { setViewMeasuresRisk(risk); setIsMeasuresViewOpen(true); }}>
                               <ClipboardCheck className="w-3.5 h-3.5 mr-2" /> Maßnahmen anzeigen
                             </DropdownMenuItem>
+                            {hasSubs && isAnyOverridden && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onSelect={() => handleResetOverrides(risk)} className="text-indigo-600 font-bold">
+                                  <RotateCcw className="w-3.5 h-3.5 mr-2" /> Berechnung reaktivieren
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-600" onSelect={() => { if(confirm("Risiko permanent löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}>
                               <Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen

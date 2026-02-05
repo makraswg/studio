@@ -155,5 +155,57 @@ export const appSchema: AppSchema = {
       before: 'TEXT',
       after: 'TEXT',
     },
+  },
+  jiraConfigs: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      enabled: 'BOOLEAN DEFAULT FALSE',
+      url: 'TEXT',
+      email: 'VARCHAR(255)',
+      apiToken: 'TEXT',
+      projectKey: 'VARCHAR(50)',
+      issueTypeName: 'VARCHAR(100)',
+      approvedStatusName: 'VARCHAR(100)',
+      doneStatusName: 'VARCHAR(100)',
+      workspaceId: 'VARCHAR(255)',
+      schemaId: 'VARCHAR(255)',
+      resourceObjectTypeId: 'VARCHAR(255)',
+      entitlementObjectTypeId: 'VARCHAR(255)',
+      resourceLabelAttrId: 'VARCHAR(255)',
+      entitlementLabelAttrId: 'VARCHAR(255)',
+      resourceToEntitlementAttrId: 'VARCHAR(255)',
+      autoSyncAssets: 'BOOLEAN DEFAULT FALSE',
+    }
+  },
+  aiConfigs: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      enabled: 'BOOLEAN DEFAULT FALSE',
+      provider: 'VARCHAR(50)',
+      ollamaUrl: 'TEXT',
+      ollamaModel: 'VARCHAR(100)',
+      geminiModel: 'VARCHAR(100)',
+      enabledForAdvisor: 'BOOLEAN DEFAULT FALSE',
+    }
+  },
+  smtpConfigs: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      enabled: 'BOOLEAN DEFAULT FALSE',
+      host: 'VARCHAR(255)',
+      port: 'VARCHAR(10)',
+      user: 'VARCHAR(255)',
+      password: 'TEXT',
+      fromEmail: 'VARCHAR(255)',
+    }
+  },
+  syncJobs: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      name: 'VARCHAR(255)',
+      lastRun: 'VARCHAR(50)',
+      lastStatus: 'VARCHAR(20)',
+      lastMessage: 'TEXT',
+    }
   }
 };

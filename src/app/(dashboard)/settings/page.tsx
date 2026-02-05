@@ -80,46 +80,67 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState<string | null>(null);
 
-  // Modals for CRUD
-  const [isUserDialogOpen, setIsUserAddOpen] = useState(false);
-  const [isTenantDialogOpen, setIsTenantAddOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<PlatformUser | null>(null);
-  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
-
   // Discovery States for Jira
   const [jiraWorkspaces, setJiraWorkspaces] = useState<any[]>([]);
   const [jiraSchemas, setJiraSchemas] = useState<any[]>([]);
   const [isDiscoveryLoading, setIsDiscoveryLoading] = useState(false);
 
+  // Modals for CRUD
+  const [isUserDialogOpen, setIsUserAddOpen] = useState(false);
+  const [isTenantDialogOpen, setIsTenantAddOpen] = useState(false);
+
   // Data Fetching
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<Tenant>('tenants');
   const { data: pUsers, refresh: refreshPUsers } = usePluggableCollection<PlatformUser>('platformUsers');
   const { data: riskCategorySettings } = usePluggableCollection<RiskCategorySetting>('riskCategorySettings');
-  const { data: catalogs } = usePluggableCollection<Catalog>('catalogs');
   const { data: importRuns } = usePluggableCollection<ImportRun>('importRuns');
   const { data: jiraConfigs, refresh: refreshJira } = usePluggableCollection<JiraConfig>('jiraConfigs');
-  const { data: smtpConfigs, refresh: refreshSmtp } = usePluggableCollection<SmtpConfig>('smtpConfigs');
   const { data: aiConfigs, refresh: refreshAi } = usePluggableCollection<AiConfig>('aiConfigs');
 
-  const currentJira = useMemo(() => jiraConfigs?.[0] || { id: 'jira-default', enabled: false } as JiraConfig, [jiraConfigs]);
-  const currentAi = useMemo(() => aiConfigs?.[0] || { id: 'ai-default', enabled: false, provider: 'ollama' } as AiConfig, [aiConfigs]);
-  const activeTenant = useMemo(() => tenants?.find(t => t.id === (activeTenantId === 'all' ? 't1' : activeTenantId)), [tenants, activeTenantId]);
+  // Local Form States (Drafts)
+  const [jiraDraft, setJiraDraft] = useState<Partial<JiraConfig>>({});
+  const [aiDraft, setAiDraft] = useState<Partial<AiConfig>>({});
+  const [tenantDraft, setTenantDraft] = useState<Partial<Tenant>>({});
 
   useEffect(() => {
-    if (activeTab === 'integrations' && currentJira.apiToken) {
-      handleDiscoverJiraStructure();
+    if (jiraConfigs && jiraConfigs.length > 0) {
+      setJiraDraft(jiraConfigs[0]);
+    } else {
+      setJiraDraft({ id: 'jira-default', enabled: false });
     }
-  }, [activeTab]);
+  }, [jiraConfigs]);
+
+  useEffect(() => {
+    if (aiConfigs && aiConfigs.length > 0) {
+      setAiDraft(aiConfigs[0]);
+    } else {
+      setAiDraft({ id: 'ai-default', enabled: false, provider: 'ollama' });
+    }
+  }, [aiConfigs]);
+
+  useEffect(() => {
+    const current = tenants?.find(t => t.id === (activeTenantId === 'all' ? 't1' : activeTenantId));
+    if (current) setTenantDraft(current);
+  }, [tenants, activeTenantId]);
 
   const handleDiscoverJiraStructure = async () => {
-    if (!currentJira.url || !currentJira.apiToken) return;
+    if (!jiraDraft.url || !jiraDraft.apiToken) return;
     setIsDiscoveryLoading(true);
     try {
-      const res = await getJiraWorkspacesAction({ url: currentJira.url, email: currentJira.email, apiToken: currentJira.apiToken });
+      const res = await getJiraWorkspacesAction({ 
+        url: jiraDraft.url, 
+        email: jiraDraft.email || '', 
+        apiToken: jiraDraft.apiToken 
+      });
       if (res.success && res.workspaces) {
         setJiraWorkspaces(res.workspaces);
-        if (currentJira.workspaceId) {
-          const sRes = await getJiraSchemasAction({ ...currentJira, workspaceId: currentJira.workspaceId } as any);
+        if (jiraDraft.workspaceId) {
+          const sRes = await getJiraSchemasAction({ 
+            url: jiraDraft.url,
+            email: jiraDraft.email || '',
+            apiToken: jiraDraft.apiToken,
+            workspaceId: jiraDraft.workspaceId 
+          });
           if (sRes.success) setJiraSchemas(sRes.schemas || []);
         }
       }
@@ -148,7 +169,7 @@ export default function SettingsPage() {
 
   const handleTestJira = async () => {
     setIsTesting('jira');
-    const res = await testJiraConnectionAction(currentJira);
+    const res = await testJiraConnectionAction(jiraDraft);
     if (res.success) toast({ title: "Jira Verbindung OK", description: res.message });
     else toast({ variant: "destructive", title: "Jira Fehler", description: res.message });
     setIsTesting(null);
@@ -201,7 +222,6 @@ export default function SettingsPage() {
 
         <div className="flex-1 min-w-0">
           
-          {/* ORGANISATION */}
           <TabsContent value="general" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4">
@@ -212,15 +232,20 @@ export default function SettingsPage() {
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase text-muted-foreground">Unternehmensname</Label>
                     <Input 
-                      value={activeTenant?.name || ''} 
-                      onChange={(e) => activeTenant && handleSaveConfig('tenants', activeTenant.id, { ...activeTenant, name: e.target.value })}
+                      value={tenantDraft.name || ''} 
+                      onChange={(e) => setTenantDraft({ ...tenantDraft, name: e.target.value })}
                       className="rounded-none h-11" 
                     />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase text-muted-foreground">Eindeutiger Kennner (Slug)</Label>
-                    <Input value={activeTenant?.slug || ''} disabled className="rounded-none h-11 bg-muted/20 font-mono" />
+                    <Input value={tenantDraft.slug || ''} disabled className="rounded-none h-11 bg-muted/20 font-mono" />
                   </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button onClick={() => handleSaveConfig('tenants', tenantDraft.id!, tenantDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] gap-2">
+                    {isSaving && <Loader2 className="w-3 h-3 animate-spin" />} <Save className="w-3.5 h-3.5" /> Mandant speichern
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -255,7 +280,6 @@ export default function SettingsPage() {
             )}
           </TabsContent>
 
-          {/* PLATTFORM-NUTZER */}
           <TabsContent value="pusers" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
@@ -263,7 +287,7 @@ export default function SettingsPage() {
                   <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Plattform-Benutzerverwaltung</CardTitle>
                   <CardDescription className="text-[9px] uppercase font-medium">Berechtigte Personen für den ComplianceHub</CardDescription>
                 </div>
-                <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => { setSelectedUser(null); setIsUserAddOpen(true); }}>
+                <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsUserAddOpen(true)}>
                   <Plus className="w-3.5 h-3.5 mr-2" /> Administrator hinzufügen
                 </Button>
               </CardHeader>
@@ -302,8 +326,8 @@ export default function SettingsPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1.5">
-                            <div className={cn("w-1.5 h-1.5 rounded-full", (pu.enabled === 1 || pu.enabled === true) ? "bg-emerald-500" : "bg-red-500")} />
-                            <span className="text-[9px] font-bold uppercase">{(pu.enabled === 1 || pu.enabled === true) ? 'Aktiv' : 'Gesperrt'}</span>
+                            <div className={cn("w-1.5 h-1.5 rounded-full", pu.enabled ? "bg-emerald-500" : "bg-red-500")} />
+                            <span className="text-[9px] font-bold uppercase">{pu.enabled ? 'Aktiv' : 'Gesperrt'}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right pr-6">
@@ -325,14 +349,13 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* IDENTITÄT & SYNC */}
           <TabsContent value="sync" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">LDAP / Active Directory Anbindung</CardTitle>
                 <Switch 
-                  checked={!!activeTenant?.ldapEnabled} 
-                  onCheckedChange={(val) => activeTenant && handleSaveConfig('tenants', activeTenant.id, { ...activeTenant, ldapEnabled: val })} 
+                  checked={!!tenantDraft.ldapEnabled} 
+                  onCheckedChange={(val) => setTenantDraft({ ...tenantDraft, ldapEnabled: val })} 
                 />
               </CardHeader>
               <CardContent className="p-8 space-y-6">
@@ -341,8 +364,8 @@ export default function SettingsPage() {
                     <Label className="text-[10px] font-bold uppercase">LDAP URL</Label>
                     <Input 
                       placeholder="ldap://dc01.firma.local" 
-                      value={activeTenant?.ldapUrl || ''} 
-                      onChange={(e) => activeTenant && handleSaveConfig('tenants', activeTenant.id, { ...activeTenant, ldapUrl: e.target.value })} 
+                      value={tenantDraft.ldapUrl || ''} 
+                      onChange={(e) => setTenantDraft({ ...tenantDraft, ldapUrl: e.target.value })} 
                       className="rounded-none h-10"
                     />
                   </div>
@@ -350,8 +373,8 @@ export default function SettingsPage() {
                     <Label className="text-[10px] font-bold uppercase">Port</Label>
                     <Input 
                       placeholder="389" 
-                      value={activeTenant?.ldapPort || ''} 
-                      onChange={(e) => activeTenant && handleSaveConfig('tenants', activeTenant.id, { ...activeTenant, ldapPort: e.target.value })} 
+                      value={tenantDraft.ldapPort || ''} 
+                      onChange={(e) => setTenantDraft({ ...tenantDraft, ldapPort: e.target.value })} 
                       className="rounded-none h-10"
                     />
                   </div>
@@ -359,8 +382,8 @@ export default function SettingsPage() {
                     <Label className="text-[10px] font-bold uppercase">Base DN</Label>
                     <Input 
                       placeholder="DC=firma,DC=local" 
-                      value={activeTenant?.ldapBaseDn || ''} 
-                      onChange={(e) => activeTenant && handleSaveConfig('tenants', activeTenant.id, { ...activeTenant, ldapBaseDn: e.target.value })} 
+                      value={tenantDraft.ldapBaseDn || ''} 
+                      onChange={(e) => setTenantDraft({ ...tenantDraft, ldapBaseDn: e.target.value })} 
                       className="rounded-none h-10 font-mono text-xs"
                     />
                   </div>
@@ -368,8 +391,8 @@ export default function SettingsPage() {
                     <Label className="text-[10px] font-bold uppercase">Bind DN</Label>
                     <Input 
                       placeholder="CN=svc_compliance,OU=ServiceAccounts,..." 
-                      value={activeTenant?.ldapBindDn || ''} 
-                      onChange={(e) => activeTenant && handleSaveConfig('tenants', activeTenant.id, { ...activeTenant, ldapBindDn: e.target.value })} 
+                      value={tenantDraft.ldapBindDn || ''} 
+                      onChange={(e) => setTenantDraft({ ...tenantDraft, ldapBindDn: e.target.value })} 
                       className="rounded-none h-10 font-mono text-xs"
                     />
                   </div>
@@ -377,22 +400,26 @@ export default function SettingsPage() {
                     <Label className="text-[10px] font-bold uppercase">Bind Passwort</Label>
                     <Input 
                       type="password" 
-                      value={activeTenant?.ldapBindPassword || ''} 
-                      onChange={(e) => activeTenant && handleSaveConfig('tenants', activeTenant.id, { ...activeTenant, ldapBindPassword: e.target.value })} 
+                      value={tenantDraft.ldapBindPassword || ''} 
+                      onChange={(e) => setTenantDraft({ ...tenantDraft, ldapBindPassword: e.target.value })} 
                       className="rounded-none h-10"
                     />
                   </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button onClick={() => handleSaveConfig('tenants', tenantDraft.id!, tenantDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] gap-2">
+                    {isSaving && <Loader2 className="w-3 h-3 animate-spin" />} <Save className="w-3.5 h-3.5" /> Sync-Daten speichern
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* JIRA GATEWAY */}
           <TabsContent value="integrations" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Jira Gateway & Assets Engine</CardTitle>
-                <Switch checked={currentJira.enabled} onCheckedChange={(val) => handleSaveConfig('jiraConfigs', currentJira.id, { ...currentJira, enabled: val })} />
+                <Switch checked={!!jiraDraft.enabled} onCheckedChange={(val) => setJiraDraft({ ...jiraDraft, enabled: val })} />
               </CardHeader>
               <CardContent className="p-8">
                 <Tabs defaultValue="basic" className="space-y-8">
@@ -406,15 +433,15 @@ export default function SettingsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2 col-span-2">
                         <Label className="text-[10px] font-bold uppercase">Cloud Instanz URL</Label>
-                        <Input placeholder="https://firma.atlassian.net" value={currentJira.url} onChange={(e) => handleSaveConfig('jiraConfigs', currentJira.id, { ...currentJira, url: e.target.value })} className="rounded-none h-10" />
+                        <Input placeholder="https://firma.atlassian.net" value={jiraDraft.url || ''} onChange={(e) => setJiraDraft({...jiraDraft, url: e.target.value})} className="rounded-none h-10" />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-[10px] font-bold uppercase">Admin E-Mail</Label>
-                        <Input value={currentJira.email} onChange={(e) => handleSaveConfig('jiraConfigs', currentJira.id, { ...currentJira, email: e.target.value })} className="rounded-none h-10" />
+                        <Input value={jiraDraft.email || ''} onChange={(e) => setJiraDraft({...jiraDraft, email: e.target.value})} className="rounded-none h-10" />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-[10px] font-bold uppercase">API Token</Label>
-                        <Input type="password" value={currentJira.apiToken} onChange={(e) => handleSaveConfig('jiraConfigs', currentJira.id, { ...currentJira, apiToken: e.target.value })} className="rounded-none h-10" />
+                        <Input type="password" value={jiraDraft.apiToken || ''} onChange={(e) => setJiraDraft({...jiraDraft, apiToken: e.target.value})} className="rounded-none h-10" />
                       </div>
                     </div>
                     <Button variant="outline" className="w-full h-11 rounded-none font-bold uppercase text-[10px] gap-2" onClick={handleTestJira} disabled={isTesting === 'jira'}>
@@ -426,19 +453,19 @@ export default function SettingsPage() {
                     <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <Label className="text-[10px] font-bold uppercase">Projekt Key</Label>
-                        <Input value={currentJira.projectKey} onChange={(e) => handleSaveConfig('jiraConfigs', currentJira.id, { ...currentJira, projectKey: e.target.value })} className="rounded-none font-black" />
+                        <Input value={jiraDraft.projectKey || ''} onChange={(e) => setJiraDraft({...jiraDraft, projectKey: e.target.value})} className="rounded-none font-black" />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-[10px] font-bold uppercase">Vorgangstyp</Label>
-                        <Input value={currentJira.issueTypeName} onChange={(e) => handleSaveConfig('jiraConfigs', currentJira.id, { ...currentJira, issueTypeName: e.target.value })} className="rounded-none" />
+                        <Input value={jiraDraft.issueTypeName || ''} onChange={(e) => setJiraDraft({...jiraDraft, issueTypeName: e.target.value})} className="rounded-none" />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-[10px] font-bold uppercase text-emerald-600">Genehmigt-Status (Trigger)</Label>
-                        <Input placeholder="Approved" value={currentJira.approvedStatusName} onChange={(e) => handleSaveConfig('jiraConfigs', currentJira.id, { ...currentJira, approvedStatusName: e.target.value })} className="rounded-none" />
+                        <Input placeholder="Approved" value={jiraDraft.approvedStatusName || ''} onChange={(e) => setJiraDraft({...jiraDraft, approvedStatusName: e.target.value})} className="rounded-none" />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-[10px] font-bold uppercase text-blue-600">Abschluss-Status (Sync)</Label>
-                        <Input placeholder="Done" value={currentJira.doneStatusName} onChange={(e) => handleSaveConfig('jiraConfigs', currentJira.id, { ...currentJira, doneStatusName: e.target.value })} className="rounded-none" />
+                        <Input placeholder="Done" value={jiraDraft.doneStatusName || ''} onChange={(e) => setJiraDraft({...jiraDraft, doneStatusName: e.target.value})} className="rounded-none" />
                       </div>
                     </div>
                   </TabsContent>
@@ -453,7 +480,7 @@ export default function SettingsPage() {
                     <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <Label className="text-[10px] font-bold uppercase">Workspace ID</Label>
-                        <Select value={currentJira.workspaceId} onValueChange={(val) => handleSaveConfig('jiraConfigs', currentJira.id, { ...currentJira, workspaceId: val })}>
+                        <Select value={jiraDraft.workspaceId || ''} onValueChange={(val) => setJiraDraft({...jiraDraft, workspaceId: val})}>
                           <SelectTrigger className="rounded-none h-10">
                             <SelectValue placeholder={isDiscoveryLoading ? "Lade..." : "Workspace wählen..."} />
                           </SelectTrigger>
@@ -464,7 +491,7 @@ export default function SettingsPage() {
                       </div>
                       <div className="space-y-2">
                         <Label className="text-[10px] font-bold uppercase">Schema ID</Label>
-                        <Select value={currentJira.schemaId} onValueChange={(val) => handleSaveConfig('jiraConfigs', currentJira.id, { ...currentJira, schemaId: val })}>
+                        <Select value={jiraDraft.schemaId || ''} onValueChange={(val) => setJiraDraft({...jiraDraft, schemaId: val})}>
                           <SelectTrigger className="rounded-none h-10">
                             <SelectValue placeholder="Schema wählen..." />
                           </SelectTrigger>
@@ -474,24 +501,32 @@ export default function SettingsPage() {
                         </Select>
                       </div>
                     </div>
+                    <Button variant="ghost" size="sm" className="h-8 text-[9px] font-bold uppercase" onClick={handleDiscoverJiraStructure}>
+                      <RefreshCw className="w-3 h-3 mr-2" /> Assets-Struktur laden
+                    </Button>
                   </TabsContent>
                 </Tabs>
+                <Separator className="my-8" />
+                <div className="flex justify-end">
+                  <Button onClick={() => handleSaveConfig('jiraConfigs', jiraDraft.id!, jiraDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] gap-2 px-12 h-11">
+                    {isSaving && <Loader2 className="w-3 h-3 animate-spin" />} <Save className="w-4 h-4" /> Jira Konfiguration speichern
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* AI ADVISOR */}
           <TabsContent value="ai" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">KI Access Advisor</CardTitle>
-                <Switch checked={currentAi.enabled} onCheckedChange={(val) => handleSaveConfig('aiConfigs', currentAi.id, { ...currentAi, enabled: val })} />
+                <Switch checked={!!aiDraft.enabled} onCheckedChange={(val) => setAiDraft({ ...aiDraft, enabled: val })} />
               </CardHeader>
               <CardContent className="p-8 space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase">Modell-Provider</Label>
-                    <Select value={currentAi.provider} onValueChange={(val: any) => handleSaveConfig('aiConfigs', currentAi.id, { ...currentAi, provider: val })}>
+                    <Select value={aiDraft.provider} onValueChange={(val: any) => setAiDraft({ ...aiDraft, provider: val })}>
                       <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
                       <SelectContent className="rounded-none">
                         <SelectItem value="ollama">Ollama (On-Premise)</SelectItem>
@@ -501,10 +536,10 @@ export default function SettingsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase">Endpoint / Modell</Label>
-                    {currentAi.provider === 'ollama' ? (
-                      <Input placeholder="http://localhost:11434" value={currentAi.ollamaUrl} onChange={(e) => handleSaveConfig('aiConfigs', currentAi.id, { ...currentAi, ollamaUrl: e.target.value })} className="rounded-none h-10" />
+                    {aiDraft.provider === 'ollama' ? (
+                      <Input placeholder="http://localhost:11434" value={aiDraft.ollamaUrl || ''} onChange={(e) => setAiDraft({ ...aiDraft, ollamaUrl: e.target.value })} className="rounded-none h-10" />
                     ) : (
-                      <Select value={currentAi.geminiModel} onValueChange={(val) => handleSaveConfig('aiConfigs', currentAi.id, { ...currentAi, geminiModel: val })}>
+                      <Select value={aiDraft.geminiModel || ''} onValueChange={(val) => setAiDraft({ ...aiDraft, geminiModel: val })}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-none">
                           <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash (Schnell)</SelectItem>
@@ -514,11 +549,15 @@ export default function SettingsPage() {
                     )}
                   </div>
                 </div>
+                <div className="flex justify-end">
+                  <Button onClick={() => handleSaveConfig('aiConfigs', aiDraft.id!, aiDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] gap-2 px-12 h-11">
+                    {isSaving && <Loader2 className="w-3 h-3 animate-spin" />} <Save className="w-4 h-4" /> KI Konfiguration speichern
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* E-MAIL */}
           <TabsContent value="email" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4">
@@ -543,11 +582,15 @@ export default function SettingsPage() {
                     <Input type="password" title="Passwort" className="rounded-none h-10" />
                   </div>
                 </div>
+                <div className="flex justify-end">
+                  <Button disabled className="rounded-none font-bold uppercase text-[10px] gap-2">
+                    <Save className="w-3.5 h-3.5" /> SMTP speichern
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* RISKS */}
           <TabsContent value="risks" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4">
@@ -577,7 +620,6 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* DATA IMPORT */}
           <TabsContent value="data" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4 text-center">
@@ -655,7 +697,7 @@ export default function SettingsPage() {
                   <SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger>
                   <SelectContent className="rounded-none">
                     <SelectItem value="all">Alle Standorte</SelectItem>
-                    {tenants?.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

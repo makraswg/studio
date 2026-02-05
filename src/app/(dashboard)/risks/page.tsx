@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, usePathname, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,12 +66,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { useRouter } from 'next/navigation';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
 
 function RiskDashboardContent() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { dataSource, activeTenantId } = useSettings();
   const { user: authUser } = usePlatformAuth();
@@ -114,7 +114,7 @@ function RiskDashboardContent() {
   // Effekt für die Ableitung aus dem Katalog
   useEffect(() => {
     const deriveId = searchParams.get('derive');
-    if (deriveId && hazards && !isRiskDialogOpen && !selectedRisk) {
+    if (deriveId && hazards && hazards.length > 0 && !isRiskDialogOpen && !selectedRisk) {
       const hazard = hazards.find(h => h.id === deriveId);
       if (hazard) {
         resetForm();
@@ -122,9 +122,16 @@ function RiskDashboardContent() {
         setDescription(hazard.description);
         setHazardId(hazard.id);
         setIsRiskDialogOpen(true);
+        
+        // WICHTIG: Entferne den Parameter aus der URL, damit beim Schließen des Dialogs 
+        // dieser Effekt nicht sofort erneut triggert (Endlosschleife verhindern).
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete('derive');
+        const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+        window.history.replaceState({}, '', newUrl);
       }
     }
-  }, [searchParams, hazards, isRiskDialogOpen, selectedRisk]);
+  }, [searchParams, hazards, isRiskDialogOpen, selectedRisk, pathname]);
 
   const handleSaveRisk = async () => {
     if (!title) return;

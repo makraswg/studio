@@ -7,31 +7,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   AlertTriangle, 
-  BarChart3, 
   Plus, 
   Search, 
-  ShieldAlert, 
-  ArrowUpRight, 
-  History,
-  CheckCircle2,
-  Clock,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  ChevronRight,
-  Info,
-  Layers,
-  User as UserIcon,
-  Loader2,
-  Scale,
-  CalendarCheck,
-  BookOpen,
-  Library,
-  Zap,
-  Save,
-  MessageSquare,
-  Filter,
-  ArrowRight
+  Clock, 
+  MoreHorizontal, 
+  Pencil, 
+  Trash2, 
+  Info, 
+  Loader2, 
+  Scale, 
+  CalendarCheck, 
+  Library, 
+  Save, 
+  MessageSquare, 
+  Filter
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -69,7 +58,7 @@ const ASSESSMENT_GUIDE = {
     { level: 1, title: 'Vernachlässigbar', desc: 'Keine finanziellen Folgen, Image unbeeinträchtigt.' },
     { level: 2, title: 'Gering', desc: 'Kleiner finanzieller Verlust (< 10k), interne Aufregung.' },
     { level: 3, title: 'Mittel', desc: 'Spürbarer Verlust (< 100k), lokale Medienberichterstattung.' },
-    { level: 4, title: 'Hoch', desc: 'Großer Verlust (< 1Mio), massiver Image-Schaden.' },
+    { level: 4, title: 'Hoch', desc: 'Großer Verlust (> 100k), massiver Image-Schaden.' },
     { level: 5, title: 'Existenzbedrohend', desc: 'Insolvenzrisiko, Entzug von Lizenzen.' }
   ],
   probability: [
@@ -206,7 +195,8 @@ export default function RiskDashboardPage() {
 
     try {
       await saveCollectionRecord('risks', selectedRisk.id, updatedRisk, dataSource);
-      await saveCollectionRecord('riskReviews', reviewRecord.id, reviewRecord, dataSource);
+      // Optional: Persist review record if table exists
+      await saveCollectionRecord('riskReviews', reviewRecord.id, reviewRecord, dataSource).catch(() => {});
 
       await logAuditEventAction(dataSource, {
         tenantId: selectedRisk.tenantId,
@@ -280,6 +270,23 @@ export default function RiskDashboardPage() {
     }).sort((a, b) => (b.impact * b.probability) - (a.impact * a.probability));
   }, [risks, search, categoryFilter, activeTenantId]);
 
+  const filteredBsiCatalog = useMemo(() => {
+    const flatCatalog: { module: BsiModule; threat: BsiThreat }[] = [];
+    BSI_CATALOG.forEach(module => {
+      if (selectedBsiModule !== 'all' && module.id !== selectedBsiModule) return;
+      module.threats.forEach(threat => {
+        const matchesSearch = 
+          threat.title.toLowerCase().includes(bsiSearch.toLowerCase()) || 
+          threat.description.toLowerCase().includes(bsiSearch.toLowerCase()) ||
+          module.title.toLowerCase().includes(bsiSearch.toLowerCase());
+        if (matchesSearch) {
+          flatCatalog.push({ module, threat });
+        }
+      });
+    });
+    return flatCatalog;
+  }, [bsiSearch, selectedBsiModule]);
+
   const stats = useMemo(() => {
     if (!filteredRisks) return { high: 0, medium: 0, low: 0, pendingReviews: 0 };
     const now = Date.now();
@@ -299,23 +306,6 @@ export default function RiskDashboardPage() {
     };
   }, [filteredRisks, categorySettings]);
 
-  const filteredBsiCatalog = useMemo(() => {
-    const flatCatalog: { module: BsiModule; threat: BsiThreat }[] = [];
-    BSI_CATALOG.forEach(module => {
-      if (selectedBsiModule !== 'all' && module.id !== selectedBsiModule) return;
-      module.threats.forEach(threat => {
-        const matchesSearch = 
-          threat.title.toLowerCase().includes(bsiSearch.toLowerCase()) || 
-          threat.description.toLowerCase().includes(bsiSearch.toLowerCase()) ||
-          module.title.toLowerCase().includes(bsiSearch.toLowerCase());
-        if (matchesSearch) {
-          flatCatalog.push({ module, threat });
-        }
-      });
-    });
-    return flatCatalog;
-  }, [bsiSearch, selectedBsiModule]);
-
   if (!mounted) return null;
 
   return (
@@ -332,7 +322,7 @@ export default function RiskDashboardPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => { resetForm(); setIsRiskDialogOpen(true); setIsBsiDialogOpen(true); }} className="h-10 font-bold uppercase text-[10px] rounded-none px-6 border-blue-200 text-blue-700 bg-blue-50">
-            <BookOpen className="w-4 h-4 mr-2" /> BSI Grundschutz Katalog
+            <Library className="w-4 h-4 mr-2" /> BSI Grundschutz Katalog
           </Button>
           <Button onClick={() => { resetForm(); setIsRiskDialogOpen(true); }} className="h-10 font-bold uppercase text-[10px] rounded-none px-6 bg-orange-600 hover:bg-orange-700 shadow-lg text-white border-none">
             <Plus className="w-4 h-4 mr-2" /> Risiko identifizieren
@@ -583,7 +573,7 @@ export default function RiskDashboardPage() {
           <DialogFooter className="p-6 bg-slate-50 dark:bg-slate-900 border-t shrink-0">
             <Button variant="outline" onClick={() => setIsReviewDialogOpen(false)} className="rounded-none h-10 px-8">Abbrechen</Button>
             <Button onClick={handleRunReview} disabled={isSaving || !reviewNotes} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] tracking-widest bg-blue-600 hover:bg-blue-700 text-white border-none">
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />} Review abschließen
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Review abschließen
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -770,7 +760,7 @@ export default function RiskDashboardPage() {
           <div className="p-4 bg-muted/20 border-t flex items-center gap-2">
             <Info className="w-4 h-4 text-primary" />
             <p className="text-[9px] font-bold uppercase text-muted-foreground">
-              Tipp: Der vollständige BSI Katalog mit über 5000 Einträgen kann über die Import-Schnittstelle (JSON/CSV) im Admin-Bereich geladen werden.
+              Tipp: Der vollständige BSI Katalog kann über die Import-Schnittstelle im Admin-Bereich geladen werden.
             </p>
           </div>
 
@@ -795,7 +785,7 @@ function AssessmentGuide({ category }: { category: 'impact' | 'probability' }) {
       </PopoverTrigger>
       <PopoverContent className="w-80 rounded-none p-0 border-2 shadow-2xl z-[150]">
         <div className="p-3 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest">
-          {category === 'impact' ? 'Schadenshöhe Definition' : 'Eintrittswahrscheinlichkeit Definition'}
+          {category === 'impact' ? 'Schadenshöhe Definition' : 'Wahrscheinlichkeit Definition'}
         </div>
         <div className="p-4 space-y-3">
           {guide.map((item) => (

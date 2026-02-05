@@ -27,213 +27,113 @@ const collectionToTableMap: { [key: string]: string } = {
   risks: 'risks',
   riskMeasures: 'riskMeasures',
   riskReviews: 'riskReviews',
+  riskCategorySettings: 'riskCategorySettings',
 };
 
-/**
- * Hilfsfunktion zum Umwandeln von MySQL Werten in echte JavaScript-Typen.
- */
 function normalizeRecord(item: any, tableName: string) {
   const normalized = { ...item };
-  
-  // JSON-Felder für spezifische Tabellen parsen
   if (tableName === 'groups' || tableName === 'bundles') {
     normalized.entitlementConfigs = item.entitlementConfigs ? (typeof item.entitlementConfigs === 'string' ? JSON.parse(item.entitlementConfigs) : item.entitlementConfigs) : [];
     normalized.userConfigs = item.userConfigs ? (typeof item.userConfigs === 'string' ? JSON.parse(item.userConfigs) : item.userConfigs) : [];
     normalized.entitlementIds = item.entitlementIds ? (typeof item.entitlementIds === 'string' ? JSON.parse(item.entitlementIds) : item.entitlementIds) : [];
     normalized.userIds = item.userIds ? (typeof item.userIds === 'string' ? JSON.parse(item.userIds) : item.userIds) : [];
   }
-
   if (tableName === 'auditEvents') {
     normalized.before = item.before ? (typeof item.before === 'string' ? JSON.parse(item.before) : item.before) : null;
     normalized.after = item.after ? (typeof item.after === 'string' ? JSON.parse(item.after) : item.after) : null;
   }
-
-  // Booleans für alle Tabellen normalisieren (MySQL TINYINT(1) -> Boolean)
   const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled'];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
       normalized[f] = normalized[f] === 1 || normalized[f] === true || normalized[f] === '1';
     }
   });
-
   return normalized;
 }
 
-/**
- * Führt eine sichere Leseoperation auf einer Tabelle aus, unabhängig von der Datenquelle.
- */
 export async function getCollectionData(collectionName: string, dataSource: DataSource = 'mysql'): Promise<{ data: any[] | null; error: string | null; }> {
-  if (dataSource === 'mock') {
-    return { data: getMockCollection(collectionName), error: null };
-  }
-
+  if (dataSource === 'mock') return { data: getMockCollection(collectionName), error: null };
   if (dataSource === 'firestore') {
     try {
       const { firestore } = initializeFirebase();
       const snap = await getDocs(collection(firestore, collectionName));
       const data = snap.docs.map(d => ({ ...d.data(), id: d.id }));
       return { data, error: null };
-    } catch (e: any) {
-      return { data: null, error: `Firestore Fehler: ${e.message}` };
-    }
+    } catch (e: any) { return { data: null, error: e.message }; }
   }
-
-  // DEFAULT: MySQL
   const tableName = collectionToTableMap[collectionName];
-  if (!tableName) {
-    return { data: null, error: `Die Sammlung '${collectionName}' ist nicht für den Zugriff freigegeben.` };
-  }
-
+  if (!tableName) return { data: null, error: `Invalid collection: ${collectionName}` };
   let connection;
   try {
     connection = await getMysqlConnection();
     const [rows] = await connection.execute(`SELECT * FROM \`${tableName}\``);
     connection.release();
-    
     let rawData = JSON.parse(JSON.stringify(rows));
-    
-    // Security: Passwörter niemals an das Frontend schicken
-    if (tableName === 'platformUsers') {
-      rawData = rawData.map((u: any) => {
-        const { password, ...rest } = u;
-        return rest;
-      });
-    }
-
+    if (tableName === 'platformUsers') { rawData = rawData.map((u: any) => { const { password, ...rest } = u; return rest; }); }
     const data = rawData.map((item: any) => normalizeRecord(item, tableName));
     return { data, error: null };
-
   } catch (error: any) {
-    console.error(`MySQL query failed for table '${tableName}':`, error);
-    if (connection) {
-      connection.release();
-    }
-    return { data: null, error: `Datenbankfehler: ${error.message}` };
+    if (connection) connection.release();
+    return { data: null, error: error.message };
   }
 }
 
-/**
- * Speichert oder aktualisiert einen Datensatz in der gewählten Datenquelle.
- */
 export async function saveCollectionRecord(collectionName: string, id: string, data: any, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; error: string | null }> {
   if (dataSource === 'firestore') {
     try {
       const { firestore } = initializeFirebase();
       await setDoc(doc(firestore, collectionName, id), data, { merge: true });
       return { success: true, error: null };
-    } catch (e: any) {
-      return { success: false, error: e.message };
-    }
+    } catch (e: any) { return { success: false, error: e.message }; }
   }
-
   const tableName = collectionToTableMap[collectionName];
-  if (!tableName) return { success: false, error: 'Ungültige Tabelle' };
-
+  if (!tableName) return { success: false, error: 'Invalid table' };
   let connection;
   try {
     connection = await getMysqlConnection();
-    
-    // Bereite Daten für MySQL vor (JSON-Felder konvertieren)
     const preparedData = { ...data, id };
-    
     if (tableName === 'groups' || tableName === 'bundles') {
       if (Array.isArray(preparedData.entitlementConfigs)) preparedData.entitlementConfigs = JSON.stringify(preparedData.entitlementConfigs);
       if (Array.isArray(preparedData.userConfigs)) preparedData.userConfigs = JSON.stringify(preparedData.userConfigs);
       if (Array.isArray(preparedData.entitlementIds)) preparedData.entitlementIds = JSON.stringify(preparedData.entitlementIds);
       if (Array.isArray(preparedData.userIds)) preparedData.userIds = JSON.stringify(preparedData.userIds);
     }
-
     if (tableName === 'auditEvents') {
       if (preparedData.before && typeof preparedData.before === 'object') preparedData.before = JSON.stringify(preparedData.before);
       if (preparedData.after && typeof preparedData.after === 'object') preparedData.after = JSON.stringify(preparedData.after);
     }
-
-    // Security: Handle platform user passwords (hashing)
-    if (tableName === 'platformUsers') {
-      if (preparedData.password && preparedData.password.trim() !== '') {
-        const isAlreadyHashed = /^\$2[ayb]\$.{56}$/.test(preparedData.password);
-        if (!isAlreadyHashed) {
-          const salt = bcrypt.genSaltSync(10);
-          preparedData.password = bcrypt.hashSync(preparedData.password, salt);
-        }
-      } else {
-        delete preparedData.password;
-      }
-    }
-
-    // MySQL spezifische Boolean-Konvertierung
     const boolKeys = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled'];
-    boolKeys.forEach(key => {
-      if (preparedData[key] !== undefined) {
-        preparedData[key] = preparedData[key] ? 1 : 0;
-      }
-    });
-
+    boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
     const keys = Object.keys(preparedData);
     const values = Object.values(preparedData);
-    
     const placeholders = keys.map(() => '?').join(', ');
     const updates = keys.map(key => `\`${key}\` = VALUES(\`${key}\`)`).join(', ');
-    
     const sql = `INSERT INTO \`${tableName}\` (\`${keys.join('`, `')}\`) VALUES (${placeholders}) ON DUPLICATE KEY UPDATE ${updates}`;
-    
     await connection.execute(sql, values);
     connection.release();
     return { success: true, error: null };
   } catch (error: any) {
-    console.error("MySQL Save Error:", error);
     if (connection) connection.release();
     return { success: false, error: error.message };
   }
 }
 
-/**
- * Löscht einen Datensatz aus der gewählten Datenquelle.
- */
 export async function deleteCollectionRecord(collectionName: string, id: string, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; error: string | null }> {
   if (dataSource === 'firestore') {
     try {
       const { firestore } = initializeFirebase();
       await deleteDoc(doc(firestore, collectionName, id));
       return { success: true, error: null };
-    } catch (e: any) {
-      return { success: false, error: e.message };
-    }
+    } catch (e: any) { return { success: false, error: e.message }; }
   }
-
   const tableName = collectionToTableMap[collectionName];
-  if (!tableName) return { success: false, error: 'Ungültige Tabelle' };
-
+  if (!tableName) return { success: false, error: 'Invalid table' };
   let connection;
   try {
     connection = await getMysqlConnection();
     await connection.execute(`DELETE FROM \`${tableName}\` WHERE id = ?`, [id]);
     connection.release();
     return { success: true, error: null };
-  } catch (error: any) {
-    if (connection) connection.release();
-    return { success: false, error: error.message };
-  }
-}
-
-/**
- * Aktualisiert das Passwort eines Plattform-Nutzers.
- */
-export async function updatePlatformUserPasswordAction(email: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
-  if (!email || !newPassword) return { success: false, error: 'Daten unvollständig.' };
-
-  let connection;
-  try {
-    const salt = bcrypt.genSaltSync(10);
-    const hashedPassword = bcrypt.hashSync(newPassword, salt);
-
-    connection = await getMysqlConnection();
-    await connection.execute(
-      'UPDATE `platformUsers` SET `password` = ? WHERE `email` = ?',
-      [hashedPassword, email]
-    );
-    connection.release();
-    return { success: true };
   } catch (error: any) {
     if (connection) connection.release();
     return { success: false, error: error.message };

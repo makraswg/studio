@@ -26,7 +26,8 @@ import {
   ArrowRight,
   ShieldCheck,
   ShieldAlert,
-  ArrowRightLeft
+  ArrowRightLeft,
+  HelpCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -58,6 +59,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRouter } from 'next/navigation';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const ASSESSMENT_GUIDE = {
   impact: [
@@ -91,7 +93,7 @@ function RiskDashboardContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
 
-  // Form State Risk 2.0
+  // Form State
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('IT-Sicherheit');
   const [assetId, setAssetId] = useState('none');
@@ -227,8 +229,8 @@ function RiskDashboardContent() {
             <AlertTriangle className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight uppercase font-headline">Compliance Risiko-Inventar</h1>
-            <p className="text-sm text-muted-foreground mt-1">Stufe 2.0: Inhärentes vs. Restrisiko und Katalog-Integration.</p>
+            <h1 className="text-3xl font-bold tracking-tight uppercase font-headline">Risikoinventar</h1>
+            <p className="text-sm text-muted-foreground mt-1">Bewertung von inhärenten Risiken und Identifikation von Restrisiken.</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -241,7 +243,7 @@ function RiskDashboardContent() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-12 space-y-4">
           <div className="flex gap-4">
             <div className="relative flex-1">
@@ -340,16 +342,26 @@ function RiskDashboardContent() {
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-3">
                 <ShieldAlert className="w-5 h-5 text-orange-500" />
-                <DialogTitle className="text-sm font-bold uppercase tracking-wider">Risiko-Detailerfassung 2.0</DialogTitle>
+                <DialogTitle className="text-sm font-bold uppercase tracking-wider">Risiko-Detailerfassung</DialogTitle>
               </div>
               {hazardId && <Badge className="bg-blue-600 rounded-none text-[9px] font-black tracking-widest">AUS KATALOG ABGELEITET</Badge>}
             </div>
           </DialogHeader>
+          
           <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-white dark:bg-slate-950">
+            {/* Basis-Informationen */}
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2 col-span-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Risiko-Bezeichnung</Label>
-                <Input value={title} onChange={e => setTitle(e.target.value)} className="rounded-none h-11 text-base font-bold" />
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Risiko-Bezeichnung</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild><HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Geben Sie dem Risiko einen Namen, der das Bedrohungsszenario kurz beschreibt.</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Input value={title} onChange={e => setTitle(e.target.value)} className="rounded-none h-11 text-base font-bold" placeholder="z.B. Datenverlust durch Ransomware" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Betroffenes IT-System (Asset)</Label>
@@ -375,26 +387,68 @@ function RiskDashboardContent() {
               </div>
             </div>
             
+            {/* Risiko-Matrix */}
             <div className="grid grid-cols-2 gap-12 border-t pt-6">
+              {/* Inhärent */}
               <div className="space-y-6">
-                <div className="flex items-center gap-2 border-b pb-2">
-                  <ShieldAlert className="w-4 h-4 text-red-600" />
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-red-600">1. Inhärentes Risiko (Brutto)</h3>
+                <div className="flex items-center justify-between border-b pb-2">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-red-600" />
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-red-600">1. Inhärentes Risiko (Brutto)</h3>
+                  </div>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild><HelpCircle className="w-3.5 h-3.5 text-red-400 cursor-help" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Risiko-Level OHNE Berücksichtigung von Sicherheitsmaßnahmen.</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Wahrscheinlichkeit (1-5)</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[10px] font-bold uppercase">Wahrscheinlichkeit</Label>
+                      <Popover>
+                        <PopoverTrigger asChild><button className="text-[9px] font-black text-red-600 uppercase underline">Definitionen</button></PopoverTrigger>
+                        <PopoverContent className="w-64 rounded-none p-0">
+                          <div className="p-3 bg-red-600 text-white font-black text-[10px] uppercase">Häufigkeit-Stufen</div>
+                          <div className="p-2 space-y-2">
+                            {ASSESSMENT_GUIDE.probability.map(p => (
+                              <div key={p.level} className="text-[9px] border-b pb-1 last:border-0">
+                                <span className="font-black text-red-600 mr-1">{p.level}: {p.title}</span>
+                                <p className="text-muted-foreground italic mt-0.5">{p.desc}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                     <div className="flex gap-1">
                       {['1', '2', '3', '4', '5'].map(v => (
-                        <button key={v} onClick={() => setProbability(v)} className={cn("flex-1 h-8 text-[10px] font-bold border", probability === v ? "bg-red-600 border-red-600 text-white" : "bg-muted/30")}>{v}</button>
+                        <button key={v} onClick={() => setProbability(v)} className={cn("flex-1 h-8 text-[10px] font-bold border transition-colors", probability === v ? "bg-red-600 border-red-600 text-white" : "bg-muted/30 hover:bg-muted/50")}>{v}</button>
                       ))}
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Schadenshöhe (1-5)</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[10px] font-bold uppercase">Schadenshöhe</Label>
+                      <Popover>
+                        <PopoverTrigger asChild><button className="text-[9px] font-black text-red-600 uppercase underline">Definitionen</button></PopoverTrigger>
+                        <PopoverContent className="w-64 rounded-none p-0">
+                          <div className="p-3 bg-red-600 text-white font-black text-[10px] uppercase">Schaden-Stufen</div>
+                          <div className="p-2 space-y-2">
+                            {ASSESSMENT_GUIDE.impact.map(i => (
+                              <div key={i.level} className="text-[9px] border-b pb-1 last:border-0">
+                                <span className="font-black text-red-600 mr-1">{i.level}: {i.title}</span>
+                                <p className="text-muted-foreground italic mt-0.5">{i.desc}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                     <div className="flex gap-1">
                       {['1', '2', '3', '4', '5'].map(v => (
-                        <button key={v} onClick={() => setImpact(v)} className={cn("flex-1 h-8 text-[10px] font-bold border", impact === v ? "bg-red-600 border-red-600 text-white" : "bg-muted/30")}>{v}</button>
+                        <button key={v} onClick={() => setImpact(v)} className={cn("flex-1 h-8 text-[10px] font-bold border transition-colors", impact === v ? "bg-red-600 border-red-600 text-white" : "bg-muted/30 hover:bg-muted/50")}>{v}</button>
                       ))}
                     </div>
                   </div>
@@ -405,25 +459,34 @@ function RiskDashboardContent() {
                 </div>
               </div>
 
+              {/* Restrisiko */}
               <div className="space-y-6">
-                <div className="flex items-center gap-2 border-b pb-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600">2. Restrisiko (Netto)</h3>
+                <div className="flex items-center justify-between border-b pb-2">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600">2. Restrisiko (Netto)</h3>
+                  </div>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild><HelpCircle className="w-3.5 h-3.5 text-emerald-400 cursor-help" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Das verbleibende Risiko NACH Umsetzung wirksamer Schutzmaßnahmen.</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Wahrscheinlichkeit (1-5)</Label>
+                    <Label className="text-[10px] font-bold uppercase">Wahrscheinlichkeit (Mit Maßnahmen)</Label>
                     <div className="flex gap-1">
                       {['1', '2', '3', '4', '5'].map(v => (
-                        <button key={v} onClick={() => setResProbability(v)} className={cn("flex-1 h-8 text-[10px] font-bold border", resProbability === v ? "bg-emerald-600 border-emerald-600 text-white" : "bg-muted/30")}>{v}</button>
+                        <button key={v} onClick={() => setResProbability(v)} className={cn("flex-1 h-8 text-[10px] font-bold border transition-colors", resProbability === v ? "bg-emerald-600 border-emerald-600 text-white" : "bg-muted/30 hover:bg-muted/50")}>{v}</button>
                       ))}
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Schadenshöhe (1-5)</Label>
+                    <Label className="text-[10px] font-bold uppercase">Schadenshöhe (Mit Maßnahmen)</Label>
                     <div className="flex gap-1">
                       {['1', '2', '3', '4', '5'].map(v => (
-                        <button key={v} onClick={() => setResImpact(v)} className={cn("flex-1 h-8 text-[10px] font-bold border", resImpact === v ? "bg-emerald-600 border-emerald-600 text-white" : "bg-muted/30")}>{v}</button>
+                        <button key={v} onClick={() => setResImpact(v)} className={cn("flex-1 h-8 text-[10px] font-bold border transition-colors", resImpact === v ? "bg-emerald-600 border-emerald-600 text-white" : "bg-muted/30 hover:bg-muted/50")}>{v}</button>
                       ))}
                     </div>
                   </div>
@@ -435,15 +498,25 @@ function RiskDashboardContent() {
               </div>
             </div>
 
+            {/* Beschreibung & Maßnahmen */}
             <div className="space-y-2 pt-6 border-t">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Szenario & Kontroll-Effektivität</Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Szenario & Kontroll-Effektivität</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild><HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Begründen Sie hier, warum das Risiko besteht und wie die getroffenen Maßnahmen das Risiko konkret senken.</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Beschreiben Sie hier, warum das Risiko besteht und wie die Maßnahmen das Risiko senken." className="rounded-none min-h-[120px] leading-relaxed" />
             </div>
           </div>
+          
           <DialogFooter className="p-6 bg-slate-50 dark:bg-slate-900 border-t shrink-0">
             <Button variant="outline" onClick={() => setIsRiskDialogOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
             <Button onClick={handleSaveRisk} disabled={isSaving} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] tracking-widest bg-orange-600 hover:bg-orange-700 text-white border-none shadow-xl">
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Risiko-Satz speichern
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Risiko Speichern
             </Button>
           </DialogFooter>
         </DialogContent>

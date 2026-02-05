@@ -89,6 +89,14 @@ function RiskDashboardContent() {
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
   const [showScoringHelp, setShowScoringHelp] = useState(false);
 
+  // Review State
+  const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+  const [reviewRisk, setReviewRisk] = useState<Risk | null>(null);
+  const [revImpact, setRevImpact] = useState('3');
+  const [revProbability, setRevProbability] = useState('3');
+  const [revResImpact, setRevResImpact] = useState('2');
+  const [revResProbability, setRevResProbability] = useState('2');
+
   // Advisor State
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
   const [advisorRisk, setAdvisorRisk] = useState<Risk | null>(null);
@@ -181,26 +189,42 @@ function RiskDashboardContent() {
     }
   };
 
-  const handleReviewRisk = async (risk: Risk) => {
+  const openReviewDialog = (risk: Risk) => {
+    setReviewRisk(risk);
+    setRevImpact(risk.impact.toString());
+    setRevProbability(risk.probability.toString());
+    setRevResImpact(risk.residualImpact?.toString() || '2');
+    setRevResProbability(risk.residualProbability?.toString() || '2');
+    setIsReviewDialogOpen(true);
+  };
+
+  const handleReviewSubmit = async () => {
+    if (!reviewRisk) return;
     setIsSaving(true);
     const now = new Date().toISOString();
     const updatedRisk = {
-      ...risk,
+      ...reviewRisk,
+      impact: parseInt(revImpact),
+      probability: parseInt(revProbability),
+      residualImpact: parseInt(revResImpact),
+      residualProbability: parseInt(revResProbability),
       lastReviewDate: now,
     };
 
     try {
-      const res = await saveCollectionRecord('risks', risk.id, updatedRisk, dataSource);
+      const res = await saveCollectionRecord('risks', reviewRisk.id, updatedRisk, dataSource);
       if (res.success) {
         await logAuditEventAction(dataSource as any, {
-          tenantId: risk.tenantId,
+          tenantId: reviewRisk.tenantId,
           actorUid: authUser?.email || 'system',
-          action: `Risiko-Review durchgeführt: ${risk.title}`,
+          action: `Risiko-Review durchgeführt (Werte aktualisiert/bestätigt): ${reviewRisk.title}`,
           entityType: 'risk',
-          entityId: risk.id,
+          entityId: reviewRisk.id,
           after: updatedRisk
         });
-        toast({ title: "Review abgeschlossen", description: "Das Datum der letzten Prüfung wurde auf heute aktualisiert." });
+        toast({ title: "Review abgeschlossen", description: "Werte wurden aktualisiert und das Review-Datum gesetzt." });
+        setIsReviewDialogOpen(false);
+        setReviewRisk(null);
         refresh();
       }
     } finally {
@@ -401,7 +425,7 @@ function RiskDashboardContent() {
                           variant="ghost" 
                           size="sm" 
                           className="h-7 text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-none gap-1.5"
-                          onClick={() => handleReviewRisk(risk)}
+                          onClick={() => openReviewDialog(risk)}
                           disabled={isSaving}
                         >
                           <CalendarCheck className="w-3 h-3" /> Review
@@ -546,6 +570,68 @@ function RiskDashboardContent() {
             <Button variant="outline" onClick={() => setIsRiskDialogOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
             <Button onClick={handleSaveRisk} disabled={isSaving} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] bg-orange-600 hover:bg-orange-700 text-white">
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Review Dialog */}
+      <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
+        <DialogContent className="max-w-2xl rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-2xl">
+          <DialogHeader className="p-6 bg-emerald-900 text-white shrink-0">
+            <div className="flex items-center gap-3">
+              <CalendarCheck className="w-5 h-5 text-emerald-400" />
+              <DialogTitle className="text-sm font-bold uppercase tracking-wider">Risiko-Review & Re-Zertifizierung</DialogTitle>
+            </div>
+          </DialogHeader>
+          <div className="p-8 space-y-8 bg-white">
+            <div className="space-y-1">
+              <p className="text-[10px] font-black text-slate-400 uppercase">Zu prüfendes Risiko:</p>
+              <h4 className="font-bold text-base leading-tight">{reviewRisk?.title}</h4>
+              <Badge variant="outline" className="rounded-none uppercase text-[8px] font-bold mt-1">{reviewRisk?.category}</Badge>
+            </div>
+
+            <div className="grid grid-cols-2 gap-8 pt-6 border-t">
+              <div className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase text-red-600 border-b pb-1">Brutto-Risiko (Review)</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-[9px] font-bold uppercase">Wahrscheinlichkeit</Label>
+                    <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => setRevProbability(v)} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", revProbability === v ? "bg-red-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[9px] font-bold uppercase">Auswirkung</Label>
+                    <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => setRevImpact(v)} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", revImpact === v ? "bg-red-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase text-emerald-600 border-b pb-1">Netto-Risiko (Review)</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-[9px] font-bold uppercase">Wahrscheinlichkeit (Netto)</Label>
+                    <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => setRevResProbability(v)} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", revResProbability === v ? "bg-emerald-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[9px] font-bold uppercase">Auswirkung (Netto)</Label>
+                    <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => setRevResImpact(v)} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", revResImpact === v ? "bg-emerald-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-emerald-50/50 border border-emerald-100 flex items-start gap-3">
+              <Info className="w-4 h-4 text-emerald-600 mt-0.5" />
+              <p className="text-[10px] text-emerald-800 leading-relaxed font-bold uppercase">
+                Mit dem Abschluss des Reviews bestätigen Sie die oben gewählten Werte. Das Review-Datum wird auf den heutigen Tag gesetzt.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">
+            <Button variant="outline" onClick={() => setIsReviewDialogOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
+            <Button onClick={handleReviewSubmit} disabled={isSaving} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />} Review Bestätigen
             </Button>
           </DialogFooter>
         </DialogContent>

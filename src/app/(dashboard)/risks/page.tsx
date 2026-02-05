@@ -59,7 +59,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRouter } from 'next/navigation';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const ASSESSMENT_GUIDE = {
   impact: [
@@ -89,7 +89,6 @@ function RiskDashboardContent() {
   
   // Modals
   const [isRiskDialogOpen, setIsRiskDialogOpen] = useState(false);
-  const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
 
@@ -107,17 +106,24 @@ function RiskDashboardContent() {
   const [status, setStatus] = useState<'active' | 'mitigated' | 'accepted' | 'closed'>('active');
   const [reviewCycleDays, setReviewCycleDays] = useState<string>('');
 
+  // Verhindert das Zurücksetzen des Formulars bei Hintergrund-Updates des Katalogs
+  const [appliedDeriveId, setAppliedDeriveId] = useState<string | null>(null);
+
   const { data: risks, isLoading, refresh } = usePluggableCollection<Risk>('risks');
-  const { data: categorySettings } = usePluggableCollection<RiskCategorySetting>('riskCategorySettings');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: hazards } = usePluggableCollection<Hazard>('hazards');
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Effekt für die Ableitung aus dem Katalog (nur einmal pro ID ausführen)
+  useEffect(() => {
     const deriveId = searchParams.get('derive');
-    if (deriveId && hazards) {
+    if (deriveId && hazards && deriveId !== appliedDeriveId) {
       const hazard = hazards.find(h => h.id === deriveId);
       if (hazard) {
+        setAppliedDeriveId(deriveId);
         resetForm();
         setTitle(hazard.title);
         setDescription(hazard.description);
@@ -125,7 +131,7 @@ function RiskDashboardContent() {
         setIsRiskDialogOpen(true);
       }
     }
-  }, [searchParams, hazards]);
+  }, [searchParams, hazards, appliedDeriveId]);
 
   const handleSaveRisk = async () => {
     if (!title) return;
@@ -190,6 +196,7 @@ function RiskDashboardContent() {
     setDescription('');
     setStatus('active');
     setReviewCycleDays('');
+    setAppliedDeriveId(null);
   };
 
   const openEdit = (risk: Risk) => {
@@ -218,8 +225,6 @@ function RiskDashboardContent() {
       return matchesTenant && matchesCategory && matchesSearch;
     }).sort((a, b) => (b.impact * b.probability) - (a.impact * a.probability));
   }, [risks, search, categoryFilter, activeTenantId]);
-
-  if (!mounted) return null;
 
   return (
     <div className="space-y-8 pb-20">
@@ -336,7 +341,7 @@ function RiskDashboardContent() {
         </div>
       </div>
 
-      <Dialog open={isRiskDialogOpen} onOpenChange={setIsRiskDialogOpen}>
+      <Dialog open={isRiskDialogOpen} onOpenChange={(val) => { if(!val) setIsRiskDialogOpen(false); }}>
         <DialogContent className="max-w-4xl rounded-none p-0 overflow-hidden flex flex-col h-[90vh] border-2 shadow-2xl">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center justify-between w-full">
@@ -349,7 +354,6 @@ function RiskDashboardContent() {
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-white dark:bg-slate-950">
-            {/* Basis-Informationen */}
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2 col-span-2">
                 <div className="flex items-center justify-between">
@@ -387,21 +391,13 @@ function RiskDashboardContent() {
               </div>
             </div>
             
-            {/* Risiko-Matrix */}
             <div className="grid grid-cols-2 gap-12 border-t pt-6">
-              {/* Inhärent */}
               <div className="space-y-6">
                 <div className="flex items-center justify-between border-b pb-2">
                   <div className="flex items-center gap-2">
                     <ShieldAlert className="w-4 h-4 text-red-600" />
                     <h3 className="text-[10px] font-black uppercase tracking-widest text-red-600">1. Inhärentes Risiko (Brutto)</h3>
                   </div>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild><HelpCircle className="w-3.5 h-3.5 text-red-400 cursor-help" /></TooltipTrigger>
-                      <TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Risiko-Level OHNE Berücksichtigung von Sicherheitsmaßnahmen.</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -459,19 +455,12 @@ function RiskDashboardContent() {
                 </div>
               </div>
 
-              {/* Restrisiko */}
               <div className="space-y-6">
                 <div className="flex items-center justify-between border-b pb-2">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-emerald-600" />
                     <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600">2. Restrisiko (Netto)</h3>
                   </div>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild><HelpCircle className="w-3.5 h-3.5 text-emerald-400 cursor-help" /></TooltipTrigger>
-                      <TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Das verbleibende Risiko NACH Umsetzung wirksamer Schutzmaßnahmen.</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -498,17 +487,8 @@ function RiskDashboardContent() {
               </div>
             </div>
 
-            {/* Beschreibung & Maßnahmen */}
             <div className="space-y-2 pt-6 border-t">
-              <div className="flex items-center gap-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Szenario & Kontroll-Effektivität</Label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild><HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                    <TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Begründen Sie hier, warum das Risiko besteht und wie die getroffenen Maßnahmen das Risiko konkret senken.</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Szenario & Kontroll-Effektivität</Label>
               <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Beschreiben Sie hier, warum das Risiko besteht und wie die Maßnahmen das Risiko senken." className="rounded-none min-h-[120px] leading-relaxed" />
             </div>
           </div>

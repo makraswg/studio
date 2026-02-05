@@ -5,7 +5,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getCollectionData } from '@/app/actions/mysql-actions';
 
 // Globaler Cache für MySQL-Daten, um unnötige Re-Fetches beim Seitenwechsel zu vermeiden.
-// Dies macht die App-Navigation "instant", wenn die Daten bereits geladen wurden.
 const mysqlCache: Record<string, { data: any[], timestamp: number }> = {};
 const CACHE_TTL = 5000; // 5 Sekunden Cache-Gültigkeit für Navigationen
 
@@ -15,7 +14,6 @@ const CACHE_TTL = 5000; // 5 Sekunden Cache-Gültigkeit für Navigationen
  */
 export function useMysqlCollection<T>(collectionName: string, enabled: boolean) {
   const [data, setData] = useState<T[] | null>(() => {
-    // Initialisierung aus Cache, falls vorhanden und gültig
     const cached = mysqlCache[collectionName];
     if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
       return cached.data as T[];
@@ -28,16 +26,19 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   const [version, setVersion] = useState(0);
   
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
+  const isInitialFetch = useRef(true);
 
   const fetchData = useCallback(async (silent = false) => {
     if (!enabled) return;
     
-    // Prüfe Cache erneut (für Fälle, in denen andere Komponenten den Cache gefüllt haben könnten)
-    const cached = mysqlCache[collectionName];
-    if (cached && (Date.now() - cached.timestamp < CACHE_TTL) && !silent && data) {
-      // Wenn wir bereits aktuelle Daten haben und kein erzwungener Refresh (silent=false bei Mount) ansteht
-      setIsLoading(false);
-      return;
+    // Cache-Check nur beim initialen Laden oder manuellen Refresh (silent = false)
+    if (isInitialFetch.current && !silent) {
+      const cached = mysqlCache[collectionName];
+      if (cached && (Date.now() - cached.timestamp < CACHE_TTL) && data) {
+        setIsLoading(false);
+        isInitialFetch.current = false;
+        return;
+      }
     }
 
     if (!silent && !data) setIsLoading(true);
@@ -50,19 +51,19 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
         const newData = result.data as T[];
         setData(newData);
         setError(null);
-        // Cache aktualisieren
         mysqlCache[collectionName] = { data: newData, timestamp: Date.now() };
       }
     } catch (e: any) {
       setError(e.message);
     } finally {
       if (!silent) setIsLoading(false);
+      isInitialFetch.current = false;
     }
-  }, [collectionName, enabled, data]);
+  }, [collectionName, enabled]); // data wurde als Abhängigkeit entfernt, um Loop zu verhindern
 
   const refresh = useCallback(() => {
-    // Cache für diese Kollektion löschen, um frische Daten zu erzwingen
     delete mysqlCache[collectionName];
+    isInitialFetch.current = true;
     setVersion(v => v + 1);
   }, [collectionName]);
 
@@ -78,7 +79,6 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
       return;
     }
 
-    // Abruf starten (fetchData prüft intern den Cache)
     fetchData();
 
     const startPolling = () => {
@@ -87,7 +87,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
         if (document.visibilityState === 'visible') {
           fetchData(true);
         }
-      }, 30000); // 30s Polling
+      }, 30000); 
     };
 
     const handleVisibilityChange = () => {

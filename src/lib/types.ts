@@ -94,6 +94,55 @@ export interface Assignment {
   syncSource?: 'manual' | 'ldap' | 'group';
 }
 
+export interface JiraConfig {
+  id: string;
+  enabled: boolean;
+  url: string;
+  email: string;
+  apiToken: string;
+  projectKey: string;
+  issueTypeName?: string;
+  approvedStatusName?: string;
+  doneStatusName?: string;
+  // Assets Sync Configuration
+  workspaceId?: string;
+  schemaId?: string;
+  resourceObjectTypeId?: string;
+  entitlementObjectTypeId?: string;
+  resourceLabelAttrId?: string;
+  entitlementLabelAttrId?: string;
+  resourceToEntitlementAttrId?: string;
+  autoSyncAssets?: boolean;
+}
+
+export interface SmtpConfig {
+  id: string;
+  enabled: boolean;
+  host: string;
+  port: string;
+  user: string;
+  password?: string;
+  fromEmail: string;
+}
+
+export interface AiConfig {
+  id: string;
+  enabled: boolean;
+  provider: 'ollama' | 'google';
+  ollamaUrl?: string;
+  ollamaModel?: string;
+  geminiModel?: string;
+  enabledForAdvisor?: boolean;
+}
+
+export interface SyncJob {
+  id: string;
+  name: string;
+  lastRun?: string;
+  lastStatus?: 'success' | 'error' | 'running';
+  lastMessage?: string;
+}
+
 // Catalog System
 export interface Catalog {
   id: string;
@@ -136,32 +185,23 @@ export interface ImportIssue {
   message: string;
 }
 
-// Risk 2.0
 export interface Risk {
   id: string;
   tenantId: string;
-  assetId?: string; // Link to Resource
-  hazardId?: string; // Link to Catalog Hazard
+  assetId?: string;
+  hazardId?: string;
   title: string;
   category: string;
   description: string;
-  
-  // Inherent (Raw)
   impact: number;
   probability: number;
-  
-  // Residual (After Controls)
   residualImpact?: number;
   residualProbability?: number;
-  
   owner: string;
   status: 'active' | 'mitigated' | 'accepted' | 'closed';
-  
-  // Acceptance
   acceptanceStatus?: 'pending' | 'accepted' | 'rejected';
   acceptanceReason?: string;
   acceptedBy?: string;
-  
   lastReviewDate?: string;
   reviewCycleDays?: number;
   createdAt: string;
@@ -188,4 +228,29 @@ export interface RiskMeasure {
 export interface Document {
   id: string;
   [key: string]: any;
+}
+
+export interface GroupMemberConfig {
+  id: string;
+  validFrom: string;
+  validUntil: string | null;
+}
+
+export interface AssignmentGroup {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  userConfigs: GroupMemberConfig[];
+  entitlementConfigs: GroupMemberConfig[];
+  userIds?: string[];
+  entitlementIds?: string[];
+}
+
+export interface HelpContent {
+  id: string;
+  section: string;
+  title: string;
+  content: string;
+  order: number;
 }

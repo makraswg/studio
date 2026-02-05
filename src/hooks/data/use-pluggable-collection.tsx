@@ -1,23 +1,25 @@
+
 "use client";
 
+import { useMemo } from 'react';
+import { collection, CollectionReference, DocumentData } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
 import { useCollection as useFirestoreCollection, UseCollectionResult } from '@/firebase/firestore/use-collection';
 import { useMockCollection } from '@/hooks/data/use-mock-collection';
 import { useMysqlCollection } from '@/hooks/data/use-mysql-collection';
-import { Document } from '@/lib/types';
 import { useSettings } from '@/context/settings-context';
-import { useFirestore } from '@/firebase';
-import { collection, CollectionReference, DocumentData } from 'firebase/firestore';
-import { useMemo } from 'react';
+import { Document } from '@/lib/types';
 
 /**
- * Ein austauschbarer Daten-Hook, der je nach globalen Einstellungen die Datenquelle wählt.
- * Erstellt eine korrekte CollectionReference für Firestore oder nutzt MySQL/Mock Hooks.
+ * Der zentrale, hochperformante Daten-Hook der Anwendung. 
+ * Er stellt sicher, dass nur die aktuell aktive Datenquelle Ressourcen verbraucht.
  */
 export function usePluggableCollection<T extends Document>(collectionName: string): UseCollectionResult<T> {
   const { dataSource } = useSettings();
   const db = useFirestore();
 
   // Erstellt eine memoisierte Collection-Referenz für Firestore.
+  // Diese ist nur gesetzt, wenn Firestore die aktive Quelle ist.
   const collectionRef = useMemo(() => {
     if (dataSource === 'firestore' && db) {
       return collection(db, collectionName) as CollectionReference<T, DocumentData>;
@@ -25,31 +27,31 @@ export function usePluggableCollection<T extends Document>(collectionName: strin
     return null;
   }, [dataSource, db, collectionName]);
 
-  // Firestore Hook (Real-time onSnapshot)
+  // Wir instanziieren die Hooks. Die Hooks selbst prüfen intern auf 'enabled'
+  // und bleiben inert, wenn sie nicht benötigt werden.
   const firestoreResult = useFirestoreCollection<T>(collectionRef);
-  
-  // MySQL Hook
   const mysqlResult = useMysqlCollection<T>(collectionName, dataSource === 'mysql');
-  
-  // Mock Hook
   const mockResult = useMockCollection<T>(collectionName, { disabled: dataSource !== 'mock' });
 
-  // Gibt das Ergebnis basierend auf der ausgewählten Datenquelle zurück.
-  if (dataSource === 'firestore') {
-    return firestoreResult;
-  } else if (dataSource === 'mysql') {
-    return {
-      data: mysqlResult.data ? (mysqlResult.data as any) : null,
-      isLoading: mysqlResult.isLoading,
-      error: mysqlResult.error ? new Error(mysqlResult.error) : null,
-      refresh: mysqlResult.refresh
-    } as UseCollectionResult<T>;
-  } else {
-    return {
-      data: mockResult.data ? (mockResult.data as any) : null,
-      isLoading: mockResult.isLoading,
-      error: mockResult.error ? new Error(mockResult.error) : null,
-      refresh: mockResult.refresh
-    } as UseCollectionResult<T>;
-  }
+  // Rückgabe der Daten basierend auf der aktiven Quelle.
+  // Durch useMemo wird das Rückgabeobjekt stabil gehalten.
+  return useMemo(() => {
+    if (dataSource === 'firestore') {
+      return firestoreResult;
+    } else if (dataSource === 'mysql') {
+      return {
+        data: mysqlResult.data ? (mysqlResult.data as any) : null,
+        isLoading: mysqlResult.isLoading,
+        error: mysqlResult.error ? new Error(mysqlResult.error) : null,
+        refresh: mysqlResult.refresh
+      } as UseCollectionResult<T>;
+    } else {
+      return {
+        data: mockResult.data ? (mockResult.data as any) : null,
+        isLoading: mockResult.isLoading,
+        error: mockResult.error ? new Error(mockResult.error) : null,
+        refresh: mockResult.refresh
+      } as UseCollectionResult<T>;
+    }
+  }, [dataSource, firestoreResult, mysqlResult, mockResult]);
 }

@@ -202,6 +202,8 @@ export interface Risk {
   isProbabilityOverridden?: boolean | number;
   isResidualImpactOverridden?: boolean | number;
   isResidualProbabilityOverridden?: boolean | number;
+  bruttoReason?: string;
+  nettoReason?: string;
   owner: string;
   status: 'active' | 'mitigated' | 'accepted' | 'closed';
   acceptanceStatus?: 'pending' | 'accepted' | 'rejected';

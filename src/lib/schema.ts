@@ -124,6 +124,8 @@ export const appSchema: AppSchema = {
       isProbabilityOverridden: 'BOOLEAN DEFAULT FALSE',
       isResidualImpactOverridden: 'BOOLEAN DEFAULT FALSE',
       isResidualProbabilityOverridden: 'BOOLEAN DEFAULT FALSE',
+      bruttoReason: 'TEXT',
+      nettoReason: 'TEXT',
       owner: 'VARCHAR(255)',
       status: 'VARCHAR(50) DEFAULT "active"',
       acceptanceStatus: 'VARCHAR(20) DEFAULT "pending"',

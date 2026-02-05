@@ -104,6 +104,8 @@ function RiskDashboardContent() {
   const [revProbability, setRevProbability] = useState('3');
   const [revResImpact, setRevResImpact] = useState('2');
   const [revResProbability, setRevResProbability] = useState('2');
+  const [revBruttoReason, setRevBruttoReason] = useState('');
+  const [revNettoReason, setRevNettoReason] = useState('');
 
   // Advisor State
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
@@ -126,6 +128,8 @@ function RiskDashboardContent() {
   const [probability, setProbability] = useState('3');
   const [resImpact, setResImpact] = useState('2');
   const [resProbability, setResProbability] = useState('2');
+  const [bruttoReason, setBruttoReason] = useState('');
+  const [nettoReason, setNettoReason] = useState('');
   const [isImpactOverridden, setIsImpactOverridden] = useState(false);
   const [isProbabilityOverridden, setIsProbabilityOverridden] = useState(false);
   const [isResImpactOverridden, setIsResImpactOverridden] = useState(false);
@@ -208,6 +212,8 @@ function RiskDashboardContent() {
       probability: parseInt(probability),
       residualImpact: parseInt(resImpact),
       residualProbability: parseInt(resProbability),
+      bruttoReason,
+      nettoReason,
       isImpactOverridden,
       isProbabilityOverridden,
       isResidualImpactOverridden: isResImpactOverridden,
@@ -246,6 +252,8 @@ function RiskDashboardContent() {
     setRevProbability(risk.probability.toString());
     setRevResImpact(risk.residualImpact?.toString() || '2');
     setRevResProbability(risk.residualProbability?.toString() || '2');
+    setRevBruttoReason(risk.bruttoReason || '');
+    setRevNettoReason(risk.nettoReason || '');
     setIsReviewDialogOpen(true);
   };
 
@@ -259,6 +267,8 @@ function RiskDashboardContent() {
       probability: parseInt(revProbability),
       residualImpact: parseInt(revResImpact),
       residualProbability: parseInt(revResProbability),
+      bruttoReason: revBruttoReason,
+      nettoReason: revNettoReason,
       lastReviewDate: now,
     };
 
@@ -355,6 +365,8 @@ function RiskDashboardContent() {
     setProbability('3');
     setResImpact('2');
     setResProbability('2');
+    setBruttoReason('');
+    setNettoReason('');
     setIsImpactOverridden(false);
     setIsProbabilityOverridden(false);
     setIsResImpactOverridden(false);
@@ -376,6 +388,8 @@ function RiskDashboardContent() {
     setProbability(risk.probability.toString());
     setResImpact(risk.residualImpact?.toString() || '2');
     setResProbability(risk.residualProbability?.toString() || '2');
+    setBruttoReason(risk.bruttoReason || '');
+    setNettoReason(risk.nettoReason || '');
     setIsImpactOverridden(!!risk.isImpactOverridden);
     setIsProbabilityOverridden(!!risk.isProbabilityOverridden);
     setIsResImpactOverridden(!!risk.isResidualImpactOverridden);
@@ -461,7 +475,7 @@ function RiskDashboardContent() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               {[
                 { step: "1. Identifikation", desc: "Über Katalog ableiten oder manuell erfassen.", icon: Library },
-                { step: "2. Bewertung", desc: "Inhärentes Risiko via 1-5 Scoring festlegen.", icon: Scale },
+                { step: "2. Bewertung", desc: "Brutto-Risiko via 1-5 Scoring festlegen.", icon: Scale },
                 { step: "3. Behandlung", desc: "BSI Maßnahmen via Advisor verknüpfen.", icon: Zap },
                 { step: "4. Überwachung", desc: "Regelmäßige Reviews & Re-Zertifizierung.", icon: ShieldCheck }
               ].map((item, i) => (
@@ -513,8 +527,8 @@ function RiskDashboardContent() {
             <TableHeader className="bg-muted/30">
               <TableRow>
                 <TableHead className="py-4 font-bold uppercase text-[10px]">Risiko / Bezug</TableHead>
-                <TableHead className="font-bold uppercase text-[10px]">Inhärent</TableHead>
-                <TableHead className="font-bold uppercase text-[10px]">Restrisiko</TableHead>
+                <TableHead className="font-bold uppercase text-[10px]">Brutto-Score</TableHead>
+                <TableHead className="font-bold uppercase text-[10px]">Netto-Score</TableHead>
                 <TableHead className="font-bold uppercase text-[10px]">Maßnahmen</TableHead>
                 <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
               </TableRow>
@@ -744,7 +758,7 @@ function RiskDashboardContent() {
               <div className="grid grid-cols-2 gap-8 border-t pt-6">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-b pb-1">
-                    <h3 className="text-[10px] font-black uppercase text-red-600">Brutto-Risiko (Inhärent)</h3>
+                    <h3 className="text-[10px] font-black uppercase text-red-600">Brutto-Risiko (Anfangszustand)</h3>
                     {parentId === 'none' && getSubRisks(selectedRisk?.id || '').length > 0 && (
                       <Badge variant="outline" className="text-[8px] font-black bg-indigo-50 text-indigo-700 border-none rounded-none">AGGREGIERT</Badge>
                     )}
@@ -771,6 +785,10 @@ function RiskDashboardContent() {
                         )}
                       </div>
                       <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => { setImpact(v); if(parentId === 'none') setIsImpactOverridden(true); }} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", impact === v ? "bg-red-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[9px] font-bold uppercase">Begründung Brutto-Bewertung</Label>
+                      <Textarea value={bruttoReason} onChange={e => setBruttoReason(e.target.value)} placeholder="Warum diese Einstufung ohne Maßnahmen?" className="rounded-none min-h-[80px] text-xs" />
                     </div>
                   </div>
                 </div>
@@ -801,6 +819,10 @@ function RiskDashboardContent() {
                         )}
                       </div>
                       <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => { setResImpact(v); if(parentId === 'none') setIsResImpactOverridden(true); }} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", resImpact === v ? "bg-emerald-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[9px] font-bold uppercase">Begründung Netto-Bewertung</Label>
+                      <Textarea value={nettoReason} onChange={e => setNettoReason(e.target.value)} placeholder="Wie mindern die Maßnahmen das Risiko?" className="rounded-none min-h-[80px] text-xs" />
                     </div>
                   </div>
                 </div>
@@ -850,6 +872,10 @@ function RiskDashboardContent() {
                     <Label className="text-[9px] font-bold uppercase">Auswirkung</Label>
                     <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => setRevImpact(v)} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", revImpact === v ? "bg-red-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
                   </div>
+                  <div className="space-y-2">
+                    <Label className="text-[9px] font-bold uppercase">Begründung Brutto</Label>
+                    <Textarea value={revBruttoReason} onChange={e => setRevBruttoReason(e.target.value)} className="rounded-none min-h-[60px] text-xs" />
+                  </div>
                 </div>
               </div>
 
@@ -863,6 +889,10 @@ function RiskDashboardContent() {
                   <div className="space-y-2">
                     <Label className="text-[9px] font-bold uppercase">Auswirkung (Netto)</Label>
                     <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => setRevResImpact(v)} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", revResImpact === v ? "bg-emerald-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[9px] font-bold uppercase">Begründung Netto</Label>
+                    <Textarea value={revNettoReason} onChange={e => setRevNettoReason(e.target.value)} className="rounded-none min-h-[60px] text-xs" />
                   </div>
                 </div>
               </div>

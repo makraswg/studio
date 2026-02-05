@@ -43,34 +43,39 @@ Identify if there are too many high-risk permissions, if the access matches the 
 
 /**
  * Dynamically selects the model based on database configuration.
- * Returns the model identifier string for the 'ai' instance.
  */
 async function getAdvisorModel(dataSource: DataSource = 'mysql') {
   const config = await getActiveAiConfig(dataSource);
   
   if (config && config.provider === 'ollama' && config.enabled) {
-    // Format: pluginName/modelName
     return `ollama/${config.ollamaModel || 'llama3'}`;
   }
   
-  // Default to Gemini via googleai plugin
   return `googleai/${config?.geminiModel || 'gemini-1.5-flash'}`;
 }
 
-export async function getAccessAdvice(input: AccessAdvisorInput): Promise<AccessAdvisorOutput> {
-  const modelIdentifier = await getAdvisorModel(input.dataSource as DataSource);
-  
-  const assignmentsList = input.assignments
-    .map(a => `- Resource: ${a.resourceName}, Entitlement: ${a.entitlementName}, Risk: ${a.riskLevel}`)
-    .join('\n');
+/**
+ * The main Flow definition for Access Advice.
+ */
+const accessAdvisorFlow = ai.defineFlow(
+  {
+    name: 'accessAdvisorFlow',
+    inputSchema: AccessAdvisorInputSchema,
+    outputSchema: AccessAdvisorOutputSchema,
+  },
+  async (input) => {
+    const modelIdentifier = await getAdvisorModel(input.dataSource as DataSource);
+    
+    const assignmentsList = input.assignments
+      .map(a => `- Resource: ${a.resourceName}, Entitlement: ${a.entitlementName}, Risk: ${a.riskLevel}`)
+      .join('\n');
 
-  const prompt = `User: ${input.userDisplayName} (${input.userEmail})
+    const prompt = `User: ${input.userDisplayName} (${input.userEmail})
 Department: ${input.department}
 
 Current Assignments:
 ${assignmentsList}`;
 
-  try {
     const { output } = await ai.generate({
       model: modelIdentifier,
       system: SYSTEM_PROMPT,
@@ -80,9 +85,17 @@ ${assignmentsList}`;
 
     if (!output) throw new Error('AI failed to generate advice.');
     return output;
+  }
+);
+
+/**
+ * Public wrapper function to call the flow.
+ */
+export async function getAccessAdvice(input: AccessAdvisorInput): Promise<AccessAdvisorOutput> {
+  try {
+    return await accessAdvisorFlow(input);
   } catch (error: any) {
     console.error("AI Generation Error:", error);
-    // Fallback for UI stability
     return {
       riskScore: 50,
       summary: "Fehler bei der KI-Analyse. Bitte prüfen Sie die Verbindung zum KI-Provider (Ollama/Gemini) in den Einstellungen.",

@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview AI Flow for Process Content Engineering (Expert BPMN Architect).
@@ -7,6 +6,7 @@
  * - Stellt mindestens 5 gezielte Fragen, bevor strukturelle Änderungen vorgeschlagen werden.
  * - Nutzt einfache Sprache im Chat, aber professionelle Sprache für das Modell.
  * - Berücksichtigt das Feld 'openQuestions' im Stammblatt als Gedächtnis.
+ * - Nutzt die Chathistorie aktiv zur Vermeidung von Wiederholungen.
  */
 
 import { ai } from '@/ai/genkit';
@@ -43,13 +43,15 @@ export type ProcessDesignerOutput = z.infer<typeof ProcessDesignerOutputSchema>;
 const SYSTEM_PROMPT = `Du bist ein erfahrener Prozess-Analyst und ISO 9001:2015 Experte.
 Deine Aufgabe ist es, einen realen Geschäftsprozess zu verstehen und professionell zu modellieren.
 
-DEIN GEDÄCHTNIS:
-- Beachte unbedingt die Liste der bereits offenen Fragen: {{{openQuestions}}}.
-- Wiederhole NIEMALS Fragen, die bereits im Stammblatt stehen oder im Chat beantwortet wurden.
+DEIN GEDÄCHTNIS (EXTREM WICHTIG):
+1. Prüfe UNBEDINGT den bisherigen CHAT-VERLAUF.
+2. Beachte die Liste der bereits OFFENEN FRAGEN im Stammblatt: {{{openQuestions}}}.
+3. Wiederhole NIEMALS Fragen, die bereits im Stammblatt stehen oder im Chat beantwortet wurden.
+4. Falls der Nutzer eine Frage beantwortet hat, entferne sie aus der Liste der offenen Fragen via UPDATE_PROCESS_META.
 
-PHASE 1: VERSTEHEN (ERSTE 5-7 NACHRICHTEN)
+PHASE 1: VERSTEHEN (DIE ERSTEN 5-7 NACHRICHTEN)
 - Sei geduldig. Schlage KEINE Änderungen am Diagramm vor (proposedOps leer lassen).
-- Stelle 1-2 gezielte Fragen zum IST-Zustand.
+- Stelle immer nur 1-2 gezielte Fragen zum IST-Zustand.
 - Nutze einfache, klare Sprache im Chat (kein Fachchinesisch).
 - Aktualisiere die 'openQuestions' im Stammblatt via UPDATE_PROCESS_META { openQuestions: "..." }, um den Fortschritt festzuhalten. Join die Fragen mit Zeilenumbrüchen.
 
@@ -60,8 +62,7 @@ PHASE 2: MODELLIEREN (ERST WENN DER PROZESS KLAR IST)
 
 WICHTIGE REGELN:
 1. Antworte IMMER im JSON-Format.
-2. Nutze für neue Knoten-IDs ein 250px Raster (x: 250, 500, 750...).
-3. Wenn du Fragen stellst, schlage IMMER ein UPDATE_PROCESS_META vor.
+2. Wenn du Fragen stellst, schlage IMMER ein UPDATE_PROCESS_META vor, damit die Fragen im Stammblatt erscheinen.
 
 ANTWORT-FORMAT (STRENGES JSON):
 {
@@ -77,10 +78,8 @@ function extractJson(text: string): any {
   if (!text) throw new Error("Keine Antwort von der KI erhalten.");
   
   try {
-    // 1. Direkter Parse-Versuch
     return JSON.parse(text.trim());
   } catch (e) {
-    // 2. Suche nach Markdown-JSON
     const markdownMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (markdownMatch && markdownMatch[1]) {
       try {
@@ -88,7 +87,6 @@ function extractJson(text: string): any {
       } catch (e2) {}
     }
 
-    // 3. Suche nach dem ersten { und letzten } (Brute Force Extraction)
     const firstBrace = text.indexOf('{');
     const lastBrace = text.lastIndexOf('}');
     if (firstBrace !== -1 && lastBrace !== -1) {
@@ -96,7 +94,6 @@ function extractJson(text: string): any {
       try {
         return JSON.parse(candidate);
       } catch (e3) {
-        console.error("JSON Extraction failed even after cleaning. Raw text:", text);
         throw new Error("Die KI-Antwort konnte nicht als JSON verarbeitet werden.");
       }
     }
@@ -138,23 +135,23 @@ const processDesignerFlow = ai.defineFlow(
       ? "HINWEIS: Du bist in Phase 1 (Verstehen). Stelle nur Fragen. Nutze UPDATE_PROCESS_META nur für die Fragenliste im Stammblatt. Noch keine ADD_NODE Operationen."
       : "HINWEIS: Du bist in Phase 2 (Modellieren). Du kannst nun strukturelle Änderungen vorschlagen.";
 
-    const systemPromptPopulated = SYSTEM_PROMPT
-      .replace('{{{openQuestions}}}', input.openQuestions || "Keine offenen Fragen dokumentiert.");
+    const openQuestionsStr = input.openQuestions || "Keine offenen Fragen dokumentiert.";
+    const systemPromptPopulated = SYSTEM_PROMPT.replace('{{{openQuestions}}}', openQuestionsStr);
 
     const prompt = `${patienceInstruction}
 
 AKTUELLER MODELL-ZUSTAND: 
 ${JSON.stringify(input.currentModel, null, 2)}
 
-OFFENE FRAGEN IM STAMMBLATT:
-${input.openQuestions || 'Keine'}
+OFFENE FRAGEN IM STAMMBLATT (GEDÄCHTNIS):
+${openQuestionsStr}
 
-CHAT-VERLAUF:
+BISHERIGER CHAT-VERLAUF (ZUM KONTEXT-VERSTÄNDNIS):
 ${historyString}
 
 AKTUELLE NACHRICHT VOM NUTZER: "${input.userMessage}"
 
-Bitte liefere ein valides JSON-Objekt zurück.`;
+Bitte liefere ein valides JSON-Objekt zurück. Analysiere den Chatverlauf genau, um Wiederholungen zu vermeiden.`;
 
     try {
       if (config?.provider === 'openrouter') {

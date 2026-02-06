@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -287,7 +286,7 @@ export default function ProcessDesignerPage() {
     const msg = chatMessage;
     setChatMessage('');
     setIsAiLoading(true);
-    const newHistory = [...chatHistory, { role: 'user', text: msg, timestamp: Date.now() }];
+    const newHistory = [...chatHistory, { role: 'user', text: msg }];
     setChatHistory(newHistory);
     try {
       const suggestions = await getProcessSuggestions({ 
@@ -297,7 +296,7 @@ export default function ProcessDesignerPage() {
         chatHistory: newHistory, 
         dataSource 
       });
-      setChatHistory([...newHistory, { role: 'ai', text: suggestions.explanation, questions: suggestions.openQuestions, suggestions: suggestions.proposedOps, timestamp: Date.now() }]);
+      setChatHistory([...newHistory, { role: 'ai', text: suggestions.explanation, questions: suggestions.openQuestions, suggestions: suggestions.proposedOps }]);
     } catch (e: any) {
       toast({ variant: "destructive", title: "KI-Fehler", description: e.message });
     } finally { setIsAiLoading(false); }
@@ -333,7 +332,7 @@ export default function ProcessDesignerPage() {
                 <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2"><ClipboardList className="w-3.5 h-3.5" /> Prozessschritte</TabsTrigger>
               </TabsList>
             </div>
-            <div className="flex-1 min-h-0 flex flex-col select-auto overflow-hidden">
+            <div className="flex-1 min-h-0 flex flex-col select-auto">
               <ScrollArea className="flex-1">
                 <TabsContent value="meta" className="m-0 p-6 space-y-10 pb-20">
                   <div className="space-y-6">
@@ -354,6 +353,7 @@ export default function ProcessDesignerPage() {
                       />
                     </div>
                   </div>
+                  
                   <div className="space-y-6 pt-10 border-t">
                     <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-600" /><h3 className="text-[10px] font-black uppercase text-emerald-700">ISO 9001 Compliance</h3></div>
                     {[{ id: 'inputs', label: 'Inputs', icon: ArrowRight }, { id: 'outputs', label: 'Outputs', icon: Check }, { id: 'risks', label: 'Risiken', icon: AlertTriangle }, { id: 'evidence', label: 'Nachweise', icon: FileCode }].map(f => (
@@ -431,7 +431,7 @@ export default function ProcessDesignerPage() {
             <div className="space-y-6">
               {chatHistory.length === 0 && <div className="text-center py-20 opacity-40"><MessageSquare className="w-8 h-8 mx-auto mb-4" /><p className="text-[10px] font-bold uppercase">Bereit für Ihre Anweisung</p></div>}
               {chatHistory.map((msg, i) => (
-                <div key={`${msg.timestamp}-${i}`} className={cn("flex flex-col gap-2", msg.role === 'user' ? "items-end" : "items-start")}>
+                <div key={i} className={cn("flex flex-col gap-2", msg.role === 'user' ? "items-end" : "items-start")}>
                   <div className={cn("p-4 text-[11px] leading-relaxed max-w-[90%] shadow-sm", msg.role === 'user' ? "bg-slate-900 text-white" : "bg-white text-slate-700 border-l-4 border-l-primary")}>{msg.text}</div>
                   {msg.role === 'ai' && msg.questions && msg.questions.length > 0 && (
                     <div className="space-y-2 w-full">

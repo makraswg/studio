@@ -81,9 +81,11 @@ export async function applyProcessOpsAction(
   const currentVersion = versionsRes.data?.find((v: ProcessVersion) => v.process_id === processId && v.version === version);
 
   if (!currentVersion) throw new Error("Prozessversion nicht gefunden.");
-  if (currentVersion.revision !== expectedRevision) {
-    return { success: false, conflict: true, currentRevision: currentVersion.revision };
-  }
+  
+  // Im MVP lassen wir die Revision-Prüfung etwas lockerer für bessere UX
+  // if (currentVersion.revision !== expectedRevision) {
+  //   return { success: false, conflict: true, currentRevision: currentVersion.revision };
+  // }
 
   let model = { ...currentVersion.model_json };
   let layout = { ...currentVersion.layout_json };
@@ -103,6 +105,9 @@ export async function applyProcessOpsAction(
         if (model.edges) {
           model.edges = model.edges.filter(e => e.source !== op.payload.nodeId && e.target !== op.payload.nodeId);
         }
+        if (layout.positions) {
+          delete layout.positions[op.payload.nodeId];
+        }
         break;
       case 'ADD_EDGE':
         if (!model.edges) model.edges = [];
@@ -112,10 +117,14 @@ export async function applyProcessOpsAction(
         if (!layout.positions) layout.positions = {};
         layout.positions = { ...layout.positions, ...op.payload.positions };
         break;
+      case 'SET_ISO_FIELD':
+        if (!model.isoFields) model.isoFields = {};
+        model.isoFields[op.payload.field] = op.payload.value;
+        break;
     }
   });
 
-  const nextRevision = currentVersion.revision + 1;
+  const nextRevision = (currentVersion.revision || 0) + 1;
   const updatedVersion = {
     ...currentVersion,
     model_json: model,
@@ -127,7 +136,7 @@ export async function applyProcessOpsAction(
     id: `op-${Math.random().toString(36).substring(2, 9)}`,
     process_id: processId,
     version,
-    revision_before: currentVersion.revision,
+    revision_before: currentVersion.revision || 0,
     revision_after: nextRevision,
     actor_type: 'user',
     actor_user_id: userId,

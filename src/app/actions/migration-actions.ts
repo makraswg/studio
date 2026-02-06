@@ -86,18 +86,6 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       details.push(`   ✅ Initialer Admin erstellt: ${adminEmail} (Passwort: ${adminPassword})`);
     }
 
-    // SEEDING: Default Data Categories
-    details.push('🌱 Prüfe auf initiale Datenkategorien...');
-    const [dcatRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `dataCategories`');
-    if (dcatRows[0].count === 0) {
-      const categories = ['Stammdaten', 'Bankdaten', 'Gesundheitsdaten (Art. 9)', 'Protokolldaten', 'Kontaktdaten', 'Standortdaten'];
-      for (const cat of categories) {
-        const id = `dcat-init-${cat.toLowerCase().replace(/[^a-z]/g, '')}`;
-        await connection.execute('INSERT INTO `dataCategories` (id, tenantId, name, status) VALUES (?, ?, ?, ?)', [id, 't1', cat, 'active']);
-      }
-      details.push('   ✅ Standard-Datenkategorien erstellt.');
-    }
-
     connection.release();
     return { success: true, message: 'Migration erfolgreich.', details };
 

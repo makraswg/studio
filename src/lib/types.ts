@@ -41,6 +41,7 @@ export interface User {
   department: string;
   title: string;
   enabled: boolean | number;
+  status?: 'active' | 'archived';
   onboardingDate?: string;
   offboardingDate?: string;
   lastSyncedAt: string;
@@ -77,6 +78,7 @@ export interface Resource {
   id: string;
   tenantId: string;
   name: string;
+  status?: 'active' | 'archived';
   // Asset & System
   assetType: 'Hardware' | 'Software' | 'SaaS' | 'Infrastruktur';
   category: 'Fachanwendung' | 'Infrastruktur' | 'Sicherheitskomponente' | 'Support-Tool';
@@ -302,10 +304,20 @@ export interface AssignmentGroup {
   tenantId: string;
   name: string;
   description?: string;
+  status?: 'active' | 'archived';
   userConfigs: GroupMemberConfig[];
   entitlementConfigs: GroupMemberConfig[];
   userIds?: string[];
   entitlementIds?: string[];
+}
+
+export interface Bundle {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  status?: 'active' | 'archived';
+  entitlementIds: string[];
 }
 
 export interface HelpContent {

@@ -46,7 +46,9 @@ import {
   Save,
   HelpCircle,
   ClipboardList,
-  ClipboardCheck
+  ClipboardCheck,
+  Archive,
+  RotateCcw
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -98,7 +100,6 @@ import { doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
-import { triggerSyncJobAction } from '@/app/actions/sync-actions';
 import { Entitlement, Tenant, Resource, Risk, RiskMeasure, ProcessingActivity, DataSubjectGroup } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -110,17 +111,13 @@ export default function ResourcesPage() {
   const { dataSource, activeTenantId } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
   const [isResourceDialogOpen, setIsResourceDialogOpen] = useState(false);
-  const [isResourceDeleteOpen, setIsResourceDeleteOpen] = useState(false);
   const [isEntitlementListOpen, setIsEntitlementListOpen] = useState(false);
-  const [isEntitlementEditOpen, setIsEntitlementEditOpen] = useState(false);
-  const [isEntitlementDeleteOpen, setIsEntitlementDeleteOpen] = useState(false);
 
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
-  const [editingEntitlement, setEditingEntitlement] = useState<Entitlement | null>(null);
 
   // Resource Form State
   const [name, setName] = useState('');
@@ -164,9 +161,7 @@ export default function ResourcesPage() {
   const [notes, setNotes] = useState('');
 
   const { data: resources, isLoading, refresh: refreshResources } = usePluggableCollection<Resource>('resources');
-  const { data: entitlements, refresh: refreshEntitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
-  const { data: partners } = usePluggableCollection<any>('servicePartners');
   const { data: subjectGroups } = usePluggableCollection<DataSubjectGroup>('dataSubjectGroups');
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
   const { data: allMeasures } = usePluggableCollection<RiskMeasure>('riskMeasures');
@@ -192,6 +187,7 @@ export default function ResourcesPage() {
       id,
       tenantId: targetTenantId,
       name,
+      status: selectedResource?.status || 'active',
       assetType,
       category,
       operatingModel,
@@ -223,15 +219,25 @@ export default function ResourcesPage() {
     };
 
     try {
-      if (dataSource === 'mysql') await saveCollectionRecord('resources', id, data);
-      else setDocumentNonBlocking(doc(db, 'resources', id), data);
-      toast({ title: "System gespeichert" });
-      setIsResourceDialogOpen(false);
-      setTimeout(() => refreshResources(), 200);
+      const res = await saveCollectionRecord('resources', id, data, dataSource);
+      if (res.success) {
+        toast({ title: "System gespeichert" });
+        setIsResourceDialogOpen(false);
+        refreshResources();
+      } else throw new Error(res.error || "Fehler beim Speichern");
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler beim Speichern", description: e.message });
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleStatusChange = async (res: Resource, newStatus: 'active' | 'archived') => {
+    const updated = { ...res, status: newStatus };
+    const result = await saveCollectionRecord('resources', res.id, updated, dataSource);
+    if (result.success) {
+      toast({ title: newStatus === 'archived' ? "System archiviert" : "System reaktiviert" });
+      refreshResources();
     }
   };
 
@@ -305,9 +311,11 @@ export default function ResourcesPage() {
     return resources.filter(res => {
       const isGlobal = res.tenantId === 'global' || !res.tenantId;
       if (activeTenantId !== 'all' && !isGlobal && res.tenantId !== activeTenantId) return false;
-      return res.name.toLowerCase().includes(search.toLowerCase());
+      const matchSearch = res.name.toLowerCase().includes(search.toLowerCase());
+      const matchStatus = showArchived ? res.status === 'archived' : res.status !== 'archived';
+      return matchSearch && matchStatus;
     });
-  }, [resources, search, activeTenantId]);
+  }, [resources, search, activeTenantId, showArchived]);
 
   const getAssetIcon = (type: string) => {
     switch(type) {
@@ -329,6 +337,10 @@ export default function ResourcesPage() {
           <p className="text-sm text-muted-foreground">Compliance- & Risiko-Inventar für {activeTenantId === 'all' ? 'alle Firmen' : getTenantSlug(activeTenantId)}.</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="ghost" size="sm" className="h-9 font-bold uppercase text-[9px] rounded-none gap-2" onClick={() => setShowArchived(!showArchived)}>
+            {showArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+            {showArchived ? 'Aktive anzeigen' : 'Archiv anzeigen'}
+          </Button>
           <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => { resetResourceForm(); setIsResourceDialogOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> System registrieren
           </Button>
@@ -360,7 +372,7 @@ export default function ResourcesPage() {
             </TableHeader>
             <TableBody>
               {filteredResources?.map((resource) => (
-                <TableRow key={resource.id} className="group hover:bg-muted/5 border-b">
+                <TableRow key={resource.id} className={cn("group hover:bg-muted/5 border-b", resource.status === 'archived' && "opacity-60 grayscale-[50%]")}>
                   <TableCell className="py-4">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-slate-100 text-slate-600 rounded-none border">
@@ -417,12 +429,21 @@ export default function ResourcesPage() {
                         <DropdownMenuItem onSelect={() => { setSelectedResource(resource); setIsEntitlementListOpen(true); }}><Settings2 className="w-3.5 h-3.5 mr-2" /> Rollen verwalten</DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => openResourceEdit(resource)}><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600" onSelect={() => { setSelectedResource(resource); setIsResourceDeleteOpen(true); }}><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className={resource.status === 'archived' ? "text-emerald-600 font-bold" : "text-red-600"}
+                          onSelect={() => handleStatusChange(resource, resource.status === 'archived' ? 'active' : 'archived')}
+                        >
+                          {resource.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5 mr-2" /> : <Archive className="w-3.5 h-3.5 mr-2" />}
+                          {resource.status === 'archived' ? 'Reaktivieren' : 'Archivieren'}
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
+              {filteredResources.length === 0 && !isLoading && (
+                <TableRow><TableCell colSpan={5} className="py-20 text-center text-xs text-muted-foreground italic">Keine Einträge für diese Ansicht gefunden.</TableCell></TableRow>
+              )}
             </TableBody>
           </Table>
         )}
@@ -456,12 +477,10 @@ export default function ResourcesPage() {
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2 col-span-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">Name der Ressource</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Eindeutige Bezeichnung des Systems oder Geräts (z.B. ERP-Produktion).</p>
                       <Input value={name} onChange={e => setName(e.target.value)} placeholder="z.B. SAP S/4HANA" className="rounded-none h-10 font-bold" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">Asset-Typ</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Technische Form des Assets zur Risiko-Einstufung.</p>
                       <Select value={assetType} onValueChange={(v: any) => setAssetType(v)}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-none">
@@ -474,7 +493,6 @@ export default function ResourcesPage() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">System-Kategorie</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Fachliche Rolle des Systems in der IT-Landschaft.</p>
                       <Select value={category} onValueChange={(v: any) => setCategory(v)}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-none">
@@ -487,7 +505,6 @@ export default function ResourcesPage() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">Betriebsmodell</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Betriebsform beeinflusst Risiko & DSGVO.</p>
                       <Select value={operatingModel} onValueChange={(v: any) => setOperatingModel(v)}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-none">
@@ -500,7 +517,6 @@ export default function ResourcesPage() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">Datenklassifikation</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Höchste Schutzstufe der verarbeiteten Informationen.</p>
                       <Select value={dataClassification} onValueChange={(v: any) => setDataClassification(v)}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-none">
@@ -518,7 +534,6 @@ export default function ResourcesPage() {
                   <div className="grid grid-cols-3 gap-6">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-blue-600">Soll-Schutzbedarf: Vertraulichkeit</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Schaden bei unbefugter Offenlegung.</p>
                       <Select value={confReq} onValueChange={(v: any) => setConfReq(v)}>
                         <SelectTrigger className="rounded-none h-10 border-blue-200"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-none">
@@ -530,7 +545,6 @@ export default function ResourcesPage() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-emerald-600">Soll-Schutzbedarf: Integrität</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Schaden bei unbemerkter Manipulation.</p>
                       <Select value={intReq} onValueChange={(v: any) => setIntReq(v)}>
                         <SelectTrigger className="rounded-none h-10 border-emerald-200"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-none">
@@ -542,7 +556,6 @@ export default function ResourcesPage() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-orange-600">Soll-Schutzbedarf: Verfügbarkeit</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Schaden bei System- oder Datenausfall.</p>
                       <Select value={availReq} onValueChange={(v: any) => setAvailReq(v)}>
                         <SelectTrigger className="rounded-none h-10 border-orange-200"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-none">
@@ -558,21 +571,18 @@ export default function ResourcesPage() {
                     <div className="flex items-center justify-between p-4 border bg-orange-50/20 rounded-none">
                       <div className="space-y-0.5">
                         <Label className="text-[10px] font-bold uppercase block">Internet-exponiert</Label>
-                        <span className="text-[8px] text-muted-foreground uppercase">System ist über das öffentliche Web erreichbar</span>
                       </div>
                       <Switch checked={!!isInternetExposed} onCheckedChange={setIsInternetExposed} />
                     </div>
                     <div className="flex items-center justify-between p-4 border bg-red-50/20 rounded-none">
                       <div className="space-y-0.5">
                         <Label className="text-[10px] font-bold uppercase block">Geschäftskritisch</Label>
-                        <span className="text-[8px] text-muted-foreground uppercase">System ist essentiell für Kernprozesse</span>
                       </div>
                       <Switch checked={!!isBusinessCritical} onCheckedChange={setIsBusinessCritical} />
                     </div>
                     <div className="flex items-center justify-between p-4 border bg-slate-50/50 rounded-none">
                       <div className="space-y-0.5">
                         <Label className="text-[10px] font-bold uppercase block">Single Point of Failure</Label>
-                        <span className="text-[8px] text-muted-foreground uppercase">Keine Redundanz für kritische Pfade</span>
                       </div>
                       <Switch checked={!!isSpof} onCheckedChange={setIsSpof} />
                     </div>
@@ -585,21 +595,18 @@ export default function ResourcesPage() {
                       <div className="flex items-center justify-between p-4 border bg-emerald-50/20 rounded-none">
                         <div className="space-y-0.5">
                           <Label className="text-[10px] font-bold uppercase block">Personenbezogene Daten</Label>
-                          <span className="text-[8px] text-muted-foreground uppercase">Verarbeitet das System PII? (Trigger für Art. 30)</span>
                         </div>
                         <Switch checked={!!hasPersonalData} onCheckedChange={setHasPersonalData} />
                       </div>
                       <div className="flex items-center justify-between p-4 border bg-red-50/20 rounded-none">
                         <div className="space-y-0.5">
                           <Label className="text-[10px] font-bold uppercase block">Besondere Daten (Art. 9)</Label>
-                          <span className="text-[8px] text-muted-foreground uppercase">Sensible Daten (Gesundheit, Religion etc.)</span>
                         </div>
                         <Switch checked={!!hasSpecialCategoryData} onCheckedChange={setHasSpecialCategoryData} />
                       </div>
                     </div>
                     <div className="space-y-4">
                       <Label className="text-[10px] font-bold uppercase">Betroffene Personengruppen</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Gruppen können in den Einstellungen gepflegt werden.</p>
                       <div className="grid grid-cols-2 gap-2">
                         {subjectGroups?.filter(g => activeTenantId === 'all' || g.tenantId === activeTenantId).map(group => (
                           <div key={group.id} className="flex items-center gap-2 p-2 border bg-white">
@@ -612,9 +619,6 @@ export default function ResourcesPage() {
                             <span className="text-[10px] font-bold uppercase">{group.name}</span>
                           </div>
                         ))}
-                        {(!subjectGroups || subjectGroups.length === 0) && (
-                          <p className="text-[9px] text-red-600 col-span-2">Keine Gruppen in Einstellungen definiert.</p>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -624,7 +628,6 @@ export default function ResourcesPage() {
                       <Label className="text-[10px] font-bold uppercase flex items-center gap-2 text-primary">
                         <ClipboardList className="w-3.5 h-3.5" /> Verknüpfte Verarbeitungstätigkeiten (VVT)
                       </Label>
-                      <p className="text-[9px] text-muted-foreground italic">Welche Geschäftsprozesse nutzen dieses System? (Art. 30 DSGVO)</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border p-4 bg-slate-50/50">
                         {vvts?.filter(v => activeTenantId === 'all' || v.tenantId === activeTenantId).map(v => (
                           <div key={v.id} className="flex items-center gap-3 p-2 bg-white border">
@@ -640,25 +643,7 @@ export default function ResourcesPage() {
                             </div>
                           </div>
                         ))}
-                        {(!vvts || vvts.length === 0) && (
-                          <div className="col-span-2 py-4 text-center text-[10px] font-bold text-muted-foreground uppercase italic border-2 border-dashed">
-                            Keine Verarbeitungstätigkeiten im VVT erfasst.
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-6 pt-6 border-t">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Zweck der Verarbeitung (Kurzangabe)</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Der Hauptgrund für die Datennutzung (z.B. Personalverwaltung).</p>
-                      <Input value={processingPurpose} onChange={e => setProcessingPurpose(e.target.value)} placeholder="z.B. Abrechnung, HR-Support" className="rounded-none h-10" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Datenstandort</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Wo physisch liegen die Daten? (Wichtig für Art. 44 DSGVO).</p>
-                      <Input value={dataLocation} onChange={e => setDataLocation(e.target.value)} placeholder="z.B. Frankfurt (AWS), Internes RZ" className="rounded-none h-10" />
                     </div>
                   </div>
                 </TabsContent>
@@ -667,50 +652,15 @@ export default function ResourcesPage() {
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">System Owner (Fachlich)</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Fachverantwortlicher (z.B. Head of Finance).</p>
                       <Input value={systemOwner} onChange={e => setSystemOwner(e.target.value)} className="rounded-none h-10" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Risk Owner</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Entscheidet über Akzeptanz von Restrisiken.</p>
                       <Input value={riskOwner} onChange={e => setRiskOwner(e.target.value)} className="rounded-none h-10" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Data Owner (Datenschutz)</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Verantwortlich für die Daten-Governance im System.</p>
                       <Input value={dataOwner} onChange={e => setDataOwner(e.target.value)} className="rounded-none h-10" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Betriebsverantwortlicher</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Technischer Betreiber oder Dienstleister.</p>
-                      <Select value={operatorId} onValueChange={setOperatorId}>
-                        <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
-                        <SelectContent className="rounded-none">
-                          <SelectItem value="internal">Interne IT</SelectItem>
-                          {partners?.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-6 pt-6 border-t">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Authentifizierungsquelle</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Woher kommen die Login-Daten? (z.B. Azure AD, Lokal).</p>
-                      <Input value={authMethod} onChange={e => setAuthMethod(e.target.value)} placeholder="z.B. AD / LDAP, Lokal, Azure AD" className="rounded-none h-10" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">MFA Typ</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Verwendete Multi-Faktor Authentifizierung.</p>
-                      <Select value={mfaType} onValueChange={(v: any) => setMfaType(v)}>
-                        <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
-                        <SelectContent className="rounded-none">
-                          <SelectItem value="none">Kein MFA</SelectItem>
-                          <SelectItem value="standard_otp">Standard (OTP/App)</SelectItem>
-                          <SelectItem value="standard_mail">Standard (E-Mail)</SelectItem>
-                          <SelectItem value="optional_otp">Optional (OTP/App)</SelectItem>
-                        </SelectContent>
-                      </Select>
                     </div>
                   </div>
 
@@ -718,7 +668,6 @@ export default function ResourcesPage() {
                     <Label className="text-[10px] font-bold uppercase flex items-center gap-2 text-emerald-600">
                       <ClipboardCheck className="w-4 h-4" /> Verknüpfte Maßnahmen & TOMs ({measureIds.length})
                     </Label>
-                    <p className="text-[9px] text-muted-foreground italic">Welche Sicherheitskontrollen oder technischen Maßnahmen wirken auf dieses System?</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border p-4 bg-slate-50/50 max-h-64 overflow-y-auto">
                       {allMeasures?.map(m => {
                         const isSelected = measureIds.includes(m.id);
@@ -732,11 +681,6 @@ export default function ResourcesPage() {
                           </div>
                         );
                       })}
-                      {(!allMeasures || allMeasures.length === 0) && (
-                        <div className="col-span-2 py-4 text-center text-[10px] font-bold text-muted-foreground uppercase italic border-2 border-dashed">
-                          Keine Maßnahmen im Risikomanagement definiert.
-                        </div>
-                      )}
                     </div>
                   </div>
                 </TabsContent>

@@ -82,6 +82,7 @@ export const appSchema: AppSchema = {
       department: 'VARCHAR(255)',
       title: 'VARCHAR(255)',
       enabled: 'BOOLEAN DEFAULT TRUE',
+      status: 'VARCHAR(20) DEFAULT "active"',
       onboardingDate: 'VARCHAR(50)',
       offboardingDate: 'VARCHAR(50)',
       lastSyncedAt: 'VARCHAR(50)',
@@ -215,6 +216,7 @@ export const appSchema: AppSchema = {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
+      status: 'VARCHAR(20) DEFAULT "active"',
       assetType: 'VARCHAR(100)',
       category: 'VARCHAR(100)',
       operatingModel: 'VARCHAR(100)',
@@ -311,6 +313,7 @@ export const appSchema: AppSchema = {
       tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
+      status: 'VARCHAR(20) DEFAULT "active"',
       entitlementIds: 'TEXT'
     }
   },
@@ -320,6 +323,7 @@ export const appSchema: AppSchema = {
       tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
+      status: 'VARCHAR(20) DEFAULT "active"',
       userConfigs: 'TEXT',
       entitlementConfigs: 'TEXT',
       userIds: 'TEXT',

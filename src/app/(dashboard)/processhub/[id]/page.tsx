@@ -36,7 +36,12 @@ import {
   ChevronRight,
   Info,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  ClipboardList,
+  Target,
+  BadgeAlert,
+  FileText,
+  UserCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,9 +63,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Card } from '@/components/ui/card';
 
 /**
  * Generiert MXGraph XML aus dem semantischen Modell.
+ * Optimiert für die Mitarbeiter-Visualisierung.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -72,7 +79,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   nodes.forEach(node => {
     const pos = positions[node.id] || { x: 100, y: 100 };
     let style = '';
-    let w = 140, h = 70;
+    let w = 160, h = 80;
 
     switch (node.type) {
       case 'start':
@@ -121,7 +128,21 @@ export default function ProcessDesignerPage() {
   const [isPublishing, setIsPublishing] = useState(false);
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [localNodeEdits, setLocalNodeEdits] = useState<{title: string, roleId: string, description: string}>({ title: '', roleId: '', description: '' });
+  const [localNodeEdits, setLocalNodeEdits] = useState<{
+    title: string, 
+    roleId: string, 
+    description: string,
+    checklist: string,
+    tips: string,
+    errors: string
+  }>({ 
+    title: '', 
+    roleId: '', 
+    description: '',
+    checklist: '',
+    tips: '',
+    errors: ''
+  });
   const [newEdgeTargetId, setNewEdgeTargetId] = useState<string>('');
   const [newEdgeLabel, setNewEdgeLabel] = useState<string>('');
 
@@ -141,7 +162,10 @@ export default function ProcessDesignerPage() {
       setLocalNodeEdits({
         title: selectedNode.title || '',
         roleId: selectedNode.roleId || '',
-        description: selectedNode.description || ''
+        description: selectedNode.description || '',
+        checklist: (selectedNode.checklist || []).join('\n'),
+        tips: selectedNode.tips || '',
+        errors: selectedNode.errors || ''
       });
     }
   }, [selectedNodeId, selectedNode]);
@@ -203,11 +227,15 @@ export default function ProcessDesignerPage() {
   const saveNodeUpdate = async (field: string) => {
     if (!selectedNodeId) return;
     const value = localNodeEdits[field as keyof typeof localNodeEdits];
-    if (selectedNode && selectedNode[field as keyof ProcessNode] === value) return;
+    
+    let processedValue: any = value;
+    if (field === 'checklist') {
+      processedValue = value.split('\n').filter((l: string) => l.trim() !== '');
+    }
 
     const ops = [{
       type: 'UPDATE_NODE',
-      payload: { nodeId: selectedNodeId, patch: { [field]: value } }
+      payload: { nodeId: selectedNodeId, patch: { [field]: processedValue } }
     }];
     await handleApplyOps(ops);
   };
@@ -220,7 +248,11 @@ export default function ProcessDesignerPage() {
         node: { 
           id: newId, 
           type, 
-          title: type === 'decision' ? 'Entscheidung?' : 'Neuer Schritt' 
+          title: type === 'decision' ? 'Entscheidung?' : 'Neuer Arbeitsschritt',
+          description: '',
+          checklist: [],
+          tips: '',
+          errors: ''
         } 
       }
     }];
@@ -330,7 +362,7 @@ export default function ProcessDesignerPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col -m-8 overflow-hidden bg-slate-100">
+    <div className="h-[calc(100vh-120px)] flex flex-col -m-8 overflow-hidden bg-slate-100 font-body">
       {/* PROFESSIONAL HEADER */}
       <header className="h-16 border-b bg-slate-900 text-white flex items-center justify-between px-6 shrink-0 z-20 shadow-lg">
         <div className="flex items-center gap-6">
@@ -339,7 +371,7 @@ export default function ProcessDesignerPage() {
           </Button>
           <div className="flex flex-col">
             <div className="flex items-center gap-3">
-              <h2 className="font-bold text-base tracking-tight">{currentProcess.title}</h2>
+              <h2 className="font-headline font-bold text-base tracking-tight">{currentProcess.title}</h2>
               <Badge className="bg-blue-600 rounded-none text-[8px] font-black uppercase tracking-widest px-2 h-4">Revision {currentVersion.revision}</Badge>
             </div>
             <div className="flex items-center gap-2 text-[9px] text-slate-400 font-bold uppercase mt-0.5">
@@ -366,29 +398,35 @@ export default function ProcessDesignerPage() {
           <Separator orientation="vertical" className="h-6 bg-slate-700 mx-1" />
           <Button size="sm" className="rounded-none h-9 text-[10px] font-bold uppercase bg-emerald-600 hover:bg-emerald-700 text-white px-6 gap-2" onClick={handlePublish} disabled={isPublishing}>
             {isPublishing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
-            Publish to BookStack
+            Export to Workstation
           </Button>
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* LEFT PANE: Steps & Properties */}
-        <aside className="w-[450px] border-r flex flex-col bg-white shadow-xl z-10 overflow-hidden">
-          <Tabs defaultValue="structure" className="flex-1 flex flex-col min-h-0">
+        {/* LEFT PANE: Work Instructions (Mitarbeiter Fokus) */}
+        <aside className="w-[500px] border-r flex flex-col bg-white shadow-xl z-10 overflow-hidden">
+          <Tabs defaultValue="instructions" className="flex-1 flex flex-col min-h-0">
             <div className="px-4 border-b bg-slate-50 shrink-0">
               <TabsList className="h-14 bg-transparent gap-6 p-0 w-full justify-start">
-                <TabsTrigger value="structure" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Struktur</TabsTrigger>
-                <TabsTrigger value="compliance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500">ISO 9001</TabsTrigger>
-                <TabsTrigger value="history" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500">History</TabsTrigger>
+                <TabsTrigger value="instructions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                  <ClipboardList className="w-3.5 h-3.5" /> Arbeitshilfe
+                </TabsTrigger>
+                <TabsTrigger value="compliance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                  <ShieldCheck className="w-3.5 h-3.5" /> ISO 9001
+                </TabsTrigger>
+                <TabsTrigger value="flow" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                  <GitBranch className="w-3.5 h-3.5" /> Flow
+                </TabsTrigger>
               </TabsList>
             </div>
 
             <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
               <ScrollArea className="flex-1">
-                <TabsContent value="structure" className="m-0 p-0">
+                <TabsContent value="instructions" className="m-0 p-0">
                   <div className="p-5 border-b bg-slate-50/50">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Prozess-Elemente</h3>
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Prozess-Abfolge</h3>
                       <div className="flex gap-1">
                         <Button variant="outline" size="sm" className="h-7 text-[8px] font-black uppercase rounded-none border-slate-200" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
                         <Button variant="outline" size="sm" className="h-7 text-[8px] font-black uppercase rounded-none border-slate-200" onClick={() => handleQuickAdd('decision')}>+ Entscheidung</Button>
@@ -405,22 +443,10 @@ export default function ProcessDesignerPage() {
                           onClick={() => setSelectedNodeId(node.id)}
                         >
                           <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-5 w-5 rounded-none hover:bg-slate-100 disabled:opacity-30" 
-                              disabled={idx === 0}
-                              onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'up'); }}
-                            >
+                            <Button variant="ghost" size="icon" className="h-5 w-5 rounded-none" disabled={idx === 0} onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'up'); }}>
                               <ChevronUp className="w-3 h-3" />
                             </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-5 w-5 rounded-none hover:bg-slate-100 disabled:opacity-30" 
-                              disabled={idx === currentVersion.model_json.nodes.length - 1}
-                              onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'down'); }}
-                            >
+                            <Button variant="ghost" size="icon" className="h-5 w-5 rounded-none" disabled={idx === currentVersion.model_json.nodes.length - 1} onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'down'); }}>
                               <ChevronDown className="w-3 h-3" />
                             </Button>
                           </div>
@@ -429,13 +455,16 @@ export default function ProcessDesignerPage() {
                             "w-8 h-8 rounded-none flex items-center justify-center shrink-0 border",
                             node.type === 'decision' ? "bg-orange-50 text-orange-600 border-orange-100" : "bg-blue-50 text-blue-600 border-blue-100"
                           )}>
-                            {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : <Layers className="w-4 h-4" />}
+                            {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-800 truncate">{node.title}</p>
-                            <p className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">{node.type}</p>
+                            <p className="text-xs font-bold text-slate-800 truncate uppercase tracking-tight">{node.title}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[8px] font-black uppercase text-slate-400">{node.type}</span>
+                              {node.roleId && <Badge variant="outline" className="text-[7px] h-3 px-1 rounded-none uppercase">{node.roleId}</Badge>}
+                            </div>
                           </div>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-red-500 hover:bg-red-50 rounded-none" onClick={(e) => { e.stopPropagation(); handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: node.id } }]); }}>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-red-500 rounded-none" onClick={(e) => { e.stopPropagation(); handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: node.id } }]); }}>
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
@@ -444,93 +473,93 @@ export default function ProcessDesignerPage() {
                   </div>
 
                   {selectedNode ? (
-                    <div className="p-6 space-y-6 animate-in fade-in slide-in-from-left-4 duration-300">
-                      <div className="flex items-center justify-between border-b pb-2">
-                        <div className="flex items-center gap-2">
-                          <Edit3 className="w-4 h-4 text-primary" />
-                          <h3 className="text-[10px] font-black uppercase tracking-widest">Eigenschaften</h3>
-                        </div>
-                        <Badge variant="outline" className="text-[8px] font-mono border-slate-200 rounded-none uppercase">ID: {selectedNode.id}</Badge>
-                      </div>
-
-                      <div className="space-y-4">
+                    <div className="p-6 space-y-8 animate-in fade-in slide-in-from-left-4 duration-300">
+                      <div className="space-y-6">
                         <div className="space-y-1.5">
-                          <Label className="text-[9px] font-bold uppercase text-slate-500">Titel / Bezeichnung</Label>
+                          <Label className="text-[9px] font-black uppercase text-slate-500">Titel der Tätigkeit</Label>
                           <Input 
                             value={localNodeEdits.title} 
                             onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})}
                             onBlur={() => saveNodeUpdate('title')}
-                            className="h-10 text-sm rounded-none border-2 focus:border-primary font-bold" 
+                            className="h-11 text-sm rounded-none border-2 focus:border-primary font-bold uppercase tracking-tight" 
                           />
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[9px] font-bold uppercase text-slate-500">Zuständige Rolle</Label>
-                          <Input 
-                            value={localNodeEdits.roleId} 
-                            onChange={e => setLocalNodeEdits({...localNodeEdits, roleId: e.target.value})}
-                            onBlur={() => saveNodeUpdate('roleId')}
-                            placeholder="z.B. IT-Admin, Prozessverantwortlicher..." 
-                            className="h-10 text-sm rounded-none border-2 focus:border-primary" 
-                          />
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label className="text-[9px] font-black uppercase text-slate-500 flex items-center gap-1">
+                              <UserCircle className="w-3 h-3" /> Zuständigkeit
+                            </Label>
+                            <Input 
+                              value={localNodeEdits.roleId} 
+                              onChange={e => setLocalNodeEdits({...localNodeEdits, roleId: e.target.value})}
+                              onBlur={() => saveNodeUpdate('roleId')}
+                              placeholder="Rolle oder Team..." 
+                              className="h-10 text-xs rounded-none border-2" 
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[9px] font-black uppercase text-slate-500 flex items-center gap-1">
+                              <Target className="w-3 h-3" /> Zielsetzung
+                            </Label>
+                            <Input placeholder="Ergebnis dieses Schritts..." className="h-10 text-xs rounded-none border-2" />
+                          </div>
                         </div>
+
                         <div className="space-y-1.5">
-                          <Label className="text-[9px] font-bold uppercase text-slate-500">Detailbeschreibung (Handlungsanweisung)</Label>
+                          <Label className="text-[9px] font-black uppercase text-slate-500">Detaillierte Handlungsanweisung</Label>
                           <Textarea 
                             value={localNodeEdits.description} 
                             onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})}
                             onBlur={() => saveNodeUpdate('description')}
-                            placeholder="Was genau ist in diesem Schritt zu tun?"
-                            className="text-xs rounded-none min-h-[140px] border-2 focus:border-primary leading-relaxed" 
+                            placeholder="Was genau ist zu tun? (Inhaltliche Beschreibung für Mitarbeiter)"
+                            className="text-xs rounded-none min-h-[100px] border-2 leading-relaxed" 
                           />
                         </div>
-                      </div>
 
-                      <div className="pt-6 border-t space-y-4">
-                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                          <GitBranch className="w-3 h-3" /> Flow-Logik
-                        </h4>
-                        <div className="space-y-3 p-4 bg-slate-50 border-2 border-dashed">
-                          <div className="space-y-1">
-                            <Label className="text-[8px] font-bold uppercase text-slate-500">Nächster Schritt</Label>
-                            <Select value={newEdgeTargetId} onValueChange={setNewEdgeTargetId}>
-                              <SelectTrigger className="h-9 text-[10px] rounded-none bg-white border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                              <SelectContent className="rounded-none">
-                                {currentVersion.model_json.nodes.filter(n => n.id !== selectedNodeId).map(n => (
-                                  <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[8px] font-bold uppercase text-slate-500">Bedingung (Label)</Label>
-                            <Input placeholder="z.B. Ja / Nein" value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-9 text-xs rounded-none border-slate-200" />
-                          </div>
-                          <Button onClick={handleAddEdge} disabled={!selectedNodeId || !newEdgeTargetId} className="w-full h-10 text-[10px] font-black uppercase rounded-none bg-primary hover:bg-blue-600">
-                            Verbindung erstellen
-                          </Button>
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-black uppercase text-slate-500 flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" /> Checkliste (Eine Zeile pro Punkt)
+                          </Label>
+                          <Textarea 
+                            value={localNodeEdits.checklist} 
+                            onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})}
+                            onBlur={() => saveNodeUpdate('checklist')}
+                            placeholder="Erforderliche Teil-Aufgaben..."
+                            className="text-xs rounded-none min-h-[100px] border-2 border-slate-200 bg-slate-50/30" 
+                          />
                         </div>
 
-                        <div className="space-y-1">
-                          {(currentVersion.model_json.edges || []).filter(e => e.source === selectedNodeId).map(edge => {
-                            const target = currentVersion.model_json.nodes.find(n => n.id === edge.target);
-                            return (
-                              <div key={edge.id} className="flex items-center justify-between p-2 bg-white border text-[10px] font-bold">
-                                <div className="flex items-center gap-2 truncate">
-                                  <ArrowRight className="w-3 h-3 text-slate-300" />
-                                  <span>{target?.title}</span>
-                                  {edge.label && <Badge className="h-4 rounded-none text-[7px] bg-slate-100 text-slate-600 border-none uppercase">{edge.label}</Badge>}
-                                </div>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={() => handleRemoveEdge(edge.id)}><X className="w-3 h-3" /></Button>
-                              </div>
-                            );
-                          })}
+                        <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                          <div className="space-y-1.5">
+                            <Label className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-1">
+                              <Info className="w-3 h-3" /> Tipps & Tricks
+                            </Label>
+                            <Textarea 
+                              value={localNodeEdits.tips} 
+                              onChange={e => setLocalNodeEdits({...localNodeEdits, tips: e.target.value})}
+                              onBlur={() => saveNodeUpdate('tips')}
+                              className="text-[10px] rounded-none min-h-[80px] border-emerald-100 bg-emerald-50/20" 
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[9px] font-black uppercase text-red-600 flex items-center gap-1">
+                              <BadgeAlert className="w-3 h-3" /> Typische Fehler
+                            </Label>
+                            <Textarea 
+                              value={localNodeEdits.errors} 
+                              onChange={e => setLocalNodeEdits({...localNodeEdits, errors: e.target.value})}
+                              onBlur={() => saveNodeUpdate('errors')}
+                              className="text-[10px] rounded-none min-h-[80px] border-red-100 bg-red-50/20" 
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
                   ) : (
                     <div className="p-12 text-center space-y-4 opacity-40">
                       <Info className="w-12 h-12 mx-auto text-slate-300" />
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Wählen Sie ein Element aus,<br/>um die Details zu bearbeiten.</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Wählen Sie einen Schritt,<br/>um die Arbeitshilfe zu pflegen.</p>
                     </div>
                   )}
                 </TabsContent>
@@ -546,10 +575,10 @@ export default function ProcessDesignerPage() {
                   
                   <div className="grid grid-cols-1 gap-6">
                     {[
-                      { id: 'inputs', label: 'Eingaben (Inputs)', icon: ArrowRight, desc: 'Informationen, Artefakte oder Trigger für den Prozess' },
-                      { id: 'outputs', label: 'Ergebnisse (Outputs)', icon: Check, desc: 'Produkte, Dienstleistungen oder Daten am Prozessende' },
-                      { id: 'risks', label: 'Risiken & Chancen', icon: AlertTriangle, desc: 'Was kann den Prozesserfolg gefährden?' },
-                      { id: 'evidence', label: 'Nachweise (Evidence)', icon: FileCode, desc: 'Dokumente zur Verifizierung der Ausführung' }
+                      { id: 'inputs', label: 'Eingaben (Inputs)', icon: ArrowRight, desc: 'Welche Informationen/Daten werden benötigt?' },
+                      { id: 'outputs', label: 'Ergebnisse (Outputs)', icon: Check, desc: 'Was ist das Ergebnis des Prozesses?' },
+                      { id: 'risks', label: 'Risiken & Ausnahmen', icon: AlertTriangle, desc: 'Was kann schiefgehen?' },
+                      { id: 'evidence', label: 'Nachweise (Evidence)', icon: FileCode, desc: 'Wo wird die Ausführung dokumentiert?' }
                     ].map(field => (
                       <div key={field.id} className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-slate-700 flex items-center gap-2">
@@ -558,7 +587,7 @@ export default function ProcessDesignerPage() {
                         <Textarea 
                           defaultValue={currentVersion.model_json.isoFields?.[field.id] || ''}
                           placeholder={field.desc}
-                          className="text-xs rounded-none min-h-[120px] bg-white border-2 border-slate-100 focus:border-emerald-500 leading-relaxed p-3"
+                          className="text-xs rounded-none min-h-[100px] bg-white border-2 border-slate-100 focus:border-emerald-500 leading-relaxed p-3"
                           onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: field.id, value: e.target.value } }])}
                         />
                       </div>
@@ -566,11 +595,58 @@ export default function ProcessDesignerPage() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="history" className="m-0 p-6">
-                   <div className="py-20 text-center opacity-30">
-                      <History className="w-12 h-12 mx-auto mb-4" />
-                      <p className="text-[10px] font-black uppercase tracking-widest">Änderungsverlauf wird geladen...</p>
-                   </div>
+                <TabsContent value="flow" className="m-0 p-6 space-y-6">
+                  <div className="p-4 bg-blue-50 border-2 border-blue-100 rounded-none space-y-4">
+                    <h4 className="text-[10px] font-black uppercase text-blue-700 flex items-center gap-2">
+                      <GitBranch className="w-3.5 h-3.5" /> Ablauf-Logik verknüpfen
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-[8px] font-bold uppercase text-slate-500">Von Knoten (Quelle)</Label>
+                        <Select value={selectedNodeId || ''} onValueChange={setSelectedNodeId}>
+                          <SelectTrigger className="h-9 text-[10px] rounded-none bg-white border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                          <SelectContent className="rounded-none">
+                            {currentVersion.model_json.nodes.map(n => <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[8px] font-bold uppercase text-slate-500">Zu Knoten (Ziel)</Label>
+                        <Select value={newEdgeTargetId} onValueChange={setNewEdgeTargetId}>
+                          <SelectTrigger className="h-9 text-[10px] rounded-none bg-white border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                          <SelectContent className="rounded-none">
+                            {currentVersion.model_json.nodes.filter(n => n.id !== selectedNodeId).map(n => <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[8px] font-bold uppercase text-slate-500">Beschriftung (z.B. Ja/Nein)</Label>
+                        <Input placeholder="Optional..." value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-9 text-xs rounded-none border-slate-200 bg-white" />
+                      </div>
+                      <Button onClick={handleAddEdge} disabled={!selectedNodeId || !newEdgeTargetId} className="w-full h-10 text-[10px] font-black uppercase rounded-none bg-blue-600 hover:bg-blue-700">
+                        Verbindung erstellen
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Aktive Verbindungen</h4>
+                    {(currentVersion.model_json.edges || []).map(edge => {
+                      const source = currentVersion.model_json.nodes.find(n => n.id === edge.source);
+                      const target = currentVersion.model_json.nodes.find(n => n.id === edge.target);
+                      return (
+                        <div key={edge.id} className="flex items-center justify-between p-2 bg-white border text-[10px] font-bold group">
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="text-slate-400">{source?.title}</span>
+                            <ArrowRight className="w-3 h-3 text-primary" />
+                            <span>{target?.title}</span>
+                            {edge.label && <Badge className="h-4 rounded-none text-[7px] bg-slate-100 text-slate-600 border-none uppercase">{edge.label}</Badge>}
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 opacity-0 group-hover:opacity-100" onClick={() => handleRemoveEdge(edge.id)}><X className="w-3 h-3" /></Button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </TabsContent>
               </ScrollArea>
             </div>
@@ -583,8 +659,8 @@ export default function ProcessDesignerPage() {
              <div className="bg-white/90 backdrop-blur shadow-xl border p-1 rounded-none flex flex-col gap-1">
                 <TooltipProvider>
                   {[
-                    { icon: RefreshCw, label: 'Reload', action: syncDiagramToModel },
-                    { icon: Box, label: 'Fit View', action: () => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({action: 'zoom', type: 'fit'}), '*') }
+                    { icon: RefreshCw, label: 'Diagramm aktualisieren', action: syncDiagramToModel },
+                    { icon: Box, label: 'Ganzseitig anzeigen', action: () => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({action: 'zoom', type: 'fit'}), '*') }
                   ].map((btn, i) => (
                     <Button key={i} variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-slate-100" onClick={btn.action}>
                       <btn.icon className="w-4 h-4 text-slate-600" />
@@ -610,8 +686,8 @@ export default function ProcessDesignerPage() {
                 <Zap className="w-5 h-5 text-white fill-current" />
               </div>
               <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] block text-blue-400">Process Co-Pilot</span>
-                <span className="text-[8px] font-bold text-slate-400 uppercase">AI-Vibecoding Active</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] block text-blue-400">Process Advisor</span>
+                <span className="text-[8px] font-bold text-slate-400 uppercase">AI-Consulting Active</span>
               </div>
             </div>
             <Badge className="bg-slate-800 text-slate-400 border-slate-700 rounded-none text-[8px] font-black h-5 uppercase px-2">Gemini 2.0</Badge>
@@ -650,7 +726,7 @@ export default function ProcessDesignerPage() {
                         <div className="flex gap-2 pt-2">
                           <Button onClick={() => handleApplyOps(aiSuggestions.proposedOps)} disabled={isApplying} className="flex-1 h-11 rounded-none bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase shadow-lg group">
                             {isApplying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2 group-hover:scale-125 transition-transform" />}
-                            Vorschlag anwenden
+                            Update anwenden
                           </Button>
                         </div>
                       </div>
@@ -665,7 +741,7 @@ export default function ProcessDesignerPage() {
                     <div className="space-y-2 px-8">
                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900 leading-relaxed">Beschreiben Sie Ihren Prozess</p>
                       <p className="text-[9px] font-medium text-slate-500 leading-relaxed italic">
-                        "Erstelle einen Freigabeprozess für Urlaubsanträge mit Ablehnungsschleife."
+                        "Erstelle eine Schritt-für-Schritt Anleitung für die Rechnungsprüfung inkl. Checklist."
                       </p>
                     </div>
                   </div>
@@ -695,7 +771,7 @@ export default function ProcessDesignerPage() {
             </div>
             <div className="flex justify-between mt-3 px-1">
                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Context Active</span>
-               <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-1"><Terminal className="w-2.5 h-2.5" /> BPMN Logic Expert</span>
+               <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-1"><Terminal className="w-2.5 h-2.5" /> Content Expert</span>
             </div>
           </div>
         </aside>

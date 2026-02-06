@@ -15,6 +15,10 @@ import OpenAI from 'openai';
 const ProcessDesignerInputSchema = z.object({
   userMessage: z.string(),
   currentModel: z.any(),
+  chatHistory: z.array(z.object({
+    role: z.enum(['user', 'ai']),
+    text: z.string()
+  })).optional(),
   context: z.string().optional(),
   dataSource: z.enum(['mysql', 'firestore', 'mock']).optional(),
 });
@@ -25,38 +29,30 @@ const ProcessDesignerOutputSchema = z.object({
     payload: z.any()
   })).describe('Structured list of operations to modify the model.'),
   explanation: z.string().describe('Professional natural language explanation of what changed and why (in German).'),
-  openQuestions: z.array(z.string()).describe('Questions to the user to clarify the process flow.'),
+  openQuestions: z.array(z.string()).describe('Questions to the user to clarify the process flow or compliance details.'),
 });
 
 export type ProcessDesignerOutput = z.infer<typeof ProcessDesignerOutputSchema>;
 
-const SYSTEM_PROMPT = `You are a world-class BPMN Process Architect and ISO 9001:2015 Lead Auditor.
-Your task is to translate user instructions into high-quality semantic model patches.
+const SYSTEM_PROMPT = `Du bist ein Senior Prozess-Consultant und ISO 9001:2015 Lead Auditor.
+Deine Aufgabe ist es, den Nutzer beim Design von Geschäftsprozessen zu begleiten und zu beraten.
 
-LOGIC RULES (EMPLOYEE FOCUS):
-1. CONTENT OVER BOXES:
-   - When adding a step, ALWAYS provide a 'description', a 'checklist' (array of strings), 'tips', and 'errors'.
-   - Focus on practical utility for employees. How should they do the work?
+VERHALTENSREGELN:
+1. DIALOG-FOKUS: Agiere wie ein Partner. Verstehe den Prozess, indem du gezielte Fragen stellst.
+2. KONTEXT: Beachte den bisherigen Chat-Verlauf. Wiederhole dich nicht.
+3. ISO 9001 ANALYSE: Achte auf Inputs, Outputs, Verantwortlichkeiten und Risiken. Wenn du diese erkennst, schlage vor, die entsprechenden Felder (SET_ISO_FIELD) zu befüllen.
+4. STRUKTUR: Erstelle klare BPMN-Strukturen. Nutze 'start', 'end', 'step' und 'decision'.
+5. LAYOUT: Wenn du Knoten hinzufügst, positioniere sie sinnvoll auf einem 200px Grid (x: 50, 250, 450...).
 
-2. NODE TYPES:
-   - 'start': Use exactly once.
-   - 'end': Use for outcomes.
-   - 'step': For standard activities. Must have a 'title' and 'roleId'.
-   - 'decision': For branching logic. Rhombus.
+OPERATIONEN:
+- ADD_NODE: Füge neue Schritte hinzu. Gib ihnen immer eine 'description', 'checklist', 'tips' und 'errors'.
+- SET_ISO_FIELD: Setze Felder wie 'inputs', 'outputs', 'risks', 'evidence'.
+- ADD_EDGE: Verbinde Knoten. Edges von 'decision' Knoten MÜSSEN ein 'label' haben (z.B. "Ja", "Nein").
 
-3. EDGE RULES:
-   - Connect nodes using ADD_EDGE.
-   - Edges from 'decision' nodes MUST have a 'label' (e.g., "Ja", "Nein").
-
-4. LAYOUT STRATEGY:
-   - Provide UPDATE_LAYOUT for every touched node.
-   - 200px horizontal grid / 150px vertical.
-   - Start at {x: 50, y: 200}.
-
-RESPONSE FORMAT:
-- Valid JSON only.
-- Language: German (Titles, Labels, Explanations, Checklists).
-- Be precise and structural.`;
+ANTWORT-FORMAT:
+- Sprache: Deutsch.
+- Erkläre im Feld 'explanation' kurz und professionell, was du vorschlägst und warum (z.B. "Ich habe einen Entscheidungsschritt für die Budgetprüfung hinzugefügt, um die Compliance-Anforderungen zu erfüllen").
+- Stelle im Feld 'openQuestions' Fragen, die helfen, den Prozess zu vervollständigen.`;
 
 const processDesignerFlow = ai.defineFlow(
   {
@@ -67,9 +63,16 @@ const processDesignerFlow = ai.defineFlow(
   async (input) => {
     const config = await getActiveAiConfig(input.dataSource as DataSource);
     
-    const prompt = `Nutzer-Anweisung: "${input.userMessage}"
-Aktueller Modell-Zustand (JSON): ${JSON.stringify(input.currentModel)}
-Zusätzlicher Kontext: ${input.context || 'Keiner'}`;
+    const historyString = (input.chatHistory || [])
+      .map(h => `${h.role === 'user' ? 'Nutzer' : 'KI'}: ${h.text}`)
+      .join('\n');
+
+    const prompt = `CHAT-VERLAUF:
+${historyString}
+
+AKTUELLE ANWEISUNG: "${input.userMessage}"
+
+MODELL-ZUSTAND (JSON): ${JSON.stringify(input.currentModel)}`;
 
     if (config?.provider === 'openrouter') {
       const client = new OpenAI({

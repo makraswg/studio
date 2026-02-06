@@ -123,6 +123,7 @@ export default function ProcessDesignerPage() {
   
   const [mounted, setMounted] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
+  const [chatHistory, setChatHistory] = useState<{role: 'user' | 'ai', text: string}[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<ProcessDesignerOutput | null>(null);
   const [isApplying, setIsApplying] = useState(false);
@@ -306,16 +307,23 @@ export default function ProcessDesignerPage() {
 
   const handleAiChat = async () => {
     if (!chatMessage.trim() || !currentVersion) return;
+    const msg = chatMessage;
+    setChatMessage('');
     setIsAiLoading(true);
     setAiSuggestions(null);
+    
+    const newHistory = [...chatHistory, { role: 'user', text: msg } as const];
+    setChatHistory(newHistory);
+
     try {
       const suggestions = await getProcessSuggestions({
-        userMessage: chatMessage,
+        userMessage: msg,
         currentModel: currentVersion.model_json,
+        chatHistory: newHistory,
         dataSource
       });
       setAiSuggestions(suggestions);
-      setChatMessage('');
+      setChatHistory([...newHistory, { role: 'ai', text: suggestions.explanation } as const]);
     } catch (e: any) {
       toast({ variant: "destructive", title: "KI-Fehler", description: e.message });
     } finally {
@@ -586,9 +594,12 @@ export default function ProcessDesignerPage() {
                           <field.icon className="w-3 h-3 text-emerald-600" /> {field.label}
                         </Label>
                         <Textarea 
-                          defaultValue={currentVersion.model_json.isoFields?.[field.id] || ''}
+                          value={currentVersion.model_json.isoFields?.[field.id] || ''}
                           placeholder={field.desc}
                           className="text-xs rounded-none min-h-[100px] bg-white border-2 border-slate-100 focus:border-emerald-500 leading-relaxed p-3"
+                          onChange={e => {
+                            // Local change handling could be added if needed
+                          }}
                           onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: field.id, value: e.target.value } }])}
                         />
                       </div>
@@ -688,7 +699,7 @@ export default function ProcessDesignerPage() {
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] block text-blue-400">Process Advisor</span>
-                <span className="text-[8px] font-bold text-slate-400 uppercase">AI-Consulting Active</span>
+                <span className="text-[8px] font-bold text-slate-400 uppercase">ISO 9001 Consultant</span>
               </div>
             </div>
             <Badge className="bg-slate-800 text-slate-400 border-slate-700 rounded-none text-[8px] font-black h-5 uppercase px-2">Gemini 2.0</Badge>
@@ -697,53 +708,85 @@ export default function ProcessDesignerPage() {
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
             <ScrollArea className="flex-1 p-5">
               <div className="space-y-6">
-                {aiSuggestions ? (
+                {chatHistory.length === 0 && (
+                  <div className="text-center py-12 space-y-4 opacity-40">
+                    <MessageSquare className="w-12 h-12 mx-auto text-slate-300" />
+                    <p className="text-[10px] font-black uppercase text-slate-900">Hallo! Ich bin dein Berater.</p>
+                    <p className="text-[9px] text-slate-500 italic px-4">
+                      "Wie starte ich am besten?" oder "Hilf mir, einen Workflow für die Rechnungsprüfung zu erstellen."
+                    </p>
+                  </div>
+                )}
+
+                {chatHistory.map((msg, i) => (
+                  <div key={i} className={cn(
+                    "flex flex-col gap-1.5",
+                    msg.role === 'user' ? "items-end" : "items-start"
+                  )}>
+                    <div className={cn(
+                      "p-3 text-[11px] leading-relaxed max-w-[90%] border-2",
+                      msg.role === 'user' ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-700 border-slate-200"
+                    )}>
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+
+                {aiSuggestions && (
                   <div className="animate-in slide-in-from-bottom-4 duration-500">
-                    <div className="bg-white border-2 border-blue-600 rounded-none shadow-2xl overflow-hidden">
-                      <div className="p-4 bg-blue-600 text-white flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Architekt-Vorschlag</span>
-                        </div>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-white hover:bg-white/20" onClick={() => setAiSuggestions(null)}>
-                          <X className="w-4 h-4" />
-                        </Button>
+                    <div className="bg-blue-50 border-2 border-blue-600 p-5 space-y-4 shadow-xl">
+                      <div className="flex items-center gap-2 text-blue-700">
+                        <Sparkles className="w-4 h-4" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Update-Vorschlag</span>
                       </div>
-                      <div className="p-5 space-y-5">
-                        <p className="text-[11px] font-medium text-slate-700 leading-relaxed italic border-l-2 border-blue-100 pl-3">
-                          "{aiSuggestions.explanation}"
-                        </p>
-                        
-                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                          {aiSuggestions.proposedOps.map((op, i) => (
-                            <div key={i} className="text-[9px] p-2 bg-slate-50 border border-slate-100 flex items-center gap-3">
-                              <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                              <span className="font-black text-slate-500 uppercase min-w-[80px]">{op.type.replace('_', ' ')}:</span>
-                              <span className="truncate font-bold text-slate-700">{op.payload.node?.title || op.payload.edge?.label || op.payload.nodeId || 'Layout Update'}</span>
-                            </div>
+                      
+                      <div className="space-y-2 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                        {aiSuggestions.proposedOps.map((op, i) => (
+                          <div key={i} className="text-[9px] p-1.5 bg-white border border-blue-100 flex items-center gap-2">
+                            <div className="w-1 h-1 rounded-full bg-blue-500" />
+                            <span className="font-black text-slate-400 uppercase shrink-0">{op.type.replace('_', ' ')}:</span>
+                            <span className="truncate font-bold text-slate-700">
+                              {op.payload.node?.title || op.payload.field || op.payload.nodeId || 'Layout'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {aiSuggestions.openQuestions.length > 0 && (
+                        <div className="space-y-2 border-t border-blue-200 pt-3">
+                          <p className="text-[9px] font-black text-blue-800 uppercase">Meine Fragen:</p>
+                          {aiSuggestions.openQuestions.map((q, i) => (
+                            <p key={i} className="text-[10px] italic text-blue-900 leading-relaxed">• {q}</p>
                           ))}
                         </div>
+                      )}
 
-                        <div className="flex gap-2 pt-2">
-                          <Button onClick={() => handleApplyOps(aiSuggestions.proposedOps)} disabled={isApplying} className="flex-1 h-11 rounded-none bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase shadow-lg group">
-                            {isApplying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2 group-hover:scale-125 transition-transform" />}
-                            Update anwenden
-                          </Button>
-                        </div>
+                      <div className="flex gap-2 pt-2">
+                        <Button 
+                          onClick={() => handleApplyOps(aiSuggestions.proposedOps)} 
+                          disabled={isApplying} 
+                          className="flex-1 h-10 rounded-none bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase shadow-lg group"
+                        >
+                          {isApplying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+                          Anwenden
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setAiSuggestions(null)} 
+                          className="h-10 rounded-none border-blue-200 text-blue-700 text-[10px] font-black uppercase"
+                        >
+                          Ablehnen
+                        </Button>
                       </div>
                     </div>
                   </div>
-                ) : (
-                  <div className="text-center py-20 space-y-6 opacity-30">
-                    <div className="relative inline-block">
-                      <MessageSquare className="w-16 h-16 mx-auto text-slate-300" />
-                      <Sparkles className="w-6 h-6 absolute -top-2 -right-2 text-blue-500" />
-                    </div>
-                    <div className="space-y-2 px-8">
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900 leading-relaxed">Beschreiben Sie Ihren Prozess</p>
-                      <p className="text-[9px] font-medium text-slate-500 leading-relaxed italic">
-                        "Erstelle eine Schritt-für-Schritt Anleitung für die Rechnungsprüfung inkl. Checklist."
-                      </p>
+                )}
+
+                {isAiLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-white border-2 border-slate-200 p-3 rounded-none flex items-center gap-3 shadow-sm">
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Berater analysiert...</span>
                     </div>
                   </div>
                 )}
@@ -754,7 +797,7 @@ export default function ProcessDesignerPage() {
           <div className="p-5 border-t-2 border-slate-200 bg-white shrink-0 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
             <div className="relative group">
               <Input 
-                placeholder="Anweisung an den Co-Pilot..." 
+                placeholder="Nachricht an Berater..." 
                 value={chatMessage}
                 onChange={e => setChatMessage(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAiChat()}
@@ -771,8 +814,8 @@ export default function ProcessDesignerPage() {
               </Button>
             </div>
             <div className="flex justify-between mt-3 px-1">
-               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Context Active</span>
-               <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-1"><Terminal className="w-2.5 h-2.5" /> Content Expert</span>
+               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">History Enabled</span>
+               <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-1"><Terminal className="w-2.5 h-2.5" /> Context Active</span>
             </div>
           </div>
         </aside>

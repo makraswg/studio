@@ -57,7 +57,7 @@ WICHTIGE SYNTAX-REGELN:
 - 'payload' für 'SET_ISO_FIELD': { "field": "inputs"|"outputs"|"risks"|"evidence", "value": string }
 
 ANTWORT-FORMAT:
-Du MUSST eine valide JSON-Antwort liefern.`;
+Du MUSST eine valide JSON-Antwort liefern mit exakt diesen Keys: "proposedOps", "explanation", "openQuestions".`;
 
 /**
  * Normalisiert die KI-Ausgabe, falls das Modell Batch-Operationen oder falsche Keys verwendet.
@@ -68,14 +68,17 @@ function normalizeOps(rawOps: any[]): any[] {
 
   rawOps.forEach(op => {
     let type = op.type || op.action;
-    if (typeof type !== 'string') return;
+    if (!type) return;
     
-    type = type.toUpperCase();
+    type = String(type).toUpperCase();
     
     // Batch-Handling für 'add_nodes' oder 'nodes' Arrays
     if ((type === 'ADD_NODES' || type === 'ADD_NODE') && Array.isArray(op.nodes)) {
       op.nodes.forEach((n: any) => normalized.push({ type: 'ADD_NODE', payload: { node: n } }));
     } 
+    else if ((type === 'ADD_NODES' || type === 'ADD_NODE') && op.payload?.nodes && Array.isArray(op.payload.nodes)) {
+      op.payload.nodes.forEach((n: any) => normalized.push({ type: 'ADD_NODE', payload: { node: n } }));
+    }
     // Batch-Handling für 'add_edges' oder 'edges' Arrays
     else if ((type === 'ADD_EDGES' || type === 'ADD_EDGE') && Array.isArray(op.edges)) {
       op.edges.forEach((e: any) => normalized.push({ 
@@ -97,6 +100,35 @@ function normalizeOps(rawOps: any[]): any[] {
       });
     }
   });
+
+  return normalized;
+}
+
+/**
+ * Stellt sicher, dass das gesamte Antwort-Objekt dem Schema entspricht.
+ */
+function normalizeOutput(raw: any): ProcessDesignerOutput {
+  const normalized: ProcessDesignerOutput = {
+    proposedOps: [],
+    explanation: raw.explanation || raw.message || raw.summary || "Die KI hat Änderungen am Prozessmodell vorgeschlagen.",
+    openQuestions: []
+  };
+
+  // Normalisiere Operations
+  if (Array.isArray(raw.proposedOps)) {
+    normalized.proposedOps = normalizeOps(raw.proposedOps);
+  } else if (Array.isArray(raw.ops)) {
+    normalized.proposedOps = normalizeOps(raw.ops);
+  }
+
+  // Normalisiere Questions (manche Modelle nutzen 'question' oder 'questions')
+  if (Array.isArray(raw.openQuestions)) {
+    normalized.openQuestions = raw.openQuestions;
+  } else if (raw.question && typeof raw.question === 'string') {
+    normalized.openQuestions = [raw.question];
+  } else if (Array.isArray(raw.questions)) {
+    normalized.openQuestions = raw.questions;
+  }
 
   return normalized;
 }
@@ -151,8 +183,7 @@ MODELL-ZUSTAND (JSON): ${JSON.stringify(input.currentModel)}`;
       if (!content) throw new Error('AI lieferte leere Antwort.');
       
       const parsed = JSON.parse(content);
-      parsed.proposedOps = normalizeOps(parsed.proposedOps);
-      return parsed as ProcessDesignerOutput;
+      return normalizeOutput(parsed);
     }
 
     // Standard Genkit handling
@@ -170,8 +201,7 @@ MODELL-ZUSTAND (JSON): ${JSON.stringify(input.currentModel)}`;
     if (!output) throw new Error('AI lieferte keine strukturierte Antwort.');
     
     // Auch bei Standard-Modellen normalisieren wir zur Sicherheit
-    output.proposedOps = normalizeOps(output.proposedOps);
-    return output;
+    return normalizeOutput(output);
   }
 );
 

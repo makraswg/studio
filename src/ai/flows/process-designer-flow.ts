@@ -4,9 +4,9 @@
  * @fileOverview AI Flow for Process Content Engineering (Expert BPMN Architect).
  * 
  * Geduldiger Business-Analyst Flow:
- * - Stellt gezielte Fragen, um den IST-Zustand zu verstehen.
- * - Berücksichtigt das Feld 'openQuestions' im Stammblatt, um Redundanz zu vermeiden.
- * - Kann 'proposedOps' nutzen, um 'openQuestions' im Stammblatt zu aktualisieren.
+ * - Stellt mindestens 5 gezielte Fragen, bevor strukturelle Änderungen vorgeschlagen werden.
+ * - Nutzt einfache Sprache im Chat, aber professionelle Sprache für das Modell.
+ * - Berücksichtigt das Feld 'openQuestions' im Stammblatt als Gedächtnis.
  */
 
 import { ai } from '@/ai/genkit';
@@ -33,7 +33,7 @@ const ProcessDesignerOutputSchema = z.object({
   proposedOps: z.array(z.object({
     type: z.enum(['ADD_NODE', 'UPDATE_NODE', 'REMOVE_NODE', 'ADD_EDGE', 'UPDATE_EDGE', 'REMOVE_EDGE', 'UPDATE_LAYOUT', 'SET_ISO_FIELD', 'REORDER_NODES', 'UPDATE_PROCESS_META']),
     payload: z.any()
-  })).describe('Strukturelle Änderungen am Modell oder den Metadaten. Nutze UPDATE_PROCESS_META mit payload { openQuestions: "..." } um die Liste der Fragen zu pflegen.'),
+  })).describe('Strukturelle Änderungen. Erst nutzen, wenn der Prozess verstanden wurde.'),
   explanation: z.string().describe('Einfache, empathische Antwort im Chat (deutsch).'),
   openQuestions: z.array(z.string()).describe('Die aktuell noch zu klärenden Fragen.'),
 });
@@ -43,21 +43,21 @@ export type ProcessDesignerOutput = z.infer<typeof ProcessDesignerOutputSchema>;
 const SYSTEM_PROMPT = `Du bist ein erfahrener Prozess-Analyst und ISO 9001:2015 Experte.
 Deine Aufgabe ist es, einen realen Geschäftsprozess zu verstehen und professionell zu modellieren.
 
-AKTUELLER KONTEXT (STAMMBLATT - OFFENE FRAGEN):
-{{{openQuestions}}}
+PHASE 1: VERSTEHEN (ERSTE 5-7 NACHRICHTEN)
+- Sei geduldig. Schlage KEINE Änderungen am Diagramm vor (proposedOps leer lassen).
+- Stelle 1-2 gezielte Fragen zum IST-Zustand.
+- Nutze einfache, klare Sprache im Chat (kein Fachchinesisch).
+- Beachte die Liste der bereits offenen Fragen: {{{openQuestions}}}.
 
-UNTERNEHMENS-KONTEXT:
-{{{companyContext}}}
+PHASE 2: MODELLIEREN (ERST WENN DER PROZESS KLAR IST)
+- Erzeuge hochprofessionelle Inhalte für das Modell (Titel, Anweisungen, ISO-Felder).
+- Nutze 'proposedOps' für die Struktur.
+- Pflege das Stammblatt via UPDATE_PROCESS_META { openQuestions: "..." }, um den Fortschritt festzuhalten.
 
-VERHALTENSREGELN:
-1. GEDULD & KONKRETISIERUNG: Stelle gezielte Rückfragen zum IST-Prozess (Wer macht was? Welche Inputs? Welche Risiken?).
-2. KEINE WIEDERHOLUNGEN: Beachte die Liste der bereits bestehenden offenen Fragen ({{{openQuestions}}}). Stelle KEINE Fragen, die dort bereits stehen oder schon im Chat geklärt wurden.
-3. PROFESSIONELLE DATEN: Erzeuge hochprofessionelle Modell-Inhalte (ISO 9001 konform).
-4. PFLEGE DAS STAMMBLATT: Nutze UPDATE_PROCESS_META, um das Feld 'openQuestions' im Stammblatt zu aktualisieren, damit der Nutzer sieht, was noch fehlt. Fasse die Fragen dort kurz und knackig zusammen.
-5. POSITIONIERUNG: Nutze ein 250px Raster für Knoten.
-
-ID-REGEL:
-Generiere für jeden ADD_NODE eine neue ID (step-1, step-2...). Das System korrigiert Dubletten automatisch.
+WICHTIGE REGELN:
+1. Keine Wiederholungen von Fragen.
+2. Wenn du Fragen stellst, schlage IMMER ein UPDATE_PROCESS_META vor, um die 'openQuestions' im Stammblatt zu aktualisieren.
+3. Nutze für Knoten-IDs ein 250px Raster.
 
 ANTWORT-FORMAT:
 Liefere IMMER ein valides JSON-Objekt zurück.`;
@@ -100,11 +100,19 @@ const processDesignerFlow = ai.defineFlow(
   async (input) => {
     const config = await getActiveAiConfig(input.dataSource as DataSource);
     const historyString = (input.chatHistory || []).map(h => `${h.role}: ${h.text}`).join('\n');
+    
+    // Zähle Nutzer-Nachrichten, um Phase 1 zu erzwingen
+    const userMessageCount = (input.chatHistory || []).filter(h => h.role === 'user').length;
+    const patienceInstruction = userMessageCount < 5 
+      ? "HINWEIS: Du bist in Phase 1. Stelle nur Fragen. Schlage noch KEINE ADD_NODE/UPDATE_NODE Operationen vor, außer UPDATE_PROCESS_META für die Fragenliste."
+      : "HINWEIS: Du kannst nun in Phase 2 übergehen und das Modell aktiv mitgestalten.";
+
     const systemPromptPopulated = SYSTEM_PROMPT
-      .replace('{{{companyContext}}}', config?.systemPrompt || "Keine spezifischen Infos.")
       .replace('{{{openQuestions}}}', input.openQuestions || "Keine offenen Fragen im Stammblatt.");
 
-    const prompt = `AKTUELLER MODELL-ZUSTAND: 
+    const prompt = `${patienceInstruction}
+
+AKTUELLER MODELL-ZUSTAND: 
 ${JSON.stringify(input.currentModel, null, 2)}
 
 CHAT-VERLAUF:
@@ -112,7 +120,7 @@ ${historyString}
 
 AKTUELLE NACHRICHT VOM NUTZER: "${input.userMessage}"
 
-Bitte antworte im JSON-Format. Nutze die 'proposedOps' um das Stammblatt (openQuestions) zu füllen, falls noch Informationen fehlen.`;
+Bitte antworte im JSON-Format. Pflege die 'openQuestions' im Stammblatt mit UPDATE_PROCESS_META.`;
 
     if (config?.provider === 'openrouter') {
       const client = new OpenAI({ apiKey: config.openrouterApiKey || '', baseURL: 'https://openrouter.ai/api/v1' });

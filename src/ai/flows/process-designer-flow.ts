@@ -29,7 +29,7 @@ const ProcessDesignerOutputSchema = z.object({
   proposedOps: z.array(z.object({
     type: z.enum(['ADD_NODE', 'UPDATE_NODE', 'REMOVE_NODE', 'ADD_EDGE', 'UPDATE_EDGE', 'REMOVE_EDGE', 'UPDATE_LAYOUT', 'SET_ISO_FIELD', 'REORDER_NODES']),
     payload: z.any()
-  })).describe('Structured list of operations to modify the model.'),
+  })).describe('An array of individual operation objects. Each object MUST have a "type" string and a "payload" object. NO batching like "add_nodes" allowed.'),
   explanation: z.string().describe('Professional natural language explanation of what changed and why (in German).'),
   openQuestions: z.array(z.string()).describe('Questions to the user to clarify the process flow or compliance details.'),
 });
@@ -43,18 +43,63 @@ UNTERNEHMENS-KONTEXT:
 {{{companyContext}}}
 
 VERHALTENSREGELN:
-1. ASSISTENTEN-MODUS: Sei ein Partner. Verstehe den Prozess, indem du gezielte Fragen stellst. Stelle IMMER NUR EINE ODER ZWEI Fragen gleichzeitig, um den Nutzer nicht zu überfordern.
-2. KONTEXT: Beachte den bisherigen Chat-Verlauf. Wenn Informationen noch fehlen (z.B. Verantwortlichkeiten), frage danach, bevor du den Prozess abschließt.
-3. ISO 9001 ANALYSE: Achte auf Inputs, Outputs, Verantwortlichkeiten und Risiken. Wenn du diese erkennst, schlage vor, die entsprechenden Felder (SET_ISO_FIELD) zu befüllen.
-4. STRUKTUR: Erstelle klare BPMN-Strukturen. Nutze 'start', 'end', 'step' und 'decision'.
-5. OPERATIONEN: Wenn du Knoten hinzufügst oder änderst, gib ihnen immer sprechende Namen.
+1. ASSISTENTEN-MODUS: Sei ein Partner. Verstehe den Prozess, indem du gezielte Fragen stellst. Stelle IMMER NUR EINE ODER ZWEI Fragen gleichzeitig.
+2. KONTEXT: Beachte den bisherigen Chat-Verlauf.
+3. ISO 9001 ANALYSE: Extrahiere Inputs, Outputs, Verantwortlichkeiten und Risiken. Schlage SET_ISO_FIELD Operationen vor.
+4. STRUKTUR: Erstelle BPMN-ähnliche Strukturen mit 'start', 'end', 'step' und 'decision'.
+5. OPERATIONEN: Du MUSST das exakte Schema für 'proposedOps' einhalten. 
 
-ANTWORT-STRUKTUR:
-- explanation: Deine Analyse der aktuellen Situation und was du gerade tust (auf Deutsch).
-- proposedOps: Die technischen Änderungen am Modell.
-- openQuestions: Deine nächste Frage an den Nutzer, um den Prozess weiter zu verfeinern.
+WICHTIGE SYNTAX-REGELN:
+- Jede Operation benötigt die Felder 'type' (String) und 'payload' (Object).
+- Benutze NIEMALS 'action' anstelle von 'type'.
+- Erstelle für JEDEN neuen Knoten eine eigene 'ADD_NODE' Operation. KEINE Batch-Arrays wie 'nodes: [...]'.
+- 'payload' für 'ADD_NODE': { "node": { "id": string, "type": "step"|"decision"|"start"|"end", "title": string } }
+- 'payload' für 'SET_ISO_FIELD': { "field": "inputs"|"outputs"|"risks"|"evidence", "value": string }
 
-WICHTIG: Antworte IMMER im validen JSON-Format. Nutze explizit die JSON-Ausgabe.`;
+ANTWORT-FORMAT:
+Du MUSST eine valide JSON-Antwort liefern.`;
+
+/**
+ * Normalisiert die KI-Ausgabe, falls das Modell Batch-Operationen oder falsche Keys verwendet.
+ */
+function normalizeOps(rawOps: any[]): any[] {
+  if (!Array.isArray(rawOps)) return [];
+  const normalized: any[] = [];
+
+  rawOps.forEach(op => {
+    let type = op.type || op.action;
+    if (typeof type !== 'string') return;
+    
+    type = type.toUpperCase();
+    
+    // Batch-Handling für 'add_nodes' oder 'nodes' Arrays
+    if ((type === 'ADD_NODES' || type === 'ADD_NODE') && Array.isArray(op.nodes)) {
+      op.nodes.forEach((n: any) => normalized.push({ type: 'ADD_NODE', payload: { node: n } }));
+    } 
+    // Batch-Handling für 'add_edges' oder 'edges' Arrays
+    else if ((type === 'ADD_EDGES' || type === 'ADD_EDGE') && Array.isArray(op.edges)) {
+      op.edges.forEach((e: any) => normalized.push({ 
+        type: 'ADD_EDGE', 
+        payload: { edge: { id: e.id || `e-${Math.random().toString(36).substr(2,5)}`, source: e.source || e.from, target: e.target || e.to, label: e.label || '' } } 
+      }));
+    }
+    // Handling für 'set_iso_fields' mit Objekt-Payload
+    else if ((type === 'SET_ISO_FIELDS' || type === 'SET_ISO_FIELD') && op.fields && typeof op.fields === 'object') {
+      Object.entries(op.fields).forEach(([f, v]) => {
+        normalized.push({ type: 'SET_ISO_FIELD', payload: { field: f, value: Array.isArray(v) ? v.join(', ') : String(v) } });
+      });
+    }
+    // Standard-Fall
+    else {
+      normalized.push({
+        type: type === 'ADD_NODES' ? 'ADD_NODE' : type,
+        payload: op.payload || op
+      });
+    }
+  });
+
+  return normalized;
+}
 
 /**
  * The main Flow definition for Process Designer.
@@ -73,7 +118,6 @@ const processDesignerFlow = ai.defineFlow(
       .join('\n');
 
     const companyContext = config?.systemPrompt || "Keine spezifischen Unternehmensinformationen hinterlegt.";
-    
     const systemPromptPopulated = SYSTEM_PROMPT.replace('{{{companyContext}}}', companyContext);
 
     const prompt = `CHAT-VERLAUF:
@@ -104,8 +148,11 @@ MODELL-ZUSTAND (JSON): ${JSON.stringify(input.currentModel)}`;
       });
 
       const content = response.choices[0].message.content;
-      if (!content) throw new Error('AI lieferte leere Antwort via OpenRouter.');
-      return JSON.parse(content) as ProcessDesignerOutput;
+      if (!content) throw new Error('AI lieferte leere Antwort.');
+      
+      const parsed = JSON.parse(content);
+      parsed.proposedOps = normalizeOps(parsed.proposedOps);
+      return parsed as ProcessDesignerOutput;
     }
 
     // Standard Genkit handling
@@ -121,6 +168,9 @@ MODELL-ZUSTAND (JSON): ${JSON.stringify(input.currentModel)}`;
     });
 
     if (!output) throw new Error('AI lieferte keine strukturierte Antwort.');
+    
+    // Auch bei Standard-Modellen normalisieren wir zur Sicherheit
+    output.proposedOps = normalizeOps(output.proposedOps);
     return output;
   }
 );
@@ -135,8 +185,8 @@ export async function getProcessSuggestions(input: any): Promise<ProcessDesigner
     console.error("Process AI Error:", error);
     return {
       proposedOps: [],
-      explanation: `Fehler bei der KI-Analyse: ${error.message || "Unbekannter Fehler"}. Bitte prüfen Sie die Verbindung zum Provider.`,
-      openQuestions: ["Können Sie die Anweisung bitte wiederholen?"]
+      explanation: `KI-Analyse unterbrochen: ${error.message || "Strukturfehler"}. Bitte versuchen Sie die Anweisung konkreter zu formulieren.`,
+      openQuestions: ["Können Sie die letzte Anweisung bitte wiederholen?"]
     };
   }
 }

@@ -148,14 +148,14 @@ export default function ProcessDesignerPage() {
   const [newEdgeTargetId, setNewEdgeTargetId] = useState<string>('');
   const [newEdgeLabel, setNewEdgeLabel] = useState<string>('');
 
-  const { data: processes, isLoading: isProcLoading } = usePluggableCollection<Process>('processes');
-  const { data: versions, isLoading: isVerLoading, refresh: refreshVersion } = usePluggableCollection<ProcessVersion>('process_versions');
+  const { data: processes, isLoading: isProcLoading } = usePluggableCollection<any>('processes');
+  const { data: versions, isLoading: isVerLoading, refresh: refreshVersion } = usePluggableCollection<any>('process_versions');
   
-  const currentProcess = useMemo(() => processes?.find(p => p.id === id), [processes, id]);
-  const currentVersion = useMemo(() => versions?.find(v => v.process_id === id), [versions, id]);
+  const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id), [processes, id]);
+  const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
 
   const selectedNode = useMemo(() => 
-    currentVersion?.model_json.nodes.find(n => n.id === selectedNodeId), 
+    currentVersion?.model_json?.nodes?.find((n: any) => n.id === selectedNodeId), 
     [currentVersion, selectedNodeId]
   );
 
@@ -179,7 +179,7 @@ export default function ProcessDesignerPage() {
     } else {
       setLocalNodeEdits({ id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '' });
     }
-  }, [selectedNodeId]); // Only trigger when the selection changes, not on content changes
+  }, [selectedNodeId]);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -199,7 +199,7 @@ export default function ProcessDesignerPage() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [mounted, currentVersion?.id]); // Use ID to prevent unnecessary re-binds
+  }, [mounted, currentVersion?.id]);
 
   const syncDiagramToModel = () => {
     if (!iframeRef.current || !currentVersion) return;
@@ -212,7 +212,7 @@ export default function ProcessDesignerPage() {
   };
 
   const handleApplyOps = async (ops: any[]) => {
-    if (!currentVersion || !user) return;
+    if (!currentVersion || !user || !ops.length) return;
     setIsApplying(true);
     try {
       const res = await applyProcessOpsAction(
@@ -238,7 +238,6 @@ export default function ProcessDesignerPage() {
     if (!selectedNodeId) return;
     const value = localNodeEdits[field as keyof typeof localNodeEdits];
     
-    // Check if anything actually changed compared to the underlying model
     const serverVal = selectedNode ? (field === 'checklist' ? (selectedNode.checklist || []).join('\n') : (selectedNode as any)[field] || '') : '';
     if (value === serverVal) return;
 
@@ -277,7 +276,7 @@ export default function ProcessDesignerPage() {
   const handleMoveNode = async (nodeId: string, direction: 'up' | 'down') => {
     if (!currentVersion) return;
     const nodes = [...currentVersion.model_json.nodes];
-    const index = nodes.findIndex(n => n.id === nodeId);
+    const index = nodes.findIndex((n: any) => n.id === nodeId);
     if (index === -1) return;
     
     const newIndex = direction === 'up' ? index - 1 : index + 1;
@@ -366,13 +365,13 @@ export default function ProcessDesignerPage() {
     const p = op.payload;
     if (type === 'ADD_NODE') return `Neu: ${p.node?.title || 'Schritt'}`;
     if (type === 'UPDATE_NODE') {
-      const node = currentVersion?.model_json.nodes.find(n => n.id === p.nodeId);
+      const node = currentVersion?.model_json?.nodes?.find((n: any) => n.id === p.nodeId);
       return `Update: ${node?.title || p.nodeId}`;
     }
     if (type === 'SET_ISO_FIELD') return `ISO Feld: ${p.field}`;
     if (type === 'ADD_EDGE') return `Verbindung: ${p.edge?.label || 'Pfeil'}`;
     if (type === 'UPDATE_LAYOUT') return "Anordnung optimiert";
-    return type.replace('_', ' ');
+    return String(type).replace('_', ' ');
   };
 
   if (!mounted) return null;
@@ -401,7 +400,6 @@ export default function ProcessDesignerPage() {
 
   return (
     <div className="h-[calc(100vh-120px)] flex flex-col -m-8 overflow-hidden bg-slate-100 font-body">
-      {/* PROFESSIONAL HEADER */}
       <header className="h-16 border-b bg-slate-900 text-white flex items-center justify-between px-6 shrink-0 z-20 shadow-lg">
         <div className="flex items-center gap-6">
           <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-9 w-9 text-slate-400 hover:text-white hover:bg-white/10 rounded-none">
@@ -442,18 +440,17 @@ export default function ProcessDesignerPage() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* LEFT PANE: Work Instructions */}
         <aside className="w-[500px] border-r flex flex-col bg-white shadow-xl z-10 overflow-hidden">
           <Tabs defaultValue="instructions" className="flex-1 flex flex-col min-h-0">
             <div className="px-4 border-b bg-slate-50 shrink-0">
               <TabsList className="h-14 bg-transparent gap-6 p-0 w-full justify-start">
-                <TabsTrigger value="instructions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                <TabsTrigger value="instructions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
                   <ClipboardList className="w-3.5 h-3.5" /> Arbeitshilfe
                 </TabsTrigger>
-                <TabsTrigger value="compliance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                <TabsTrigger value="compliance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
                   <ShieldCheck className="w-3.5 h-3.5" /> ISO 9001
                 </TabsTrigger>
-                <TabsTrigger value="flow" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                <TabsTrigger value="flow" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
                   <GitBranch className="w-3.5 h-3.5" /> Flow
                 </TabsTrigger>
               </TabsList>
@@ -471,7 +468,7 @@ export default function ProcessDesignerPage() {
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      {(currentVersion.model_json.nodes || []).map((node: ProcessNode, idx: number) => (
+                      {(currentVersion.model_json?.nodes || []).map((node: any, idx: number) => (
                         <div 
                           key={node.id} 
                           className={cn(
@@ -484,7 +481,7 @@ export default function ProcessDesignerPage() {
                             <Button variant="ghost" size="icon" className="h-5 w-5 rounded-none" disabled={idx === 0} onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'up'); }}>
                               <ChevronUp className="w-3 h-3" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-5 w-5 rounded-none" disabled={idx === currentVersion.model_json.nodes.length - 1} onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'down'); }}>
+                            <Button variant="ghost" size="icon" className="h-5 w-5 rounded-none" disabled={idx === (currentVersion.model_json?.nodes || []).length - 1} onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'down'); }}>
                               <ChevronDown className="w-3 h-3" />
                             </Button>
                           </div>
@@ -623,7 +620,7 @@ export default function ProcessDesignerPage() {
                           <field.icon className="w-3 h-3 text-emerald-600" /> {field.label}
                         </Label>
                         <Textarea 
-                          defaultValue={currentVersion.model_json.isoFields?.[field.id] || ''}
+                          defaultValue={currentVersion.model_json?.isoFields?.[field.id] || ''}
                           placeholder={field.desc}
                           className="text-xs rounded-none min-h-[100px] bg-white border-2 border-slate-100 focus:border-emerald-500 leading-relaxed p-3"
                           onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: field.id, value: e.target.value } }])}
@@ -644,7 +641,7 @@ export default function ProcessDesignerPage() {
                         <Select value={selectedNodeId || ''} onValueChange={setSelectedNodeId}>
                           <SelectTrigger className="h-9 text-[10px] rounded-none bg-white border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                           <SelectContent className="rounded-none">
-                            {currentVersion.model_json.nodes.map(n => <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>)}
+                            {(currentVersion.model_json?.nodes || []).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
@@ -653,7 +650,7 @@ export default function ProcessDesignerPage() {
                         <Select value={newEdgeTargetId} onValueChange={setNewEdgeTargetId}>
                           <SelectTrigger className="h-9 text-[10px] rounded-none bg-white border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                           <SelectContent className="rounded-none">
-                            {currentVersion.model_json.nodes.filter(n => n.id !== selectedNodeId).map(n => <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>)}
+                            {(currentVersion.model_json?.nodes || []).filter((n: any) => n.id !== selectedNodeId).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
@@ -669,9 +666,9 @@ export default function ProcessDesignerPage() {
 
                   <div className="space-y-2">
                     <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Aktive Verbindungen</h4>
-                    {(currentVersion.model_json.edges || []).map(edge => {
-                      const source = currentVersion.model_json.nodes.find(n => n.id === edge.source);
-                      const target = currentVersion.model_json.nodes.find(n => n.id === edge.target);
+                    {(currentVersion.model_json?.edges || []).map((edge: any) => {
+                      const source = currentVersion.model_json?.nodes?.find((n: any) => n.id === edge.source);
+                      const target = currentVersion.model_json?.nodes?.find((n: any) => n.id === edge.target);
                       return (
                         <div key={edge.id} className="flex items-center justify-between p-2 bg-white border text-[10px] font-bold group">
                           <div className="flex items-center gap-2 truncate">
@@ -691,7 +688,6 @@ export default function ProcessDesignerPage() {
           </Tabs>
         </aside>
 
-        {/* MIDDLE PANE: Diagramming Area */}
         <main className="flex-1 relative bg-slate-200 flex flex-col p-4 overflow-hidden">
           <div className="absolute top-8 right-8 z-10 flex flex-col gap-2">
              <div className="bg-white/90 backdrop-blur shadow-xl border p-1 rounded-none flex flex-col gap-1">
@@ -716,7 +712,6 @@ export default function ProcessDesignerPage() {
           </div>
         </main>
 
-        {/* RIGHT PANE: AI Co-Pilot Chat */}
         <aside className="w-[380px] border-l flex flex-col bg-slate-50 shadow-2xl z-10 overflow-hidden">
           <div className="p-5 border-b bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
@@ -779,7 +774,7 @@ export default function ProcessDesignerPage() {
                             {msg.suggestions.map((op: any, opIdx: number) => (
                               <div key={opIdx} className="text-[9px] p-1.5 bg-white border border-blue-100 flex items-center gap-2">
                                 <div className="w-1 h-1 rounded-full bg-blue-500" />
-                                <span className="font-black text-slate-400 uppercase shrink-0">{op.type.replace('_', ' ')}:</span>
+                                <span className="font-black text-slate-400 uppercase shrink-0">{String(op.type).replace('_', ' ')}:</span>
                                 <span className="truncate font-bold text-slate-700">
                                   {getOpTitle(op)}
                                 </span>
@@ -797,7 +792,6 @@ export default function ProcessDesignerPage() {
                               Anwenden
                             </button>
                             <button 
-                              variant="outline" 
                               onClick={() => {
                                 const newHistory = [...chatHistory];
                                 newHistory[i].suggestions = [];

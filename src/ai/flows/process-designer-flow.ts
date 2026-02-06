@@ -1,7 +1,9 @@
 
 'use server';
 /**
- * @fileOverview AI Flow for Process Vibecoding.
+ * @fileOverview AI Flow for Process Vibecoding (Expert BPMN Architect).
+ * 
+ * - getProcessSuggestions - Analyzes user natural language and returns structured BPMN ops.
  */
 
 import { ai } from '@/ai/genkit';
@@ -19,36 +21,45 @@ const ProcessDesignerInputSchema = z.object({
 
 const ProcessDesignerOutputSchema = z.object({
   proposedOps: z.array(z.object({
-    type: z.enum(['ADD_NODE', 'UPDATE_NODE', 'REMOVE_NODE', 'ADD_EDGE', 'UPDATE_EDGE', 'REMOVE_EDGE', 'UPDATE_LAYOUT']),
+    type: z.enum(['ADD_NODE', 'UPDATE_NODE', 'REMOVE_NODE', 'ADD_EDGE', 'UPDATE_EDGE', 'REMOVE_EDGE', 'UPDATE_LAYOUT', 'SET_ISO_FIELD']),
     payload: z.any()
   })).describe('Structured list of operations to modify the model.'),
-  explanation: z.string().describe('Natural language explanation of what changed and why.'),
+  explanation: z.string().describe('Professional natural language explanation of what changed and why (in German).'),
   openQuestions: z.array(z.string()).describe('Questions to the user to clarify the process flow.'),
 });
 
 export type ProcessDesignerOutput = z.infer<typeof ProcessDesignerOutputSchema>;
 
-const SYSTEM_PROMPT = `You are an expert BPMN Process Architect and ISO 9001 Consultant.
-Your task is to translate user instructions into structural patches for a semantic process model.
+const SYSTEM_PROMPT = `You are a world-class BPMN Process Architect and ISO 9001:2015 Lead Auditor.
+Your task is to translate user instructions into high-quality semantic model patches for business processes.
 
-NODE TYPES:
-- 'start': Circle, green. Use once at the beginning.
-- 'end': Circle, red. Use at the end points.
-- 'step': Rectangle. Normal activity.
-- 'decision': Rhombus. Branching point (e.g., "Approval successful?").
+LOGIC RULES:
+1. NODE TYPES:
+   - 'start': Use exactly once. Circle, green.
+   - 'end': Use for process outcomes. Circle, red.
+   - 'step': For standard activities. Rectangle. Must have a 'title' and ideally a 'roleId'.
+   - 'decision': For branching logic. Rhombus.
 
-EDGE LOGIC:
-- Always connect nodes using ADD_EDGE { edge: { id, source, target, label } }.
-- For decisions, always provide at least two outgoing edges with labels like "Ja" and "Nein".
+2. EDGE RULES:
+   - Always connect new nodes using ADD_EDGE.
+   - Every edge from a 'decision' node MUST have a 'label' (e.g., "Ja", "Nein", "Gültig").
+   - Use orthogonal routing logic (edges follow a grid).
 
-STRATEGY:
-1. When the user describes a process, identify the nodes and the flow (edges).
-2. If branching occurs, use a 'decision' node.
-3. Automatically suggest logical coordinates in UPDATE_LAYOUT (Grid based, steps of 200px horizontal, 150px vertical).
-4. Do not overwrite the entire model unless requested. Only propose minimal changes (ADD/UPDATE).
-5. Always maintain a logical path from 'start' to an 'end' node.
+3. LAYOUT STRATEGY (CRITICAL):
+   - You MUST provide UPDATE_LAYOUT operations for every node you touch or add.
+   - Use a 200px horizontal grid and 150px vertical grid.
+   - Start node typically at {x: 50, y: 200}.
+   - Flow moves primarily left-to-right.
+   - Avoid overlapping nodes.
 
-JSON ONLY RESPONSE. Use German for titles and explanations.`;
+4. SEMANTIC INTEGRITY:
+   - If the user mentions a role, set the 'roleId' in the node properties.
+   - If the user describes inputs/outputs, use SET_ISO_FIELD.
+
+RESPONSE FORMAT:
+- You must return valid JSON only.
+- Language: German (Titles, Labels, Explanations).
+- Be precise, minimal, and structural. Don't rewrite the whole model if a partial update is enough.`;
 
 const processDesignerFlow = ai.defineFlow(
   {
@@ -60,7 +71,7 @@ const processDesignerFlow = ai.defineFlow(
     const config = await getActiveAiConfig(input.dataSource as DataSource);
     
     const prompt = `Nutzer-Anweisung: "${input.userMessage}"
-Aktueller Modell-Zustand: ${JSON.stringify(input.currentModel)}
+Aktueller Modell-Zustand (JSON): ${JSON.stringify(input.currentModel)}
 Zusätzlicher Kontext: ${input.context || 'Keiner'}`;
 
     if (config?.provider === 'openrouter') {
@@ -106,8 +117,8 @@ export async function getProcessSuggestions(input: any): Promise<ProcessDesigner
     console.error("Process AI Error:", error);
     return {
       proposedOps: [],
-      explanation: "Fehler bei der KI-Generierung. Bitte Verbindung prüfen.",
-      openQuestions: ["Können Sie die Nachricht erneut senden?"]
+      explanation: "Ein Fehler ist bei der KI-Analyse aufgetreten. Bitte prüfen Sie die Verbindung.",
+      openQuestions: ["Können Sie die Anweisung bitte wiederholen?"]
     };
   }
 }

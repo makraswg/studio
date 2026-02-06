@@ -25,7 +25,13 @@ import {
   RefreshCw, 
   Sparkles, 
   GitBranch, 
-  Link as LinkIcon 
+  Link as LinkIcon,
+  Search,
+  Settings2,
+  Terminal,
+  Activity,
+  FileCode,
+  Box
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,23 +63,23 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   nodes.forEach(node => {
     const pos = positions[node.id] || { x: 100, y: 100 };
     let style = '';
-    let w = 120, h = 60;
+    let w = 140, h = 70;
 
     switch (node.type) {
       case 'start':
-        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;';
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;strokeWidth=2;';
         w = 60; h = 60;
         break;
       case 'end':
-        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;strokeWidth=2;';
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;strokeWidth=3;';
         w = 60; h = 60;
         break;
       case 'decision':
-        style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;';
-        w = 80; h = 80;
+        style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;';
+        w = 100; h = 100;
         break;
       default:
-        style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#f5f5f5;strokeColor=#666666;';
+        style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=1.5;shadow=1;';
     }
     
     xml += `<mxCell id="${node.id}" value="${node.title}" style="${style}" vertex="1" parent="1">
@@ -82,7 +88,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   });
 
   edges.forEach(edge => {
-    xml += `<mxCell id="${edge.id}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" parent="1" source="${edge.source}" target="${edge.target}">
+    xml += `<mxCell id="${edge.id}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=10;fontColor=#475569;" edge="1" parent="1" source="${edge.source}" target="${edge.target}">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>`;
   });
@@ -121,7 +127,6 @@ export default function ProcessDesignerPage() {
     [currentVersion, selectedNodeId]
   );
 
-  // Synchronize local edits when node selection changes
   useEffect(() => {
     if (selectedNode) {
       setLocalNodeEdits({
@@ -188,8 +193,6 @@ export default function ProcessDesignerPage() {
   const saveNodeUpdate = async (field: string) => {
     if (!selectedNodeId) return;
     const value = localNodeEdits[field as keyof typeof localNodeEdits];
-    
-    // Check if value actually changed to avoid redundant ops
     if (selectedNode && selectedNode[field as keyof ProcessNode] === value) return;
 
     const ops = [{
@@ -225,6 +228,7 @@ export default function ProcessDesignerPage() {
   const handleAiChat = async () => {
     if (!chatMessage.trim() || !currentVersion) return;
     setIsAiLoading(true);
+    setAiSuggestions(null);
     try {
       const suggestions = await getProcessSuggestions({
         userMessage: chatMessage,
@@ -246,7 +250,7 @@ export default function ProcessDesignerPage() {
     try {
       const res = await publishToBookStackAction(currentProcess.id, currentVersion.version, "", dataSource);
       if (res.success) {
-        toast({ title: "Veröffentlicht!", description: `In BookStack verfügbar unter ID ${res.pageId}` });
+        toast({ title: "Veröffentlicht!", description: `In BookStack verfügbar.` });
       }
     } catch (e: any) {
       toast({ variant: "destructive", title: "Export Fehler", description: e.message });
@@ -261,7 +265,7 @@ export default function ProcessDesignerPage() {
     return (
       <div className="flex flex-col h-[80vh] items-center justify-center gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary" />
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Lade Prozess-Modell...</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Initialisiere Modellier-Umgebung...</p>
       </div>
     );
   }
@@ -272,59 +276,70 @@ export default function ProcessDesignerPage() {
         <Alert variant="destructive" className="rounded-none border-2">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle className="text-sm font-bold uppercase">Prozess nicht gefunden</AlertTitle>
-          <AlertDescription className="text-xs">Der angeforderte Prozess existiert nicht.</AlertDescription>
+          <AlertDescription className="text-xs">Das Modell konnte nicht geladen werden.</AlertDescription>
         </Alert>
-        <Button onClick={() => router.push('/processhub')} className="mt-4 rounded-none uppercase text-[10px] font-bold">Zurück</Button>
+        <Button onClick={() => router.push('/processhub')} className="mt-4 rounded-none uppercase text-[10px] font-bold">Zurück zur Übersicht</Button>
       </div>
     );
   }
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col -m-8 overflow-hidden bg-background">
-      {/* HEADER */}
-      <div className="h-14 border-b bg-card flex items-center justify-between px-6 shrink-0 shadow-sm z-10">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-8 w-8">
-            <ChevronLeft className="w-5 h-5" />
+    <div className="h-[calc(100vh-120px)] flex flex-col -m-8 overflow-hidden bg-slate-50">
+      {/* PROFESSIONAL HEADER */}
+      <header className="h-16 border-b bg-slate-900 text-white flex items-center justify-between px-6 shrink-0 z-20 shadow-lg">
+        <div className="flex items-center gap-6">
+          <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-9 w-9 text-slate-400 hover:text-white hover:bg-white/10 rounded-none">
+            <ChevronLeft className="w-6 h-6" />
           </Button>
-          <Separator orientation="vertical" className="h-6" />
-          <div>
-            <h2 className="font-bold text-sm uppercase tracking-wider">{currentProcess.title}</h2>
-            <div className="flex items-center gap-2 text-[9px] text-muted-foreground uppercase font-black">
-              <Badge variant="outline" className="rounded-none text-[8px] h-4 bg-muted/30">V{currentVersion.version}</Badge>
-              <span>Revision {currentVersion.revision}</span>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-3">
+              <h2 className="font-bold text-base tracking-tight">{currentProcess.title}</h2>
+              <Badge className="bg-blue-600 rounded-none text-[8px] font-black uppercase tracking-widest px-2 h-4">Revision {currentVersion.revision}</Badge>
+            </div>
+            <div className="flex items-center gap-2 text-[9px] text-slate-400 font-bold uppercase mt-0.5">
+              <Activity className="w-2.5 h-2.5" />
+              <span>Status: {currentProcess.status}</span>
+              <span className="mx-1">•</span>
+              <RefreshCw className="w-2.5 h-2.5" />
+              <span>V{currentVersion.version}.0</span>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="rounded-none h-8 text-[9px] font-bold uppercase" onClick={syncDiagramToModel}>
-            <RefreshCw className="w-3 h-3 mr-2" /> Sync UI
+        
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" className="rounded-none h-9 text-[10px] font-bold uppercase border-slate-700 bg-transparent text-slate-300 hover:bg-slate-800" onClick={syncDiagramToModel}>
+            <RefreshCw className="w-3.5 h-3.5 mr-2" /> Diagramm Sync
           </Button>
-          <Button size="sm" className="rounded-none h-8 text-[9px] font-bold uppercase bg-emerald-600 hover:bg-emerald-700" onClick={handlePublish} disabled={isPublishing}>
-            {isPublishing ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <BookOpen className="w-3 h-3 mr-2" />}
-            Publish
+          <Separator orientation="vertical" className="h-6 bg-slate-700 mx-1" />
+          <Button size="sm" className="rounded-none h-9 text-[10px] font-bold uppercase bg-emerald-600 hover:bg-emerald-700 text-white px-6 gap-2" onClick={handlePublish} disabled={isPublishing}>
+            {isPublishing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
+            Publish to BookStack
           </Button>
         </div>
-      </div>
+      </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* LEFT PANE: Steps & Connections */}
-        <aside className="w-[380px] border-r flex flex-col bg-slate-50/50 overflow-hidden">
+        {/* LEFT PANE: Semantic Steps */}
+        <aside className="w-[400px] border-r flex flex-col bg-white shadow-xl z-10 overflow-hidden">
           <Tabs defaultValue="nodes" className="flex-1 flex flex-col min-h-0">
-            <div className="px-4 border-b bg-white shrink-0">
-              <TabsList className="h-12 bg-transparent gap-4 p-0">
-                <TabsTrigger value="nodes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-black uppercase">Schritte</TabsTrigger>
-                <TabsTrigger value="edges" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-black uppercase">Verbindungen</TabsTrigger>
-                <TabsTrigger value="compliance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-black uppercase">ISO 9001</TabsTrigger>
+            <div className="px-4 border-b bg-slate-50 shrink-0">
+              <TabsList className="h-14 bg-transparent gap-6 p-0 w-full justify-start">
+                <TabsTrigger value="nodes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Logik</TabsTrigger>
+                <TabsTrigger value="edges" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Flows</TabsTrigger>
+                <TabsTrigger value="compliance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500">ISO 9001</TabsTrigger>
               </TabsList>
             </div>
 
             <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
               <ScrollArea className="flex-1">
-                <TabsContent value="nodes" className="m-0 p-4 space-y-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Button variant="outline" size="sm" className="flex-1 text-[8px] font-bold uppercase h-7 rounded-none" onClick={() => handleApplyOps([{ type: 'ADD_NODE', payload: { node: { id: `step-${Date.now()}`, type: 'step', title: 'Neuer Schritt' } } }])}>+ Schritt</Button>
-                    <Button variant="outline" size="sm" className="flex-1 text-[8px] font-bold uppercase h-7 rounded-none" onClick={() => handleApplyOps([{ type: 'ADD_NODE', payload: { node: { id: `dec-${Date.now()}`, type: 'decision', title: 'Entscheidung?' } } }])}>+ Verzweigung</Button>
+                <TabsContent value="nodes" className="m-0 p-5 space-y-6">
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <Button variant="outline" size="sm" className="text-[9px] font-bold uppercase h-9 rounded-none border-slate-200 hover:border-primary" onClick={() => handleApplyOps([{ type: 'ADD_NODE', payload: { node: { id: `step-${Date.now()}`, type: 'step', title: 'Neuer Schritt' } } }])}>
+                      <Plus className="w-3 h-3 mr-2" /> Schritt
+                    </Button>
+                    <Button variant="outline" size="sm" className="text-[9px] font-bold uppercase h-9 rounded-none border-slate-200 hover:border-primary" onClick={() => handleApplyOps([{ type: 'ADD_NODE', payload: { node: { id: `dec-${Date.now()}`, type: 'decision', title: 'Entscheidung?' } } }])}>
+                      <Plus className="w-3 h-3 mr-2" /> Split
+                    </Button>
                   </div>
 
                   <div className="space-y-2">
@@ -332,52 +347,60 @@ export default function ProcessDesignerPage() {
                       <div 
                         key={node.id} 
                         className={cn(
-                          "p-3 bg-white border transition-all cursor-pointer group relative",
-                          selectedNodeId === node.id ? "border-primary ring-1 ring-primary/20" : "border-slate-200 hover:border-slate-300"
+                          "p-4 bg-white border-2 transition-all cursor-pointer group relative shadow-sm",
+                          selectedNodeId === node.id ? "border-primary ring-4 ring-primary/5 bg-primary/5" : "border-slate-100 hover:border-slate-200"
                         )}
                         onClick={() => setSelectedNodeId(node.id)}
                       >
-                        <div className="flex items-center justify-between mb-1">
-                          <Badge variant="outline" className="text-[7px] font-black h-3.5 rounded-none uppercase">{node.type}</Badge>
-                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 text-red-500" onClick={(e) => { e.stopPropagation(); handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: node.id } }]); }}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            {node.type === 'decision' ? <GitBranch className="w-3 h-3 text-orange-500" /> : <Layers className="w-3 h-3 text-slate-400" />}
+                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{node.type}</span>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-red-500 hover:bg-red-50 rounded-none" onClick={(e) => { e.stopPropagation(); handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: node.id } }]); }}>
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
-                        <div className="font-bold text-xs">{node.title}</div>
+                        <div className="font-bold text-xs text-slate-800">{node.title}</div>
+                        {node.roleId && <div className="mt-2 text-[9px] font-black uppercase text-blue-600 flex items-center gap-1"><ShieldCheck className="w-2.5 h-2.5" /> {node.roleId}</div>}
                       </div>
                     ))}
                   </div>
 
                   {selectedNode && (
-                    <div className="mt-6 pt-6 border-t space-y-4 animate-in slide-in-from-left-2">
-                      <h3 className="text-[10px] font-black uppercase text-primary">Schritt Details</h3>
-                      <div className="space-y-3">
-                        <div className="space-y-1">
-                          <Label className="text-[9px] font-bold uppercase">Bezeichnung</Label>
+                    <div className="mt-8 pt-8 border-t-2 border-dashed space-y-5 animate-in slide-in-from-left-4 duration-300">
+                      <div className="flex items-center gap-2">
+                        <Edit3 className="w-4 h-4 text-primary" />
+                        <h3 className="text-[10px] font-black uppercase tracking-tighter text-slate-900">Element Konfiguration</h3>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-bold uppercase text-slate-500">Anzeigetext</Label>
                           <Input 
                             value={localNodeEdits.title} 
                             onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})}
                             onBlur={() => saveNodeUpdate('title')}
-                            className="h-8 text-xs rounded-none" 
+                            className="h-10 text-sm rounded-none border-2 focus:border-primary" 
                           />
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-[9px] font-bold uppercase">Rolle</Label>
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-bold uppercase text-slate-500">Verantwortliche Rolle</Label>
                           <Input 
                             value={localNodeEdits.roleId} 
                             onChange={e => setLocalNodeEdits({...localNodeEdits, roleId: e.target.value})}
                             onBlur={() => saveNodeUpdate('roleId')}
-                            placeholder="Verantwortlich..." 
-                            className="h-8 text-xs rounded-none" 
+                            placeholder="z.B. IT-Admin..." 
+                            className="h-10 text-sm rounded-none border-2 focus:border-primary" 
                           />
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-[9px] font-bold uppercase">Beschreibung</Label>
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-bold uppercase text-slate-500">Prozess-Anweisung (ISO Detail)</Label>
                           <Textarea 
                             value={localNodeEdits.description} 
                             onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})}
                             onBlur={() => saveNodeUpdate('description')}
-                            className="text-xs rounded-none min-h-[100px]" 
+                            placeholder="Detaillierte Handlungsanweisung für den Mitarbeiter..."
+                            className="text-sm rounded-none min-h-[140px] border-2 focus:border-primary leading-relaxed" 
                           />
                         </div>
                       </div>
@@ -385,129 +408,225 @@ export default function ProcessDesignerPage() {
                   )}
                 </TabsContent>
 
-                <TabsContent value="edges" className="m-0 p-4 space-y-6">
-                  <div className="p-4 bg-blue-50 border border-blue-100 rounded-none space-y-4">
-                    <h4 className="text-[10px] font-black uppercase text-blue-700">Neue Verbindung</h4>
-                    <div className="space-y-2">
-                      <Label className="text-[9px] font-bold uppercase">Von: {selectedNode?.title || 'Bitte Schritt wählen'}</Label>
-                      <Select value={newEdgeTargetId} onValueChange={setNewEdgeTargetId}>
-                        <SelectTrigger className="h-8 text-[10px] rounded-none"><SelectValue placeholder="Ziel wählen..." /></SelectTrigger>
-                        <SelectContent className="rounded-none">
-                          {currentVersion.model_json.nodes.filter(n => n.id !== selectedNodeId).map(n => (
-                            <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Input placeholder="Label (z.B. Ja / Nein)" value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-8 text-xs rounded-none" />
-                      <Button onClick={handleAddEdge} disabled={!selectedNodeId || !newEdgeTargetId} className="w-full h-8 text-[9px] font-bold uppercase rounded-none">Verknüpfen</Button>
+                <TabsContent value="edges" className="m-0 p-5 space-y-6">
+                  <div className="p-5 bg-slate-900 text-white rounded-none space-y-4 shadow-xl border-b-4 border-primary">
+                    <div className="flex items-center gap-2 text-primary">
+                      <Sparkles className="w-4 h-4 fill-current" />
+                      <h4 className="text-[10px] font-black uppercase tracking-widest">Routing definieren</h4>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <Label className="text-[8px] font-bold uppercase text-slate-400">Quelle (Selektiert)</Label>
+                        <div className="p-2 border border-slate-700 bg-slate-800 text-[10px] font-bold truncate">
+                          {selectedNode?.title || 'Bitte Element links wählen'}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[8px] font-bold uppercase text-slate-400">Ziel-Element</Label>
+                        <Select value={newEdgeTargetId} onValueChange={setNewEdgeTargetId}>
+                          <SelectTrigger className="h-9 text-[10px] rounded-none bg-slate-800 border-slate-700 text-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                          <SelectContent className="rounded-none">
+                            {currentVersion.model_json.nodes.filter(n => n.id !== selectedNodeId).map(n => (
+                              <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[8px] font-bold uppercase text-slate-400">Bedingung / Label</Label>
+                        <Input placeholder="z.B. Ja / Nein / Error" value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-9 text-xs rounded-none bg-slate-800 border-slate-700 text-white" />
+                      </div>
+                      <Button onClick={handleAddEdge} disabled={!selectedNodeId || !newEdgeTargetId} className="w-full h-10 text-[10px] font-black uppercase rounded-none bg-primary hover:bg-blue-600 mt-2">
+                        Verknüpfung erstellen
+                      </Button>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <h4 className="text-[10px] font-black uppercase text-slate-400">Aktive Verbindungen</h4>
-                    {(currentVersion.model_json.edges || []).map((edge: ProcessEdge) => {
-                      const source = currentVersion.model_json.nodes.find(n => n.id === edge.source);
-                      const target = currentVersion.model_json.nodes.find(n => n.id === edge.target);
-                      return (
-                        <div key={edge.id} className="p-2 border bg-white flex items-center justify-between group">
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-bold truncate">{source?.title} → {target?.title}</p>
-                            {edge.label && <Badge variant="outline" className="text-[7px] h-3.5 rounded-none">{edge.label}</Badge>}
+                  <div className="space-y-3">
+                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
+                      <GitBranch className="w-3 h-3" /> Bestehende Abhängigkeiten
+                    </h4>
+                    <div className="grid grid-cols-1 gap-2">
+                      {(currentVersion.model_json.edges || []).map((edge: ProcessEdge) => {
+                        const source = currentVersion.model_json.nodes.find(n => n.id === edge.source);
+                        const target = currentVersion.model_json.nodes.find(n => n.id === edge.target);
+                        return (
+                          <div key={edge.id} className="p-3 border-2 border-slate-100 bg-white flex items-center justify-between group hover:border-slate-300 transition-all">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-700 truncate">
+                                <span>{source?.title}</span>
+                                <ArrowRight className="w-2.5 h-2.5 text-slate-300 shrink-0" />
+                                <span>{target?.title}</span>
+                              </div>
+                              {edge.label && <Badge variant="outline" className="text-[7px] font-black h-4 mt-1 rounded-none uppercase bg-slate-50 border-slate-200">{edge.label}</Badge>}
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 opacity-0 group-hover:opacity-100 rounded-none hover:bg-red-50" onClick={() => handleRemoveEdge(edge.id)}>
+                              <X className="w-4 h-4" />
+                            </Button>
                           </div>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 opacity-0 group-hover:opacity-100" onClick={() => handleRemoveEdge(edge.id)}><X className="w-3.5 h-3.5" /></Button>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 </TabsContent>
 
-                <TabsContent value="compliance" className="m-0 p-4 space-y-6">
-                  <div className="p-4 bg-slate-100 border rounded-none space-y-2">
-                    <h4 className="text-[10px] font-black uppercase text-slate-700">ISO 9001:2015 Konformität</h4>
-                    <p className="text-[9px] leading-relaxed text-slate-500">Definieren Sie Inputs, Outputs und Risiken für den Gesamtprozess.</p>
-                  </div>
-                  {['inputs', 'outputs', 'risks', 'evidence'].map(field => (
-                    <div key={field} className="space-y-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-slate-500">{field}</Label>
-                      <Textarea 
-                        defaultValue={currentVersion.model_json.isoFields?.[field] || ''}
-                        placeholder={`Ermittelte ${field}...`}
-                        className="text-xs rounded-none min-h-[120px] bg-white"
-                        onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field, value: e.target.value } }])}
-                      />
+                <TabsContent value="compliance" className="m-0 p-5 space-y-8">
+                  <div className="p-5 bg-emerald-50 border-2 border-emerald-100 rounded-none space-y-2">
+                    <div className="flex items-center gap-2 text-emerald-700">
+                      <ShieldCheck className="w-4 h-4" />
+                      <h4 className="text-[10px] font-black uppercase tracking-widest">ISO 9001 Konformität</h4>
                     </div>
-                  ))}
-                  <div className="h-8 shrink-0" />
+                    <p className="text-[9px] leading-relaxed text-emerald-600 font-medium">Definition von Wechselwirkungen, Ressourcen und Risiken gemäß prozessorientiertem Ansatz.</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-6">
+                    {[
+                      { id: 'inputs', label: 'Eingaben (Inputs)', icon: ArrowRight, desc: 'Informationen, Artefakte oder Trigger für den Prozess' },
+                      { id: 'outputs', label: 'Ergebnisse (Outputs)', icon: Check, desc: 'Produkte, Dienstleistungen oder Daten am Prozessende' },
+                      { id: 'risks', label: 'Risiken & Chancen', icon: AlertTriangle, desc: 'Was kann den Prozesserfolg gefährden?' },
+                      { id: 'evidence', label: 'Nachweise (Evidence)', icon: FileCode, desc: 'Dokumente zur Verifizierung der Ausführung' }
+                    ].map(field => (
+                      <div key={field.id} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-[10px] font-black uppercase text-slate-700 flex items-center gap-2">
+                            <field.icon className="w-3 h-3 text-emerald-600" /> {field.label}
+                          </Label>
+                        </div>
+                        <Textarea 
+                          defaultValue={currentVersion.model_json.isoFields?.[field.id] || ''}
+                          placeholder={field.desc}
+                          className="text-xs rounded-none min-h-[120px] bg-white border-2 border-slate-100 focus:border-emerald-500 leading-relaxed p-3"
+                          onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: field.id, value: e.target.value } }])}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="h-12 shrink-0" />
                 </TabsContent>
               </ScrollArea>
             </div>
           </Tabs>
         </aside>
 
-        {/* MIDDLE PANE: Diagram */}
-        <main className="flex-1 relative bg-white flex flex-col">
-          <iframe 
-            ref={iframeRef}
-            src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json"
-            className="absolute inset-0 w-full h-full border-none"
-          />
+        {/* MIDDLE PANE: Pro Canvas */}
+        <main className="flex-1 relative bg-slate-200 flex flex-col p-4">
+          <div className="absolute top-8 right-8 z-10 flex flex-col gap-2">
+             <div className="bg-white/90 backdrop-blur shadow-xl border p-1 rounded-none flex flex-col gap-1">
+                <TooltipProvider>
+                  {[
+                    { icon: RefreshCw, label: 'Reload', action: syncDiagramToModel },
+                    { icon: Box, label: 'Fit View', action: () => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({action: 'zoom', type: 'fit'}), '*') }
+                  ].map((btn, i) => (
+                    <Button key={i} variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-slate-100" onClick={btn.action}>
+                      <btn.icon className="w-4 h-4 text-slate-600" />
+                    </Button>
+                  ))}
+                </TooltipProvider>
+             </div>
+          </div>
+          <div className="flex-1 bg-white shadow-2xl border-2 border-slate-300 relative group overflow-hidden">
+            <iframe 
+              ref={iframeRef}
+              src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json"
+              className="absolute inset-0 w-full h-full border-none"
+            />
+          </div>
         </main>
 
-        {/* RIGHT PANE: AI Chat */}
-        <aside className="w-[350px] border-l flex flex-col bg-white overflow-hidden">
-          <div className="p-4 border-b bg-slate-900 text-white flex items-center justify-between shrink-0">
+        {/* RIGHT PANE: AI Architect Chat */}
+        <aside className="w-[380px] border-l flex flex-col bg-white shadow-2xl z-10 overflow-hidden">
+          <div className="p-5 border-b bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
-              <Zap className="w-4 h-4 text-primary fill-current" />
-              <span className="text-[10px] font-black uppercase tracking-widest block">AI Co-Pilot</span>
+              <div className="w-8 h-8 bg-blue-600 rounded-none flex items-center justify-center">
+                <Zap className="w-5 h-5 text-white fill-current" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] block text-blue-400">Process Co-Pilot</span>
+                <span className="text-[8px] font-bold text-slate-400 uppercase">AI-Vibecoding Active</span>
+              </div>
             </div>
-            <Badge className="bg-blue-600 rounded-none text-[8px] font-black h-4">VIBECODING</Badge>
+            <Badge className="bg-slate-800 text-slate-400 border-slate-700 rounded-none text-[8px] font-black h-5 uppercase px-2">BPMN Expert</Badge>
           </div>
 
-          <div className="flex-1 min-h-0 bg-slate-50/30 overflow-hidden flex flex-col">
+          <div className="flex-1 min-h-0 bg-slate-50/50 overflow-hidden flex flex-col">
             <ScrollArea className="flex-1">
-              <div className="p-4 space-y-6">
+              <div className="p-5 space-y-6">
                 {aiSuggestions ? (
-                  <div className="animate-in slide-in-from-bottom-2">
-                    <div className="p-4 bg-white border-2 border-blue-600 rounded-none shadow-xl space-y-4">
-                      <p className="text-[11px] italic text-slate-700 leading-relaxed">"{aiSuggestions.explanation}"</p>
-                      <div className="space-y-1 max-h-32 overflow-y-auto">
-                        {aiSuggestions.proposedOps.map((op, i) => (
-                          <div key={i} className="text-[9px] p-1 bg-slate-50 border flex items-center gap-2">
-                            <ArrowRight className="w-2.5 h-2.5 text-blue-500" />
-                            <span className="font-bold text-slate-600">{op.type}:</span>
-                            <span className="truncate">{op.payload.node?.title || op.payload.edge?.label || op.payload.nodeId || 'Layout Update'}</span>
-                          </div>
-                        ))}
+                  <div className="animate-in slide-in-from-bottom-4 duration-500">
+                    <div className="bg-white border-2 border-blue-600 rounded-none shadow-2xl overflow-hidden">
+                      <div className="p-4 bg-blue-600 text-white flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Architekt-Vorschlag</span>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-white hover:bg-white/20" onClick={() => setAiSuggestions(null)}>
+                          <X className="w-4 h-4" />
+                        </Button>
                       </div>
-                      <div className="flex gap-2">
-                        <Button onClick={() => handleApplyOps(aiSuggestions.proposedOps)} disabled={isApplying} className="flex-1 h-9 rounded-none bg-blue-600 hover:bg-blue-700 text-[10px] font-black uppercase">Übernehmen</Button>
-                        <Button variant="outline" onClick={() => setAiSuggestions(null)} className="h-9 w-9 p-0 rounded-none"><X className="w-4 h-4" /></Button>
+                      <div className="p-5 space-y-5">
+                        <p className="text-[11px] font-medium text-slate-700 leading-relaxed italic border-l-2 border-blue-100 pl-3">
+                          "{aiSuggestions.explanation}"
+                        </p>
+                        
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                          {aiSuggestions.proposedOps.map((op, i) => (
+                            <div key={i} className="text-[9px] p-2 bg-slate-50 border border-slate-100 flex items-center gap-3">
+                              <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                              <span className="font-black text-slate-500 uppercase min-w-[80px]">{op.type.replace('_', ' ')}:</span>
+                              <span className="truncate font-bold text-slate-700">{op.payload.node?.title || op.payload.edge?.label || op.payload.nodeId || 'Layout Update'}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex gap-2 pt-2">
+                          <Button onClick={() => handleApplyOps(aiSuggestions.proposedOps)} disabled={isApplying} className="flex-1 h-11 rounded-none bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase shadow-lg group">
+                            {isApplying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2 group-hover:scale-125 transition-transform" />}
+                            Modell aktualisieren
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-20 opacity-20">
-                    <MessageSquare className="w-12 h-12 mx-auto mb-4" />
-                    <p className="text-[10px] font-black uppercase tracking-widest px-8">Beschreiben Sie Prozess-Änderungen oder Verzweigungen...</p>
+                  <div className="text-center py-24 space-y-6 opacity-30">
+                    <div className="relative inline-block">
+                      <MessageSquare className="w-16 h-16 mx-auto text-slate-300" />
+                      <Sparkles className="w-6 h-6 absolute -top-2 -right-2 text-blue-500" />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900">Sprachsteuerung Aktiv</p>
+                      <p className="text-[9px] font-medium text-slate-500 px-12 leading-relaxed italic">
+                        "Erstelle eine Freigabeschleife nach Schritt X" oder "Ergänze ISO-Inputs für dieses Modell".
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
             </ScrollArea>
           </div>
 
-          <div className="p-4 border-t bg-white shrink-0">
-            <div className="flex gap-2">
+          <div className="p-5 border-t-2 border-slate-100 bg-white shrink-0 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
+            <div className="relative group">
               <Input 
-                placeholder="Anweisung..." 
+                placeholder="Anweisung an den Architekten..." 
                 value={chatMessage}
                 onChange={e => setChatMessage(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAiChat()}
-                className="h-11 rounded-none border-2 text-xs focus:ring-0 focus:border-slate-900 transition-all"
+                className="h-14 rounded-none border-2 border-slate-200 text-sm focus:border-slate-900 focus:ring-0 transition-all pl-4 pr-14 shadow-sm"
                 disabled={isAiLoading}
               />
-              <Button size="icon" className="h-11 w-11 shrink-0 rounded-none bg-slate-900" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
-                {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              <Button 
+                size="icon" 
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 shrink-0 rounded-none bg-slate-900 hover:bg-black text-white" 
+                onClick={handleAiChat} 
+                disabled={isAiLoading || !chatMessage}
+              >
+                {isAiLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
               </Button>
+            </div>
+            <div className="flex justify-between mt-3 px-1">
+               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Model: Gemini 2.0 Flash</span>
+               <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-1"><Terminal className="w-2 h-2" /> Real-time context active</span>
             </div>
           </div>
         </aside>

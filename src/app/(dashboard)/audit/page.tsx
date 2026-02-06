@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -35,6 +34,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSettings } from '@/context/settings-context';
+import { exportToExcel } from '@/lib/export-utils';
 
 export default function AuditLogPage() {
   const [mounted, setMounted] = useState(false);
@@ -86,6 +86,18 @@ export default function AuditLogPage() {
     );
   }, [auditLogs, search, activeTenantId]);
 
+  const handleExport = () => {
+    const data = filteredLogs.map(log => ({
+      'Zeitpunkt': new Date(log.timestamp).toLocaleString(),
+      'Mandant': log.tenantId || 'global',
+      'Akteur': log.actorUid,
+      'Aktion': log.action,
+      'Entität Typ': log.entityType,
+      'Entität ID': log.entityId
+    }));
+    exportToExcel(data, `AuditLog_${new Date().toISOString().split('T')[0]}`);
+  };
+
   if (!mounted) return null;
 
   return (
@@ -99,7 +111,7 @@ export default function AuditLogPage() {
           <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => refresh()}>
             <RefreshCw className="w-3.5 h-3.5 mr-2" /> Aktualisieren
           </Button>
-          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none">
+          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none border-primary/20 text-primary bg-primary/5" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" /> Exportieren
           </Button>
         </div>

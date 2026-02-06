@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -40,7 +39,8 @@ import {
   Calculator,
   AlertCircle,
   ChevronRight as ChevronRightIcon,
-  RotateCcw
+  RotateCcw,
+  Download
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -81,6 +81,7 @@ import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/comp
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { exportRisksExcel } from '@/lib/export-utils';
 
 function RiskDashboardContent() {
   const router = useRouter();
@@ -536,6 +537,9 @@ function RiskDashboardContent() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" className="h-10 font-bold uppercase text-[10px] rounded-none border-primary/20 text-primary bg-primary/5" onClick={() => exportRisksExcel(hierarchicalRisks, resources || [])}>
+            <Download className="w-4 h-4 mr-2" /> Excel Export
+          </Button>
           <Button variant="outline" onClick={() => router.push('/risks/catalog')} className="h-10 font-bold uppercase text-[10px] rounded-none px-6 border-blue-200 text-blue-700 bg-blue-50">
             <Library className="w-4 h-4 mr-2" /> Gefährdungskatalog
           </Button>

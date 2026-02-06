@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -18,7 +17,8 @@ import {
   ExternalLink,
   ShieldAlert,
   FileText,
-  UserCircle
+  UserCircle,
+  Table as TableIcon
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -30,7 +30,12 @@ import {
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { exportFullComplianceReportPdf } from '@/lib/export-utils';
+import { 
+  exportFullComplianceReportPdf, 
+  exportToExcel,
+  exportUsersExcel,
+  exportResourcesExcel
+} from '@/lib/export-utils';
 import { toast } from '@/hooks/use-toast';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -62,6 +67,7 @@ export default function DashboardPage() {
   const { data: entitlements } = usePluggableCollection<any>('entitlements');
   const { data: assignments, isLoading: assignmentsLoading } = usePluggableCollection<any>('assignments');
   const { data: auditLogs, isLoading: auditLoading } = usePluggableCollection<any>('auditEvents');
+  const { data: tenants } = usePluggableCollection<any>('tenants');
 
   useEffect(() => {
     setMounted(true);
@@ -78,22 +84,30 @@ export default function DashboardPage() {
     return { users: fUsers, resources: fResources, assignments: fAssignments };
   }, [users, resources, assignments, activeTenantId]);
 
-  const handleExport = async (mode: 'user' | 'resource') => {
+  const handleExport = async (format: 'pdf' | 'excel', mode: 'user' | 'resource') => {
     setIsExporting(true);
     try {
       const { users: fUsers, resources: fResources, assignments: fAssignments } = filteredData;
       
-      await exportFullComplianceReportPdf(
-        fUsers,
-        fResources,
-        entitlements || [],
-        fAssignments,
-        mode
-      );
+      if (format === 'pdf') {
+        await exportFullComplianceReportPdf(
+          fUsers,
+          fResources,
+          entitlements || [],
+          fAssignments,
+          mode
+        );
+      } else {
+        if (mode === 'user') {
+          await exportUsersExcel(fUsers, tenants || []);
+        } else {
+          await exportResourcesExcel(fResources);
+        }
+      }
       
       toast({ 
         title: "Bericht erstellt", 
-        description: `Der PDF-Bericht (nach ${mode === 'user' ? 'Benutzern' : 'Systemen'}) wurde generiert.` 
+        description: `Der ${format.toUpperCase()}-Bericht wurde generiert.` 
       });
       setIsReportDialogOpen(false);
     } catch (e: any) {
@@ -131,7 +145,7 @@ export default function DashboardPage() {
             onClick={() => setIsReportDialogOpen(true)}
           >
             <FileText className="w-3.5 h-3.5 mr-2 text-primary" />
-            Compliance Bericht
+            Compliance Berichte
           </Button>
         </div>
       </div>
@@ -227,44 +241,58 @@ export default function DashboardPage() {
 
       {/* Compliance Report Dialog */}
       <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
-        <DialogContent className="rounded-none max-w-md bg-card">
+        <DialogContent className="rounded-none max-w-2xl bg-card">
           <DialogHeader>
-            <DialogTitle className="text-sm font-bold uppercase">Compliance Bericht generieren</DialogTitle>
+            <DialogTitle className="text-sm font-bold uppercase">Compliance Berichte generieren</DialogTitle>
             <DialogDescription className="text-xs">
               Wählen Sie das Format und die Gruppierung für den detaillierten Audit-Bericht.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid grid-cols-1 gap-4 py-4">
-            <Button
-              variant="outline"
-              className="justify-start h-16 rounded-none border-primary/20 hover:border-primary hover:bg-primary/5 gap-4 bg-transparent"
-              onClick={() => handleExport('user')}
-              disabled={isExporting}
-            >
-              <div className="p-2 bg-primary/10 rounded-sm">
-                <UserCircle className="w-5 h-5 text-primary" />
-              </div>
-              <div className="text-left">
-                <p className="text-xs font-bold uppercase">PDF: Nach Benutzern</p>
-                <p className="text-[10px] text-muted-foreground">Alle aktiven Zugriffe pro Mitarbeiter aufgelistet.</p>
-              </div>
-            </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-black uppercase text-muted-foreground border-b pb-1">Identitäten (IAM)</h4>
+              <Button
+                variant="outline"
+                className="w-full justify-start h-14 rounded-none border-primary/20 hover:border-primary hover:bg-primary/5 gap-3 bg-transparent"
+                onClick={() => handleExport('pdf', 'user')}
+                disabled={isExporting}
+              >
+                <FileText className="w-4 h-4 text-primary" />
+                <span className="text-[10px] font-bold uppercase">PDF: Mitarbeiter-Bericht</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start h-14 rounded-none border-emerald-200 hover:border-emerald-500 hover:bg-emerald-50 gap-3 bg-transparent"
+                onClick={() => handleExport('excel', 'user')}
+                disabled={isExporting}
+              >
+                <TableIcon className="w-4 h-4 text-emerald-600" />
+                <span className="text-[10px] font-bold uppercase">Excel: Benutzerliste</span>
+              </Button>
+            </div>
 
-            <Button
-              variant="outline"
-              className="justify-start h-16 rounded-none border-primary/20 hover:border-primary hover:bg-primary/5 gap-4 bg-transparent"
-              onClick={() => handleExport('resource')}
-              disabled={isExporting}
-            >
-              <div className="p-2 bg-primary/10 rounded-sm">
-                <Layers className="w-5 h-5 text-primary" />
-              </div>
-              <div className="text-left">
-                <p className="text-xs font-bold uppercase">PDF: Nach Ressourcen</p>
-                <p className="text-[10px] text-muted-foreground">Alle berechtigten Personen pro IT-System.</p>
-              </div>
-            </Button>
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-black uppercase text-muted-foreground border-b pb-1">Systeme (Assets)</h4>
+              <Button
+                variant="outline"
+                className="w-full justify-start h-14 rounded-none border-primary/20 hover:border-primary hover:bg-primary/5 gap-3 bg-transparent"
+                onClick={() => handleExport('pdf', 'resource')}
+                disabled={isExporting}
+              ) : (
+                <FileText className="w-4 h-4 text-primary" />
+                <span className="text-[10px] font-bold uppercase">PDF: System-Bericht</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start h-14 rounded-none border-emerald-200 hover:border-emerald-500 hover:bg-emerald-50 gap-3 bg-transparent"
+                onClick={() => handleExport('excel', 'resource')}
+                disabled={isExporting}
+              >
+                <TableIcon className="w-4 h-4 text-emerald-600" />
+                <span className="text-[10px] font-bold uppercase">Excel: Ressourcenkatalog</span>
+              </Button>
+            </div>
           </div>
 
           <div className="p-3 bg-muted/20 border text-[9px] font-bold uppercase text-muted-foreground flex items-center gap-2">

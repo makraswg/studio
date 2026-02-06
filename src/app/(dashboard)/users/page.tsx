@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -29,7 +28,8 @@ import {
   Clock,
   UserPlus,
   Layers,
-  Shield
+  Shield,
+  Download
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -75,6 +75,7 @@ import { saveCollectionRecord, deleteCollectionRecord, promoteUserToAdminAction 
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { exportUsersExcel } from '@/lib/export-utils';
 
 export default function UsersPage() {
   const db = useFirestore();
@@ -349,6 +350,9 @@ export default function UsersPage() {
           <p className="text-sm text-muted-foreground">Zentrale Verwaltung der Identitäten für {activeTenantId === 'all' ? 'alle Firmen' : getTenantSlug(activeTenantId)}.</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none border-primary/20 text-primary bg-primary/5" onClick={() => exportUsersExcel(filteredUsers, tenants || [])}>
+            <Download className="w-3.5 h-3.5 mr-2" /> Excel Export
+          </Button>
           <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none border-blue-200 text-blue-700 bg-blue-50" onClick={handleLdapSync} disabled={isSyncing}>
             {isSyncing ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} LDAP & Gruppen Sync
           </Button>

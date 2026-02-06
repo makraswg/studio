@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -36,7 +35,8 @@ import {
   GitBranch,
   Copy,
   ArrowRight,
-  Clock
+  Clock,
+  Download
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -67,6 +67,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { exportGdprExcel } from '@/lib/export-utils';
 
 export default function GdprPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -204,9 +205,14 @@ export default function GdprPage() {
             <p className="text-sm text-muted-foreground mt-1">Verarbeitungsverzeichnis (VVT) gemäß Art. 30 DSGVO.</p>
           </div>
         </div>
-        <Button onClick={() => { setSelectedActivity(null); setIsDialogOpen(true); setVersion('1.0'); setResourceIds([]); }} className="h-10 font-bold uppercase text-[10px] rounded-none bg-emerald-600 hover:bg-emerald-700 text-white">
-          <Plus className="w-4 h-4 mr-2" /> Neue Tätigkeit erfassen
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="h-10 font-bold uppercase text-[10px] rounded-none border-primary/20 text-primary bg-primary/5" onClick={() => exportGdprExcel(filteredActivities)}>
+            <Download className="w-4 h-4 mr-2" /> Excel Export
+          </Button>
+          <Button onClick={() => { setSelectedActivity(null); setIsDialogOpen(true); setVersion('1.0'); setResourceIds([]); }} className="h-10 font-bold uppercase text-[10px] rounded-none bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Plus className="w-4 h-4 mr-2" /> Neue Tätigkeit erfassen
+          </Button>
+        </div>
       </div>
 
       <div className="relative">
@@ -428,7 +434,7 @@ export default function GdprPage() {
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
               <Button onClick={() => handleSave(false)} disabled={isSaving || !name} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white">
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Speichern
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4" />} Speichern
               </Button>
             </div>
           </DialogFooter>

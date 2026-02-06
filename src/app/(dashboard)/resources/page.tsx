@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -48,7 +47,8 @@ import {
   ClipboardList,
   ClipboardCheck,
   Archive,
-  RotateCcw
+  RotateCcw,
+  Download
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -106,6 +106,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
+import { exportResourcesExcel } from '@/lib/export-utils';
 
 export default function ResourcesPage() {
   const db = useFirestore();
@@ -352,6 +353,9 @@ export default function ResourcesPage() {
           <p className="text-sm text-muted-foreground">Compliance- & Risiko-Inventar für {activeTenantId === 'all' ? 'alle Firmen' : getTenantSlug(activeTenantId)}.</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[9px] rounded-none border-primary/20 text-primary bg-primary/5" onClick={() => exportResourcesExcel(filteredResources)}>
+            <Download className="w-3.5 h-3.5 mr-2" /> Excel Export
+          </Button>
           <Button variant="ghost" size="sm" className="h-9 font-bold uppercase text-[9px] rounded-none gap-2" onClick={() => setShowArchived(!showArchived)}>
             {showArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
             {showArchived ? 'Aktive anzeigen' : 'Archiv anzeigen'}

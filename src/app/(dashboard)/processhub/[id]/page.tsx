@@ -241,6 +241,8 @@ export default function ProcessDesignerPage() {
         toast({ title: "Stammdaten gespeichert" });
         refreshProc();
       }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler beim Speichern", description: e.message });
     } finally { setIsSavingMeta(false); }
   };
 

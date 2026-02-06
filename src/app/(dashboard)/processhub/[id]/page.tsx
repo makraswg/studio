@@ -106,6 +106,7 @@ export default function ProcessDesignerPage() {
   const [isPublishing, setIsPublishing] = useState(false);
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [localNodeEdits, setLocalNodeEdits] = useState<{title: string, roleId: string, description: string}>({ title: '', roleId: '', description: '' });
   const [newEdgeTargetId, setNewEdgeTargetId] = useState<string>('');
   const [newEdgeLabel, setNewEdgeLabel] = useState<string>('');
 
@@ -119,6 +120,17 @@ export default function ProcessDesignerPage() {
     currentVersion?.model_json.nodes.find(n => n.id === selectedNodeId), 
     [currentVersion, selectedNodeId]
   );
+
+  // Synchronize local edits when node selection changes
+  useEffect(() => {
+    if (selectedNode) {
+      setLocalNodeEdits({
+        title: selectedNode.title || '',
+        roleId: selectedNode.roleId || '',
+        description: selectedNode.description || ''
+      });
+    }
+  }, [selectedNodeId, selectedNode]);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -173,10 +185,16 @@ export default function ProcessDesignerPage() {
     }
   };
 
-  const updateNodeField = async (nodeId: string, field: string, value: any) => {
+  const saveNodeUpdate = async (field: string) => {
+    if (!selectedNodeId) return;
+    const value = localNodeEdits[field as keyof typeof localNodeEdits];
+    
+    // Check if value actually changed to avoid redundant ops
+    if (selectedNode && selectedNode[field as keyof ProcessNode] === value) return;
+
     const ops = [{
       type: 'UPDATE_NODE',
-      payload: { nodeId, patch: { [field]: value } }
+      payload: { nodeId: selectedNodeId, patch: { [field]: value } }
     }];
     await handleApplyOps(ops);
   };
@@ -301,8 +319,8 @@ export default function ProcessDesignerPage() {
               </TabsList>
             </div>
 
-            <div className="flex-1 min-h-0">
-              <ScrollArea className="h-full">
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              <ScrollArea className="flex-1">
                 <TabsContent value="nodes" className="m-0 p-4 space-y-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Button variant="outline" size="sm" className="flex-1 text-[8px] font-bold uppercase h-7 rounded-none" onClick={() => handleApplyOps([{ type: 'ADD_NODE', payload: { node: { id: `step-${Date.now()}`, type: 'step', title: 'Neuer Schritt' } } }])}>+ Schritt</Button>
@@ -322,7 +340,7 @@ export default function ProcessDesignerPage() {
                         <div className="flex items-center justify-between mb-1">
                           <Badge variant="outline" className="text-[7px] font-black h-3.5 rounded-none uppercase">{node.type}</Badge>
                           <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 text-red-500" onClick={(e) => { e.stopPropagation(); handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: node.id } }]); }}>
-                            <Trash2 className="w-3 h-3" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
                         <div className="font-bold text-xs">{node.title}</div>
@@ -333,13 +351,35 @@ export default function ProcessDesignerPage() {
                   {selectedNode && (
                     <div className="mt-6 pt-6 border-t space-y-4 animate-in slide-in-from-left-2">
                       <h3 className="text-[10px] font-black uppercase text-primary">Schritt Details</h3>
-                      <div className="space-y-2">
-                        <Label className="text-[9px] font-bold uppercase">Bezeichnung</Label>
-                        <Input value={selectedNode.title} onChange={e => updateNodeField(selectedNode.id, 'title', e.target.value)} className="h-8 text-xs rounded-none" />
-                        <Label className="text-[9px] font-bold uppercase">Rolle</Label>
-                        <Input value={selectedNode.roleId || ''} onChange={e => updateNodeField(selectedNode.id, 'roleId', e.target.value)} placeholder="Verantwortlich..." className="h-8 text-xs rounded-none" />
-                        <Label className="text-[9px] font-bold uppercase">Beschreibung</Label>
-                        <Textarea value={selectedNode.description || ''} onChange={e => updateNodeField(selectedNode.id, 'description', e.target.value)} className="text-xs rounded-none min-h-[80px]" />
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <Label className="text-[9px] font-bold uppercase">Bezeichnung</Label>
+                          <Input 
+                            value={localNodeEdits.title} 
+                            onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})}
+                            onBlur={() => saveNodeUpdate('title')}
+                            className="h-8 text-xs rounded-none" 
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[9px] font-bold uppercase">Rolle</Label>
+                          <Input 
+                            value={localNodeEdits.roleId} 
+                            onChange={e => setLocalNodeEdits({...localNodeEdits, roleId: e.target.value})}
+                            onBlur={() => saveNodeUpdate('roleId')}
+                            placeholder="Verantwortlich..." 
+                            className="h-8 text-xs rounded-none" 
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[9px] font-bold uppercase">Beschreibung</Label>
+                          <Textarea 
+                            value={localNodeEdits.description} 
+                            onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})}
+                            onBlur={() => saveNodeUpdate('description')}
+                            className="text-xs rounded-none min-h-[100px]" 
+                          />
+                        </div>
                       </div>
                     </div>
                   )}
@@ -392,12 +432,12 @@ export default function ProcessDesignerPage() {
                       <Textarea 
                         defaultValue={currentVersion.model_json.isoFields?.[field] || ''}
                         placeholder={`Ermittelte ${field}...`}
-                        className="text-xs rounded-none min-h-[100px] bg-white"
+                        className="text-xs rounded-none min-h-[120px] bg-white"
                         onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field, value: e.target.value } }])}
                       />
                     </div>
                   ))}
-                  <div className="h-8 shrink-0" /> {/* Spacer for scroll bottom */}
+                  <div className="h-8 shrink-0" />
                 </TabsContent>
               </ScrollArea>
             </div>
@@ -423,9 +463,9 @@ export default function ProcessDesignerPage() {
             <Badge className="bg-blue-600 rounded-none text-[8px] font-black h-4">VIBECODING</Badge>
           </div>
 
-          <div className="flex-1 min-h-0 bg-slate-50/30">
-            <ScrollArea className="h-full p-4">
-              <div className="space-y-6">
+          <div className="flex-1 min-h-0 bg-slate-50/30 overflow-hidden flex flex-col">
+            <ScrollArea className="flex-1">
+              <div className="p-4 space-y-6">
                 {aiSuggestions ? (
                   <div className="animate-in slide-in-from-bottom-2">
                     <div className="p-4 bg-white border-2 border-blue-600 rounded-none shadow-xl space-y-4">
@@ -462,7 +502,7 @@ export default function ProcessDesignerPage() {
                 value={chatMessage}
                 onChange={e => setChatMessage(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAiChat()}
-                className="h-11 rounded-none border-2 text-xs focus:border-slate-900 transition-all"
+                className="h-11 rounded-none border-2 text-xs focus:ring-0 focus:border-slate-900 transition-all"
                 disabled={isAiLoading}
               />
               <Button size="icon" className="h-11 w-11 shrink-0 rounded-none bg-slate-900" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>

@@ -1,3 +1,4 @@
+
 # ComplianceHub - Governance Platform
 
 Der ComplianceHub ist eine mandantenfähige Plattform zur Verwaltung von IT-Berechtigungen (IAM), Risikomanagement nach BSI IT-Grundschutz und Datenschutz-Compliance (DSGVO).
@@ -7,7 +8,7 @@ Der ComplianceHub ist eine mandantenfähige Plattform zur Verwaltung von IT-Bere
 Die Plattform ist für den Betrieb in einer Docker-Umgebung optimiert und nutzt standardmäßig eine MySQL-Datenbank.
 
 ### 1. Erstinstallation
-Stellen Sie sicher, dass `docker` und das `docker-compose-plugin` installiert sind. 
+Stellen Sie sicher, dass `docker` und das `docker compose` Plugin (v2) installiert sind. 
 
 ```bash
 # Container bauen und im Hintergrund starten
@@ -36,6 +37,9 @@ Verwenden Sie für die erste Anmeldung nach der Initialisierung folgende Zugangs
 Wenn neue Funktionen implementiert wurden, führen Sie folgende Schritte aus:
 
 ```bash
+# Code ziehen
+git pull
+
 # Container stoppen und neue Version bauen
 docker compose down
 docker compose up -d --build
@@ -52,8 +56,9 @@ Dieser Fehler tritt in manchen virtualisierten Umgebungen auf (z.B. LXC, Proxmox
 **Lösung:** Führen Sie auf Ihrem **Host-System** (nicht im Container) folgenden Befehl als root aus:
 `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0`
 
-### Build-Fehler: /app/public not found
-Dieser Fehler wurde in der aktuellen Version behoben. Stellen Sie sicher, dass ein Verzeichnis namens `public` im Stammverzeichnis existiert.
+### Fehler: ModuleNotFoundError: No module named 'distutils'
+Dies passiert, wenn `docker-compose` (mit Bindestrich) verwendet wird. Nutzen Sie stattdessen den modernen Befehl:
+`docker compose` (ohne Bindestrich).
 
 ## 🛠 Technologien
 *   **Frontend/Backend:** Next.js 15 (App Router)

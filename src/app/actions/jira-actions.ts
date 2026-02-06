@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getCollectionData } from './mysql-actions';
@@ -148,13 +149,14 @@ export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): 
     });
     
     if (!response.ok) {
-      if (response.status === 404) return { success: false, error: "Assets API nicht erreichbar. Prüfen Sie, ob JSM Assets aktiviert ist." };
+      if (response.status === 404) return { success: false, error: "Assets API nicht erreichbar. JSM Premium erforderlich." };
       return { success: false, error: `Assets API Fehler ${response.status}` };
     }
     
     const data = await response.json();
     const rawValues = data.values || (Array.isArray(data) ? data : []);
     
+    // Normalisierung: workspaceId wird in Jira Assets v3 oft als ID für API-Aufrufe genutzt
     const workspaces = rawValues.map((w: any) => ({
       id: w.workspaceId || w.id,
       name: w.name || 'Standard Workspace'

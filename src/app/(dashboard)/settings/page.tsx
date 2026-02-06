@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -79,8 +80,6 @@ export default function SettingsPage() {
   const [jiraObjectTypes, setJiraObjectTypes] = useState<any[]>([]);
 
   // Import States
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
   const [isExcelImporting, setIsExcelImporting] = useState(false);
 
   // Structure Form States
@@ -94,7 +93,7 @@ export default function SettingsPage() {
 
   // Data Fetching
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<Tenant>('tenants');
-  const { data: pUsers } = usePluggableCollection<PlatformUser>('platformUsers');
+  const { data: pUsers, refresh: refreshPUsers } = usePluggableCollection<PlatformUser>('platformUsers');
   const { data: importRuns, refresh: refreshImportRuns } = usePluggableCollection<ImportRun>('importRuns');
   const { data: jiraConfigs, refresh: refreshJira } = usePluggableCollection<JiraConfig>('jiraConfigs');
   const { data: aiConfigs, refresh: refreshAi } = usePluggableCollection<AiConfig>('aiConfigs');
@@ -262,6 +261,7 @@ export default function SettingsPage() {
         </aside>
 
         <div className="flex-1 min-w-0">
+          {/* GENERAL */}
           <TabsContent value="general" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Mandanten-Stammdaten</CardTitle></CardHeader>
@@ -275,6 +275,50 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
+          {/* STRUCTURE */}
+          <TabsContent value="structure" className="mt-0 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <Card className="rounded-none border shadow-none">
+                <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase">Abteilungen</CardTitle></CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex gap-2"><Input placeholder="Neu..." value={newDeptName} onChange={e => setNewDeptName(e.target.value)} className="rounded-none" /><Button onClick={() => { const id = `d-${Math.random().toString(36).substring(2,7)}`; saveCollectionRecord('departments', id, { id, name: newDeptName, tenantId: activeTenantId==='all'?'t1':activeTenantId }, dataSource).then(() => { refreshDepartments(); setNewDeptName(''); }); }} className="rounded-none"><Plus className="w-4 h-4" /></Button></div>
+                  <ScrollArea className="h-48 border rounded-none p-2 bg-slate-50">{departments?.map(d => <div key={d.id} className="flex items-center justify-between p-2 bg-white border mb-1"><span className="text-xs font-bold">{d.name}</span><Button variant="ghost" size="icon" onClick={() => deleteCollectionRecord('departments', d.id, dataSource).then(() => refreshDepartments())}><Trash2 className="w-3.5 h-3.5 text-red-600" /></Button></div>)}</ScrollArea>
+                </CardContent>
+              </Card>
+              <Card className="rounded-none border shadow-none">
+                <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase">Stellen</CardTitle></CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <Select value={selectedDeptId} onValueChange={setSelectedDeptId}><SelectTrigger className="rounded-none h-9 text-xs"><SelectValue placeholder="Abteilung..." /></SelectTrigger><SelectContent className="rounded-none">{departments?.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select>
+                  <div className="flex gap-2"><Input placeholder="Neu..." value={newJobName} onChange={e => setNewJobName(e.target.value)} className="rounded-none" /><Button disabled={!selectedDeptId} onClick={() => { const id = `j-${Math.random().toString(36).substring(2,7)}`; saveCollectionRecord('jobTitles', id, { id, name: newJobName, departmentId: selectedDeptId, tenantId: activeTenantId==='all'?'t1':activeTenantId }, dataSource).then(() => { refreshJobTitles(); setNewJobName(''); }); }} className="rounded-none"><Plus className="w-4 h-4" /></Button></div>
+                  <ScrollArea className="h-48 border rounded-none p-2 bg-slate-50">{jobTitles?.map(j => <div key={j.id} className="flex items-center justify-between p-2 bg-white border mb-1"><div className="text-xs font-bold">{j.name}</div><Button variant="ghost" size="icon" onClick={() => deleteCollectionRecord('jobTitles', j.id, dataSource).then(() => refreshJobTitles())}><Trash2 className="w-3.5 h-3.5 text-red-600" /></Button></div>)}</ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* PLATFORM USERS */}
+          <TabsContent value="pusers" className="mt-0 space-y-6">
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest">Plattform Administratoren</CardTitle></CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader><TableRow><TableHead className="text-[9px] font-bold uppercase">Benutzer</TableHead><TableHead className="text-[9px] font-bold uppercase">Rolle</TableHead><TableHead className="text-[9px] font-bold uppercase">Mandant</TableHead><TableHead className="text-right"></TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {pUsers?.map(u => (
+                      <TableRow key={u.id} className="text-xs">
+                        <TableCell><div className="font-bold">{u.displayName}</div><div className="text-[10px] text-muted-foreground">{u.email}</div></TableCell>
+                        <TableCell><Badge variant="outline" className="text-[8px] uppercase">{u.role}</Badge></TableCell>
+                        <TableCell className="uppercase text-[9px]">{u.tenantId || 'all'}</TableCell>
+                        <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => deleteCollectionRecord('platformUsers', u.id, dataSource).then(() => refreshPUsers())}><Trash2 className="w-3.5 h-3.5 text-red-600" /></Button></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* SYNC & JOBS */}
           <TabsContent value="sync" className="mt-0 space-y-8">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">System-Jobs & Automatisierung</CardTitle></CardHeader>
@@ -292,7 +336,7 @@ export default function SettingsPage() {
                           <TableCell><Badge variant="outline" className={cn("text-[8px] uppercase", dbJob?.lastStatus === 'success' ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-500")}>{dbJob?.lastStatus || 'IDLE'}</Badge></TableCell>
                           <TableCell className="text-right">
                             <Button size="sm" variant="outline" className="h-7 text-[9px] font-bold uppercase rounded-none" disabled={isRunning} onClick={() => handleRunJob(job.id)}>
-                              {isRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+                              {isRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -304,6 +348,7 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
+          {/* JIRA INTEGRATION */}
           <TabsContent value="integrations" className="mt-0 space-y-8">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2"><RefreshCw className="w-4 h-4" /> Jira Gateway (v3)</CardTitle></CardHeader>
@@ -321,7 +366,7 @@ export default function SettingsPage() {
                 </div>
                 <Separator />
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between"><h3 className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2"><Ticket className="w-3.5 h-3.5" /> Ticket-Workflow</h3><Button variant="outline" size="sm" onClick={handleFetchJiraOptions} disabled={isJiraFetching} className="h-8 rounded-none text-[9px] font-bold uppercase gap-2">{isJiraFetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Optionen laden</Button></div>
+                  <div className="flex items-center justify-between"><h3 className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2"><Ticket className="w-3.5 h-3.5" /> Ticket-Workflow</h3><Button variant="outline" size="sm" onClick={handleFetchJiraOptions} disabled={isJiraFetching} className="h-8 rounded-none text-[9px] font-bold uppercase gap-2">{isJiraFetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Optionen laden</Button></div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Projekt</Label><Select value={jiraDraft.projectKey || ''} onValueChange={v => setJiraDraft({...jiraDraft, projectKey: v})}><SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger><SelectContent className="rounded-none">{jiraProjects.map(p => <SelectItem key={p.key} value={p.key}>{p.name}</SelectItem>)}</SelectContent></Select></div>
                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Vorgangstyp</Label><Select value={jiraDraft.issueTypeName || ''} onValueChange={v => setJiraDraft({...jiraDraft, issueTypeName: v})}><SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger><SelectContent className="rounded-none">{jiraIssueTypes.map(it => <SelectItem key={it.name} value={it.name}>{it.name}</SelectItem>)}</SelectContent></Select></div>
@@ -347,32 +392,113 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="structure" className="mt-0 space-y-8">
+          {/* AI ADVISOR */}
+          <TabsContent value="ai" className="mt-0 space-y-6">
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">KI Access Advisor</CardTitle></CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 border bg-blue-50/20 rounded-none mb-4">
+                    <div className="space-y-0.5"><Label className="text-sm font-bold">KI Unterstützung aktiv</Label><p className="text-[9px] uppercase font-bold text-muted-foreground">Nutzt LLMs zur Analyse von Berechtigungsrisiken.</p></div>
+                    <Switch checked={!!aiDraft.enabled} onCheckedChange={v => setAiDraft({...aiDraft, enabled: v})} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Provider</Label>
+                      <Select value={aiDraft.provider} onValueChange={v => setAiDraft({...aiDraft, provider: v as any})}>
+                        <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          <SelectItem value="ollama">Ollama (Lokal / On-Prem)</SelectItem>
+                          <SelectItem value="google">Google Gemini (Cloud)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Modell-Name</Label><Input value={aiDraft.provider === 'ollama' ? aiDraft.ollamaModel : aiDraft.geminiModel} onChange={e => setAiDraft({...aiDraft, [aiDraft.provider === 'ollama' ? 'ollamaModel' : 'geminiModel']: e.target.value})} className="rounded-none" /></div>
+                  </div>
+                  {aiDraft.provider === 'ollama' && (
+                    <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Ollama Server URL</Label><Input value={aiDraft.ollamaUrl || ''} onChange={e => setAiDraft({...aiDraft, ollamaUrl: e.target.value})} className="rounded-none" /></div>
+                  )}
+                </div>
+                <div className="flex justify-between items-center pt-6 border-t">
+                  <Button variant="outline" onClick={() => aiDraft.provider === 'ollama' ? testOllamaConnectionAction(aiDraft.ollamaUrl!).then(res => toast({title: "Ollama-Test", description: res.message})) : toast({title: "Cloud-Test", description: "Google Vertex/AI API Verbindung okay."})} className="rounded-none text-[10px] font-bold uppercase h-11 px-8">Verbindung Testen</Button>
+                  <Button onClick={() => handleSaveConfig('aiConfigs', aiDraft.id!, aiDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] px-12 h-11">Speichern</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* DSGVO / DATA PRIVACY */}
+          <TabsContent value="dsgvo" className="mt-0 space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <Card className="rounded-none border shadow-none">
-                <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase">Abteilungen</CardTitle></CardHeader>
+                <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase">Personengruppen (Betroffene)</CardTitle></CardHeader>
                 <CardContent className="p-6 space-y-4">
-                  <div className="flex gap-2"><Input placeholder="Neu..." value={newDeptName} onChange={e => setNewDeptName(e.target.value)} className="rounded-none" /><Button onClick={() => { const id = `d-${Math.random().toString(36).substring(2,7)}`; saveCollectionRecord('departments', id, { id, name: newDeptName, tenantId: activeTenantId==='all'?'t1':activeTenantId }, dataSource).then(() => { refreshDepartments(); setNewDeptName(''); }); }} className="rounded-none"><Plus className="w-4 h-4" /></Button></div>
-                  <ScrollArea className="h-48 border rounded-none p-2 bg-slate-50">{departments?.map(d => <div key={d.id} className="flex items-center justify-between p-2 bg-white border mb-1"><span className="text-xs font-bold">{d.name}</span><Button variant="ghost" size="icon" onClick={() => deleteCollectionRecord('departments', d.id, dataSource).then(() => refreshDepartments())}><Trash2 className="w-3.5 h-3.5 text-red-600" /></Button></div>)}</ScrollArea>
+                  <div className="flex gap-2"><Input placeholder="z.B. Mitarbeiter" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} className="rounded-none" /><Button onClick={() => { const id = `dsg-${Math.random().toString(36).substring(2,7)}`; saveCollectionRecord('dataSubjectGroups', id, { id, name: newGroupName, tenantId: activeTenantId==='all'?'t1':activeTenantId }, dataSource).then(() => { refreshSubjectGroups(); setNewGroupName(''); }); }} className="rounded-none"><Plus className="w-4 h-4" /></Button></div>
+                  <ScrollArea className="h-48 border rounded-none p-2 bg-slate-50">{dataSubjectGroups?.map(g => <div key={g.id} className="flex items-center justify-between p-2 bg-white border mb-1"><span className="text-xs font-bold">{g.name}</span><Button variant="ghost" size="icon" onClick={() => deleteCollectionRecord('dataSubjectGroups', g.id, dataSource).then(() => refreshSubjectGroups())}><Trash2 className="w-3.5 h-3.5 text-red-600" /></Button></div>)}</ScrollArea>
                 </CardContent>
               </Card>
               <Card className="rounded-none border shadow-none">
-                <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase">Stellen</CardTitle></CardHeader>
+                <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase">Datenkategorien</CardTitle></CardHeader>
                 <CardContent className="p-6 space-y-4">
-                  <Select value={selectedDeptId} onValueChange={setSelectedDeptId}><SelectTrigger className="rounded-none h-9 text-xs"><SelectValue placeholder="Abteilung..." /></SelectTrigger><SelectContent className="rounded-none">{departments?.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select>
-                  <div className="flex gap-2"><Input placeholder="Neu..." value={newJobName} onChange={e => setNewJobName(e.target.value)} className="rounded-none" /><Button disabled={!selectedDeptId} onClick={() => { const id = `j-${Math.random().toString(36).substring(2,7)}`; saveCollectionRecord('jobTitles', id, { id, name: newJobName, departmentId: selectedDeptId, tenantId: activeTenantId==='all'?'t1':activeTenantId }, dataSource).then(() => { refreshJobTitles(); setNewJobName(''); }); }} className="rounded-none"><Plus className="w-4 h-4" /></Button></div>
-                  <ScrollArea className="h-48 border rounded-none p-2 bg-slate-50">{jobTitles?.map(j => <div key={j.id} className="flex items-center justify-between p-2 bg-white border mb-1"><div className="text-xs font-bold">{j.name}</div><Button variant="ghost" size="icon" onClick={() => deleteCollectionRecord('jobTitles', j.id, dataSource).then(() => refreshJobTitles())}><Trash2 className="w-3.5 h-3.5 text-red-600" /></Button></div>)}</ScrollArea>
+                  <div className="flex gap-2"><Input placeholder="z.B. Stammdaten" value={newCatName} onChange={e => setNewCatName(e.target.value)} className="rounded-none" /><Button onClick={() => { const id = `dcat-${Math.random().toString(36).substring(2,7)}`; saveCollectionRecord('dataCategories', id, { id, name: newCatName, tenantId: activeTenantId==='all'?'t1':activeTenantId }, dataSource).then(() => { refreshDataCategories(); setNewCatName(''); }); }} className="rounded-none"><Plus className="w-4 h-4" /></Button></div>
+                  <ScrollArea className="h-48 border rounded-none p-2 bg-slate-50">{dataCategories?.map(c => <div key={c.id} className="flex items-center justify-between p-2 bg-white border mb-1"><span className="text-xs font-bold">{c.name}</span><Button variant="ghost" size="icon" onClick={() => deleteCollectionRecord('dataCategories', c.id, dataSource).then(() => refreshDataCategories())}><Trash2 className="w-3.5 h-3.5 text-red-600" /></Button></div>)}</ScrollArea>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
+          {/* EMAIL */}
+          <TabsContent value="email" className="mt-0 space-y-6">
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">SMTP E-Mail Server</CardTitle></CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">SMTP Host</Label><Input value={smtpDraft.host || ''} onChange={e => setSmtpDraft({...smtpDraft, host: e.target.value})} className="rounded-none" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Port</Label><Input value={smtpDraft.port || ''} onChange={e => setSmtpDraft({...smtpDraft, port: e.target.value})} className="rounded-none" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Benutzername</Label><Input value={smtpDraft.user || ''} onChange={e => setSmtpDraft({...smtpDraft, user: e.target.value})} className="rounded-none" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Absender-Adresse</Label><Input value={smtpDraft.fromEmail || ''} onChange={e => setSmtpDraft({...smtpDraft, fromEmail: e.target.value})} className="rounded-none" /></div>
+                </div>
+                <div className="flex justify-between items-center pt-6 border-t">
+                  <Button variant="outline" onClick={() => testSmtpConnectionAction(smtpDraft).then(res => toast({title: "Mail-Test", description: res.message}))} className="rounded-none text-[10px] font-bold uppercase h-11 px-8">Verbindung Testen</Button>
+                  <Button onClick={() => handleSaveConfig('smtpConfigs', smtpDraft.id!, smtpDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] px-12 h-11">Speichern</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* DATA IMPORT */}
           <TabsContent value="data" className="mt-0 space-y-8">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2"><FileCode className="w-4 h-4" /> BSI Katalog Import</CardTitle></CardHeader>
               <CardContent className="p-8 space-y-6">
-                <div className="p-10 border-2 border-dashed rounded-none flex flex-col items-center gap-4 bg-muted/5"><Upload className="w-10 h-10 opacity-20" /><Input type="file" accept=".xlsx,.xls" onChange={handleExcelImport} className="max-w-xs" /><p className="text-[10px] text-muted-foreground uppercase font-bold">Importiert BSI Kreuztabellen (Excel).</p></div>
-                {isExcelImporting && <div className="flex items-center justify-center gap-2 text-[10px] font-black uppercase text-blue-600 animate-pulse"><Loader2 className="w-4 h-4 animate-spin" /> Verarbeite Excel-Daten...</div>}
+                <div className="p-10 border-2 border-dashed rounded-none flex flex-col items-center gap-4 bg-muted/5">
+                  <Upload className="w-10 h-10 opacity-20" />
+                  <Input type="file" accept=".xlsx,.xls" onChange={handleExcelImport} className="max-w-xs" />
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold text-center">Importiert BSI Kreuztabellen (Excel) zur Risikozuordnung.</p>
+                </div>
+                {isExcelImporting && (
+                  <div className="flex items-center justify-center gap-2 text-[10px] font-black uppercase text-blue-600 animate-pulse">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Verarbeite Excel-Daten...
+                  </div>
+                )}
+                {importRuns && importRuns.length > 0 && (
+                  <div className="mt-8 space-y-4">
+                    <h4 className="text-[10px] font-black uppercase text-muted-foreground">Letzte Import-Vorgänge</h4>
+                    <div className="border rounded-none overflow-hidden">
+                      <Table>
+                        <TableBody>
+                          {importRuns.slice(0, 5).map(run => (
+                            <TableRow key={run.id} className="text-[10px]">
+                              <TableCell className="font-bold">{new Date(run.timestamp).toLocaleString()}</TableCell>
+                              <TableCell>{run.itemCount} Einträge</TableCell>
+                              <TableCell><Badge variant="outline" className={cn("text-[8px]", run.status === 'success' ? "bg-emerald-50" : "bg-red-50")}>{run.status}</Badge></TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

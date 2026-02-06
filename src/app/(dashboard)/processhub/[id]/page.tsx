@@ -163,7 +163,7 @@ export default function ProcessDesignerPage() {
     }
   }, [selectedNode?.id]);
 
-  // --- Resize Handler Functions (Defined before usage to prevent ReferenceError) ---
+  // Handler Definitionen vor deren Nutzung
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (isResizingLeft.current) setLeftWidth(Math.max(250, Math.min(600, e.clientX)));
     if (isResizingRight.current) setRightWidth(Math.max(300, Math.min(600, window.innerWidth - e.clientX)));
@@ -335,7 +335,7 @@ export default function ProcessDesignerPage() {
             </div>
             
             <div className="flex-1 min-h-0 flex flex-col select-auto overflow-hidden">
-              <TabsContent value="meta" className="flex-1 m-0 p-0 overflow-hidden flex flex-col">
+              <TabsContent value="meta" className="flex-1 m-0 p-0 overflow-hidden flex flex-col outline-none">
                 <ScrollArea className="flex-1">
                   <div className="p-6 space-y-10 pb-20">
                     <div className="space-y-6">
@@ -374,7 +374,7 @@ export default function ProcessDesignerPage() {
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="steps" className="flex-1 m-0 p-0 overflow-hidden flex flex-col">
+              <TabsContent value="steps" className="flex-1 m-0 p-0 overflow-hidden flex flex-col outline-none">
                 <div className="p-5 border-b bg-slate-50 flex items-center justify-between shrink-0">
                   <h3 className="text-[10px] font-bold uppercase text-slate-400">Ablauffolge</h3>
                   <div className="flex gap-1">

@@ -91,7 +91,7 @@ function normalizeAiResponse(text: string): ProcessDesignerOutput {
       let type = String(op.type || op.action || '').toUpperCase();
       const payload = op.payload || op;
 
-      // Fallback für leere Typen (Inferenz aus dem Payload)
+      // Inferenz für leere Typen
       if (!type || type === "") {
         if (payload.node || (payload.id && payload.title)) type = 'ADD_NODE';
         else if (payload.edge || (payload.from && payload.to) || (payload.source && payload.target)) type = 'ADD_EDGE';
@@ -99,7 +99,7 @@ function normalizeAiResponse(text: string): ProcessDesignerOutput {
         else if (payload.openQuestions || payload.title || payload.status) type = 'UPDATE_PROCESS_META';
       }
       
-      // Mapping von Halluzinationen (z.B. EXTENDMODEL)
+      // Mapping von Halluzinationen
       if (type === 'EXTENDMODEL' || type === 'EXTEND_MODEL') {
         if (Array.isArray(payload.nodes)) {
           payload.nodes.forEach((n: any) => normalized.proposedOps.push({ type: 'ADD_NODE', payload: { node: n } }));
@@ -114,10 +114,8 @@ function normalizeAiResponse(text: string): ProcessDesignerOutput {
           normalized.proposedOps.push({ type: 'SET_ISO_FIELD', payload: { isoFields: payload.isoFields } });
         }
       } else {
-        // Nur valide Typen zulassen
         const validTypes = ['ADD_NODE', 'UPDATE_NODE', 'REMOVE_NODE', 'ADD_EDGE', 'UPDATE_EDGE', 'REMOVE_EDGE', 'UPDATE_LAYOUT', 'SET_ISO_FIELD', 'REORDER_NODES', 'UPDATE_PROCESS_META'];
         if (validTypes.includes(type)) {
-          // Payload Korrektur für Kanten (from/to -> source/target)
           if (type === 'ADD_EDGE' && payload.from && payload.to) {
             normalized.proposedOps.push({ 
               type: 'ADD_EDGE', 

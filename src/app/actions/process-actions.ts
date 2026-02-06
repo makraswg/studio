@@ -101,63 +101,109 @@ export async function applyProcessOpsAction(
   let model = JSON.parse(JSON.stringify(currentVersion.model_json));
   let layout = JSON.parse(JSON.stringify(currentVersion.layout_json));
 
-  // Operationen anwenden
+  // Wir tracken ID-Änderungen innerhalb dieses Batches, um Referenzen zu korrigieren
+  const idMap: Record<string, string> = {};
+
+  // 1. Pass: IDs korrigieren und Mappen
+  ops.forEach(op => {
+    if (op.type === 'ADD_NODE' && op.payload?.node) {
+      const originalId = op.payload.node.id;
+      const uniqueId = ensureUniqueId(originalId, model.nodes);
+      if (uniqueId !== originalId) {
+        idMap[originalId] = uniqueId;
+      }
+    }
+  });
+
+  // 2. Pass: Operationen anwenden mit korrigierten IDs
   ops.forEach(op => {
     switch (op.type) {
       case 'ADD_NODE':
         if (!model.nodes) model.nodes = [];
-        // CRITICAL FIX: Immer sicherstellen, dass die neue ID eindeutig ist
-        const uniqueId = ensureUniqueId(op.payload.node.id, model.nodes);
-        const nodeToAdd = { ...op.payload.node, id: uniqueId };
+        if (!op.payload?.node) break;
+        
+        const reqId = op.payload.node.id;
+        const finalId = idMap[reqId] || reqId;
+        
+        const nodeToAdd = { ...op.payload.node, id: finalId };
         model.nodes.push(nodeToAdd);
         
         // Falls kein Layout mitgeliefert wurde, am Ende anfügen
-        if (!layout.positions[uniqueId]) {
+        if (!layout.positions[finalId]) {
           const lastX = model.nodes.length > 1 
             ? Math.max(...Object.values(layout.positions).map((p: any) => p.x)) 
             : 50;
-          layout.positions[uniqueId] = { x: lastX + 220, y: 150 };
+          layout.positions[finalId] = { x: lastX + 220, y: 150 };
         }
         break;
+
       case 'UPDATE_NODE':
-        model.nodes = model.nodes.map((n: any) => n.id === op.payload.nodeId ? { ...n, ...op.payload.patch } : n);
+        if (!op.payload?.nodeId) break;
+        const targetUpdId = idMap[op.payload.nodeId] || op.payload.nodeId;
+        model.nodes = model.nodes.map((n: any) => n.id === targetUpdId ? { ...n, ...op.payload.patch } : n);
         break;
+
       case 'REMOVE_NODE':
-        model.nodes = model.nodes.filter((n: any) => n.id !== op.payload.nodeId);
+        if (!op.payload?.nodeId) break;
+        const targetRemId = idMap[op.payload.nodeId] || op.payload.nodeId;
+        model.nodes = model.nodes.filter((n: any) => n.id !== targetRemId);
         if (model.edges) {
-          model.edges = model.edges.filter((e: any) => e.source !== op.payload.nodeId && e.target !== op.payload.nodeId);
+          model.edges = model.edges.filter((e: any) => e.source !== targetRemId && e.target !== targetRemId);
         }
         if (layout.positions) {
-          delete layout.positions[op.payload.nodeId];
+          delete layout.positions[targetRemId];
         }
         break;
+
       case 'ADD_EDGE':
         if (!model.edges) model.edges = [];
-        model.edges.push(op.payload.edge);
+        if (!op.payload?.edge) break;
+        
+        const edge = { ...op.payload.edge };
+        edge.source = idMap[edge.source] || edge.source;
+        edge.target = idMap[edge.target] || edge.target;
+        
+        model.edges.push(edge);
         break;
+
       case 'REMOVE_EDGE':
+        if (!op.payload?.edgeId) break;
         if (model.edges) {
           model.edges = model.edges.filter((e: any) => e.id !== op.payload.edgeId);
         }
         break;
+
       case 'UPDATE_LAYOUT':
         if (!layout.positions) layout.positions = {};
-        layout.positions = { ...layout.positions, ...op.payload.positions };
+        if (!op.payload?.positions) break;
+        
+        // Auch hier IDs mappen
+        const newPos: Record<string, any> = {};
+        Object.entries(op.payload.positions).forEach(([id, pos]) => {
+          newPos[idMap[id] || id] = pos;
+        });
+        
+        layout.positions = { ...layout.positions, ...newPos };
         break;
+
       case 'SET_ISO_FIELD':
         if (!model.isoFields) model.isoFields = {};
-        model.isoFields[op.payload.field] = op.payload.value;
+        if (op.payload?.field) {
+          model.isoFields[op.payload.field] = op.payload.value;
+        }
         break;
+
       case 'REORDER_NODES':
-        const { orderedNodeIds } = op.payload;
+        const { orderedNodeIds } = op.payload || {};
         if (Array.isArray(orderedNodeIds)) {
+          const mappedOrderedIds = orderedNodeIds.map(id => idMap[id] || id);
           const newNodes: ProcessNode[] = [];
-          orderedNodeIds.forEach((id: string) => {
+          mappedOrderedIds.forEach((id: string) => {
             const node = model.nodes.find((n: any) => n.id === id);
             if (node) newNodes.push(node);
           });
           model.nodes.forEach((n: any) => {
-            if (!orderedNodeIds.includes(n.id)) newNodes.push(n);
+            if (!mappedOrderedIds.includes(n.id)) newNodes.push(n);
           });
           model.nodes = newNodes;
         }

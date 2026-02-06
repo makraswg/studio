@@ -159,7 +159,7 @@ export default function ProcessDesignerPage() {
   );
 
   useEffect(() => {
-    if (selectedNode) {
+    if (selectedNode && localNodeEdits.id !== selectedNode.id) {
       setLocalNodeEdits({
         id: selectedNode.id,
         title: selectedNode.title || '',
@@ -169,10 +169,10 @@ export default function ProcessDesignerPage() {
         tips: selectedNode.tips || '',
         errors: selectedNode.errors || ''
       });
-    } else {
+    } else if (!selectedNode) {
       setLocalNodeEdits({ id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '' });
     }
-  }, [selectedNodeId]);
+  }, [selectedNode, selectedNodeId]);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -465,7 +465,7 @@ export default function ProcessDesignerPage() {
                     </div>
                     <div className="space-y-1">
                       {(currentVersion.model_json?.nodes || []).map((node: any, idx: number) => (
-                        <div key={node.id} className="space-y-1">
+                        <div key={`${node.id}-${idx}`} className="space-y-1">
                           <div 
                             className={cn(
                               "group flex items-center gap-3 p-3 border transition-all cursor-pointer",

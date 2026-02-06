@@ -42,7 +42,8 @@ import {
   BadgeAlert,
   FileText,
   UserCircle,
-  CheckCircle
+  CheckCircle,
+  FilePen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,7 +56,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
-import { applyProcessOpsAction } from '@/app/actions/process-actions';
+import { applyProcessOpsAction, updateProcessMetadataAction } from '@/app/actions/process-actions';
 import { getProcessSuggestions, ProcessDesignerOutput } from '@/ai/flows/process-designer-flow';
 import { publishToBookStackAction } from '@/app/actions/bookstack-actions';
 import { toast } from '@/hooks/use-toast';
@@ -66,7 +67,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 /**
- * Generiert MXGraph XML aus dem semantischen Modell mit verbessertem Layout-Handling.
+ * Generiert MXGraph XML aus dem semantischen Modell.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -128,14 +129,20 @@ export default function ProcessDesignerPage() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isSavingMeta, setIsSavingMeta] = useState(false);
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [localNodeEdits, setLocalNodeEdits] = useState({ id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '' });
 
+  // Metadata Form State
+  const [metaTitle, setMetaMetaTitle] = useState('');
+  const [metaDesc, setMetaDesc] = useState('');
+  const [metaStatus, setMetaStatus] = useState<any>('draft');
+
   const [newEdgeTargetId, setNewEdgeTargetId] = useState<string>('');
   const [newEdgeLabel, setNewEdgeLabel] = useState<string>('');
 
-  const { data: processes, isLoading: isProcLoading } = usePluggableCollection<any>('processes');
+  const { data: processes, isLoading: isProcLoading, refresh: refreshProc } = usePluggableCollection<any>('processes');
   const { data: versions, isLoading: isVerLoading, refresh: refreshVersion } = usePluggableCollection<any>('process_versions');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id), [processes, id]);
@@ -146,16 +153,16 @@ export default function ProcessDesignerPage() {
     [currentVersion, selectedNodeId]
   );
 
-  // Stabilisierter Sync für lokale Formularfelder
   useEffect(() => {
-    if (!selectedNode) {
-      if (localNodeEdits.id !== '') {
-        setLocalNodeEdits({ id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '' });
-      }
-      return;
+    if (currentProcess) {
+      setMetaMetaTitle(currentProcess.title || '');
+      setMetaDesc(currentProcess.description || '');
+      setMetaStatus(currentProcess.status || 'draft');
     }
+  }, [currentProcess?.id]);
 
-    if (localNodeEdits.id !== selectedNode.id) {
+  useEffect(() => {
+    if (selectedNode && localNodeEdits.id !== selectedNode.id) {
       setLocalNodeEdits({
         id: selectedNode.id,
         title: selectedNode.title || '',
@@ -166,11 +173,9 @@ export default function ProcessDesignerPage() {
         errors: selectedNode.errors || ''
       });
     }
-  }, [selectedNode?.id]); // Minimale Abhängigkeiten verhindern useEffect-Fehler
+  }, [selectedNodeId]);
 
-  useEffect(() => { 
-    setMounted(true); 
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (!mounted || !iframeRef.current || !currentVersion) return;
@@ -221,12 +226,30 @@ export default function ProcessDesignerPage() {
     }
   };
 
+  const handleSaveMetadata = async () => {
+    if (!currentProcess) return;
+    setIsSavingMeta(true);
+    try {
+      const res = await updateProcessMetadataAction(currentProcess.id, {
+        title: metaTitle,
+        description: metaDesc,
+        status: metaStatus
+      }, dataSource);
+      if (res.success) {
+        toast({ title: "Stammdaten gespeichert" });
+        refreshProc();
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    } finally {
+      setIsSavingMeta(false);
+    }
+  };
+
   const saveNodeUpdate = async (field: string) => {
     if (!selectedNodeId) return;
     const value = (localNodeEdits as any)[field];
-    const serverVal = selectedNode ? (field === 'checklist' ? (selectedNode.checklist || []).join('\n') : (selectedNode as any)[field] || '') : '';
-    if (value === serverVal) return;
-
+    
     let processedValue: any = value;
     if (field === 'checklist') processedValue = value.split('\n').filter((l: string) => l.trim() !== '');
 
@@ -246,7 +269,7 @@ export default function ProcessDesignerPage() {
           node: { 
             id: newId, 
             type, 
-            title: type === 'decision' ? 'Entscheidung?' : 'Neuer Arbeitsschritt',
+            title: type === 'decision' ? 'Entscheidung?' : 'Neuer Schritt',
             description: '',
             checklist: [],
             tips: '',
@@ -352,8 +375,8 @@ export default function ProcessDesignerPage() {
     }
     if (type === 'SET_ISO_FIELD') return `ISO Feld: ${p.field}`;
     if (type === 'ADD_EDGE') return `Verbindung: ${p.edge?.label || 'Pfeil'}`;
-    if (type === 'UPDATE_LAYOUT') return "Anordnung optimiert";
-    return String(type).replace('_', ' ');
+    if (type === 'UPDATE_LAYOUT') return "Layout optimiert";
+    return String(type);
   };
 
   if (!mounted) return null;
@@ -362,7 +385,7 @@ export default function ProcessDesignerPage() {
     return (
       <div className="flex flex-col h-[80vh] items-center justify-center gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary" />
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Initialisiere Modellier-Umgebung...</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Initialisiere Workspace...</p>
       </div>
     );
   }
@@ -390,14 +413,14 @@ export default function ProcessDesignerPage() {
           <div className="flex flex-col">
             <div className="flex items-center gap-3">
               <h2 className="font-headline font-bold text-base tracking-tight text-slate-900">{currentProcess.title}</h2>
-              <Badge className="bg-blue-600 rounded-none text-[8px] font-black uppercase tracking-widest px-2 h-4">REV {currentVersion.revision}</Badge>
+              <Badge className="bg-blue-600 rounded-none text-[8px] font-black uppercase tracking-widest px-2 h-4">Rev {currentVersion.revision}</Badge>
             </div>
             <div className="flex items-center gap-2 text-[9px] text-slate-400 font-bold uppercase mt-0.5">
               <Activity className="w-2.5 h-2.5" />
               <span>Status: {currentProcess.status}</span>
               <span className="mx-1">•</span>
               <RefreshCw className="w-2.5 h-2.5" />
-              <span>V{currentVersion.version}.0</span>
+              <span>v{currentVersion.version}.0</span>
             </div>
           </div>
         </div>
@@ -407,32 +430,35 @@ export default function ProcessDesignerPage() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="outline" size="sm" className="rounded-none h-9 text-[10px] font-bold uppercase border-slate-200 text-slate-600 hover:bg-slate-50" onClick={syncDiagramToModel}>
-                  <RefreshCw className="w-3.5 h-3.5 mr-2" /> Sync Diagramm
+                  <RefreshCw className="w-3.5 h-3.5 mr-2" /> Diagramm Sync
                 </Button>
               </TooltipTrigger>
-              <TooltipContent className="rounded-none text-[10px] font-bold uppercase">Grafik aus Modell erneuern</TooltipContent>
+              <TooltipContent className="rounded-none text-[10px] font-bold uppercase">Grafik aktualisieren</TooltipContent>
             </Tooltip>
           </TooltipProvider>
           <Separator orientation="vertical" className="h-6 bg-slate-200 mx-1" />
           <Button size="sm" className="rounded-none h-9 text-[10px] font-bold uppercase bg-slate-900 hover:bg-black text-white px-6 gap-2" onClick={handlePublish} disabled={isPublishing}>
             {isPublishing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
-            Veröffentlichen
+            Exportieren
           </Button>
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <aside className="w-[450px] border-r flex flex-col bg-white shrink-0 overflow-hidden shadow-sm">
-          <Tabs defaultValue="instructions" className="flex-1 flex flex-col min-h-0">
+        <aside className="w-[420px] border-r flex flex-col bg-white shrink-0 overflow-hidden shadow-sm">
+          <Tabs defaultValue="steps" className="flex-1 flex flex-col min-h-0">
             <div className="px-4 border-b bg-slate-50 shrink-0">
-              <TabsList className="h-14 bg-transparent gap-6 p-0 w-full justify-start">
-                <TabsTrigger value="instructions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                  <ClipboardList className="w-3.5 h-3.5" /> Arbeitshilfe
+              <TabsList className="h-14 bg-transparent gap-4 p-0 w-full justify-start">
+                <TabsTrigger value="meta" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                  <FilePen className="w-3.5 h-3.5" /> Stammblatt
                 </TabsTrigger>
-                <TabsTrigger value="compliance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                  <ClipboardList className="w-3.5 h-3.5" /> Prozessschritte
+                </TabsTrigger>
+                <TabsTrigger value="compliance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 h-full px-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
                   <ShieldCheck className="w-3.5 h-3.5" /> ISO 9001
                 </TabsTrigger>
-                <TabsTrigger value="flow" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                <TabsTrigger value="flow" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 h-full px-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
                   <GitBranch className="w-3.5 h-3.5" /> Logik
                 </TabsTrigger>
               </TabsList>
@@ -440,21 +466,49 @@ export default function ProcessDesignerPage() {
 
             <div className="flex-1 min-h-0 flex flex-col">
               <ScrollArea className="flex-1">
-                <TabsContent value="instructions" className="m-0 p-0">
+                <TabsContent value="meta" className="m-0 p-6 space-y-6">
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-slate-500">Prozessbezeichnung</Label>
+                      <Input value={metaTitle} onChange={e => setMetaMetaTitle(e.target.value)} className="rounded-none font-bold h-10 border-slate-200" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-slate-500">Aktueller Status</Label>
+                      <Select value={metaStatus} onValueChange={setMetaStatus}>
+                        <SelectTrigger className="rounded-none h-10 border-slate-200"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          <SelectItem value="draft">Entwurf</SelectItem>
+                          <SelectItem value="published">Veröffentlicht</SelectItem>
+                          <SelectItem value="archived">Archiviert</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-slate-500">Allgemeine Beschreibung</Label>
+                      <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="rounded-none min-h-[120px] text-sm border-slate-200" placeholder="Ziel und Zweck des Prozesses..." />
+                    </div>
+                    <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full rounded-none h-10 font-bold uppercase text-[10px] gap-2">
+                      {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      Stammdaten speichern
+                    </Button>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="steps" className="m-0 p-0">
                   <div className="p-5 border-b bg-slate-50/30">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Prozess-Sequenz</h3>
+                      <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Arbeitsfolge</h3>
                       <div className="flex gap-1">
-                        <Button variant="outline" size="sm" className="h-7 text-[8px] font-black uppercase rounded-none border-slate-200 bg-white" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
-                        <Button variant="outline" size="sm" className="h-7 text-[8px] font-black uppercase rounded-none border-slate-200 bg-white" onClick={() => handleQuickAdd('decision')}>+ Entscheidung</Button>
+                        <Button variant="outline" size="sm" className="h-7 text-[8px] font-bold uppercase rounded-none border-slate-200 bg-white" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
+                        <Button variant="outline" size="sm" className="h-7 text-[8px] font-bold uppercase rounded-none border-slate-200 bg-white" onClick={() => handleQuickAdd('decision')}>+ Entscheidung</Button>
                       </div>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       {(currentVersion.model_json?.nodes || []).map((node: any, idx: number) => (
                         <div key={`${node.id}-${idx}`} className="space-y-1">
                           <div 
                             className={cn(
-                              "group flex items-center gap-3 p-3 border transition-all cursor-pointer",
+                              "group flex items-center gap-3 p-2.5 border transition-all cursor-pointer",
                               selectedNodeId === node.id ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/10" : "border-slate-100 hover:border-slate-300 bg-white"
                             )}
                             onClick={() => setSelectedNodeId(node.id)}
@@ -469,59 +523,59 @@ export default function ProcessDesignerPage() {
                             </div>
                             
                             <div className={cn(
-                              "w-8 h-8 rounded-none flex items-center justify-center shrink-0 border shadow-sm",
+                              "w-7 h-7 rounded-none flex items-center justify-center shrink-0 border shadow-sm",
                               node.type === 'decision' ? "bg-orange-50 text-orange-600 border-orange-100" : 
                               node.type === 'start' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
                               node.type === 'end' ? "bg-red-50 text-red-600 border-red-100" :
                               "bg-blue-50 text-blue-600 border-blue-100"
                             )}>
-                              {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : 
-                               node.type === 'start' ? <Zap className="w-4 h-4" /> :
-                               node.type === 'end' ? <X className="w-4 h-4" /> :
-                               <Activity className="w-4 h-4" />}
+                              {node.type === 'decision' ? <GitBranch className="w-3.5 h-3.5" /> : 
+                               node.type === 'start' ? <Zap className="w-3.5 h-3.5" /> :
+                               node.type === 'end' ? <X className="w-3.5 h-3.5" /> :
+                               <Activity className="w-3.5 h-3.5" />}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold text-slate-800 truncate uppercase tracking-tight">{node.title}</p>
+                              <p className="text-xs font-bold text-slate-800 truncate">{node.title}</p>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[8px] font-black uppercase text-slate-400">{node.type}</span>
-                                {node.roleId && <Badge variant="outline" className="text-[7px] h-3.5 px-1.5 rounded-none uppercase border-slate-200">{node.roleId}</Badge>}
+                                <span className="text-[8px] font-bold uppercase text-slate-400">{node.type}</span>
+                                {node.roleId && <Badge variant="outline" className="text-[7px] h-3.5 px-1.5 rounded-none border-slate-200">{node.roleId}</Badge>}
                               </div>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 text-red-500 rounded-none hover:bg-red-50" onClick={(e) => { e.stopPropagation(); if(confirm("Schritt löschen?")) handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: node.id } }]); }}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 text-red-500 rounded-none hover:bg-red-50" onClick={(e) => { e.stopPropagation(); if(confirm("Schritt entfernen?")) handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: node.id } }]); }}>
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                           </div>
 
                           {selectedNodeId === node.id && (
-                            <div className="p-5 bg-slate-50 border-x border-b border-primary/20 space-y-6 animate-in slide-in-from-top-2 duration-300">
-                              <div className="space-y-1.5">
-                                <Label className="text-[9px] font-black uppercase text-slate-500">Titel</Label>
+                            <div className="p-4 bg-slate-50 border-x border-b border-primary/20 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                              <div className="space-y-1">
+                                <Label className="text-[9px] font-bold uppercase text-slate-500">Titel</Label>
                                 <Input 
                                   value={localNodeEdits.title} 
                                   onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})}
                                   onBlur={() => saveNodeUpdate('title')}
-                                  className="h-10 text-xs rounded-none border-slate-200 font-bold" 
+                                  className="h-9 text-xs rounded-none border-slate-200 font-bold" 
                                 />
                               </div>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                  <Label className="text-[9px] font-black uppercase text-slate-500">Zuständigkeit</Label>
-                                  <Input value={localNodeEdits.roleId} onChange={e => setLocalNodeEdits({...localNodeEdits, roleId: e.target.value})} onBlur={() => saveNodeUpdate('roleId')} className="h-9 text-[10px] rounded-none border-slate-200" placeholder="z.B. IT-Admin" />
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                  <Label className="text-[9px] font-bold uppercase text-slate-500">Zuständigkeit</Label>
+                                  <Input value={localNodeEdits.roleId} onChange={e => setLocalNodeEdits({...localNodeEdits, roleId: e.target.value})} onBlur={() => saveNodeUpdate('roleId')} className="h-8 text-[10px] rounded-none border-slate-200" placeholder="Admin, HR..." />
                                 </div>
-                                <div className="space-y-1.5">
-                                  <Label className="text-[9px] font-black uppercase text-slate-500">Dauer (geschätzt)</Label>
-                                  <Input placeholder="z.B. 10 Min" className="h-9 text-[10px] rounded-none border-slate-200" />
+                                <div className="space-y-1">
+                                  <Label className="text-[9px] font-bold uppercase text-slate-500">Dauer</Label>
+                                  <Input placeholder="z.B. 10 Min" className="h-8 text-[10px] rounded-none border-slate-200" />
                                 </div>
                               </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-[9px] font-black uppercase text-slate-500">Anweisung</Label>
-                                <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-[10px] rounded-none min-h-[80px] border-slate-200 leading-relaxed" placeholder="Was ist zu tun?" />
+                              <div className="space-y-1">
+                                <Label className="text-[9px] font-bold uppercase text-slate-500">Anweisung</Label>
+                                <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-[10px] rounded-none min-h-[60px] border-slate-200" placeholder="Beschreibung..." />
                               </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-[9px] font-black uppercase text-slate-500 flex items-center gap-1">
-                                  <CheckCircle className="w-3 h-3" /> Checkliste (Eine Zeile pro Punkt)
+                              <div className="space-y-1">
+                                <Label className="text-[9px] font-bold uppercase text-slate-500 flex items-center gap-1">
+                                  <CheckCircle className="w-3 h-3" /> Checkliste
                                 </Label>
-                                <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[10px] rounded-none min-h-[80px] border-slate-200 bg-white" placeholder="Ein Punkt pro Zeile..." />
+                                <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[10px] rounded-none min-h-[60px] border-slate-200 bg-white" placeholder="Ein Punkt pro Zeile..." />
                               </div>
                             </div>
                           )}
@@ -532,29 +586,28 @@ export default function ProcessDesignerPage() {
                 </TabsContent>
 
                 <TabsContent value="compliance" className="m-0 p-6 space-y-8">
-                  <div className="p-5 bg-emerald-50 border border-emerald-100 rounded-none space-y-2">
+                  <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-none space-y-2">
                     <div className="flex items-center gap-2 text-emerald-700">
                       <ShieldCheck className="w-4 h-4" />
-                      <h4 className="text-[10px] font-black uppercase tracking-widest">ISO 9001 Dashboard</h4>
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest">ISO 9001 Compliance</h4>
                     </div>
-                    <p className="text-[9px] leading-relaxed text-emerald-600 font-medium italic">Vervollständigen Sie die Audit-relevanten Merkmale des Prozesses.</p>
+                    <p className="text-[9px] leading-relaxed text-emerald-600 italic">Erfassen Sie die audit-relevanten Merkmale.</p>
                   </div>
                   
                   <div className="grid grid-cols-1 gap-6">
                     {[
-                      { id: 'inputs', label: 'Prozess-Eingaben', icon: ArrowRight, desc: 'Informationen oder Trigger' },
-                      { id: 'outputs', label: 'Prozess-Ergebnisse', icon: Check, desc: 'Produkte oder Daten' },
-                      { id: 'risks', label: 'Risiken & Chancen', icon: AlertTriangle, desc: 'Was kann schiefgehen?' },
-                      { id: 'evidence', label: 'Nachweise / Audit-Log', icon: FileCode, desc: 'Verifizierung der Ausführung' }
+                      { id: 'inputs', label: 'Prozess-Eingaben', icon: ArrowRight },
+                      { id: 'outputs', label: 'Prozess-Ergebnisse', icon: Check },
+                      { id: 'risks', label: 'Risiken & Chancen', icon: AlertTriangle },
+                      { id: 'evidence', label: 'Nachweise / Audit-Log', icon: FileCode }
                     ].map(field => (
                       <div key={field.id} className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-700 flex items-center gap-2">
+                        <Label className="text-[10px] font-bold uppercase text-slate-700 flex items-center gap-2">
                           <field.icon className="w-3 h-3 text-emerald-600" /> {field.label}
                         </Label>
                         <Textarea 
                           defaultValue={currentVersion.model_json?.isoFields?.[field.id] || ''}
-                          placeholder={field.desc}
-                          className="text-xs rounded-none min-h-[100px] bg-white border-slate-200 focus:border-emerald-500 leading-relaxed p-3"
+                          className="text-xs rounded-none min-h-[80px] bg-white border-slate-200 focus:border-emerald-500 leading-relaxed"
                           onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: field.id, value: e.target.value } }])}
                         />
                       </div>
@@ -563,52 +616,52 @@ export default function ProcessDesignerPage() {
                 </TabsContent>
 
                 <TabsContent value="flow" className="m-0 p-6 space-y-6">
-                  <div className="p-5 bg-blue-50 border border-blue-100 rounded-none space-y-4">
-                    <h4 className="text-[10px] font-black uppercase text-blue-700 flex items-center gap-2">
-                      <GitBranch className="w-3.5 h-3.5" /> Neue Verbindung ziehen
+                  <div className="p-4 bg-blue-50 border border-blue-100 rounded-none space-y-4">
+                    <h4 className="text-[10px] font-bold uppercase text-blue-700 flex items-center gap-2">
+                      <GitBranch className="w-3.5 h-3.5" /> Verbindung erstellen
                     </h4>
                     <div className="space-y-3">
                       <div className="space-y-1.5">
-                        <Label className="text-[8px] font-bold uppercase text-slate-500">Von Schritt</Label>
+                        <Label className="text-[8px] font-bold uppercase text-slate-500">Start</Label>
                         <Select value={selectedNodeId || ''} onValueChange={setSelectedNodeId}>
                           <SelectTrigger className="h-9 text-[10px] rounded-none bg-white border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                           <SelectContent className="rounded-none">
-                            {(currentVersion.model_json?.nodes || []).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs uppercase font-bold">{n.title}</SelectItem>)}
+                            {(currentVersion.model_json?.nodes || []).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs font-bold">{n.title}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[8px] font-bold uppercase text-slate-500">Nach Schritt</Label>
+                        <Label className="text-[8px] font-bold uppercase text-slate-500">Ziel</Label>
                         <Select value={newEdgeTargetId} onValueChange={setNewEdgeTargetId}>
                           <SelectTrigger className="h-9 text-[10px] rounded-none bg-white border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                           <SelectContent className="rounded-none">
-                            {(currentVersion.model_json?.nodes || []).filter((n: any) => n.id !== selectedNodeId).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs uppercase font-bold">{n.title}</SelectItem>)}
+                            {(currentVersion.model_json?.nodes || []).filter((n: any) => n.id !== selectedNodeId).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs font-bold">{n.title}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[8px] font-bold uppercase text-slate-500">Bedingung / Label</Label>
-                        <Input placeholder="z.B. JA / NEIN" value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-9 text-xs rounded-none border-slate-200 bg-white" />
+                        <Label className="text-[8px] font-bold uppercase text-slate-500">Bedingung (Label)</Label>
+                        <Input placeholder="z.B. OK / Fehler" value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-9 text-xs rounded-none border-slate-200 bg-white" />
                       </div>
-                      <Button onClick={handleAddEdge} disabled={!selectedNodeId || !newEdgeTargetId} className="w-full h-10 text-[10px] font-black uppercase rounded-none bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
+                      <Button onClick={handleAddEdge} disabled={!selectedNodeId || !newEdgeTargetId} className="w-full h-10 text-[10px] font-bold uppercase rounded-none bg-blue-600 hover:bg-blue-700 text-white">
                         Verknüpfen
                       </Button>
                     </div>
                   </div>
 
                   <div className="space-y-3">
-                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Aktive Logik-Pfade</h4>
+                    <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Aktive Pfade</h4>
                     <div className="grid grid-cols-1 gap-1">
                       {(currentVersion.model_json?.edges || []).map((edge: any) => {
                         const source = currentVersion.model_json?.nodes?.find((n: any) => n.id === edge.source);
                         const target = currentVersion.model_json?.nodes?.find((n: any) => n.id === edge.target);
                         return (
-                          <div key={edge.id} className="flex items-center justify-between p-3 bg-white border border-slate-100 text-[10px] font-bold group hover:border-blue-200 transition-colors">
+                          <div key={edge.id} className="flex items-center justify-between p-2.5 bg-white border border-slate-100 text-[10px] group hover:border-blue-200 transition-colors">
                             <div className="flex items-center gap-2 truncate flex-1">
-                              <span className="text-slate-400 truncate max-w-[100px] uppercase">{source?.title || edge.source}</span>
+                              <span className="text-slate-400 truncate max-w-[80px]">{source?.title || edge.source}</span>
                               <ArrowRight className="w-3 h-3 text-blue-500 shrink-0" />
-                              <span className="truncate max-w-[100px] text-slate-900 uppercase">{target?.title || edge.target}</span>
-                              {edge.label && <Badge className="h-4 rounded-none text-[7px] bg-blue-100 text-blue-700 border-none uppercase px-1">{edge.label}</Badge>}
+                              <span className="truncate max-w-[80px] text-slate-900 font-bold">{target?.title || edge.target}</span>
+                              {edge.label && <Badge className="h-4 rounded-none text-[7px] bg-blue-100 text-blue-700 border-none px-1">{edge.label}</Badge>}
                             </div>
                             <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 opacity-0 group-hover:opacity-100 rounded-none" onClick={() => handleRemoveEdge(edge.id)}>
                               <Trash2 className="w-3 h-3" />
@@ -628,14 +681,14 @@ export default function ProcessDesignerPage() {
           <div className="absolute top-10 right-10 z-10 flex flex-col gap-2">
              <div className="bg-white/95 backdrop-blur shadow-2xl border border-slate-200 p-1.5 rounded-none flex flex-col gap-1.5">
                 {[
-                  { icon: RefreshCw, label: 'Diagramm aktualisieren', action: syncDiagramToModel },
-                  { icon: Box, label: 'Auf Fenstergröße zentrieren', action: () => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({action: 'zoom', type: 'fit'}), '*') }
+                  { icon: RefreshCw, label: 'Neu zeichnen', action: syncDiagramToModel },
+                  { icon: Box, label: 'Zentrieren', action: () => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({action: 'zoom', type: 'fit'}), '*') }
                 ].map((btn, i) => (
                   <TooltipProvider key={i}>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none hover:bg-slate-50 transition-all border border-transparent hover:border-slate-200" onClick={btn.action}>
-                          <btn.icon className="w-4.5 h-4.5 text-slate-600" />
+                          <btn.icon className="w-4 h-4 text-slate-600" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="left" className="text-[10px] font-bold uppercase rounded-none">{btn.label}</TooltipContent>
@@ -653,18 +706,18 @@ export default function ProcessDesignerPage() {
           </div>
         </main>
 
-        <aside className="w-[400px] border-l flex flex-col bg-white shrink-0 overflow-hidden shadow-2xl z-30">
+        <aside className="w-[380px] border-l flex flex-col bg-white shrink-0 overflow-hidden shadow-2xl z-30">
           <div className="p-5 border-b bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-primary rounded-none flex items-center justify-center shadow-lg">
                 <Zap className="w-5 h-5 text-white fill-current" />
               </div>
               <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] block text-blue-400">Governance AI</span>
-                <span className="text-[8px] font-bold text-slate-400 uppercase">Premium Advisor v2.0</span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] block text-blue-400">KI Berater</span>
+                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Active Assistant</span>
               </div>
             </div>
-            <Badge className="bg-slate-800 text-slate-400 border-slate-700 rounded-none text-[8px] font-black h-5 uppercase px-2">Ready</Badge>
+            <Badge className="bg-slate-800 text-slate-400 border-slate-700 rounded-none text-[8px] font-bold h-5 uppercase px-2">Online</Badge>
           </div>
 
           <div className="flex-1 min-h-0 flex flex-col bg-slate-50/50">
@@ -675,9 +728,9 @@ export default function ProcessDesignerPage() {
                     <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm border border-slate-100">
                       <MessageSquare className="w-8 h-8 text-slate-300" />
                     </div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">Assistent wartet...</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-900">Bereit zur Analyse</p>
                     <p className="text-[9px] text-slate-500 italic px-8 leading-relaxed">
-                      "Schlage einen Prozess für den Rechnungsprüfung vor" oder "Was fehlt diesem Modell für ISO 9001?"
+                      "Wie sieht ein typischer Recruiting-Prozess aus?" oder "Prüfe diesen Ablauf auf ISO 9001 Konformität."
                     </p>
                   </div>
                 )}
@@ -698,7 +751,7 @@ export default function ProcessDesignerPage() {
                       <div className="w-full mt-2 space-y-2">
                         {msg.questions.map((q, qIdx) => (
                           <div key={qIdx} className="p-4 bg-indigo-50 border-2 border-indigo-100 text-[11px] font-bold text-indigo-900 italic shadow-sm">
-                            <span className="text-[8px] uppercase block text-indigo-400 font-black mb-1.5 tracking-widest">Berater-Rückfrage</span>
+                            <span className="text-[8px] uppercase block text-indigo-400 font-bold mb-1.5 tracking-widest">Rückfrage</span>
                             {q}
                           </div>
                         ))}
@@ -711,14 +764,14 @@ export default function ProcessDesignerPage() {
                           <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-bl-full -mr-8 -mt-8" />
                           <div className="flex items-center gap-2 text-primary">
                             <Sparkles className="w-4 h-4" />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Modell-Update Vorschlag</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Struktur-Update</span>
                           </div>
                           
                           <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
                             {msg.suggestions.map((op: any, opIdx: number) => (
-                              <div key={opIdx} className="text-[9px] p-2 bg-slate-50 border border-slate-100 flex items-center gap-3">
+                              <div key={`${opIdx}-${i}`} className="text-[9px] p-2 bg-slate-50 border border-slate-100 flex items-center gap-3">
                                 <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                                <span className="font-black text-slate-400 uppercase shrink-0 text-[7px]">{String(op.type).replace('_', ' ')}</span>
+                                <span className="font-bold text-slate-400 uppercase shrink-0 text-[7px]">{String(op.type).replace('_', ' ')}</span>
                                 <span className="truncate font-bold text-slate-700">
                                   {getOpTitle(op)}
                                 </span>
@@ -730,7 +783,7 @@ export default function ProcessDesignerPage() {
                             <Button 
                               onClick={() => handleApplyOps(msg.suggestions)} 
                               disabled={isApplying} 
-                              className="flex-1 h-11 rounded-none bg-primary hover:bg-blue-700 text-white text-[10px] font-black uppercase shadow-lg gap-2"
+                              className="flex-1 h-11 rounded-none bg-primary hover:bg-blue-700 text-white text-[10px] font-bold uppercase shadow-lg gap-2"
                             >
                               {isApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                               Anwenden
@@ -742,7 +795,7 @@ export default function ProcessDesignerPage() {
                                 newHistory[i].suggestions = [];
                                 setChatHistory(newHistory);
                               }} 
-                              className="flex-1 h-11 rounded-none border-slate-200 bg-white text-slate-500 text-[10px] font-black uppercase hover:bg-slate-50"
+                              className="flex-1 h-11 rounded-none border-slate-200 bg-white text-slate-500 text-[10px] font-bold uppercase hover:bg-slate-50"
                             >
                               Ablehnen
                             </Button>
@@ -757,7 +810,7 @@ export default function ProcessDesignerPage() {
                   <div className="flex justify-start">
                     <div className="bg-white border p-4 rounded-none flex items-center gap-4 shadow-sm border-blue-100">
                       <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Analysiere Modell...</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">KI analysiert Modell...</span>
                     </div>
                   </div>
                 )}
@@ -768,7 +821,7 @@ export default function ProcessDesignerPage() {
           <div className="p-5 border-t bg-white shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.03)]">
             <div className="relative group">
               <Input 
-                placeholder="An den Berater schreiben..." 
+                placeholder="Frage den Berater..." 
                 value={chatMessage}
                 onChange={e => setChatMessage(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAiChat()}
@@ -785,8 +838,8 @@ export default function ProcessDesignerPage() {
               </Button>
             </div>
             <div className="flex justify-between mt-3 px-1">
-               <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Revision Context Ready</span>
-               <span className="text-[8px] font-black text-primary uppercase tracking-widest flex items-center gap-1.5"><Terminal className="w-3 h-3" /> Engine Active</span>
+               <span className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">Vibe-Engine Active</span>
+               <span className="text-[8px] font-bold text-primary uppercase tracking-widest flex items-center gap-1.5"><Terminal className="w-3 h-3" /> Context Loaded</span>
             </div>
           </div>
         </aside>

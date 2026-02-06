@@ -51,7 +51,7 @@ export async function createProcessAction(
   };
 
   const initialModel: ProcessModel = {
-    nodes: [{ id: 'start', type: 'start', title: 'START' }],
+    nodes: [{ id: 'start', type: 'start', title: 'Start' }],
     edges: [],
     roles: [],
     isoFields: {}
@@ -82,6 +82,27 @@ export async function createProcessAction(
 }
 
 /**
+ * Aktualisiert die Stammdaten eines Prozesses.
+ */
+export async function updateProcessMetadataAction(
+  processId: string,
+  data: Partial<Process>,
+  dataSource: DataSource = 'mysql'
+) {
+  const res = await getCollectionData('processes', dataSource);
+  const process = res.data?.find((p: Process) => p.id === processId);
+  if (!process) throw new Error("Prozess nicht gefunden.");
+
+  const updatedProcess = {
+    ...process,
+    ...data,
+    updatedAt: new Date().toISOString()
+  };
+
+  return await saveCollectionRecord('processes', processId, updatedProcess, dataSource);
+}
+
+/**
  * Wendet Operationen auf eine Prozessversion an.
  */
 export async function applyProcessOpsAction(
@@ -109,7 +130,7 @@ export async function applyProcessOpsAction(
     if (op.type === 'ADD_NODE' && op.payload?.node) {
       const originalId = op.payload.node.id;
       const uniqueId = ensureUniqueId(originalId, usedIds);
-      usedIds.add(uniqueId); // Sofort als benutzt markieren
+      usedIds.add(uniqueId);
       if (uniqueId !== originalId) {
         idMap[originalId] = uniqueId;
       }
@@ -129,7 +150,6 @@ export async function applyProcessOpsAction(
         const nodeToAdd = { ...op.payload.node, id: finalId };
         model.nodes.push(nodeToAdd);
         
-        // Falls kein Layout mitgeliefert wurde, am Ende anfügen
         if (!layout.positions[finalId]) {
           const lastX = model.nodes.length > 1 
             ? Math.max(...Object.values(layout.positions).map((p: any) => p.x)) 

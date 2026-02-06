@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { 
   Table, 
@@ -73,7 +73,7 @@ import { createJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 
-export default function AssignmentsPage() {
+function AssignmentsPageContent() {
   const db = useFirestore();
   const { dataSource, activeTenantId } = useSettings();
   const searchParams = useSearchParams();
@@ -698,5 +698,13 @@ export default function AssignmentsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function AssignmentsPage() {
+  return (
+    <Suspense fallback={<div className="flex flex-col items-center justify-center py-20 gap-4"><Loader2 className="w-8 h-8 animate-spin text-primary" /><p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Lade Einzelzuweisungen...</p></div>}>
+      <AssignmentsPageContent />
+    </Suspense>
   );
 }

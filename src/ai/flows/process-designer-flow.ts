@@ -33,7 +33,7 @@ const ProcessDesignerOutputSchema = z.object({
   proposedOps: z.array(z.object({
     type: z.enum(['ADD_NODE', 'UPDATE_NODE', 'REMOVE_NODE', 'ADD_EDGE', 'UPDATE_EDGE', 'REMOVE_EDGE', 'UPDATE_LAYOUT', 'SET_ISO_FIELD', 'REORDER_NODES', 'UPDATE_PROCESS_META']),
     payload: z.any()
-  })).describe('Strukturelle Änderungen. Erst nutzen, wenn der Prozess verstanden wurde.'),
+  })).describe('Strukturelle Änderungen. Nutze NUR diese Typen.'),
   explanation: z.string().describe('Einfache, empathische Antwort im Chat (deutsch).'),
   openQuestions: z.array(z.string()).describe('Die aktuell noch zu klärenden Fragen.'),
 });
@@ -57,8 +57,8 @@ PHASE 1: VERSTEHEN (DIE ERSTEN 5-7 NACHRICHTEN)
 
 PHASE 2: MODELLIEREN (ERST WENN DER PROZESS KLAR IST)
 - Erzeuge hochprofessionelle Inhalte für das Modell (Titel, Anweisungen, ISO-Felder).
-- Nutze 'proposedOps' für die Struktur.
-- Pflege das Stammblatt weiterhin, um erledigte Fragen zu entfernen.
+- Nutze atomare 'proposedOps' (ADD_NODE, ADD_EDGE, etc.).
+- Erfinde KEINE eigenen Typen wie 'EXTENDMODEL'. Nutze ADD_NODE für jeden neuen Schritt einzeln.
 
 WICHTIGE REGELN:
 1. Antworte IMMER im JSON-Format.
@@ -101,15 +101,32 @@ function extractJson(text: string): any {
   }
 }
 
+/**
+ * Mappt halluzinierte Operationen auf valide Typen um.
+ */
 function normalizeOps(rawOps: any[]): any[] {
   if (!Array.isArray(rawOps)) return [];
-  return rawOps.map(op => {
+  const normalized: any[] = [];
+
+  rawOps.forEach(op => {
     const type = String(op.type || op.action || '').toUpperCase();
-    return {
-      type: type as any,
-      payload: op.payload || op
-    };
-  }).filter(op => !!op.type);
+    
+    // Fix für häufige Halluzinationen
+    if (type === 'EXTENDMODEL' || type === 'EXTEND_MODEL') {
+      const nodes = op.payload?.nodes || [];
+      const edges = op.payload?.edges || [];
+      nodes.forEach((n: any) => normalized.push({ type: 'ADD_NODE', payload: { node: n } }));
+      edges.forEach((e: any) => normalized.push({ type: 'ADD_EDGE', payload: { edge: e } }));
+      if (op.payload?.isoFields) normalized.push({ type: 'SET_ISO_FIELD', payload: { isoFields: op.payload.isoFields } });
+    } else {
+      normalized.push({
+        type: type as any,
+        payload: op.payload || op
+      });
+    }
+  });
+
+  return normalized.filter(op => !!op.type);
 }
 
 function normalizeOutput(raw: any): ProcessDesignerOutput {
@@ -133,7 +150,7 @@ const processDesignerFlow = ai.defineFlow(
     const userMessageCount = (input.chatHistory || []).filter(h => h.role === 'user').length;
     const patienceInstruction = userMessageCount < 5 
       ? "HINWEIS: Du bist in Phase 1 (Verstehen). Stelle nur Fragen. Nutze UPDATE_PROCESS_META nur für die Fragenliste im Stammblatt. Noch keine ADD_NODE Operationen."
-      : "HINWEIS: Du bist in Phase 2 (Modellieren). Du kannst nun strukturelle Änderungen vorschlagen.";
+      : "HINWEIS: Du bist in Phase 2 (Modellieren). Du kannst nun strukturelle Änderungen vorschlagen (atomare ADD_NODE Befehle).";
 
     const openQuestionsStr = input.openQuestions || "Keine offenen Fragen dokumentiert.";
     const systemPromptPopulated = SYSTEM_PROMPT.replace('{{{openQuestions}}}', openQuestionsStr);
@@ -186,7 +203,12 @@ Bitte liefere ein valides JSON-Objekt zurück. Analysiere den Chatverlauf genau,
 
 export async function getProcessSuggestions(input: any): Promise<ProcessDesignerOutput> {
   try {
-    return await processDesignerFlow(input);
+    // Sanitizing input for schema safety
+    const sanitizedInput = {
+      ...input,
+      openQuestions: input.openQuestions || ""
+    };
+    return await processDesignerFlow(sanitizedInput);
   } catch (error: any) {
     console.error("Public Wrapper Error:", error);
     return { 

@@ -1,4 +1,3 @@
-
 'use server';
 
 import { saveCollectionRecord, getCollectionData, deleteCollectionRecord } from './mysql-actions';
@@ -249,6 +248,9 @@ export async function applyProcessOpsAction(
         if (!model.isoFields) model.isoFields = {};
         if (op.payload?.field) {
           model.isoFields[op.payload.field] = op.payload.value;
+        }
+        if (op.payload?.isoFields) {
+          model.isoFields = { ...model.isoFields, ...op.payload.isoFields };
         }
         break;
 

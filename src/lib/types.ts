@@ -97,7 +97,7 @@ export interface ProcessLayout {
 }
 
 export interface ProcessOperation {
-  type: 'ADD_NODE' | 'UPDATE_NODE' | 'REMOVE_NODE' | 'ADD_EDGE' | 'UPDATE_EDGE' | 'REMOVE_EDGE' | 'REORDER_NODES' | 'UPDATE_LAYOUT' | 'SET_ISO_FIELD';
+  type: 'ADD_NODE' | 'UPDATE_NODE' | 'REMOVE_NODE' | 'ADD_EDGE' | 'UPDATE_EDGE' | 'REMOVE_EDGE' | 'REORDER_NODES' | 'UPDATE_LAYOUT' | 'SET_ISO_FIELD' | 'UPDATE_PROCESS_META';
   payload: any;
 }
 
@@ -106,6 +106,7 @@ export interface Process {
   tenantId: string;
   title: string;
   description?: string;
+  openQuestions?: string; // New: Field for persistent open questions
   status: 'draft' | 'published' | 'archived';
   ownerUserId: string;
   currentVersion: number;

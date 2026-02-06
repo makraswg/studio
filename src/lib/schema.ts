@@ -64,6 +64,7 @@ export const appSchema: AppSchema = {
       tenantId: 'VARCHAR(255) NOT NULL',
       title: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
+      openQuestions: 'TEXT', // Added column
       status: 'VARCHAR(50) DEFAULT "draft"',
       ownerUserId: 'VARCHAR(255)',
       currentVersion: 'INT DEFAULT 1',

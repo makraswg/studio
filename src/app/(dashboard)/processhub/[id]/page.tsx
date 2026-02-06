@@ -38,7 +38,8 @@ import {
   Info,
   CircleDot,
   LogOut,
-  ExternalLink
+  ExternalLink,
+  HelpCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,7 +84,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
       case 'decision': style = 'rhombus;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;'; w = 100; h = 100; break;
       default: style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=1.5;shadow=1;';
     }
-    xml += `<mxCell id="${node.id}" value="${node.title}" style="${style}" vertex="1" parent="1"><mxGeometry x="${pos.x}" y="${pos.y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
+    xml += `<mxCell id="${node.id}" value="${node.title}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
   });
 
   edges.forEach(edge => {
@@ -121,6 +122,7 @@ export default function ProcessDesignerPage() {
 
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDesc, setMetaDesc] = useState('');
+  const [metaOpenQuestions, setMetaOpenQuestions] = useState('');
   const [metaStatus, setMetaStatus] = useState<any>('draft');
 
   const [newEdgeTargetId, setNewEdgeTargetId] = useState<string>('');
@@ -141,6 +143,7 @@ export default function ProcessDesignerPage() {
     if (currentProcess) {
       setMetaTitle(currentProcess.title || '');
       setMetaDesc(currentProcess.description || '');
+      setMetaOpenQuestions(currentProcess.openQuestions || '');
       setMetaStatus(currentProcess.status || 'draft');
     }
   }, [currentProcess?.id]);
@@ -215,6 +218,7 @@ export default function ProcessDesignerPage() {
       if (res.success) {
         toast({ title: "Modell aktualisiert" });
         refreshVersion();
+        refreshProc();
       }
     } catch (e: any) {
       toast({ variant: "destructive", title: "Update fehlgeschlagen", description: e.message });
@@ -227,7 +231,12 @@ export default function ProcessDesignerPage() {
     if (!currentProcess) return;
     setIsSavingMeta(true);
     try {
-      const res = await updateProcessMetadataAction(currentProcess.id, { title: metaTitle, description: metaDesc, status: metaStatus }, dataSource);
+      const res = await updateProcessMetadataAction(currentProcess.id, { 
+        title: metaTitle, 
+        description: metaDesc, 
+        openQuestions: metaOpenQuestions,
+        status: metaStatus 
+      }, dataSource);
       if (res.success) {
         toast({ title: "Stammdaten gespeichert" });
         refreshProc();
@@ -279,7 +288,13 @@ export default function ProcessDesignerPage() {
     const newHistory = [...chatHistory, { role: 'user', text: msg, timestamp: Date.now() }];
     setChatHistory(newHistory);
     try {
-      const suggestions = await getProcessSuggestions({ userMessage: msg, currentModel: currentVersion.model_json, chatHistory: newHistory, dataSource });
+      const suggestions = await getProcessSuggestions({ 
+        userMessage: msg, 
+        currentModel: currentVersion.model_json, 
+        openQuestions: currentProcess?.openQuestions,
+        chatHistory: newHistory, 
+        dataSource 
+      });
       setChatHistory([...newHistory, { role: 'ai', text: suggestions.explanation, questions: suggestions.openQuestions, suggestions: suggestions.proposedOps, timestamp: Date.now() }]);
     } catch (e: any) {
       toast({ variant: "destructive", title: "KI-Fehler", description: e.message });
@@ -323,7 +338,20 @@ export default function ProcessDesignerPage() {
                     <h3 className="text-[10px] font-black uppercase text-slate-400 border-b pb-1">Allgemein</h3>
                     <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase">Name</Label><Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="rounded-none font-bold h-10" /></div>
                     <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase">Status</Label><Select value={metaStatus} onValueChange={setMetaStatus}><SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger><SelectContent className="rounded-none"><SelectItem value="draft">Entwurf</SelectItem><SelectItem value="published">Veröffentlicht</SelectItem></SelectContent></Select></div>
-                    <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase">Beschreibung</Label><Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="rounded-none min-h-[100px] text-xs" /></div>
+                    <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase">Beschreibung</Label><Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="rounded-none min-h-[80px] text-xs" /></div>
+                    
+                    <div className="space-y-1.5 pt-4">
+                      <Label className="text-[10px] font-black uppercase text-indigo-600 flex items-center gap-2">
+                        <HelpCircle className="w-3.5 h-3.5" /> Offene Fragen (KI Fokus)
+                      </Label>
+                      <Textarea 
+                        value={metaOpenQuestions} 
+                        onChange={e => setMetaOpenQuestions(e.target.value)} 
+                        placeholder="Was muss noch geklärt werden? Die KI berücksichtigt dieses Feld..."
+                        className="rounded-none min-h-[120px] text-xs border-indigo-100 bg-indigo-50/10 focus:border-indigo-300" 
+                      />
+                    </div>
+
                     <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full rounded-none h-10 font-bold uppercase text-[10px] gap-2">{isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Speichern</Button>
                   </div>
                   <div className="space-y-6 pt-4 border-t">
@@ -398,10 +426,26 @@ export default function ProcessDesignerPage() {
               {chatHistory.map((msg, i) => (
                 <div key={`${msg.timestamp}-${i}`} className={cn("flex flex-col gap-2", msg.role === 'user' ? "items-end" : "items-start")}>
                   <div className={cn("p-4 text-[11px] leading-relaxed max-w-[90%] shadow-sm", msg.role === 'user' ? "bg-slate-900 text-white" : "bg-white text-slate-700 border-l-4 border-l-primary")}>{msg.text}</div>
-                  {msg.role === 'ai' && msg.questions && msg.questions.map((q: string, qIdx: number) => <div key={qIdx} className="p-4 bg-indigo-50 border-2 border-indigo-100 text-[11px] font-bold text-indigo-900 italic shadow-sm">{q}</div>)}
+                  {msg.role === 'ai' && msg.questions && msg.questions.length > 0 && (
+                    <div className="space-y-2 w-full">
+                      {msg.questions.map((q: string, qIdx: number) => (
+                        <div key={qIdx} className="p-4 bg-indigo-50 border-2 border-indigo-100 text-[11px] font-bold text-indigo-900 italic shadow-sm relative group">
+                          <HelpCircle className="w-3 h-3 absolute top-2 right-2 opacity-20" />
+                          {q}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
                     <div className="mt-3 w-full bg-white border-2 border-primary p-5 space-y-4 shadow-xl"><div className="flex items-center gap-2 text-primary"><Sparkles className="w-4 h-4" /><span className="text-[10px] font-black uppercase">Vorschlag anwenden</span></div>
-                      <div className="space-y-1.5 max-h-[180px] overflow-y-auto">{msg.suggestions.map((op: any, opIdx: number) => <div key={opIdx} className="text-[9px] p-2 bg-slate-50 border border-slate-100 flex items-center gap-3"><span className="font-bold text-slate-400 uppercase text-[7px]">{op.type}</span><span className="truncate font-bold text-slate-700">{op.payload?.node?.title || op.payload?.field || 'Update'}</span></div>)}</div>
+                      <div className="space-y-1.5 max-h-[180px] overflow-y-auto">
+                        {msg.suggestions.map((op: any, opIdx: number) => (
+                          <div key={opIdx} className="text-[9px] p-2 bg-slate-50 border border-slate-100 flex items-center gap-3">
+                            <span className="font-bold text-slate-400 uppercase text-[7px]">{op.type}</span>
+                            <span className="truncate font-bold text-slate-700">{op.payload?.node?.title || op.payload?.field || (op.type === 'UPDATE_PROCESS_META' ? 'Metadaten (Fragen)' : 'Update')}</span>
+                          </div>
+                        ))}
+                      </div>
                       <div className="flex gap-2"><Button onClick={() => { handleApplyOps(msg.suggestions); msg.suggestions = []; }} disabled={isApplying} className="flex-1 h-11 bg-primary text-white text-[10px] font-bold uppercase">Übernehmen</Button><Button variant="outline" onClick={() => msg.suggestions = []} className="flex-1 h-11 text-[10px] font-bold uppercase">Ablehnen</Button></div>
                     </div>
                   )}

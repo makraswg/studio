@@ -43,6 +43,7 @@ export async function createProcessAction(
     tenantId,
     title,
     description: '',
+    openQuestions: '',
     status: 'draft',
     ownerUserId,
     currentVersion: 1,
@@ -171,7 +172,7 @@ export async function applyProcessOpsAction(
   });
 
   // 2. Pass: Operationen anwenden mit korrigierten IDs (Remapping)
-  ops.forEach(op => {
+  for (const op of ops) {
     switch (op.type) {
       case 'ADD_NODE':
         if (!model.nodes) model.nodes = [];
@@ -185,7 +186,7 @@ export async function applyProcessOpsAction(
         
         if (!layout.positions[finalId]) {
           const lastX = model.nodes.length > 1 
-            ? Math.max(...Object.values(layout.positions).map((p: any) => p.x)) 
+            ? Math.max(...Object.values(layout.positions).map((p: any) => (p as any).x)) 
             : 50;
           layout.positions[finalId] = { x: lastX + 220, y: 150 };
         }
@@ -267,8 +268,14 @@ export async function applyProcessOpsAction(
           model.nodes = newNodes;
         }
         break;
+
+      case 'UPDATE_PROCESS_META':
+        if (op.payload) {
+          await updateProcessMetadataAction(processId, op.payload, dataSource);
+        }
+        break;
     }
-  });
+  }
 
   const nextRevision = (currentVersion.revision || 0) + 1;
   const updatedVersion = {

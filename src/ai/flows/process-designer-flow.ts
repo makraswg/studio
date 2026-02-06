@@ -4,8 +4,9 @@
  * @fileOverview AI Flow for Process Content Engineering (Expert BPMN Architect).
  * 
  * Geduldiger Business-Analyst Flow:
- * - Stellt mindestens 5 Fragen, bevor er das Modell ändert.
- * - Nutzt einfache Chat-Sprache vs. hochprofessionelle Prozess-Daten.
+ * - Stellt gezielte Fragen, um den IST-Zustand zu verstehen.
+ * - Berücksichtigt das Feld 'openQuestions' im Stammblatt, um Redundanz zu vermeiden.
+ * - Kann 'proposedOps' nutzen, um 'openQuestions' im Stammblatt zu aktualisieren.
  */
 
 import { ai } from '@/ai/genkit';
@@ -17,6 +18,7 @@ import OpenAI from 'openai';
 const ProcessDesignerInputSchema = z.object({
   userMessage: z.string(),
   currentModel: z.any(),
+  openQuestions: z.string().optional().describe('Bestehende offene Fragen aus dem Stammblatt.'),
   chatHistory: z.array(z.object({
     role: z.enum(['user', 'ai']),
     text: z.string()
@@ -29,38 +31,36 @@ export type ProcessDesignerInput = z.infer<typeof ProcessDesignerInputSchema>;
 
 const ProcessDesignerOutputSchema = z.object({
   proposedOps: z.array(z.object({
-    type: z.enum(['ADD_NODE', 'UPDATE_NODE', 'REMOVE_NODE', 'ADD_EDGE', 'UPDATE_EDGE', 'REMOVE_EDGE', 'UPDATE_LAYOUT', 'SET_ISO_FIELD', 'REORDER_NODES']),
+    type: z.enum(['ADD_NODE', 'UPDATE_NODE', 'REMOVE_NODE', 'ADD_EDGE', 'UPDATE_EDGE', 'REMOVE_EDGE', 'UPDATE_LAYOUT', 'SET_ISO_FIELD', 'REORDER_NODES', 'UPDATE_PROCESS_META']),
     payload: z.any()
-  })).describe('An array of structural changes. DO NOT return this until you have asked at least 5 clarifying questions and understood the full IST-process.'),
-  explanation: z.string().describe('Simple, empathetic explanation in German for the user (The Oma-Test).'),
-  openQuestions: z.array(z.string()).describe('1-2 focused questions to understand inputs, outputs, roles or risks.'),
+  })).describe('Strukturelle Änderungen am Modell oder den Metadaten. Nutze UPDATE_PROCESS_META mit payload { openQuestions: "..." } um die Liste der Fragen zu pflegen.'),
+  explanation: z.string().describe('Einfache, empathische Antwort im Chat (deutsch).'),
+  openQuestions: z.array(z.string()).describe('Die aktuell noch zu klärenden Fragen.'),
 });
 
 export type ProcessDesignerOutput = z.infer<typeof ProcessDesignerOutputSchema>;
 
 const SYSTEM_PROMPT = `Du bist ein erfahrener Prozess-Analyst und ISO 9001:2015 Experte.
-Deine Aufgabe ist es, einen realen Geschäftsprozess zu verstehen und erst dann professionell zu modellieren.
+Deine Aufgabe ist es, einen realen Geschäftsprozess zu verstehen und professionell zu modellieren.
+
+AKTUELLER KONTEXT (STAMMBLATT - OFFENE FRAGEN):
+{{{openQuestions}}}
 
 UNTERNEHMENS-KONTEXT:
 {{{companyContext}}}
 
-VERHALTENSREGELN (ESSENZIELL):
-1. GEDULD: Du bist ein Zuhörer. Du darfst erst dann strukturelle Vorschläge (proposedOps) machen, wenn du mindestens 5 gezielte Rückfragen gestellt hast und meinst, den Ablauf (Wer? Was? Womit? Welches Risiko?) verstanden zu haben.
-2. SPRACHSTIL IM CHAT: Kommuniziere wie ein hilfreicher Kollege. Einfach, klar, keine unnötigen Fachbegriffe. Erkläre kurz, warum du eine Frage stellst.
-3. PROFESSIONELLE DATEN: Wenn du Inhalte für den Prozess erzeugst (Knotentitel, ISO-Felder), müssen diese HOCHPROFESSIONELL und normkonform (ISO 9001) sein.
-4. FOKUS: Stelle immer nur EINE oder maximal ZWEI Fragen gleichzeitig.
-5. POSITIONIERUNG: Nutze ein 250px Raster (x: 50, 300, 550...; y: 150). Die Breite eines Knotens ist 160px.
+VERHALTENSREGELN:
+1. GEDULD & KONKRETISIERUNG: Stelle gezielte Rückfragen zum IST-Prozess (Wer macht was? Welche Inputs? Welche Risiken?).
+2. KEINE WIEDERHOLUNGEN: Beachte die Liste der bereits bestehenden offenen Fragen ({{{openQuestions}}}). Stelle KEINE Fragen, die dort bereits stehen oder schon im Chat geklärt wurden.
+3. PROFESSIONELLE DATEN: Erzeuge hochprofessionelle Modell-Inhalte (ISO 9001 konform).
+4. PFLEGE DAS STAMMBLATT: Nutze UPDATE_PROCESS_META, um das Feld 'openQuestions' im Stammblatt zu aktualisieren, damit der Nutzer sieht, was noch fehlt. Fasse die Fragen dort kurz und knackig zusammen.
+5. POSITIONIERUNG: Nutze ein 250px Raster für Knoten.
 
 ID-REGEL:
-Generiere für jeden ADD_NODE eine neue ID wie 'step-1', 'step-2' etc. Das System korrigiert Dubletten automatisch, versuche aber logisch aufsteigend zu zählen.
+Generiere für jeden ADD_NODE eine neue ID (step-1, step-2...). Das System korrigiert Dubletten automatisch.
 
 ANTWORT-FORMAT:
-Liefere IMMER ein valides JSON-Objekt:
-{
-  "proposedOps": [], // Erst füllen, wenn Prozess verstanden!
-  "explanation": "Deine einfache Antwort für den Nutzer",
-  "openQuestions": ["Deine Frage(n)"]
-}`;
+Liefere IMMER ein valides JSON-Objekt zurück.`;
 
 function normalizeOps(rawOps: any[]): any[] {
   if (!Array.isArray(rawOps)) return [];
@@ -100,7 +100,9 @@ const processDesignerFlow = ai.defineFlow(
   async (input) => {
     const config = await getActiveAiConfig(input.dataSource as DataSource);
     const historyString = (input.chatHistory || []).map(h => `${h.role}: ${h.text}`).join('\n');
-    const systemPromptPopulated = SYSTEM_PROMPT.replace('{{{companyContext}}}', config?.systemPrompt || "Keine spezifischen Infos.");
+    const systemPromptPopulated = SYSTEM_PROMPT
+      .replace('{{{companyContext}}}', config?.systemPrompt || "Keine spezifischen Infos.")
+      .replace('{{{openQuestions}}}', input.openQuestions || "Keine offenen Fragen im Stammblatt.");
 
     const prompt = `AKTUELLER MODELL-ZUSTAND: 
 ${JSON.stringify(input.currentModel, null, 2)}
@@ -110,7 +112,7 @@ ${historyString}
 
 AKTUELLE NACHRICHT VOM NUTZER: "${input.userMessage}"
 
-Bitte antworte im JSON-Format. Stelle sicher, dass du erst Informationen sammelst, bevor du proposedOps füllst.`;
+Bitte antworte im JSON-Format. Nutze die 'proposedOps' um das Stammblatt (openQuestions) zu füllen, falls noch Informationen fehlen.`;
 
     if (config?.provider === 'openrouter') {
       const client = new OpenAI({ apiKey: config.openrouterApiKey || '', baseURL: 'https://openrouter.ai/api/v1' });

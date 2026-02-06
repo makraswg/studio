@@ -387,7 +387,7 @@ export default function ProcessDesignerPage() {
                           <div className={cn(
                             "w-7 h-7 rounded-none flex items-center justify-center shrink-0 border", 
                             node.type === 'decision' ? "bg-orange-50 text-orange-600" : 
-                            node.type === 'start' ? "bg-emerald-50 text-emerald-600" : 
+                            node.type === 'start' ? "bg-emerald-50 text-emerald-700" : 
                             node.type === 'end' ? (isEndLinked ? "bg-blue-50 text-blue-600" : "bg-red-50 text-red-600") :
                             "bg-slate-50 text-slate-600"
                           )}>

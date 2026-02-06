@@ -12,7 +12,7 @@ import { getActiveAiConfig } from '@/app/actions/ai-actions';
 import { DataSource } from '@/lib/types';
 
 const FormAssistantInputSchema = z.object({
-  formType: z.enum(['resource', 'risk', 'measure', 'gdpr']),
+  formType: z.enum(['resource', 'risk', 'measure', 'gdpr', 'entitlement']),
   partialData: z.any(),
   userPrompt: z.string(),
   dataSource: z.enum(['mysql', 'firestore', 'mock']).optional(),
@@ -41,7 +41,7 @@ Context: {{{formType}}}
 Current Data: {{{partialData}}}
 
 Based on the user's prompt and current context, suggest professional values for the missing or incomplete fields.
-Be specific, adhere to BSI IT-Grundschutz and ISO 27001 standards where applicable.
+Be specific, adhere to BSI IT-Grundschutz, ISO 27001 and GDPR standards.
 
 IMPORTANT: Use ONLY the following keys in the "suggestions" object depending on the formType to allow automatic filling:
 
@@ -56,6 +56,8 @@ For "resource":
 - availabilityReq: ("low", "medium", "high")
 - processingPurpose: (string)
 - dataClassification: ("public", "internal", "confidential", "strictly_confidential")
+- systemOwner: (string)
+- dataLocation: (string)
 
 For "risk":
 - title: (string)
@@ -63,6 +65,8 @@ For "risk":
 - description: (string)
 - impact: (Number 1-5)
 - probability: (Number 1-5)
+- residualImpact: (Number 1-5)
+- residualProbability: (Number 1-5)
 - bruttoReason: (string)
 - nettoReason: (string)
 
@@ -72,6 +76,7 @@ For "measure":
 - owner: (string)
 - effectiveness: (Number 1-5)
 - tomCategory: (string)
+- evidenceDetails: (string)
 
 For "gdpr":
 - name: (string)
@@ -80,7 +85,12 @@ For "gdpr":
 - legalBasis: (string)
 - retentionPeriod: (string)
 
-Explain your suggestions in the "explanation" field in German language.`;
+For "entitlement":
+- name: (string)
+- description: (string)
+- riskLevel: ("low", "medium", "high")
+
+Explain your suggestions in the "explanation" field in German language. Keep values consistent with the context.`;
 
 const formAssistantFlow = ai.defineFlow(
   {

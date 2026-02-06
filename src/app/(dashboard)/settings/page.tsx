@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -45,7 +46,10 @@ import {
   Ticket,
   Clock,
   Activity,
-  Play
+  Play,
+  Search,
+  Eye,
+  ArrowRight
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -55,7 +59,12 @@ import { usePlatformAuth } from '@/context/auth-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { 
   testJiraConnectionAction, 
-  getJiraConfigs
+  getJiraConfigs,
+  getJiraProjectsAction,
+  getJiraProjectMetadataAction,
+  getJiraWorkspacesAction,
+  getJiraSchemasAction,
+  getJiraObjectTypesAction
 } from '@/app/actions/jira-actions';
 import { runBsiXmlImportAction } from '@/app/actions/bsi-import-actions';
 import { runBsiCrossTableImportAction } from '@/app/actions/bsi-cross-table-actions';
@@ -77,6 +86,15 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState<string | null>(null);
   const [isJobRunning, setIsJobRunning] = useState<string | null>(null);
+
+  // Jira Fetch States
+  const [isJiraFetching, setIsJiraFetching] = useState(false);
+  const [jiraProjects, setJiraProjects] = useState<any[]>([]);
+  const [jiraIssueTypes, setJiraIssueTypes] = useState<any[]>([]);
+  const [jiraStatuses, setJiraStatuses] = useState<any[]>([]);
+  const [jiraWorkspaces, setJiraWorkspaces] = useState<any[]>([]);
+  const [jiraSchemas, setJiraSchemas] = useState<any[]>([]);
+  const [jiraObjectTypes, setJiraObjectTypes] = useState<any[]>([]);
 
   // Import State XML
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -155,6 +173,42 @@ export default function SettingsPage() {
     const current = tenants?.find(t => t.id === (activeTenantId === 'all' ? 't1' : activeTenantId));
     if (current) setTenantDraft(current);
   }, [tenants, activeTenantId]);
+
+  const handleFetchJiraOptions = async () => {
+    if (!jiraDraft.url || !jiraDraft.email || !jiraDraft.apiToken) {
+      toast({ variant: "destructive", title: "Fehlende Daten", description: "Bitte URL, E-Mail und Token eingeben." });
+      return;
+    }
+    setIsJiraFetching(true);
+    try {
+      const pRes = await getJiraProjectsAction(jiraDraft);
+      if (pRes.success) setJiraProjects(pRes.projects || []);
+      
+      const wRes = await getJiraWorkspacesAction(jiraDraft);
+      if (wRes.success) setJiraWorkspaces(wRes.workspaces || []);
+
+      if (jiraDraft.projectKey) {
+        const meta = await getJiraProjectMetadataAction(jiraDraft, jiraDraft.projectKey);
+        if (meta.success) {
+          setJiraIssueTypes(meta.issueTypes || []);
+          setJiraStatuses(meta.statuses || []);
+        }
+      }
+
+      if (jiraDraft.workspaceId && jiraDraft.schemaId) {
+        const sRes = await getJiraSchemasAction(jiraDraft, jiraDraft.workspaceId);
+        if (sRes.success) setJiraSchemas(sRes.schemas || []);
+        const otRes = await getJiraObjectTypesAction(jiraDraft, jiraDraft.workspaceId, jiraDraft.schemaId);
+        if (otRes.success) setJiraObjectTypes(otRes.objectTypes || []);
+      }
+
+      toast({ title: "Jira Optionen geladen" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler beim Laden", description: e.message });
+    } finally {
+      setIsJiraFetching(false);
+    }
+  };
 
   const handleSaveConfig = async (collection: string, id: string, data: any) => {
     setIsSaving(true);
@@ -257,8 +311,12 @@ export default function SettingsPage() {
   const handleTestJira = async () => {
     setIsTesting('jira');
     const res = await testJiraConnectionAction(jiraDraft);
-    if (res.success) toast({ title: "Jira Verbindung OK", description: res.message });
-    else toast({ variant: "destructive", title: "Jira Fehler", description: res.message });
+    if (res.success) {
+      toast({ title: "Jira Verbindung OK", description: res.details });
+      handleFetchJiraOptions();
+    } else {
+      toast({ variant: "destructive", title: "Jira Fehler", description: res.message });
+    }
     setIsTesting(null);
   };
 
@@ -639,7 +697,10 @@ export default function SettingsPage() {
                       <Input value={jiraDraft.email || ''} onChange={e => setJiraDraft({...jiraDraft, email: e.target.value})} className="rounded-none h-10" />
                     </div>
                     <div className="space-y-2 md:col-span-2">
-                      <Label className="text-[10px] font-bold uppercase">API Token</Label>
+                      <Label className="text-[10px] font-bold uppercase flex items-center justify-between">
+                        API Token
+                        <span className="text-[8px] font-black uppercase text-amber-600">Sicherheitskritisch</span>
+                      </Label>
                       <Input type="password" value={jiraDraft.apiToken || ''} onChange={e => setJiraDraft({...jiraDraft, apiToken: e.target.value})} className="rounded-none h-10" />
                     </div>
                   </div>
@@ -648,31 +709,102 @@ export default function SettingsPage() {
                 <Separator />
 
                 <div className="space-y-6">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Ticket className="w-3.5 h-3.5" /> Ticket- & Workflow Steuerung
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                      <Ticket className="w-3.5 h-3.5" /> Ticket- & Workflow Steuerung
+                    </h3>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-8 rounded-none text-[9px] font-bold uppercase gap-2"
+                      onClick={handleFetchJiraOptions}
+                      disabled={isJiraFetching}
+                    >
+                      {isJiraFetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Optionen aus Jira laden
+                    </Button>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Projekt Key</Label>
-                      <Input value={jiraDraft.projectKey || ''} onChange={e => setJiraDraft({...jiraDraft, projectKey: e.target.value})} placeholder="z.B. IT" className="rounded-none h-10 font-bold uppercase" />
+                      <Label className="text-[10px] font-bold uppercase">Projekt</Label>
+                      <Select value={jiraDraft.projectKey || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, projectKey: v})}>
+                        <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          {jiraProjects.map(p => <SelectItem key={p.key} value={p.key}>{p.name} ({p.key})</SelectItem>)}
+                          {jiraProjects.length === 0 && <SelectItem value="none" disabled>Bitte erst Optionen laden</SelectItem>}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Vorgangstyp (Name)</Label>
-                      <Input value={jiraDraft.issueTypeName || 'Task'} onChange={e => setJiraDraft({...jiraDraft, issueTypeName: e.target.value})} className="rounded-none h-10" />
+                      <Label className="text-[10px] font-bold uppercase">Vorgangstyp</Label>
+                      <Select value={jiraDraft.issueTypeName || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, issueTypeName: v})}>
+                        <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          {jiraIssueTypes.map(it => <SelectItem key={it.id} value={it.name}>{it.name}</SelectItem>)}
+                          {jiraIssueTypes.length === 0 && <SelectItem value="none" disabled>Bitte erst Optionen laden</SelectItem>}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-emerald-600">Status für "Genehmigt"</Label>
-                      <Input value={jiraDraft.approvedStatusName || 'Approved'} onChange={e => setJiraDraft({...jiraDraft, approvedStatusName: e.target.value})} className="rounded-none h-10 border-emerald-200" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-blue-600">Status für "Erledigt"</Label>
-                      <Input value={jiraDraft.doneStatusName || 'Done'} onChange={e => setJiraDraft({...jiraDraft, doneStatusName: e.target.value})} className="rounded-none h-10 border-blue-200" />
+                      <Label className="text-[10px] font-bold uppercase">Genehmigungs-Status</Label>
+                      <Select value={jiraDraft.approvedStatusName || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, approvedStatusName: v})}>
+                        <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          {jiraStatuses.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                          {jiraStatuses.length === 0 && <SelectItem value="none" disabled>Bitte erst Optionen laden</SelectItem>}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>
 
+                <Separator />
+
+                <div className="space-y-6">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <Layers className="w-3.5 h-3.5" /> JSM Assets Discovery (Insight)
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Workspace</Label>
+                      <Select value={jiraDraft.workspaceId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, workspaceId: v})}>
+                        <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          {jiraWorkspaces.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Assets Schema</Label>
+                      <Select value={jiraDraft.schemaId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, schemaId: v})}>
+                        <SelectTrigger className="rounded-none h-10" disabled={!jiraDraft.workspaceId}><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          {jiraSchemas.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Objekttyp für Ressourcen</Label>
+                      <Select value={jiraDraft.objectTypeId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, objectTypeId: v})}>
+                        <SelectTrigger className="rounded-none h-10" disabled={!jiraDraft.schemaId}><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          {jiraObjectTypes.map(ot => <SelectItem key={ot.id} value={ot.id}>{ot.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-4 border bg-slate-50/50 rounded-none">
+                    <div className="space-y-0.5">
+                      <Label className="text-[10px] font-bold uppercase block">Automatischer Ressourcen-Sync</Label>
+                      <span className="text-[8px] text-muted-foreground uppercase">Systeme automatisch mit Jira Assets abgleichen</span>
+                    </div>
+                    <Switch checked={!!jiraDraft.autoSyncAssets} onCheckedChange={(v) => setJiraDraft({...jiraDraft, autoSyncAssets: v})} />
+                  </div>
+                </div>
+
                 <div className="flex justify-between items-center pt-6 border-t">
-                  <Button variant="outline" onClick={handleTestJira} disabled={isTesting === 'jira'} className="rounded-none text-[10px] font-bold uppercase px-8 h-11 gap-2">
+                  <Button variant="outline" onClick={handleTestJira} disabled={isTesting === 'jira'} className="rounded-none text-[10px] font-bold uppercase px-8 h-11 gap-2 border-slate-200">
                     {isTesting === 'jira' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Verbindung Validieren
                   </Button>
                   <Button onClick={() => handleSaveConfig('jiraConfigs', jiraDraft.id!, jiraDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] px-12 h-11 bg-slate-900 text-white gap-2">

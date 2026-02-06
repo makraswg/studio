@@ -149,25 +149,6 @@ export interface Entitlement {
   externalMapping?: string;
 }
 
-export interface Assignment {
-  id: string;
-  userId: string;
-  entitlementId: string;
-  originGroupId?: string;
-  status: 'active' | 'requested' | 'removed' | 'pending_removal';
-  grantedBy: string;
-  grantedAt: string;
-  validFrom?: string;
-  validUntil?: string;
-  ticketRef: string;
-  jiraIssueKey?: string;
-  notes: string;
-  lastReviewedAt?: string;
-  reviewedBy?: string;
-  tenantId?: string;
-  syncSource?: 'manual' | 'ldap' | 'group';
-}
-
 export interface JiraConfig {
   id: string;
   enabled: boolean;
@@ -180,6 +161,7 @@ export interface JiraConfig {
   doneStatusName?: string;
   workspaceId?: string;
   schemaId?: string;
+  objectTypeId?: string;
   autoSyncAssets?: boolean;
 }
 
@@ -326,4 +308,13 @@ export interface HelpContent {
   title: string;
   content: string;
   order: number;
+}
+
+export interface JiraSyncItem {
+  key: string;
+  summary: string;
+  status: string;
+  reporter: string;
+  created: string;
+  requestedUserEmail?: string;
 }

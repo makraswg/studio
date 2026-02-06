@@ -23,7 +23,14 @@ import {
   ArrowRight,
   ShieldAlert,
   AlertTriangle,
-  X
+  X,
+  FileCheck,
+  Scale,
+  Shield,
+  Layers,
+  Info,
+  Save,
+  HelpCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -48,9 +55,11 @@ import {
 import { cn } from '@/lib/utils';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { Risk, RiskMeasure } from '@/lib/types';
+import { Risk, RiskMeasure, Resource, ProcessingActivity, DataCategory } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 
 export default function RiskMeasuresPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -62,16 +71,32 @@ export default function RiskMeasuresPage() {
 
   // Form State
   const [selectedRiskIds, setSelectedRiskIds] = useState<string[]>([]);
+  const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [owner, setOwner] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState<RiskMeasure['status']>('planned');
   const [effectiveness, setEffectiveness] = useState('3');
   const [description, setDescription] = useState('');
+  
+  // TOM specific
+  const [isTom, setIsTom] = useState(false);
+  const [tomCategory, setTomCategory] = useState<RiskMeasure['tomCategory']>('Zugriffskontrolle');
+  const [art32Mapping, setArt32Mapping] = useState<string[]>([]);
+  const [gdprProtectionGoals, setGdprProtectionGoals] = useState<string[]>([]);
+  const [vvtIds, setVvtIds] = useState<string[]>([]);
+  const [dataCategories, setDataCategories] = useState<string[]>([]);
+  const [isArt9Relevant, setIsArt9Relevant] = useState(false);
+
+  // Pickers search
   const [riskSearch, setRiskSearch] = useState('');
+  const [resourceSearch, setResourceSearch] = useState('');
 
   const { data: measures, isLoading: isMeasuresLoading, refresh } = usePluggableCollection<RiskMeasure>('riskMeasures');
-  const { data: risks, isLoading: isRisksLoading } = usePluggableCollection<Risk>('risks');
+  const { data: risks } = usePluggableCollection<Risk>('risks');
+  const { data: resources } = usePluggableCollection<Resource>('resources');
+  const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
+  const { data: globalDataCategories } = usePluggableCollection<DataCategory>('dataCategories');
 
   useEffect(() => {
     setMounted(true);
@@ -87,12 +112,20 @@ export default function RiskMeasuresPage() {
     const measureData: RiskMeasure = {
       id,
       riskIds: selectedRiskIds,
+      resourceIds: selectedResourceIds,
       title,
       owner,
       dueDate,
       status,
       effectiveness: parseInt(effectiveness),
-      description
+      description,
+      isTom,
+      tomCategory: isTom ? tomCategory : undefined,
+      art32Mapping: isTom ? art32Mapping : [],
+      gdprProtectionGoals: isTom ? gdprProtectionGoals : [],
+      vvtIds: isTom ? vvtIds : [],
+      dataCategories: isTom ? dataCategories : [],
+      isArt9Relevant: isTom ? isArt9Relevant : false
     };
 
     try {
@@ -113,36 +146,42 @@ export default function RiskMeasuresPage() {
   const resetForm = () => {
     setSelectedMeasure(null);
     setSelectedRiskIds([]);
+    setSelectedResourceIds([]);
     setTitle('');
     setOwner('');
     setDueDate('');
     setStatus('planned');
     setEffectiveness('3');
     setDescription('');
+    setIsTom(false);
+    setTomCategory('Zugriffskontrolle');
+    setArt32Mapping([]);
+    setGdprProtectionGoals([]);
+    setVvtIds([]);
+    setDataCategories([]);
+    setIsArt9Relevant(false);
     setRiskSearch('');
+    setResourceSearch('');
   };
 
   const openEdit = (m: RiskMeasure) => {
     setSelectedMeasure(m);
     setSelectedRiskIds(m.riskIds || []);
+    setSelectedResourceIds(m.resourceIds || []);
     setTitle(m.title);
     setOwner(m.owner);
     setDueDate(m.dueDate || '');
     setStatus(m.status);
     setEffectiveness(m.effectiveness.toString());
     setDescription(m.description || '');
+    setIsTom(!!m.isTom);
+    setTomCategory(m.tomCategory || 'Zugriffskontrolle');
+    setArt32Mapping(m.art32Mapping || []);
+    setGdprProtectionGoals(m.gdprProtectionGoals || []);
+    setVvtIds(m.vvtIds || []);
+    setDataCategories(m.dataCategories || []);
+    setIsArt9Relevant(!!m.isArt9Relevant);
     setIsMeasureDialogOpen(true);
-  };
-
-  const handleDeleteMeasure = async (id: string) => {
-    if (!confirm("Maßnahme permanent löschen?")) return;
-    try {
-      await deleteCollectionRecord('riskMeasures', id, dataSource);
-      toast({ title: "Maßnahme entfernt" });
-      refresh();
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler", description: e.message });
-    }
   };
 
   const filteredRisksForSelection = useMemo(() => {
@@ -154,6 +193,15 @@ export default function RiskMeasuresPage() {
     });
   }, [risks, activeTenantId, riskSearch]);
 
+  const filteredResourcesForSelection = useMemo(() => {
+    if (!resources) return [];
+    return resources.filter(res => {
+      const matchesTenant = activeTenantId === 'all' || res.tenantId === activeTenantId || res.tenantId === 'global';
+      const matchesSearch = res.name.toLowerCase().includes(resourceSearch.toLowerCase());
+      return matchesTenant && matchesSearch;
+    });
+  }, [resources, activeTenantId, resourceSearch]);
+
   const filteredMeasures = useMemo(() => {
     if (!measures) return [];
     return measures.filter(m => {
@@ -161,7 +209,6 @@ export default function RiskMeasuresPage() {
       if (!matchSearch) return false;
       
       if (activeTenantId !== 'all' && risks) {
-        // Prüfe ob mindestens eines der verknüpften Risiken zum aktiven Mandanten gehört
         const measureRisks = risks.filter(r => m.riskIds?.includes(r.id));
         return measureRisks.some(r => r.tenantId === activeTenantId);
       }
@@ -180,7 +227,7 @@ export default function RiskMeasuresPage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight uppercase font-headline">Maßnahmen & Kontrollen</h1>
-            <p className="text-sm text-muted-foreground mt-1">Multi-Risk-Monitoring der risikomindernden Aktivitäten.</p>
+            <p className="text-sm text-muted-foreground mt-1">Multi-Risk-Monitoring der risikomindernden Aktivitäten (TOM).</p>
           </div>
         </div>
         <Button onClick={() => { resetForm(); setIsMeasureDialogOpen(true); }} className="h-10 font-bold uppercase text-[10px] rounded-none px-6">
@@ -198,20 +245,16 @@ export default function RiskMeasuresPage() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex border bg-card h-11 p-1 gap-1">
-          <Button variant="ghost" size="sm" className="h-full text-[9px] font-bold uppercase px-4 rounded-none border-r"><Filter className="w-3 h-3 mr-2" /> Filter</Button>
-          <Button variant="ghost" size="sm" className="h-full text-[9px] font-bold uppercase px-4 rounded-none bg-muted/20">Alle Status</Button>
-        </div>
       </div>
 
       <div className="admin-card overflow-hidden">
         <Table>
           <TableHeader className="bg-muted/30">
             <TableRow>
-              <TableHead className="py-4 font-bold uppercase text-[10px]">Maßnahme / Risiko-Bezug</TableHead>
+              <TableHead className="py-4 font-bold uppercase text-[10px]">Maßnahme / Typ</TableHead>
               <TableHead className="font-bold uppercase text-[10px]">Frist / Deadline</TableHead>
               <TableHead className="font-bold uppercase text-[10px]">Verantwortung</TableHead>
-              <TableHead className="font-bold uppercase text-[10px]">Wirksamkeit</TableHead>
+              <TableHead className="font-bold uppercase text-[10px]">Bezug</TableHead>
               <TableHead className="text-right font-bold uppercase text-[10px]">Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -220,6 +263,7 @@ export default function RiskMeasuresPage() {
               <TableRow><TableCell colSpan={5} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : filteredMeasures.map((m) => {
               const riskCount = m.riskIds?.length || 0;
+              const resCount = m.resourceIds?.length || 0;
               const isOverdue = m.dueDate && new Date(m.dueDate) < new Date() && m.status !== 'completed';
               
               return (
@@ -227,9 +271,12 @@ export default function RiskMeasuresPage() {
                   <TableCell className="py-4">
                     <div className="font-bold text-sm">{m.title}</div>
                     <div className="flex items-center gap-2 mt-1">
-                      <Badge className="bg-blue-50 text-blue-700 rounded-none text-[8px] font-black border-none px-1.5 h-4.5">
-                        {riskCount} VERKNÜPFTE RISIKEN
-                      </Badge>
+                      {m.isTom && (
+                        <Badge className="bg-emerald-50 text-emerald-700 rounded-none text-[8px] font-black border-none px-1.5 h-4.5">
+                          TOM: {m.tomCategory}
+                        </Badge>
+                      )}
+                      <Badge variant="outline" className="rounded-none text-[8px] font-bold uppercase border-slate-200">WIRKSAMKEIT: {m.effectiveness}/5</Badge>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -246,10 +293,9 @@ export default function RiskMeasuresPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1.5">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className={cn("w-2 h-2 rounded-full", i < m.effectiveness ? "bg-emerald-500" : "bg-slate-200")} />
-                      ))}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[9px] font-black uppercase text-slate-400">Risiken: {riskCount}</span>
+                      <span className="text-[9px] font-black uppercase text-slate-400">Systeme: {resCount}</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
@@ -265,7 +311,7 @@ export default function RiskMeasuresPage() {
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-none w-48">
                           <DropdownMenuItem onSelect={() => openEdit(m)}><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600" onSelect={() => handleDeleteMeasure(m.id)}><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600" onSelect={() => { if(confirm("Maßnahme löschen?")) deleteCollectionRecord('riskMeasures', m.id, dataSource).then(() => refresh()); }}><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -273,16 +319,13 @@ export default function RiskMeasuresPage() {
                 </TableRow>
               );
             })}
-            {!isMeasuresLoading && filteredMeasures.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="py-20 text-center text-xs text-muted-foreground italic">Keine Maßnahmen gefunden.</TableCell></TableRow>
-            )}
           </TableBody>
         </Table>
       </div>
 
       {/* Measure Editor Dialog */}
       <Dialog open={isMeasureDialogOpen} onOpenChange={setIsMeasureDialogOpen}>
-        <DialogContent className="max-w-4xl rounded-none p-0 flex flex-col border-2 shadow-2xl h-[90vh] bg-card overflow-hidden">
+        <DialogContent className="max-w-6xl rounded-none p-0 flex flex-col border-2 shadow-2xl h-[90vh] bg-card overflow-hidden">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center gap-3">
               <ClipboardCheck className="w-5 h-5 text-emerald-500" />
@@ -292,121 +335,260 @@ export default function RiskMeasuresPage() {
             </div>
           </DialogHeader>
           
-          <div className="flex-1 overflow-hidden flex flex-col">
+          <Tabs defaultValue="base" className="flex-1 flex flex-col overflow-hidden">
+            <div className="px-6 border-b bg-slate-50 shrink-0">
+              <TabsList className="h-12 bg-transparent gap-6 p-0">
+                <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-4 text-[10px] font-bold uppercase">1. Allgemein</TabsTrigger>
+                <TabsTrigger value="tom" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-4 text-[10px] font-bold uppercase flex items-center gap-2">
+                  <FileCheck className="w-3.5 h-3.5" /> 2. TOM & DSGVO
+                </TabsTrigger>
+                <TabsTrigger value="links" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-4 text-[10px] font-bold uppercase">3. Verknüpfungen (Risiken/Assets)</TabsTrigger>
+              </TabsList>
+            </div>
+
             <ScrollArea className="flex-1">
-              <div className="p-8 space-y-8 bg-card">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* Linke Seite: Details */}
-                  <div className="space-y-6">
-                    <div className="space-y-2">
+              <div className="p-8">
+                <TabsContent value="base" className="mt-0 space-y-8">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2 col-span-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">Titel der Maßnahme</Label>
-                      <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="z.B. Einführung von MFA" className="rounded-none h-10 font-bold border-2 bg-background" />
+                      <p className="text-[9px] text-muted-foreground italic">Kurze, prägnante Bezeichnung (z.B. Monatliche Log-Prüfung).</p>
+                      <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="..." className="rounded-none h-10 font-bold" />
                     </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Verantwortlicher</Label>
-                        <Input value={owner} onChange={e => setOwner(e.target.value)} placeholder="Name oder Team" className="rounded-none h-10 border-2 bg-background" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Deadline</Label>
-                        <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="rounded-none h-10 border-2 bg-background" />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Status</Label>
-                        <Select value={status} onValueChange={(v: any) => setStatus(v)}>
-                          <SelectTrigger className="rounded-none h-10 border-2 bg-background"><SelectValue /></SelectTrigger>
-                          <SelectContent className="rounded-none">
-                            <SelectItem value="planned">Geplant</SelectItem>
-                            <SelectItem value="active">In Umsetzung</SelectItem>
-                            <SelectItem value="completed">Abgeschlossen</SelectItem>
-                            <SelectItem value="on_hold">Pausiert</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Wirksamkeit (1-5)</Label>
-                        <Select value={effectiveness} onValueChange={setEffectiveness}>
-                          <SelectTrigger className="rounded-none h-10 border-2 bg-background"><SelectValue /></SelectTrigger>
-                          <SelectContent className="rounded-none">
-                            {[1,2,3,4,5].map(v => <SelectItem key={v} value={v.toString()}>{v}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Beschreibung</Label>
-                      <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="..." className="rounded-none min-h-[150px] border-2 bg-background" />
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Verantwortlicher</Label>
+                      <p className="text-[9px] text-muted-foreground italic">Wer stellt die Umsetzung sicher?</p>
+                      <Input value={owner} onChange={e => setOwner(e.target.value)} className="rounded-none h-10" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Deadline</Label>
+                      <p className="text-[9px] text-muted-foreground italic">Bis wann muss die Maßnahme implementiert sein?</p>
+                      <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="rounded-none h-10" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Status</Label>
+                      <Select value={status} onValueChange={(v: any) => setStatus(v)}>
+                        <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          <SelectItem value="planned">Geplant</SelectItem>
+                          <SelectItem value="active">In Umsetzung</SelectItem>
+                          <SelectItem value="completed">Wirksam (Abgeschlossen)</SelectItem>
+                          <SelectItem value="on_hold">On Hold</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Erwartete Wirksamkeit (1-5)</Label>
+                      <p className="text-[9px] text-muted-foreground italic">Wie stark senkt diese Maßnahme das Risiko? (1=minimal, 5=eliminierend)</p>
+                      <Select value={effectiveness} onValueChange={setEffectiveness}>
+                        <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          {[1,2,3,4,5].map(v => <SelectItem key={v} value={v.toString()}>{v}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Detailbeschreibung</Label>
+                    <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Schritte zur Umsetzung..." className="rounded-none min-h-[150px]" />
+                  </div>
+                </TabsContent>
 
-                  {/* Rechte Seite: Multi-Risk Picker */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b pb-2">
-                      <Label className="text-[10px] font-bold uppercase text-primary flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-orange-600" /> Verknüpfte Risiken ({selectedRiskIds.length})
-                      </Label>
-                      <div className="relative w-48">
-                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-                        <Input 
-                          placeholder="Suchen..." 
-                          value={riskSearch} 
-                          onChange={e => setRiskSearch(e.target.value)} 
-                          className="h-7 pl-7 text-[10px] rounded-none" 
-                        />
+                <TabsContent value="tom" className="mt-0 space-y-10">
+                  <div className="flex items-center justify-between p-4 bg-emerald-50 border-2 border-emerald-100 rounded-none">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-black uppercase text-emerald-800">Technisch Organisatorische Maßnahme (TOM)</Label>
+                      <p className="text-[10px] text-emerald-600 font-bold uppercase">Aktivieren Sie dies, um die DSGVO-relevanten Felder für Art. 32 freizuschalten.</p>
+                    </div>
+                    <Switch checked={isTom} onCheckedChange={setIsTom} />
+                  </div>
+
+                  {isTom && (
+                    <div className="space-y-10 animate-in fade-in zoom-in-95">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* A) Rechtliche Einordnung */}
+                        <div className="space-y-6">
+                          <h3 className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                            <Scale className="w-4 h-4" /> A) Rechtliche Einordnung
+                          </h3>
+                          
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-bold uppercase">TOM-Kategorie</Label>
+                            <p className="text-[9px] text-muted-foreground italic">Klassische Einteilung nach dem Kontrollziel.</p>
+                            <Select value={tomCategory} onValueChange={(v: any) => setTomCategory(v)}>
+                              <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                              <SelectContent className="rounded-none">
+                                {['Zugriffskontrolle', 'Zutrittskontrolle', 'Weitergabekontrolle', 'Eingabekontrolle', 'Auftragskontrolle', 'Verfügbarkeitskontrolle', 'Trennungsgebot', 'Verschlüsselung / Pseudonymisierung', 'Wiederherstellbarkeit', 'Wirksamkeitsprüfung'].map(c => (
+                                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-3">
+                            <Label className="text-[10px] font-bold uppercase">Art.-32-Zuordnung (Mehrfachauswahl)</Label>
+                            <p className="text-[9px] text-muted-foreground italic">Welche Anforderung des Art. 32 Abs. 1 DSGVO wird erfüllt?</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              {[
+                                { id: 'lit. a', label: 'lit. a (Verschlüsselung)' },
+                                { id: 'lit. b', label: 'lit. b (Vertraulichkeit/Belastbarkeit)' },
+                                { id: 'lit. c', label: 'lit. c (Wiederherstellbarkeit)' },
+                                { id: 'lit. d', label: 'lit. d (Regelm. Überprüfung)' }
+                              ].map(lit => (
+                                <div key={lit.id} className="flex items-center gap-2 p-2 border bg-white cursor-pointer hover:bg-slate-50" onClick={() => setArt32Mapping(prev => prev.includes(lit.id) ? prev.filter(i => i !== lit.id) : [...prev, lit.id])}>
+                                  <Checkbox checked={art32Mapping.includes(lit.id)} className="rounded-none" />
+                                  <span className="text-[10px] font-bold uppercase">{lit.label}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* B) Schutzzielbezug */}
+                        <div className="space-y-6">
+                          <h3 className="text-sm font-black uppercase tracking-widest text-emerald-600 flex items-center gap-2">
+                            <Shield className="w-4 h-4" /> B) Schutzzielbezug (DSGVO)
+                          </h3>
+                          <div className="space-y-3">
+                            <p className="text-[9px] text-muted-foreground italic">Welche der klassischen Schutzziele werden durch diese TOM adressiert?</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              {['Vertraulichkeit', 'Integrität', 'Verfügbarkeit', 'Belastbarkeit'].map(goal => (
+                                <div key={goal} className="flex items-center gap-2 p-2 border bg-white cursor-pointer hover:bg-slate-50" onClick={() => setGdprProtectionGoals(prev => prev.includes(goal) ? prev.filter(i => i !== goal) : [...prev, goal])}>
+                                  <Checkbox checked={gdprProtectionGoals.includes(goal)} className="rounded-none" />
+                                  <span className="text-[10px] font-bold uppercase">{goal}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      {/* C) DSGVO-Kontext */}
+                      <div className="space-y-6">
+                        <h3 className="text-sm font-black uppercase tracking-widest text-orange-600 flex items-center gap-2">
+                          <Info className="w-4 h-4" /> C) DSGVO-Kontext
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          <div className="space-y-4">
+                            <Label className="text-[10px] font-bold uppercase">Betroffene Datenkategorien</Label>
+                            <p className="text-[9px] text-muted-foreground italic">Pflege in den Einstellungen möglich.</p>
+                            <div className="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto border p-2 bg-slate-50">
+                              {globalDataCategories?.filter(c => activeTenantId === 'all' || c.tenantId === activeTenantId).map(cat => (
+                                <div key={cat.id} className="flex items-center gap-2 p-1.5 border bg-white">
+                                  <Checkbox checked={dataCategories.includes(cat.name)} onCheckedChange={(checked) => setDataCategories(prev => checked ? [...prev, cat.name] : prev.filter(c => c !== cat.name))} />
+                                  <span className="text-[10px] font-bold uppercase">{cat.name}</span>
+                                </div>
+                              ))}
+                              {(!globalDataCategories || globalDataCategories.length === 0) && <p className="text-[9px] text-red-600 italic">Keine Datenkategorien in Einstellungen konfiguriert.</p>}
+                            </div>
+                          </div>
+
+                          <div className="space-y-6">
+                            <div className="space-y-4">
+                              <Label className="text-[10px] font-bold uppercase">Verknüpfte Verarbeitungstätigkeiten (VVT)</Label>
+                              <div className="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto border p-2 bg-slate-50">
+                                {vvts?.filter(v => activeTenantId === 'all' || v.tenantId === activeTenantId).map(v => (
+                                  <div key={v.id} className="flex items-center gap-2 p-1.5 border bg-white">
+                                    <Checkbox checked={vvtIds.includes(v.id)} onCheckedChange={(checked) => setVvtIds(prev => checked ? [...prev, v.id] : prev.filter(id => id !== v.id))} />
+                                    <div className="min-w-0">
+                                      <p className="text-[10px] font-bold truncate">{v.name}</p>
+                                      <p className="text-[8px] text-muted-foreground uppercase font-black">V{v.version}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between p-3 border bg-red-50/30">
+                              <div className="space-y-0.5">
+                                <Label className="text-[10px] font-bold uppercase text-red-800">Art. 9 Relevanz</Label>
+                                <p className="text-[8px] text-red-600 font-bold uppercase">Bezieht sich die Maßnahme auf sensible Daten?</p>
+                              </div>
+                              <Switch checked={!!isArt9Relevant} onCheckedChange={setIsArt9Relevant} />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    
-                    <div className="border-2 rounded-none h-[400px] overflow-hidden flex flex-col bg-slate-50/50">
-                      <ScrollArea className="flex-1">
-                        <div className="p-2 space-y-1">
-                          {filteredRisksForSelection.map(r => {
-                            const isSelected = selectedRiskIds.includes(r.id);
-                            return (
-                              <div 
-                                key={r.id} 
-                                className={cn(
-                                  "flex items-start gap-3 p-3 cursor-pointer transition-all border border-transparent hover:border-slate-200",
-                                  isSelected ? "bg-white border-primary/30 shadow-sm ring-1 ring-inset ring-primary/10" : "hover:bg-white"
-                                )}
-                                onClick={() => {
-                                  setSelectedRiskIds(prev => isSelected ? prev.filter(id => id !== r.id) : [...prev, r.id]);
-                                }}
-                              >
-                                <Checkbox checked={isSelected} className="mt-0.5 rounded-none" />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-bold leading-tight">{r.title}</p>
-                                  <div className="flex items-center gap-2 mt-1.5">
-                                    <Badge variant="outline" className="text-[8px] font-black uppercase rounded-none h-4 px-1">{r.category}</Badge>
-                                    <span className="text-[8px] font-bold text-red-600">SCORE: {r.impact * r.probability}</span>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="links" className="mt-0 space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Risiko-Picker */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between border-b pb-2">
+                        <Label className="text-[10px] font-bold uppercase text-primary flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-orange-600" /> 1. Verknüpfte Risiken ({selectedRiskIds.length})
+                        </Label>
+                        <div className="relative w-48">
+                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                          <Input placeholder="Risiko suchen..." value={riskSearch} onChange={e => setRiskSearch(e.target.value)} className="h-7 pl-7 text-[10px] rounded-none" />
+                        </div>
+                      </div>
+                      <div className="border h-[400px] overflow-hidden flex flex-col bg-slate-50/50">
+                        <ScrollArea className="flex-1">
+                          <div className="p-2 space-y-1">
+                            {filteredRisksForSelection.map(r => {
+                              const isSelected = selectedRiskIds.includes(r.id);
+                              return (
+                                <div key={r.id} className={cn("flex items-start gap-3 p-3 cursor-pointer transition-all border border-transparent", isSelected ? "bg-white border-primary/30 ring-1 ring-inset ring-primary/10" : "hover:bg-white")} onClick={() => setSelectedRiskIds(prev => isSelected ? prev.filter(id => id !== r.id) : [...prev, r.id])}>
+                                  <Checkbox checked={isSelected} className="mt-0.5 rounded-none" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold leading-tight">{r.title}</p>
+                                    <p className="text-[8px] text-muted-foreground mt-1 uppercase font-black">{r.category} | SCORE: {r.impact * r.probability}</p>
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                          {filteredRisksForSelection.length === 0 && (
-                            <div className="py-20 text-center text-[10px] font-bold uppercase text-muted-foreground italic">Keine Risiken gefunden</div>
-                          )}
-                        </div>
-                      </ScrollArea>
+                              );
+                            })}
+                          </div>
+                        </ScrollArea>
+                      </div>
                     </div>
-                    <p className="text-[9px] text-muted-foreground italic bg-blue-50 p-2 border border-blue-100 rounded-none">
-                      Wählen Sie alle Risiken aus, die durch diese Maßnahme gemindert werden. Eine Maßnahme kann global wirken.
-                    </p>
+
+                    {/* Asset-Picker */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between border-b pb-2">
+                        <Label className="text-[10px] font-bold uppercase text-primary flex items-center gap-2">
+                          <Layers className="w-4 h-4" /> 2. Verknüpfte IT-Systeme ({selectedResourceIds.length})
+                        </Label>
+                        <div className="relative w-48">
+                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                          <Input placeholder="System suchen..." value={resourceSearch} onChange={e => setResourceSearch(e.target.value)} className="h-7 pl-7 text-[10px] rounded-none" />
+                        </div>
+                      </div>
+                      <div className="border h-[400px] overflow-hidden flex flex-col bg-slate-50/50">
+                        <ScrollArea className="flex-1">
+                          <div className="p-2 space-y-1">
+                            {filteredResourcesForSelection.map(res => {
+                              const isSelected = selectedResourceIds.includes(res.id);
+                              return (
+                                <div key={res.id} className={cn("flex items-start gap-3 p-3 cursor-pointer transition-all border border-transparent", isSelected ? "bg-white border-primary/30 ring-1 ring-inset ring-primary/10" : "hover:bg-white")} onClick={() => setSelectedResourceIds(prev => isSelected ? prev.filter(id => id !== res.id) : [...prev, res.id])}>
+                                  <Checkbox checked={isSelected} className="mt-0.5 rounded-none" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold leading-tight">{res.name}</p>
+                                    <p className="text-[8px] text-muted-foreground mt-1 uppercase font-black">{res.assetType} | {res.operatingModel}</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </TabsContent>
               </div>
             </ScrollArea>
-          </div>
+          </Tabs>
 
           <DialogFooter className="p-6 bg-muted/30 border-t shrink-0">
             <Button variant="outline" onClick={() => setIsMeasureDialogOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
-            <Button onClick={handleSaveMeasure} disabled={isSaving || selectedRiskIds.length === 0} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white">
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />} Maßnahme speichern
+            <Button onClick={handleSaveMeasure} disabled={isSaving || selectedRiskIds.length === 0} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Maßnahme speichern
             </Button>
           </DialogFooter>
         </DialogContent>

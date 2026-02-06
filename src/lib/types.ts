@@ -62,6 +62,12 @@ export interface DataSubjectGroup {
   name: string;
 }
 
+export interface DataCategory {
+  id: string;
+  tenantId: string;
+  name: string;
+}
+
 export interface Resource {
   id: string;
   tenantId: string;
@@ -113,7 +119,7 @@ export interface Resource {
 
 export interface ProcessingActivity {
   id: string;
-  originalId?: string; // Neu: Verknüpfung der Versionen
+  originalId?: string;
   tenantId: string;
   name: string;
   version: string;
@@ -126,7 +132,7 @@ export interface ProcessingActivity {
   retentionPeriod: string;
   status: 'draft' | 'active' | 'archived';
   lastReviewDate: string;
-  resourceIds?: string[]; // Neu: Direkte Zuordnung von Systemen
+  resourceIds?: string[];
 }
 
 export interface Entitlement {
@@ -266,7 +272,8 @@ export interface Risk {
 
 export interface RiskMeasure {
   id: string;
-  riskIds: string[];
+  riskIds: string[]; // Associated Risks
+  resourceIds?: string[]; // Associated Systems
   title: string;
   description?: string;
   owner: string;
@@ -274,6 +281,15 @@ export interface RiskMeasure {
   status: 'planned' | 'active' | 'completed' | 'on_hold';
   effectiveness: number;
   notes?: string;
+  
+  // TOM Fields
+  isTom?: boolean | number;
+  tomCategory?: 'Zugriffskontrolle' | 'Zutrittskontrolle' | 'Weitergabekontrolle' | 'Eingabekontrolle' | 'Auftragskontrolle' | 'Verfügbarkeitskontrolle' | 'Trennungsgebot' | 'Verschlüsselung / Pseudonymisierung' | 'Wiederherstellbarkeit' | 'Wirksamkeitsprüfung';
+  art32Mapping?: string[]; // lit. a, b, c, d
+  gdprProtectionGoals?: string[]; // Vertraulichkeit, Integrität, Verfügbarkeit, Belastbarkeit
+  vvtIds?: string[]; // Associated Processing Activities
+  dataCategories?: string[]; // Associated Data Categories from Settings
+  isArt9Relevant?: boolean | number;
 }
 
 export interface Document {

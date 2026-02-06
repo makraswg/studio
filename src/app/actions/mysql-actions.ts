@@ -36,6 +36,7 @@ const collectionToTableMap: { [key: string]: string } = {
   helpContent: 'helpContent',
   processingActivities: 'processingActivities',
   dataSubjectGroups: 'dataSubjectGroups',
+  dataCategories: 'dataCategories',
   departments: 'departments',
   jobTitles: 'jobTitles'
 };
@@ -47,9 +48,9 @@ function normalizeRecord(item: any, tableName: string) {
     groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
     bundles: ['entitlementIds'],
     auditEvents: ['before', 'after'],
-    riskMeasures: ['riskIds'],
+    riskMeasures: ['riskIds', 'resourceIds', 'art32Mapping', 'gdprProtectionGoals', 'vvtIds', 'dataCategories'],
     resources: ['affectedGroups', 'riskIds', 'measureIds', 'vvtIds'],
-    processingActivities: ['dataCategories', 'subjectCategories']
+    processingActivities: ['dataCategories', 'subjectCategories', 'resourceIds']
   };
 
   if (jsonFields[tableName]) {
@@ -67,7 +68,8 @@ function normalizeRecord(item: any, tableName: string) {
   const boolFields = [
     'enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets',
     'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
-    'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof'
+    'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
+    'isTom', 'isArt9Relevant'
   ];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
@@ -124,9 +126,9 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
       bundles: ['entitlementIds'],
       auditEvents: ['before', 'after'],
-      riskMeasures: ['riskIds'],
+      riskMeasures: ['riskIds', 'resourceIds', 'art32Mapping', 'gdprProtectionGoals', 'vvtIds', 'dataCategories'],
       resources: ['affectedGroups', 'riskIds', 'measureIds', 'vvtIds'],
-      processingActivities: ['dataCategories', 'subjectCategories']
+      processingActivities: ['dataCategories', 'subjectCategories', 'resourceIds']
     };
 
     if (jsonFields[tableName]) {
@@ -140,7 +142,8 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     const boolKeys = [
       'enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets',
       'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
-      'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof'
+      'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
+      'isTom', 'isArt9Relevant'
     ];
     boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
     
@@ -205,6 +208,7 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       'bundles',
       'processingActivities',
       'dataSubjectGroups',
+      'dataCategories',
       'departments',
       'jobTitles'
     ];

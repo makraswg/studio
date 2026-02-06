@@ -86,28 +86,16 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       details.push(`   ✅ Initialer Admin erstellt: ${adminEmail} (Passwort: ${adminPassword})`);
     }
 
-    // SEEDING: Initial Help Content
-    details.push('🌱 Erstelle Hilfe-Inhalte...');
-    const defaultHelp = [
-      { id: 'help-01', section: 'Allgemein', title: 'Willkommen beim ComplianceHub', content: 'Der ComplianceHub ist Ihr zentrales Werkzeug zur Verwaltung von IT-Berechtigungen und Identitäten. Hier werden Onboarding-, Offboarding- und Review-Prozesse revisionssicher dokumentiert.', order: 1 },
-      { id: 'help-workflow-01', section: 'Risiko', title: 'Der Risikomanagement Workflow', content: 'Ein Risiko durchläuft im ComplianceHub einen standardisierten Prozess:\n\n1. Identifikation: Nutzen Sie den Gefährdungskatalog, um Bedrohungen abzuleiten.\n2. Bewertung: Bewerten Sie das inhärente Risiko (Schadenshöhe & Eintrittswahrscheinlichkeit) mit Hilfe der Scoring-Tipps.\n3. Behandlung: Verknüpfen Sie Maßnahmen (z.B. BSI-Empfehlungen), um das Restrisiko zu senken.\n4. Überwachung: Führen Sie regelmäßige Reviews über den Review-Button durch, um die Aktualität der Bewertung zu bestätigen.\n5. Analyse: Nutzen Sie die Berichte zur Management-Übersicht.', order: 2 },
-      { id: 'help-06', section: 'Risiko', title: 'Risiko-Reviews & Re-Zertifizierung', content: 'Risiko-Reviews dienen der regelmäßigen Neubewertung der Bedrohungslage. \n\nRegelungen: \n- ISO 27001 fordert eine regelmäßige Überprüfung (mind. jährlich).\n- Kritische Risiken (Score > 15) sollten quartalsweise geprüft werden.\n- Das System markiert Risiken nach 90 Tagen automatisch als prüfungsfällig.\n\nReviews müssen über den "Review"-Button in der Zeile aktiv bestätigt oder aktualisiert werden.', order: 6 }
-    ];
-
-    for (const h of defaultHelp) {
-      const [helpRows]: any = await connection.execute('SELECT id FROM `helpContent` WHERE id = ?', [h.id]);
-      if (helpRows.length === 0) {
-        await connection.execute(
-          'INSERT INTO `helpContent` (id, section, title, content, `order`) VALUES (?, ?, ?, ?, ?)',
-          [h.id, h.section, h.title, h.content, h.order]
-        );
-        details.push(`   ✅ Hilfe-Sektion erstellt: ${h.title}`);
-      } else {
-        await connection.execute(
-          'UPDATE `helpContent` SET content = ?, section = ?, title = ? WHERE id = ?',
-          [h.content, h.section, h.title, h.id]
-        );
+    // SEEDING: Default Data Categories
+    details.push('🌱 Prüfe auf initiale Datenkategorien...');
+    const [dcatRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `dataCategories`');
+    if (dcatRows[0].count === 0) {
+      const categories = ['Stammdaten', 'Bankdaten', 'Gesundheitsdaten (Art. 9)', 'Protokolldaten', 'Kontaktdaten', 'Standortdaten'];
+      for (const cat of categories) {
+        const id = `dcat-init-${cat.toLowerCase().replace(/[^a-z]/g, '')}`;
+        await connection.execute('INSERT INTO `dataCategories` (id, tenantId, name) VALUES (?, ?, ?)', [id, 't1', cat]);
       }
+      details.push('   ✅ Standard-Datenkategorien erstellt.');
     }
 
     connection.release();

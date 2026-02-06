@@ -60,6 +60,13 @@ export const appSchema: AppSchema = {
       name: 'VARCHAR(255) NOT NULL',
     }
   },
+  dataCategories: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+    }
+  },
   users: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -158,6 +165,7 @@ export const appSchema: AppSchema = {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
       riskIds: 'TEXT',
+      resourceIds: 'TEXT',
       title: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
       owner: 'VARCHAR(255)',
@@ -165,6 +173,13 @@ export const appSchema: AppSchema = {
       status: 'VARCHAR(50) DEFAULT "planned"',
       effectiveness: 'INT DEFAULT 3',
       notes: 'TEXT',
+      isTom: 'BOOLEAN DEFAULT FALSE',
+      tomCategory: 'VARCHAR(100)',
+      art32Mapping: 'TEXT',
+      gdprProtectionGoals: 'TEXT',
+      vvtIds: 'TEXT',
+      dataCategories: 'TEXT',
+      isArt9Relevant: 'BOOLEAN DEFAULT FALSE'
     },
   },
   processingActivities: {

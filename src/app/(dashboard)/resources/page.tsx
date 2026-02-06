@@ -45,7 +45,8 @@ import {
   HardDrive,
   Save,
   HelpCircle,
-  ClipboardList
+  ClipboardList,
+  ClipboardCheck
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -140,12 +141,13 @@ export default function ResourcesPage() {
   const [affectedGroups, setAffectedGroups] = useState<string[]>([]);
   const [processingPurpose, setProcessingPurpose] = useState('');
   const [dataLocation, setDataLocation] = useState('');
-  const [vvtIds, setVvtIds] = useState<string[]>([]); // New: Linked Processing Activities
+  const [vvtIds, setVvtIds] = useState<string[]>([]);
   
   // Architektur & Risiko
   const [isInternetExposed, setIsInternetExposed] = useState(false);
   const [isBusinessCritical, setIsBusinessCritical] = useState(false);
   const [isSpof, setIsSpof] = useState(false);
+  const [measureIds, setMeasureIds] = useState<string[]>([]);
   
   // Verantwortung
   const [systemOwner, setSystemOwner] = useState('');
@@ -167,6 +169,7 @@ export default function ResourcesPage() {
   const { data: partners } = usePluggableCollection<any>('servicePartners');
   const { data: subjectGroups } = usePluggableCollection<DataSubjectGroup>('dataSubjectGroups');
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
+  const { data: allMeasures } = usePluggableCollection<RiskMeasure>('riskMeasures');
 
   useEffect(() => {
     setMounted(true);
@@ -203,6 +206,7 @@ export default function ResourcesPage() {
       processingPurpose,
       dataLocation,
       vvtIds,
+      measureIds,
       isInternetExposed,
       isBusinessCritical,
       isSpof,
@@ -248,6 +252,7 @@ export default function ResourcesPage() {
     setProcessingPurpose(res.processingPurpose || '');
     setDataLocation(res.dataLocation || '');
     setVvtIds(res.vvtIds || []);
+    setMeasureIds(res.measureIds || []);
     setIsInternetExposed(!!res.isInternetExposed);
     setIsBusinessCritical(!!res.isBusinessCritical);
     setIsSpof(!!res.isSpof);
@@ -280,6 +285,7 @@ export default function ResourcesPage() {
     setProcessingPurpose('');
     setDataLocation('');
     setVvtIds([]);
+    setMeasureIds([]);
     setIsInternetExposed(false);
     setIsBusinessCritical(false);
     setIsSpof(false);
@@ -705,6 +711,32 @@ export default function ResourcesPage() {
                           <SelectItem value="optional_otp">Optional (OTP/App)</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-6 border-t">
+                    <Label className="text-[10px] font-bold uppercase flex items-center gap-2 text-emerald-600">
+                      <ClipboardCheck className="w-4 h-4" /> Verknüpfte Maßnahmen & TOMs ({measureIds.length})
+                    </Label>
+                    <p className="text-[9px] text-muted-foreground italic">Welche Sicherheitskontrollen oder technischen Maßnahmen wirken auf dieses System?</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border p-4 bg-slate-50/50 max-h-64 overflow-y-auto">
+                      {allMeasures?.map(m => {
+                        const isSelected = measureIds.includes(m.id);
+                        return (
+                          <div key={m.id} className={cn("flex items-center gap-3 p-2 bg-white border cursor-pointer hover:border-emerald-500", isSelected && "border-emerald-500 ring-1 ring-emerald-500")} onClick={() => setMeasureIds(prev => isSelected ? prev.filter(id => id !== m.id) : [...prev, m.id])}>
+                            <Checkbox checked={isSelected} className="rounded-none" />
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-bold truncate">{m.title}</p>
+                              {m.isTom && <Badge className="bg-emerald-50 text-emerald-700 rounded-none text-[7px] h-3.5 px-1 border-none">TOM</Badge>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {(!allMeasures || allMeasures.length === 0) && (
+                        <div className="col-span-2 py-4 text-center text-[10px] font-bold text-muted-foreground uppercase italic border-2 border-dashed">
+                          Keine Maßnahmen im Risikomanagement definiert.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </TabsContent>

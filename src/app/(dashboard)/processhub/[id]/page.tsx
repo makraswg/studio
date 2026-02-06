@@ -17,15 +17,15 @@ import {
   AlertCircle,
   ShieldCheck,
   History,
-  Save,
-  Trash2,
-  Edit3,
-  Layers,
-  ArrowRight,
-  RefreshCw,
-  Sparkles,
-  GitBranch,
-  Link as LinkIcon
+  Save, 
+  Trash2, 
+  Edit3, 
+  Layers, 
+  ArrowRight, 
+  RefreshCw, 
+  Sparkles, 
+  GitBranch, 
+  Link as LinkIcon 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -291,8 +291,8 @@ export default function ProcessDesignerPage() {
 
       <div className="flex-1 flex overflow-hidden">
         {/* LEFT PANE: Steps & Connections */}
-        <aside className="w-[380px] border-r flex flex-col bg-slate-50/50">
-          <Tabs defaultValue="nodes" className="flex-1 flex flex-col">
+        <aside className="w-[380px] border-r flex flex-col bg-slate-50/50 overflow-hidden">
+          <Tabs defaultValue="nodes" className="flex-1 flex flex-col min-h-0">
             <div className="px-4 border-b bg-white shrink-0">
               <TabsList className="h-12 bg-transparent gap-4 p-0">
                 <TabsTrigger value="nodes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-black uppercase">Schritte</TabsTrigger>
@@ -301,103 +301,106 @@ export default function ProcessDesignerPage() {
               </TabsList>
             </div>
 
-            <ScrollArea className="flex-1">
-              <TabsContent value="nodes" className="m-0 p-4 space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Button variant="outline" size="sm" className="flex-1 text-[8px] font-bold uppercase h-7 rounded-none" onClick={() => handleApplyOps([{ type: 'ADD_NODE', payload: { node: { id: `step-${Date.now()}`, type: 'step', title: 'Neuer Schritt' } } }])}>+ Schritt</Button>
-                  <Button variant="outline" size="sm" className="flex-1 text-[8px] font-bold uppercase h-7 rounded-none" onClick={() => handleApplyOps([{ type: 'ADD_NODE', payload: { node: { id: `dec-${Date.now()}`, type: 'decision', title: 'Entscheidung?' } } }])}>+ Verzweigung</Button>
-                </div>
+            <div className="flex-1 min-h-0">
+              <ScrollArea className="h-full">
+                <TabsContent value="nodes" className="m-0 p-4 space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Button variant="outline" size="sm" className="flex-1 text-[8px] font-bold uppercase h-7 rounded-none" onClick={() => handleApplyOps([{ type: 'ADD_NODE', payload: { node: { id: `step-${Date.now()}`, type: 'step', title: 'Neuer Schritt' } } }])}>+ Schritt</Button>
+                    <Button variant="outline" size="sm" className="flex-1 text-[8px] font-bold uppercase h-7 rounded-none" onClick={() => handleApplyOps([{ type: 'ADD_NODE', payload: { node: { id: `dec-${Date.now()}`, type: 'decision', title: 'Entscheidung?' } } }])}>+ Verzweigung</Button>
+                  </div>
 
-                <div className="space-y-2">
-                  {(currentVersion.model_json.nodes || []).map((node: ProcessNode) => (
-                    <div 
-                      key={node.id} 
-                      className={cn(
-                        "p-3 bg-white border transition-all cursor-pointer group relative",
-                        selectedNodeId === node.id ? "border-primary ring-1 ring-primary/20" : "border-slate-200 hover:border-slate-300"
-                      )}
-                      onClick={() => setSelectedNodeId(node.id)}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <Badge variant="outline" className="text-[7px] font-black h-3.5 rounded-none uppercase">{node.type}</Badge>
-                        <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 text-red-500" onClick={(e) => { e.stopPropagation(); handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: node.id } }]); }}>
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+                  <div className="space-y-2">
+                    {(currentVersion.model_json.nodes || []).map((node: ProcessNode) => (
+                      <div 
+                        key={node.id} 
+                        className={cn(
+                          "p-3 bg-white border transition-all cursor-pointer group relative",
+                          selectedNodeId === node.id ? "border-primary ring-1 ring-primary/20" : "border-slate-200 hover:border-slate-300"
+                        )}
+                        onClick={() => setSelectedNodeId(node.id)}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <Badge variant="outline" className="text-[7px] font-black h-3.5 rounded-none uppercase">{node.type}</Badge>
+                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 text-red-500" onClick={(e) => { e.stopPropagation(); handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: node.id } }]); }}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                        <div className="font-bold text-xs">{node.title}</div>
                       </div>
-                      <div className="font-bold text-xs">{node.title}</div>
+                    ))}
+                  </div>
+
+                  {selectedNode && (
+                    <div className="mt-6 pt-6 border-t space-y-4 animate-in slide-in-from-left-2">
+                      <h3 className="text-[10px] font-black uppercase text-primary">Schritt Details</h3>
+                      <div className="space-y-2">
+                        <Label className="text-[9px] font-bold uppercase">Bezeichnung</Label>
+                        <Input value={selectedNode.title} onChange={e => updateNodeField(selectedNode.id, 'title', e.target.value)} className="h-8 text-xs rounded-none" />
+                        <Label className="text-[9px] font-bold uppercase">Rolle</Label>
+                        <Input value={selectedNode.roleId || ''} onChange={e => updateNodeField(selectedNode.id, 'roleId', e.target.value)} placeholder="Verantwortlich..." className="h-8 text-xs rounded-none" />
+                        <Label className="text-[9px] font-bold uppercase">Beschreibung</Label>
+                        <Textarea value={selectedNode.description || ''} onChange={e => updateNodeField(selectedNode.id, 'description', e.target.value)} className="text-xs rounded-none min-h-[80px]" />
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="edges" className="m-0 p-4 space-y-6">
+                  <div className="p-4 bg-blue-50 border border-blue-100 rounded-none space-y-4">
+                    <h4 className="text-[10px] font-black uppercase text-blue-700">Neue Verbindung</h4>
+                    <div className="space-y-2">
+                      <Label className="text-[9px] font-bold uppercase">Von: {selectedNode?.title || 'Bitte Schritt wählen'}</Label>
+                      <Select value={newEdgeTargetId} onValueChange={setNewEdgeTargetId}>
+                        <SelectTrigger className="h-8 text-[10px] rounded-none"><SelectValue placeholder="Ziel wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          {currentVersion.model_json.nodes.filter(n => n.id !== selectedNodeId).map(n => (
+                            <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input placeholder="Label (z.B. Ja / Nein)" value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-8 text-xs rounded-none" />
+                      <Button onClick={handleAddEdge} disabled={!selectedNodeId || !newEdgeTargetId} className="w-full h-8 text-[9px] font-bold uppercase rounded-none">Verknüpfen</Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-black uppercase text-slate-400">Aktive Verbindungen</h4>
+                    {(currentVersion.model_json.edges || []).map((edge: ProcessEdge) => {
+                      const source = currentVersion.model_json.nodes.find(n => n.id === edge.source);
+                      const target = currentVersion.model_json.nodes.find(n => n.id === edge.target);
+                      return (
+                        <div key={edge.id} className="p-2 border bg-white flex items-center justify-between group">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold truncate">{source?.title} → {target?.title}</p>
+                            {edge.label && <Badge variant="outline" className="text-[7px] h-3.5 rounded-none">{edge.label}</Badge>}
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 opacity-0 group-hover:opacity-100" onClick={() => handleRemoveEdge(edge.id)}><X className="w-3.5 h-3.5" /></Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="compliance" className="m-0 p-4 space-y-6">
+                  <div className="p-4 bg-slate-100 border rounded-none space-y-2">
+                    <h4 className="text-[10px] font-black uppercase text-slate-700">ISO 9001:2015 Konformität</h4>
+                    <p className="text-[9px] leading-relaxed text-slate-500">Definieren Sie Inputs, Outputs und Risiken für den Gesamtprozess.</p>
+                  </div>
+                  {['inputs', 'outputs', 'risks', 'evidence'].map(field => (
+                    <div key={field} className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase text-slate-500">{field}</Label>
+                      <Textarea 
+                        defaultValue={currentVersion.model_json.isoFields?.[field] || ''}
+                        placeholder={`Ermittelte ${field}...`}
+                        className="text-xs rounded-none min-h-[100px] bg-white"
+                        onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field, value: e.target.value } }])}
+                      />
                     </div>
                   ))}
-                </div>
-
-                {selectedNode && (
-                  <div className="mt-6 pt-6 border-t space-y-4 animate-in slide-in-from-left-2">
-                    <h3 className="text-[10px] font-black uppercase text-primary">Schritt Details</h3>
-                    <div className="space-y-2">
-                      <Label className="text-[9px] font-bold uppercase">Bezeichnung</Label>
-                      <Input value={selectedNode.title} onChange={e => updateNodeField(selectedNode.id, 'title', e.target.value)} className="h-8 text-xs rounded-none" />
-                      <Label className="text-[9px] font-bold uppercase">Rolle</Label>
-                      <Input value={selectedNode.roleId || ''} onChange={e => updateNodeField(selectedNode.id, 'roleId', e.target.value)} placeholder="Verantwortlich..." className="h-8 text-xs rounded-none" />
-                      <Label className="text-[9px] font-bold uppercase">Beschreibung</Label>
-                      <Textarea value={selectedNode.description || ''} onChange={e => updateNodeField(selectedNode.id, 'description', e.target.value)} className="text-xs rounded-none min-h-[80px]" />
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="edges" className="m-0 p-4 space-y-6">
-                <div className="p-4 bg-blue-50 border border-blue-100 rounded-none space-y-4">
-                  <h4 className="text-[10px] font-black uppercase text-blue-700">Neue Verbindung</h4>
-                  <div className="space-y-2">
-                    <Label className="text-[9px] font-bold uppercase">Von: {selectedNode?.title || 'Bitte Schritt wählen'}</Label>
-                    <Select value={newEdgeTargetId} onValueChange={setNewEdgeTargetId}>
-                      <SelectTrigger className="h-8 text-[10px] rounded-none"><SelectValue placeholder="Ziel wählen..." /></SelectTrigger>
-                      <SelectContent className="rounded-none">
-                        {currentVersion.model_json.nodes.filter(n => n.id !== selectedNodeId).map(n => (
-                          <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input placeholder="Label (z.B. Ja / Nein)" value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-8 text-xs rounded-none" />
-                    <Button onClick={handleAddEdge} disabled={!selectedNodeId || !newEdgeTargetId} className="w-full h-8 text-[9px] font-bold uppercase rounded-none">Verknüpfen</Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h4 className="text-[10px] font-black uppercase text-slate-400">Aktive Verbindungen</h4>
-                  {(currentVersion.model_json.edges || []).map((edge: ProcessEdge) => {
-                    const source = currentVersion.model_json.nodes.find(n => n.id === edge.source);
-                    const target = currentVersion.model_json.nodes.find(n => n.id === edge.target);
-                    return (
-                      <div key={edge.id} className="p-2 border bg-white flex items-center justify-between group">
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-bold truncate">{source?.title} → {target?.title}</p>
-                          {edge.label && <Badge variant="outline" className="text-[7px] h-3.5 rounded-none">{edge.label}</Badge>}
-                        </div>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 opacity-0 group-hover:opacity-100" onClick={() => handleRemoveEdge(edge.id)}><X className="w-3.5 h-3.5" /></Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="compliance" className="m-0 p-4 space-y-6">
-                <div className="p-4 bg-slate-100 border rounded-none space-y-2">
-                  <h4 className="text-[10px] font-black uppercase text-slate-700">ISO 9001:2015 Konformität</h4>
-                  <p className="text-[9px] leading-relaxed text-slate-500">Definieren Sie Inputs, Outputs und Risiken für den Gesamtprozess.</p>
-                </div>
-                {['inputs', 'outputs', 'risks', 'evidence'].map(field => (
-                  <div key={field} className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase text-slate-500">{field}</Label>
-                    <Textarea 
-                      defaultValue={currentVersion.model_json.isoFields?.[field] || ''}
-                      placeholder={`Ermittelte ${field}...`}
-                      className="text-xs rounded-none min-h-[80px]"
-                      onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field, value: e.target.value } }])}
-                    />
-                  </div>
-                ))}
-              </TabsContent>
-            </ScrollArea>
+                  <div className="h-8 shrink-0" /> {/* Spacer for scroll bottom */}
+                </TabsContent>
+              </ScrollArea>
+            </div>
           </Tabs>
         </aside>
 
@@ -411,8 +414,8 @@ export default function ProcessDesignerPage() {
         </main>
 
         {/* RIGHT PANE: AI Chat */}
-        <aside className="w-[350px] border-l flex flex-col bg-white">
-          <div className="p-4 border-b bg-slate-900 text-white flex items-center justify-between">
+        <aside className="w-[350px] border-l flex flex-col bg-white overflow-hidden">
+          <div className="p-4 border-b bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
               <Zap className="w-4 h-4 text-primary fill-current" />
               <span className="text-[10px] font-black uppercase tracking-widest block">AI Co-Pilot</span>
@@ -420,37 +423,39 @@ export default function ProcessDesignerPage() {
             <Badge className="bg-blue-600 rounded-none text-[8px] font-black h-4">VIBECODING</Badge>
           </div>
 
-          <ScrollArea className="flex-1 p-4 bg-slate-50/30">
-            <div className="space-y-6">
-              {aiSuggestions ? (
-                <div className="animate-in slide-in-from-bottom-2">
-                  <div className="p-4 bg-white border-2 border-blue-600 rounded-none shadow-xl space-y-4">
-                    <p className="text-[11px] italic text-slate-700 leading-relaxed">"{aiSuggestions.explanation}"</p>
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                      {aiSuggestions.proposedOps.map((op, i) => (
-                        <div key={i} className="text-[9px] p-1 bg-slate-50 border flex items-center gap-2">
-                          <ArrowRight className="w-2.5 h-2.5 text-blue-500" />
-                          <span className="font-bold text-slate-600">{op.type}:</span>
-                          <span className="truncate">{op.payload.node?.title || op.payload.edge?.label || op.payload.nodeId || 'Layout Update'}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button onClick={() => handleApplyOps(aiSuggestions.proposedOps)} disabled={isApplying} className="flex-1 h-9 rounded-none bg-blue-600 hover:bg-blue-700 text-[10px] font-black uppercase">Übernehmen</Button>
-                      <Button variant="outline" onClick={() => setAiSuggestions(null)} className="h-9 w-9 p-0 rounded-none"><X className="w-4 h-4" /></Button>
+          <div className="flex-1 min-h-0 bg-slate-50/30">
+            <ScrollArea className="h-full p-4">
+              <div className="space-y-6">
+                {aiSuggestions ? (
+                  <div className="animate-in slide-in-from-bottom-2">
+                    <div className="p-4 bg-white border-2 border-blue-600 rounded-none shadow-xl space-y-4">
+                      <p className="text-[11px] italic text-slate-700 leading-relaxed">"{aiSuggestions.explanation}"</p>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {aiSuggestions.proposedOps.map((op, i) => (
+                          <div key={i} className="text-[9px] p-1 bg-slate-50 border flex items-center gap-2">
+                            <ArrowRight className="w-2.5 h-2.5 text-blue-500" />
+                            <span className="font-bold text-slate-600">{op.type}:</span>
+                            <span className="truncate">{op.payload.node?.title || op.payload.edge?.label || op.payload.nodeId || 'Layout Update'}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={() => handleApplyOps(aiSuggestions.proposedOps)} disabled={isApplying} className="flex-1 h-9 rounded-none bg-blue-600 hover:bg-blue-700 text-[10px] font-black uppercase">Übernehmen</Button>
+                        <Button variant="outline" onClick={() => setAiSuggestions(null)} className="h-9 w-9 p-0 rounded-none"><X className="w-4 h-4" /></Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div className="text-center py-20 opacity-20">
-                  <MessageSquare className="w-12 h-12 mx-auto mb-4" />
-                  <p className="text-[10px] font-black uppercase tracking-widest px-8">Beschreiben Sie Prozess-Änderungen oder Verzweigungen...</p>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
+                ) : (
+                  <div className="text-center py-20 opacity-20">
+                    <MessageSquare className="w-12 h-12 mx-auto mb-4" />
+                    <p className="text-[10px] font-black uppercase tracking-widest px-8">Beschreiben Sie Prozess-Änderungen oder Verzweigungen...</p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
 
-          <div className="p-4 border-t bg-white">
+          <div className="p-4 border-t bg-white shrink-0">
             <div className="flex gap-2">
               <Input 
                 placeholder="Anweisung..." 

@@ -61,6 +61,88 @@ export interface PlatformUser {
   authSource?: 'local' | 'ldap';
 }
 
+// ProcessHub Interface Definitions
+export interface ProcessNode {
+  id: string;
+  type: 'step' | 'decision' | 'subprocess' | 'start' | 'end';
+  title: string;
+  description?: string;
+  roleId?: string;
+  checklist?: string[];
+  tips?: string;
+  errors?: string;
+  links?: { title: string; url: string }[];
+  isoFields?: {
+    inputs?: string;
+    outputs?: string;
+    risks?: string;
+    evidence?: string;
+  };
+}
+
+export interface ProcessEdge {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+  condition?: string;
+}
+
+export interface ProcessModel {
+  nodes: ProcessNode[];
+  edges: ProcessEdge[];
+  roles: { id: string; name: string }[];
+}
+
+export interface ProcessLayout {
+  positions: Record<string, { x: number; y: number }>;
+  swimlanes?: string[];
+  collapsed?: string[];
+}
+
+export interface ProcessOperation {
+  type: 'ADD_NODE' | 'UPDATE_NODE' | 'REMOVE_NODE' | 'ADD_EDGE' | 'UPDATE_EDGE' | 'REMOVE_EDGE' | 'REORDER_NODES' | 'UPDATE_LAYOUT' | 'SET_ISO_FIELD';
+  payload: any;
+}
+
+export interface Process {
+  id: string;
+  tenantId: string;
+  title: string;
+  description?: string;
+  status: 'draft' | 'published' | 'archived';
+  ownerUserId: string;
+  currentVersion: number;
+  publishedVersion?: number;
+  tags?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProcessVersion {
+  id: string;
+  process_id: string;
+  version: number;
+  model_json: ProcessModel;
+  layout_json: ProcessLayout;
+  revision: number;
+  created_by_user_id: string;
+  created_at: string;
+}
+
+export interface ProcessOp {
+  id: string;
+  process_id: string;
+  version: number;
+  revision_before: number;
+  revision_after: number;
+  actor_type: 'user' | 'ai';
+  actor_user_id?: string;
+  ops_json: ProcessOperation[];
+  created_at: string;
+}
+
+// Rest of existing types...
 export interface DataSubjectGroup {
   id: string;
   tenantId: string;
@@ -80,45 +162,31 @@ export interface Resource {
   tenantId: string;
   name: string;
   status?: 'active' | 'archived';
-  // Asset & System
   assetType: 'Hardware' | 'Software' | 'SaaS' | 'Infrastruktur';
   category: 'Fachanwendung' | 'Infrastruktur' | 'Sicherheitskomponente' | 'Support-Tool';
   operatingModel: 'On-Prem' | 'Cloud' | 'Hybrid' | 'Private Cloud';
   criticality: 'low' | 'medium' | 'high';
-  
-  // Compliance & Protection
   dataClassification: 'public' | 'internal' | 'confidential' | 'strictly_confidential';
   confidentialityReq: 'low' | 'medium' | 'high';
   integrityReq: 'low' | 'medium' | 'high';
   availabilityReq: 'low' | 'medium' | 'high';
-  
-  // DSGVO Trigger
   hasPersonalData: boolean | number;
   hasSpecialCategoryData: boolean | number;
-  affectedGroups: string[]; // Mitarbeitende, Kunden, etc.
+  affectedGroups: string[];
   processingPurpose: string;
   dataLocation: string;
-  
-  // Risk & Architecture
   isInternetExposed: boolean | number;
   isBusinessCritical: boolean | number;
   isSpof: boolean | number;
-  
-  // Responsibility
   systemOwner: string;
-  operatorId: string; // Service Partner / Technical Operator
+  operatorId: string;
   riskOwner: string;
   dataOwner: string;
-  
-  // IAM
   mfaType: 'none' | 'standard_otp' | 'standard_mail' | 'optional_otp' | 'optional_mail';
   authMethod: 'direct' | string;
-  
-  // Links (JSON Arrays)
   riskIds?: string[];
   measureIds?: string[];
-  vvtIds?: string[]; // IDs of ProcessingActivities
-  
+  vvtIds?: string[];
   url: string;
   documentationUrl?: string;
   notes: string;
@@ -265,8 +333,8 @@ export interface Risk {
 
 export interface RiskMeasure {
   id: string;
-  riskIds: string[]; // Associated Risks
-  resourceIds?: string[]; // Associated Systems
+  riskIds: string[];
+  resourceIds?: string[];
   title: string;
   description?: string;
   owner: string;
@@ -274,17 +342,13 @@ export interface RiskMeasure {
   status: 'planned' | 'active' | 'completed' | 'on_hold';
   effectiveness: number;
   notes?: string;
-  
-  // TOM Fields
   isTom?: boolean | number;
   tomCategory?: 'Zugriffskontrolle' | 'Zutrittskontrolle' | 'Weitergabekontrolle' | 'Eingabekontrolle' | 'Auftragskontrolle' | 'Verfügbarkeitskontrolle' | 'Trennungsgebot' | 'Verschlüsselung / Pseudonymisierung' | 'Wiederherstellbarkeit' | 'Wirksamkeitsprüfung';
-  art32Mapping?: string[]; // lit. a, b, c, d
-  gdprProtectionGoals?: string[]; // Vertraulichkeit, Integrität, Verfügbarkeit, Belastbarkeit
-  vvtIds?: string[]; // Associated Processing Activities
-  dataCategories?: string[]; // Associated Data Categories from Settings
+  art32Mapping?: string[];
+  gdprProtectionGoals?: string[];
+  vvtIds?: string[];
+  dataCategories?: string[];
   isArt9Relevant?: boolean | number;
-
-  // Audit & Evidence
   isEffective?: boolean | number;
   checkType?: 'Audit' | 'Test' | 'Review';
   lastCheckDate?: string;

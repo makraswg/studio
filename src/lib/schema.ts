@@ -57,6 +57,95 @@ export const appSchema: AppSchema = {
       authSource: 'VARCHAR(20) DEFAULT "local"',
     },
   },
+  // ProcessHub Tables
+  processes: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      title: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      status: 'VARCHAR(50) DEFAULT "draft"',
+      ownerUserId: 'VARCHAR(255)',
+      currentVersion: 'INT DEFAULT 1',
+      publishedVersion: 'INT',
+      createdAt: 'VARCHAR(50)',
+      updatedAt: 'VARCHAR(50)',
+      tags: 'TEXT',
+    }
+  },
+  process_versions: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      process_id: 'VARCHAR(255) NOT NULL',
+      version: 'INT NOT NULL',
+      model_json: 'LONGTEXT', // Semantic nodes/edges
+      layout_json: 'LONGTEXT', // Diagram positions
+      revision: 'INT DEFAULT 0',
+      created_by_user_id: 'VARCHAR(255)',
+      created_at: 'VARCHAR(50)',
+    }
+  },
+  process_ops: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      process_id: 'VARCHAR(255) NOT NULL',
+      version: 'INT NOT NULL',
+      revision_before: 'INT',
+      revision_after: 'INT',
+      actor_type: 'VARCHAR(20)', // 'user', 'ai'
+      actor_user_id: 'VARCHAR(255)',
+      ops_json: 'LONGTEXT',
+      created_at: 'VARCHAR(50)',
+    }
+  },
+  ai_sessions: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      process_id: 'VARCHAR(255) NOT NULL',
+      version: 'INT NOT NULL',
+      summary_text: 'TEXT',
+      context_json: 'TEXT',
+      updated_at: 'VARCHAR(50)',
+    }
+  },
+  ai_messages: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      process_id: 'VARCHAR(255) NOT NULL',
+      version: 'INT NOT NULL',
+      sender: 'VARCHAR(20)', // 'user', 'ai'
+      message_text: 'TEXT',
+      structured_json: 'LONGTEXT', // proposedOps
+      created_at: 'VARCHAR(50)',
+    }
+  },
+  process_relations: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      from_process_id: 'VARCHAR(255)',
+      to_process_id: 'VARCHAR(255)',
+      relation_type: 'VARCHAR(50)',
+      confidence: 'DECIMAL(5,2)',
+      reason_text: 'TEXT',
+      created_at: 'VARCHAR(50)',
+    }
+  },
+  bookstack_exports: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      process_id: 'VARCHAR(255)',
+      version: 'INT',
+      book_id: 'VARCHAR(50)',
+      chapter_id: 'VARCHAR(50)',
+      page_id: 'VARCHAR(50)',
+      status: 'VARCHAR(20)',
+      error_text: 'TEXT',
+      exported_at: 'VARCHAR(50)',
+      created_at: 'VARCHAR(50)',
+    }
+  },
+  // End ProcessHub Tables
   dataSubjectGroups: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',

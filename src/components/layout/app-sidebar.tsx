@@ -75,6 +75,7 @@ export function AppSidebar() {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Benutzerverzeichnis', href: '/users', icon: Users },
     { name: 'Lifecycle Hub', href: '/lifecycle', icon: UserPlus },
+    { name: 'ProcessHub', href: '/processhub', icon: Workflow },
     { name: 'Ressourcenkatalog', href: '/resources', icon: Layers },
     { name: 'Zuweisungsgruppen', href: '/groups', icon: Workflow },
     { name: 'Einzelzuweisungen', href: '/assignments', icon: Shield },
@@ -92,10 +93,6 @@ export function AppSidebar() {
   const complianceItems = [
     { name: 'Datenschutz (VVT)', href: '/gdpr', icon: FileCheck },
     { name: 'KI Identity Audit', href: '/iam-audit', icon: BrainCircuit },
-  ];
-
-  const integrationItems = [
-    { name: 'Jira Sync', href: '/integrations/jira', icon: RefreshCw },
   ];
 
   const handleLogout = async () => {
@@ -146,7 +143,7 @@ export function AppSidebar() {
           <p className="px-3 mb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">IAM Operationen</p>
           <nav className="space-y-1">
             {navItems.map((item) => (
-              <Link key={item.name} href={item.href} className={cn("flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider", pathname === item.href ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+              <Link key={item.name} href={item.href} className={cn("flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider", pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)) ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
                 <item.icon className="w-3.5 h-3.5" />
                 <span>{item.name}</span>
               </Link>

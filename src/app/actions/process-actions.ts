@@ -1,7 +1,7 @@
 
 'use server';
 
-import { saveCollectionRecord, getCollectionData } from './mysql-actions';
+import { saveCollectionRecord, getCollectionData, deleteCollectionRecord } from './mysql-actions';
 import { 
   Process, 
   ProcessVersion, 
@@ -58,7 +58,7 @@ export async function createProcessAction(
   };
 
   const initialLayout: ProcessLayout = {
-    positions: { 'start': { x: 100, y: 100 } }
+    positions: { 'start': { x: 100, y: 150 } }
   };
 
   const version: ProcessVersion = {
@@ -79,6 +79,27 @@ export async function createProcessAction(
   if (!res2.success) throw new Error(`Fehler beim Speichern der Prozessversion: ${res2.error}`);
 
   return { success: true, processId };
+}
+
+/**
+ * Löscht einen Prozess und alle zugehörigen Versionen.
+ */
+export async function deleteProcessAction(processId: string, dataSource: DataSource = 'mysql') {
+  try {
+    // 1. Versionen löschen
+    const verRes = await getCollectionData('process_versions', dataSource);
+    const versions = verRes.data?.filter((v: any) => v.process_id === processId) || [];
+    for (const v of versions) {
+      await deleteCollectionRecord('process_versions', v.id, dataSource);
+    }
+
+    // 2. Prozess löschen
+    await deleteCollectionRecord('processes', processId, dataSource);
+    
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
 }
 
 /**
@@ -104,6 +125,7 @@ export async function updateProcessMetadataAction(
 
 /**
  * Wendet Operationen auf eine Prozessversion an.
+ * Inklusive intelligenter Konfliktlösung für IDs (Duplicate ID Fix).
  */
 export async function applyProcessOpsAction(
   processId: string,
@@ -121,7 +143,7 @@ export async function applyProcessOpsAction(
   let model = JSON.parse(JSON.stringify(currentVersion.model_json));
   let layout = JSON.parse(JSON.stringify(currentVersion.layout_json));
 
-  // Wir tracken IDs, um auch Duplikate INNERHALB eines Batches zu verhindern
+  // Sicherheitsnetz für IDs
   const usedNodeIds = new Set((model.nodes || []).map((n: any) => n.id));
   const usedEdgeIds = new Set((model.edges || []).map((e: any) => e.id));
   
@@ -148,7 +170,7 @@ export async function applyProcessOpsAction(
     }
   });
 
-  // 2. Pass: Operationen anwenden mit korrigierten IDs
+  // 2. Pass: Operationen anwenden mit korrigierten IDs (Remapping)
   ops.forEach(op => {
     switch (op.type) {
       case 'ADD_NODE':
@@ -195,6 +217,7 @@ export async function applyProcessOpsAction(
         const finalEId = edgeIdMap[reqEId] || reqEId;
         
         const edge = { ...op.payload.edge, id: finalEId };
+        // Referenzen korrigieren, falls Quelle/Ziel umgemappt wurden
         edge.source = nodeIdMap[edge.source] || edge.source;
         edge.target = nodeIdMap[edge.target] || edge.target;
         
@@ -237,6 +260,7 @@ export async function applyProcessOpsAction(
             const node = model.nodes.find((n: any) => n.id === id);
             if (node) newNodes.push(node);
           });
+          // Fallback für nicht gelistete Knoten
           model.nodes.forEach((n: any) => {
             if (!mappedOrderedIds.includes(n.id)) newNodes.push(n);
           });

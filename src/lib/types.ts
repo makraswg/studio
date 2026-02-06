@@ -72,12 +72,6 @@ export interface ProcessNode {
   tips?: string;
   errors?: string;
   links?: { title: string; url: string }[];
-  isoFields?: {
-    inputs?: string;
-    outputs?: string;
-    risks?: string;
-    evidence?: string;
-  };
 }
 
 export interface ProcessEdge {
@@ -353,7 +347,7 @@ export interface RiskMeasure {
   effectiveness: number;
   notes?: string;
   isTom?: boolean | number;
-  tomCategory?: 'Zugriffskontrolle' | 'Zutrittskontrolle' | 'Weitergabekontrolle' | 'Eingabekontrolle' | 'Auftragskontrolle' | 'Verfügbarkeitskontrolle' | 'Trennungsgebot' | 'Verschlüsselung / Pseudonymisierung' | 'Wiederherstellbarkeit' | 'Wirksamkeitsprüfung';
+  tomCategory?: 'Zugriffskontrolle' | 'Zutrittskontrolle' | 'Weitergabekontrolle' | 'Eingabekontrolle' | 'Auftragskontrolle' | 'Verfügbarkeitskontrolle' | 'Trennungsgebots' | 'Verschlüsselung / Pseudonymisierung' | 'Wiederherstellbarkeit' | 'Wirksamkeitsprüfung';
   art32Mapping?: string[];
   gdprProtectionGoals?: string[];
   vvtIds?: string[];

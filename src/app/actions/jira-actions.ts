@@ -60,8 +60,10 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
     });
 
     if (!testRes.ok) {
-      const errorBody = await testRes.text();
-      return { success: false, message: `Authentifizierungsfehler (${testRes.status})`, details: "Prüfen Sie, ob der API-Token korrekt generiert wurde." };
+      const status = testRes.status;
+      if (status === 401) return { success: false, message: 'Authentifizierungsfehler (401)', details: "E-Mail oder API-Token ungültig." };
+      if (status === 403) return { success: false, message: 'Zugriff verweigert (403)', details: "Der Token hat nicht die benötigten Berechtigungen." };
+      return { success: false, message: `Jira antwortet mit Status ${status}` };
     }
 
     const userData = await testRes.json();
@@ -134,6 +136,7 @@ export async function getJiraProjectMetadataAction(configData: Partial<JiraConfi
 
 /**
  * Assets Discovery: Ruft Workspaces ab.
+ * Jira Cloud Assets API liefert oft 'workspaceId' zurück.
  */
 export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): Promise<{ success: boolean; workspaces?: any[]; error?: string }> {
   if (!configData.url || !configData.apiToken) return { success: false, error: 'Keine Zugangsdaten' };
@@ -141,20 +144,25 @@ export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): 
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
   try {
-    // Endpoint für JSM Assets (Insight) Cloud Workspaces
     const response = await fetch(`${url}/rest/servicedeskapi/assets/workspace`, {
       headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
       cache: 'no-store'
     });
     
     if (!response.ok) {
-      if (response.status === 404) return { success: false, error: "Assets API nicht erreichbar. Ist JSM Premium/Enterprise aktiv?" };
+      if (response.status === 404) return { success: false, error: "Assets API nicht erreichbar. Prüfen Sie, ob JSM Assets aktiviert ist." };
       return { success: false, error: `Assets API Fehler ${response.status}` };
     }
     
     const data = await response.json();
-    // Die Antwort kann ein Array direkt sein oder ein Objekt mit "values"
-    const workspaces = data.values || (Array.isArray(data) ? data : []);
+    const rawValues = data.values || (Array.isArray(data) ? data : []);
+    
+    // Normalisierung: Jira nutzt oft workspaceId statt id
+    const workspaces = rawValues.map((w: any) => ({
+      id: w.workspaceId || w.id,
+      name: w.name || 'Standard Workspace'
+    }));
+
     return { success: true, workspaces };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
@@ -168,6 +176,7 @@ export async function getJiraSchemasAction(configData: Partial<JiraConfig>, work
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
   
   try {
+    // Bevorzuge den Gateway-Pfad für Cloud Assets Schemas
     const response = await fetch(`${url}/gateway/api/jsm/assets/workspace/${workspaceId}/v1/objectschema/list`, {
       headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
       cache: 'no-store'
@@ -328,8 +337,8 @@ export async function resolveJiraTicket(
         headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' }
       });
       if (transRes.ok) {
-        const transData = await transRes.json();
-        const target = transData.transitions?.find((t: any) => t.name.toLowerCase() === config.doneStatusName!.toLowerCase());
+        const transData = await transRes.ok ? await transRes.json() : null;
+        const target = transData?.transitions?.find((t: any) => t.name.toLowerCase() === config.doneStatusName!.toLowerCase());
         if (target) {
           await fetch(`${url}/rest/api/3/issue/${issueKey}/transitions`, {
             method: 'POST',

@@ -169,7 +169,7 @@ export default function ProcessDesignerPage() {
         errors: selectedNode.errors || ''
       });
     }
-  }, [selectedNode?.id]);
+  }, [selectedNode?.id, localNodeEdits.id]);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -665,7 +665,7 @@ export default function ProcessDesignerPage() {
                 )}
 
                 {chatHistory.map((msg, i) => (
-                  <div key={i} className={cn(
+                  <div key={`${msg.timestamp}-${i}`} className={cn(
                     "flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300",
                     msg.role === 'user' ? "items-end" : "items-start"
                   )}>
@@ -679,7 +679,7 @@ export default function ProcessDesignerPage() {
                     {msg.role === 'ai' && msg.questions && msg.questions.length > 0 && (
                       <div className="w-full mt-2 space-y-2">
                         {msg.questions.map((q, qIdx) => (
-                          <div key={qIdx} className="p-4 bg-indigo-50 border-2 border-indigo-100 text-[11px] font-bold text-indigo-900 italic shadow-sm">
+                          <div key={`${i}-${qIdx}`} className="p-4 bg-indigo-50 border-2 border-indigo-100 text-[11px] font-bold text-indigo-900 italic shadow-sm">
                             <span className="text-[8px] uppercase block text-indigo-400 font-bold mb-1.5 tracking-widest">Beratung</span>
                             {q}
                           </div>
@@ -698,7 +698,7 @@ export default function ProcessDesignerPage() {
                           
                           <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
                             {msg.suggestions.map((op: any, opIdx: number) => (
-                              <div key={`${opIdx}-${i}`} className="text-[9px] p-2 bg-slate-50 border border-slate-100 flex items-center gap-3">
+                              <div key={`${opIdx}-${i}-${msg.timestamp}`} className="text-[9px] p-2 bg-slate-50 border border-slate-100 flex items-center gap-3">
                                 <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                                 <span className="font-bold text-slate-400 uppercase shrink-0 text-[7px]">{String(op.type).replace('_', ' ')}</span>
                                 <span className="truncate font-bold text-slate-700">
@@ -852,10 +852,10 @@ export default function ProcessDesignerPage() {
                   <div className="space-y-3">
                     <Label className="text-[9px] font-bold uppercase text-slate-400">Bestehende Wege</Label>
                     <div className="space-y-2">
-                      {(currentVersion?.model_json?.edges || []).filter((e: any) => e.source === selectedNodeId).map((edge: any) => {
+                      {(currentVersion?.model_json?.edges || []).filter((e: any) => e.source === selectedNodeId).map((edge: any, idx: number) => {
                         const targetNode = currentVersion?.model_json?.nodes?.find((n: any) => n.id === edge.target);
                         return (
-                          <div key={edge.id} className="flex items-center justify-between p-3 bg-white border border-slate-100 text-[11px] rounded-none shadow-sm">
+                          <div key={`${edge.id}-${idx}`} className="flex items-center justify-between p-3 bg-white border border-slate-100 text-[11px] rounded-none shadow-sm">
                             <div className="flex items-center gap-3 truncate">
                               <ArrowRightCircle className="w-4 h-4 text-slate-300" />
                               <span className="font-bold text-slate-700 truncate">{targetNode?.title || edge.target}</span>

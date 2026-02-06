@@ -14,7 +14,7 @@ import {
 
 /**
  * Hilfsfunktion zur Generierung einer eindeutigen ID innerhalb eines Modells.
- * Verhindert den "Duplicate ID" Fehler.
+ * Verhindert den "Duplicate ID" Fehler für Knoten und Verbindungen.
  */
 function ensureUniqueId(requestedId: string, usedIds: Set<string>): string {
   let finalId = requestedId;
@@ -122,17 +122,28 @@ export async function applyProcessOpsAction(
   let layout = JSON.parse(JSON.stringify(currentVersion.layout_json));
 
   // Wir tracken IDs, um auch Duplikate INNERHALB eines Batches zu verhindern
-  const usedIds = new Set((model.nodes || []).map((n: any) => n.id));
-  const idMap: Record<string, string> = {};
+  const usedNodeIds = new Set((model.nodes || []).map((n: any) => n.id));
+  const usedEdgeIds = new Set((model.edges || []).map((e: any) => e.id));
+  
+  const nodeIdMap: Record<string, string> = {};
+  const edgeIdMap: Record<string, string> = {};
 
-  // 1. Pass: Eindeutigkeit prüfen und Mapping erstellen
+  // 1. Pass: Eindeutigkeit prüfen und Mapping für Knoten und Edges erstellen
   ops.forEach(op => {
     if (op.type === 'ADD_NODE' && op.payload?.node) {
       const originalId = op.payload.node.id;
-      const uniqueId = ensureUniqueId(originalId, usedIds);
-      usedIds.add(uniqueId);
+      const uniqueId = ensureUniqueId(originalId, usedNodeIds);
+      usedNodeIds.add(uniqueId);
       if (uniqueId !== originalId) {
-        idMap[originalId] = uniqueId;
+        nodeIdMap[originalId] = uniqueId;
+      }
+    }
+    if (op.type === 'ADD_EDGE' && op.payload?.edge) {
+      const originalId = op.payload.edge.id;
+      const uniqueId = ensureUniqueId(originalId, usedEdgeIds);
+      usedEdgeIds.add(uniqueId);
+      if (uniqueId !== originalId) {
+        edgeIdMap[originalId] = uniqueId;
       }
     }
   });
@@ -145,7 +156,7 @@ export async function applyProcessOpsAction(
         if (!op.payload?.node) break;
         
         const reqId = op.payload.node.id;
-        const finalId = idMap[reqId] || reqId;
+        const finalId = nodeIdMap[reqId] || reqId;
         
         const nodeToAdd = { ...op.payload.node, id: finalId };
         model.nodes.push(nodeToAdd);
@@ -160,13 +171,13 @@ export async function applyProcessOpsAction(
 
       case 'UPDATE_NODE':
         if (!op.payload?.nodeId) break;
-        const targetUpdId = idMap[op.payload.nodeId] || op.payload.nodeId;
+        const targetUpdId = nodeIdMap[op.payload.nodeId] || op.payload.nodeId;
         model.nodes = model.nodes.map((n: any) => n.id === targetUpdId ? { ...n, ...op.payload.patch } : n);
         break;
 
       case 'REMOVE_NODE':
         if (!op.payload?.nodeId) break;
-        const targetRemId = idMap[op.payload.nodeId] || op.payload.nodeId;
+        const targetRemId = nodeIdMap[op.payload.nodeId] || op.payload.nodeId;
         model.nodes = model.nodes.filter((n: any) => n.id !== targetRemId);
         if (model.edges) {
           model.edges = model.edges.filter((e: any) => e.source !== targetRemId && e.target !== targetRemId);
@@ -180,17 +191,21 @@ export async function applyProcessOpsAction(
         if (!model.edges) model.edges = [];
         if (!op.payload?.edge) break;
         
-        const edge = { ...op.payload.edge };
-        edge.source = idMap[edge.source] || edge.source;
-        edge.target = idMap[edge.target] || edge.target;
+        const reqEId = op.payload.edge.id;
+        const finalEId = edgeIdMap[reqEId] || reqEId;
+        
+        const edge = { ...op.payload.edge, id: finalEId };
+        edge.source = nodeIdMap[edge.source] || edge.source;
+        edge.target = nodeIdMap[edge.target] || edge.target;
         
         model.edges.push(edge);
         break;
 
       case 'REMOVE_EDGE':
         if (!op.payload?.edgeId) break;
+        const targetRemEId = edgeIdMap[op.payload.edgeId] || op.payload.edgeId;
         if (model.edges) {
-          model.edges = model.edges.filter((e: any) => e.id !== op.payload.edgeId);
+          model.edges = model.edges.filter((e: any) => e.id !== targetRemEId);
         }
         break;
 
@@ -200,7 +215,7 @@ export async function applyProcessOpsAction(
         
         const newPos: Record<string, any> = {};
         Object.entries(op.payload.positions).forEach(([id, pos]) => {
-          newPos[idMap[id] || id] = pos;
+          newPos[nodeIdMap[id] || id] = pos;
         });
         
         layout.positions = { ...layout.positions, ...newPos };
@@ -216,7 +231,7 @@ export async function applyProcessOpsAction(
       case 'REORDER_NODES':
         const { orderedNodeIds } = op.payload || {};
         if (Array.isArray(orderedNodeIds)) {
-          const mappedOrderedIds = orderedNodeIds.map((id: string) => idMap[id] || id);
+          const mappedOrderedIds = orderedNodeIds.map((id: string) => nodeIdMap[id] || id);
           const newNodes: ProcessNode[] = [];
           mappedOrderedIds.forEach((id: string) => {
             const node = model.nodes.find((n: any) => n.id === id);

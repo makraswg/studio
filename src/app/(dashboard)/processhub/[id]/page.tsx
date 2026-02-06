@@ -14,38 +14,23 @@ import {
   Zap, 
   Plus, 
   BookOpen,
-  AlertCircle,
   ShieldCheck,
-  History,
   Save, 
   Trash2, 
-  Edit3, 
-  Layers, 
-  ArrowRight, 
+  Activity, 
   RefreshCw, 
   Sparkles, 
   GitBranch, 
-  Link as LinkIcon,
-  Search,
-  Settings2,
-  Terminal,
-  Activity,
-  FileCode,
   Box,
   AlertTriangle,
-  ChevronRight,
-  Info,
   ChevronUp,
   ChevronDown,
   ClipboardList,
-  Target,
-  BadgeAlert,
-  FileText,
-  UserCircle,
-  CheckCircle,
+  FileCode,
   FilePen,
   ArrowRightCircle,
-  GripVertical
+  ArrowRight,
+  Terminal
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,11 +44,10 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
 import { applyProcessOpsAction, updateProcessMetadataAction } from '@/app/actions/process-actions';
-import { getProcessSuggestions, ProcessDesignerOutput } from '@/ai/flows/process-designer-flow';
+import { getProcessSuggestions } from '@/ai/flows/process-designer-flow';
 import { publishToBookStackAction } from '@/app/actions/bookstack-actions';
 import { toast } from '@/hooks/use-toast';
-import { Process, ProcessVersion, ProcessNode, ProcessEdge, ProcessModel, ProcessLayout } from '@/lib/types';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ProcessModel, ProcessLayout, ProcessNode } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -153,8 +137,8 @@ export default function ProcessDesignerPage() {
   const [newEdgeTargetId, setNewEdgeTargetId] = useState<string>('');
   const [newEdgeLabel, setNewEdgeLabel] = useState<string>('');
 
-  const { data: processes, isLoading: isProcLoading, refresh: refreshProc } = usePluggableCollection<any>('processes');
-  const { data: versions, isLoading: isVerLoading, refresh: refreshVersion } = usePluggableCollection<any>('process_versions');
+  const { data: processes, refresh: refreshProc } = usePluggableCollection<any>('processes');
+  const { data: versions, refresh: refreshVersion } = usePluggableCollection<any>('process_versions');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id), [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
@@ -426,15 +410,6 @@ export default function ProcessDesignerPage() {
 
   if (!mounted) return null;
 
-  if ((isProcLoading || isVerLoading) && (!currentProcess || !currentVersion)) {
-    return (
-      <div className="flex flex-col h-[80vh] items-center justify-center gap-4">
-        <Loader2 className="w-10 h-10 animate-spin text-primary" />
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Workspace initialisieren...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="h-[calc(100vh-120px)] flex flex-col -m-8 overflow-hidden bg-slate-50 font-body select-none">
       <header className="h-16 border-b bg-white flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
@@ -491,16 +466,15 @@ export default function ProcessDesignerPage() {
                 <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
                   <ClipboardList className="w-3.5 h-3.5" /> Prozessschritte
                 </TabsTrigger>
-                <TabsTrigger value="compliance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 h-full px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-                  <ShieldCheck className="w-3.5 h-3.5" /> ISO 9001
-                </TabsTrigger>
               </TabsList>
             </div>
 
             <div className="flex-1 min-h-0 flex flex-col select-auto">
               <ScrollArea className="flex-1">
-                <TabsContent value="meta" className="m-0 p-6 space-y-6">
+                <TabsContent value="meta" className="m-0 p-6 space-y-8">
+                  {/* General Metadata */}
                   <div className="space-y-4">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-1">Allgemeine Informationen</h3>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold uppercase text-slate-500">Prozessbezeichnung</Label>
                       <Input value={metaTitle} onChange={e => setMetaMetaTitle(e.target.value)} className="rounded-none font-bold h-10 border-slate-200" />
@@ -518,12 +492,40 @@ export default function ProcessDesignerPage() {
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold uppercase text-slate-500">Allgemeine Beschreibung</Label>
-                      <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="rounded-none min-h-[120px] text-sm border-slate-200" placeholder="Ziel und Zweck des Prozesses..." />
+                      <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="rounded-none min-h-[100px] text-sm border-slate-200" placeholder="Ziel und Zweck des Prozesses..." />
                     </div>
                     <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full rounded-none h-10 font-bold uppercase text-[10px] gap-2">
                       {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                       Stammdaten speichern
                     </Button>
+                  </div>
+
+                  {/* ISO 9001 Compliance */}
+                  <div className="space-y-6 pt-4 border-t">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-700">ISO 9001 Compliance</h3>
+                    </div>
+                    <div className="grid grid-cols-1 gap-6">
+                      {[
+                        { id: 'inputs', label: 'Prozess-Eingaben (Inputs)', icon: ArrowRight },
+                        { id: 'outputs', label: 'Prozess-Ergebnisse (Outputs)', icon: Check },
+                        { id: 'risks', label: 'Risiken & Chancen', icon: AlertTriangle },
+                        { id: 'evidence', label: 'Nachweise / Aufzeichnungen', icon: FileCode }
+                      ].map(field => (
+                        <div key={field.id} className="space-y-2">
+                          <Label className="text-[10px] font-bold uppercase text-slate-700 flex items-center gap-2">
+                            <field.icon className="w-3.5 h-3.5 text-emerald-600" /> {field.label}
+                          </Label>
+                          <Textarea 
+                            defaultValue={currentVersion?.model_json?.isoFields?.[field.id] || ''}
+                            className="text-xs rounded-none min-h-[80px] bg-white border-slate-200 focus:border-emerald-500 leading-relaxed"
+                            placeholder="Vorgaben gemäß Norm..."
+                            onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: field.id, value: e.target.value } }])}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </TabsContent>
 
@@ -576,35 +578,6 @@ export default function ProcessDesignerPage() {
                         </div>
                       ))}
                     </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="compliance" className="m-0 p-6 space-y-8">
-                  <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-none space-y-2">
-                    <div className="flex items-center gap-2 text-emerald-700">
-                      <ShieldCheck className="w-4 h-4" />
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest">ISO 9001 Compliance</h4>
-                    </div>
-                    <p className="text-[9px] leading-relaxed text-emerald-600 italic">Erfassen Sie die audit-relevanten Merkmale gemäß Normvorgaben.</p>
-                  </div>
-                  <div className="grid grid-cols-1 gap-6">
-                    {[
-                      { id: 'inputs', label: 'Prozess-Eingaben (Inputs)', icon: ArrowRight },
-                      { id: 'outputs', label: 'Prozess-Ergebnisse (Outputs)', icon: Check },
-                      { id: 'risks', label: 'Risiken & Chancen', icon: AlertTriangle },
-                      { id: 'evidence', label: 'Nachweise / Aufzeichnungen', icon: FileCode }
-                    ].map(field => (
-                      <div key={field.id} className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase text-slate-700 flex items-center gap-2">
-                          <field.icon className="w-3.5 h-3.5 text-emerald-600" /> {field.label}
-                        </Label>
-                        <Textarea 
-                          defaultValue={currentVersion?.model_json?.isoFields?.[field.id] || ''}
-                          className="text-xs rounded-none min-h-[100px] bg-white border-slate-200 focus:border-emerald-500 leading-relaxed"
-                          onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: field.id, value: e.target.value } }])}
-                        />
-                      </div>
-                    ))}
                   </div>
                 </TabsContent>
               </ScrollArea>

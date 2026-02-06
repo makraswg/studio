@@ -93,7 +93,7 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       const categories = ['Stammdaten', 'Bankdaten', 'Gesundheitsdaten (Art. 9)', 'Protokolldaten', 'Kontaktdaten', 'Standortdaten'];
       for (const cat of categories) {
         const id = `dcat-init-${cat.toLowerCase().replace(/[^a-z]/g, '')}`;
-        await connection.execute('INSERT INTO `dataCategories` (id, tenantId, name) VALUES (?, ?, ?)', [id, 't1', cat]);
+        await connection.execute('INSERT INTO `dataCategories` (id, tenantId, name, status) VALUES (?, ?, ?, ?)', [id, 't1', cat, 'active']);
       }
       details.push('   ✅ Standard-Datenkategorien erstellt.');
     }

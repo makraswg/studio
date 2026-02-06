@@ -29,36 +29,40 @@ const ProcessDesignerOutputSchema = z.object({
   proposedOps: z.array(z.object({
     type: z.enum(['ADD_NODE', 'UPDATE_NODE', 'REMOVE_NODE', 'ADD_EDGE', 'UPDATE_EDGE', 'REMOVE_EDGE', 'UPDATE_LAYOUT', 'SET_ISO_FIELD', 'REORDER_NODES']),
     payload: z.any()
-  })).describe('An array of individual operation objects. Each object MUST have a "type" string and a "payload" object. NO batching like "add_nodes" allowed.'),
-  explanation: z.string().describe('Professional natural language explanation of what changed and why (in German).'),
-  openQuestions: z.array(z.string()).describe('Questions to the user to clarify the process flow or compliance details.'),
+  })).describe('An array of individual operation objects. Only return this if you have enough information to make a meaningful change.'),
+  explanation: z.string().describe('Simple, helpful explanation in German for the user.'),
+  openQuestions: z.array(z.string()).describe('Simple clarifying questions to understand the process better.'),
 });
 
 export type ProcessDesignerOutput = z.infer<typeof ProcessDesignerOutputSchema>;
 
-const SYSTEM_PROMPT = `Du bist ein Senior Prozess-Consultant und ISO 9001:2015 Lead Auditor.
-Deine Aufgabe ist es, den Nutzer beim Design von Geschäftsprozessen zu begleiten und zu beraten.
+const SYSTEM_PROMPT = `Du bist ein erfahrener Prozess-Berater und ISO 9001:2015 Experte.
+Deine Aufgabe ist es, gemeinsam mit dem Nutzer einen erstklassigen Geschäftsprozess zu entwickeln.
 
 UNTERNEHMENS-KONTEXT:
 {{{companyContext}}}
 
-VERHALTENSREGELN:
-1. ASSISTENTEN-MODUS: Sei ein Partner. Verstehe den Prozess, indem du gezielte Fragen stellst. Stelle IMMER NUR EINE ODER ZWEI Fragen gleichzeitig.
-2. KONTEXT: Beachte den bisherigen Chat-Verlauf und den aktuellen MODELL-ZUSTAND.
-3. ISO 9001 ANALYSE: Extrahiere Inputs, Outputs, Verantwortlichkeiten und Risiken. Schlage SET_ISO_FIELD Operationen vor.
-4. STRUKTUR: Erstelle BPMN-ähnliche Strukturen mit 'start', 'end', 'step' und 'decision'.
-5. LAYOUT & LOGIK (WICHTIG): Wenn du neue Knoten hinzufügst, MUSST du zwingend auch die Verbindungen (ADD_EDGE) und Positionen (UPDATE_LAYOUT) vorschlagen.
-6. POSITIONIERUNG: Nutze ein 250px Raster für das Layout (x: 50, 300, 550, 800...; y: 150). Die Breite eines Knotens beträgt 160px. Achte darauf, dass Elemente NIEMALS übereinander liegen.
+VERHALTENSREGELN (WICHTIG):
+1. SPRACHSTIL: Kommuniziere mit dem Nutzer in EINFACHER, klarer und freundlicher Sprache (wie ein hilfreicher Kollege). Vermeide im Chat zu viel Fach-Jargon.
+2. MODELL-QUALITÄT: Wenn du Texte für die Prozessschritte (Titel, Anweisungen) oder ISO-Felder erzeugst, müssen diese HOCHPROFESSIONELL, präzise und normkonform sein.
+3. STRATEGIE: Mache erst dann strukturelle Vorschläge (proposedOps), wenn du meinst, die wichtigsten Informationen (Was passiert? Wer ist beteiligt? Was ist das Ziel?) verstanden zu haben.
+4. FRAGE-MODUS: Wenn Informationen fehlen, stelle gezielt Fragen. Stelle IMMER NUR EINE ODER ZWEI Fragen gleichzeitig.
+5. POSITIONIERUNG: Nutze ein 250px Raster für das Layout (x: 50, 300, 550, 800...; y: 150). Die Breite eines Knotens beträgt 160px. Achte darauf, dass Elemente NIEMALS übereinander liegen.
 
-WICHTIGE SYNTAX-REGELN:
-- Jede Operation benötigt die Felder 'type' (String) und 'payload' (Object).
-- Benutze NIEMALS 'action' anstelle von 'type'.
-- Erstelle für JEDEN neuen Knoten eine eigene 'ADD_NODE' Operation.
-- Erstelle für JEDE Verbindung eine eigene 'ADD_EDGE' Operation (payload: { "edge": { "id": string, "source": string, "target": string, "label": string } }).
+SYNTAX-REGELN:
+- proposedOps muss ein Array von Objekten sein mit { type: string, payload: object }.
+- Benutze NIEMALS Batch-Operationen wie 'add_nodes'. Nur Einzel-Operationen.
+- Erstelle für JEDEN neuen Knoten eine 'ADD_NODE' Operation.
+- Erstelle für JEDE Verbindung eine 'ADD_EDGE' Operation (payload: { "edge": { "id": string, "source": string, "target": string, "label": string } }).
 - Erstelle eine 'UPDATE_LAYOUT' Operation für neue Knoten (payload: { "positions": { "KnotenID": { "x": number, "y": number } } }).
 
 ANTWORT-FORMAT:
-Du MUSST eine valide JSON-Antwort liefern mit exakt diesen Keys: "proposedOps", "explanation", "openQuestions".`;
+Du MUSST eine valide JSON-Antwort liefern:
+{
+  "proposedOps": [...],
+  "explanation": "Deine einfache Erklärung für den Nutzer",
+  "openQuestions": ["Deine Frage(n)"]
+}`;
 
 /**
  * Normalisiert die KI-Ausgabe, falls das Modell Batch-Operationen oder falsche Keys verwendet.
@@ -118,7 +122,7 @@ function normalizeOps(rawOps: any[]): any[] {
 function normalizeOutput(raw: any): ProcessDesignerOutput {
   const normalized: ProcessDesignerOutput = {
     proposedOps: [],
-    explanation: raw.explanation || raw.message || raw.summary || "Die KI hat Änderungen am Prozessmodell vorgeschlagen.",
+    explanation: raw.explanation || raw.message || raw.summary || "Ich habe mir den Prozess angesehen. Können wir die Details noch etwas vertiefen?",
     openQuestions: []
   };
 
@@ -164,9 +168,9 @@ ${JSON.stringify(input.currentModel, null, 2)}
 CHAT-VERLAUF:
 ${historyString}
 
-AKTUELLE ANWEISUNG VOM NUTZER: "${input.userMessage}"
+AKTUELLE NACHRICHT VOM NUTZER: "${input.userMessage}"
 
-Bitte antworte IMMER im validen JSON-Format. Erkläre kurz deine Änderungen und stelle eine gezielte Rückfrage zur Verfeinerung des Prozesses oder der ISO 9001 Compliance.`;
+Bitte antworte im validen JSON-Format. Nutze eine einfache Sprache für die 'explanation', aber eine sehr professionelle Fachsprache für die Inhalte in 'proposedOps'.`;
 
     if (config?.provider === 'openrouter') {
       const client = new OpenAI({
@@ -221,8 +225,8 @@ export async function getProcessSuggestions(input: any): Promise<ProcessDesigner
     console.error("Process AI Error:", error);
     return {
       proposedOps: [],
-      explanation: `KI-Analyse unterbrochen: ${error.message || "Strukturfehler"}. Bitte versuchen Sie die Anweisung konkreter zu formulieren.`,
-      openQuestions: ["Können Sie die letzte Anweisung bitte wiederholen?"]
+      explanation: `Entschuldigung, da ist etwas schief gelaufen. Könnten Sie mir das nochmal kurz erklären?`,
+      openQuestions: ["Was war Ihr letzter Gedanke dazu?"]
     };
   }
 }

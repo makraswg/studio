@@ -16,6 +16,19 @@ export interface Tenant {
   ldapUserFilter?: string;
 }
 
+export interface Department {
+  id: string;
+  tenantId: string;
+  name: string;
+}
+
+export interface JobTitle {
+  id: string;
+  tenantId: string;
+  departmentId: string;
+  name: string;
+}
+
 export interface User {
   id: string;
   tenantId: string;

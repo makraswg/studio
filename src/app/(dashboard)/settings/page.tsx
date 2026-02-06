@@ -37,7 +37,8 @@ import {
   Fingerprint,
   Workflow,
   Table as TableIcon,
-  FileCheck
+  FileCheck,
+  Briefcase
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -55,7 +56,7 @@ import {
 import { runBsiXmlImportAction } from '@/app/actions/bsi-import-actions';
 import { runBsiCrossTableImportAction } from '@/app/actions/bsi-cross-table-actions';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
-import { Tenant, JiraConfig, AiConfig, PlatformUser, ImportRun, Catalog, SmtpConfig, DataSubjectGroup } from '@/lib/types';
+import { Tenant, JiraConfig, AiConfig, PlatformUser, ImportRun, Catalog, SmtpConfig, DataSubjectGroup, Department, JobTitle } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -88,6 +89,11 @@ export default function SettingsPage() {
   // GDPR State
   const [newGroupName, setNewGroupName] = useState('');
 
+  // Org Structure State
+  const [newDepartmentName, setNewDepartmentName] = useState('');
+  const [newJobTitleName, setNewJobTitleName] = useState('');
+  const [selectedDeptIdForJob, setSelectedDeptIdForJob] = useState('');
+
   // Data Fetching
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<Tenant>('tenants');
   const { data: pUsers, refresh: refreshPUsers } = usePluggableCollection<PlatformUser>('platformUsers');
@@ -96,6 +102,8 @@ export default function SettingsPage() {
   const { data: aiConfigs, refresh: refreshAi } = usePluggableCollection<AiConfig>('aiConfigs');
   const { data: smtpConfigs, refresh: refreshSmtp } = usePluggableCollection<SmtpConfig>('smtpConfigs');
   const { data: dataSubjectGroups, refresh: refreshSubjectGroups } = usePluggableCollection<DataSubjectGroup>('dataSubjectGroups');
+  const { data: departments, refresh: refreshDepartments } = usePluggableCollection<Department>('departments');
+  const { data: jobTitles, refresh: refreshJobTitles } = usePluggableCollection<JobTitle>('jobTitles');
 
   // Local Form States (Drafts)
   const [jiraDraft, setJiraDraft] = useState<Partial<JiraConfig>>({});
@@ -178,6 +186,35 @@ export default function SettingsPage() {
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
     }
+  };
+
+  // Dept & Jobs Handlers
+  const handleAddDepartment = async () => {
+    if (!newDepartmentName) return;
+    const id = `dept-${Math.random().toString(36).substring(2, 9)}`;
+    const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
+    try {
+      const res = await saveCollectionRecord('departments', id, { id, tenantId: targetTenantId, name: newDepartmentName }, dataSource);
+      if (res.success) {
+        setNewDepartmentName('');
+        refreshDepartments();
+        toast({ title: "Abteilung hinzugefügt" });
+      }
+    } catch (e: any) { toast({ variant: "destructive", title: "Fehler", description: e.message }); }
+  };
+
+  const handleAddJobTitle = async () => {
+    if (!newJobTitleName || !selectedDeptIdForJob) return;
+    const id = `job-${Math.random().toString(36).substring(2, 9)}`;
+    const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
+    try {
+      const res = await saveCollectionRecord('jobTitles', id, { id, tenantId: targetTenantId, departmentId: selectedDeptIdForJob, name: newJobTitleName }, dataSource);
+      if (res.success) {
+        setNewJobTitleName('');
+        refreshJobTitles();
+        toast({ title: "Stellenbezeichnung hinzugefügt" });
+      }
+    } catch (e: any) { toast({ variant: "destructive", title: "Fehler", description: e.message }); }
   };
 
   const handleTestJira = async () => {
@@ -298,6 +335,7 @@ export default function SettingsPage() {
 
   const navItems = [
     { id: 'general', label: 'Organisation', icon: Building2 },
+    { id: 'structure', label: 'Struktur & Stellen', icon: Briefcase },
     { id: 'pusers', label: 'Plattform-Nutzer', icon: Users },
     { id: 'sync', label: 'Identität & Sync', icon: Network },
     { id: 'integrations', label: 'Jira Gateway', icon: RefreshCw },
@@ -361,6 +399,117 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Org Structure Section */}
+          <TabsContent value="structure" className="mt-0 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Abteilungen */}
+              <Card className="rounded-none border shadow-none">
+                <CardHeader className="bg-muted/10 border-b py-4">
+                  <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Abteilungen</CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Neue Abteilung..." 
+                      value={newDepartmentName} 
+                      onChange={e => setNewDepartmentName(e.target.value)} 
+                      className="rounded-none h-9 text-xs"
+                    />
+                    <Button size="sm" onClick={handleAddDepartment} className="rounded-none font-bold uppercase text-[9px]">
+                      <Plus className="w-3 h-3 mr-1" /> Hinzufügen
+                    </Button>
+                  </div>
+                  <div className="border rounded-none overflow-hidden max-h-[400px]">
+                    <ScrollArea className="h-full">
+                      <Table>
+                        <TableBody>
+                          {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(dept => (
+                            <TableRow key={dept.id} className="hover:bg-muted/5">
+                              <TableCell className="font-bold text-xs">{dept.name}</TableCell>
+                              <TableCell className="text-right">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-7 w-7 text-red-600"
+                                  onClick={() => { if(confirm("Abteilung löschen?")) deleteCollectionRecord('departments', dept.id, dataSource).then(() => refreshDepartments()); }}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Stellenbezeichnungen */}
+              <Card className="rounded-none border shadow-none">
+                <CardHeader className="bg-muted/10 border-b py-4">
+                  <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Stellenbezeichnungen</CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="space-y-3 p-3 bg-slate-50 border rounded-none">
+                    <div className="space-y-1.5">
+                      <Label className="text-[9px] font-black uppercase text-slate-400">1. Abteilung wählen</Label>
+                      <Select value={selectedDeptIdForJob} onValueChange={setSelectedDeptIdForJob}>
+                        <SelectTrigger className="h-9 rounded-none text-xs bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(dept => (
+                            <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[9px] font-black uppercase text-slate-400">2. Bezeichnung</Label>
+                      <Input 
+                        placeholder="z.B. IT-Administrator" 
+                        value={newJobTitleName} 
+                        onChange={e => setNewJobTitleName(e.target.value)} 
+                        className="rounded-none h-9 text-xs bg-white"
+                      />
+                    </div>
+                    <Button className="w-full h-9 rounded-none font-bold uppercase text-[9px] gap-2" onClick={handleAddJobTitle} disabled={!newJobTitleName || !selectedDeptIdForJob}>
+                      <Plus className="w-3.5 h-3.5" /> Stelle Hinzufügen
+                    </Button>
+                  </div>
+
+                  <div className="border rounded-none overflow-hidden max-h-[300px]">
+                    <ScrollArea className="h-full">
+                      <Table>
+                        <TableBody>
+                          {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => (
+                            <TableRow key={job.id} className="hover:bg-muted/5">
+                              <TableCell>
+                                <div className="font-bold text-xs">{job.name}</div>
+                                <div className="text-[9px] text-muted-foreground uppercase font-black">
+                                  {departments?.find(d => d.id === job.departmentId)?.name || '---'}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-7 w-7 text-red-600"
+                                  onClick={() => { if(confirm("Stelle löschen?")) deleteCollectionRecord('jobTitles', job.id, dataSource).then(() => refreshJobTitles()); }}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* DSGVO Section */}

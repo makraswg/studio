@@ -25,6 +25,21 @@ export const appSchema: AppSchema = {
       ldapUserFilter: 'TEXT',
     },
   },
+  departments: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+    }
+  },
+  jobTitles: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      departmentId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+    }
+  },
   platformUsers: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',

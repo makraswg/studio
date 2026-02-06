@@ -302,8 +302,6 @@ export default function ProcessDesignerPage() {
     } finally { setIsAiLoading(false); }
   };
 
-  const getSubRisks = (riskId: string) => processes?.filter((p: any) => (p as any).parentId === riskId) || [];
-
   if (!mounted) return null;
 
   return (
@@ -333,7 +331,7 @@ export default function ProcessDesignerPage() {
               <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2"><ClipboardList className="w-3.5 h-3.5" /> Prozessschritte</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="meta" className="flex-1 m-0 p-0 overflow-hidden flex flex-col outline-none">
+            <TabsContent value="meta" className="flex-1 mt-0 m-0 p-0 overflow-hidden data-[state=active]:flex flex-col outline-none">
               <ScrollArea className="flex-1">
                 <div className="p-6 space-y-10 pb-20">
                   <div className="space-y-6">
@@ -372,8 +370,8 @@ export default function ProcessDesignerPage() {
               </ScrollArea>
             </TabsContent>
 
-            <TabsContent value="steps" className="flex-1 m-0 p-0 overflow-hidden flex flex-col outline-none">
-              <div className="p-5 border-b bg-slate-50 flex items-center justify-between shrink-0">
+            <TabsContent value="steps" className="flex-1 mt-0 m-0 p-0 overflow-hidden data-[state=active]:flex flex-col outline-none">
+              <div className="px-5 py-3 border-b bg-slate-50 flex items-center justify-between shrink-0">
                 <h3 className="text-[10px] font-bold uppercase text-slate-400">Ablauffolge</h3>
                 <div className="flex gap-1">
                   <Button variant="outline" size="sm" className="h-7 text-[8px] font-bold uppercase rounded-none" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>

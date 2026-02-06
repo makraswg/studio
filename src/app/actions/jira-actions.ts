@@ -88,9 +88,9 @@ export async function getJiraProjectsAction(configData: Partial<JiraConfig>): Pr
       headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
       cache: 'no-store'
     });
-    if (!response.ok) return { success: false, error: `Fehler ${response.status}` };
+    if (!response.ok) return { success: false, error: `Jira API Fehler ${response.status}` };
     const projects = await response.json();
-    return { success: true, projects };
+    return { success: true, projects: Array.isArray(projects) ? projects : [] };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
@@ -113,6 +113,8 @@ export async function getJiraProjectMetadataAction(configData: Partial<JiraConfi
       headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
       cache: 'no-store'
     });
+    
+    if (!itRes.ok) throw new Error(`Projekt-Metadaten Fehler ${itRes.status}`);
     const projectData = await itRes.json();
     const issueTypes = projectData.issueTypes || [];
 
@@ -121,6 +123,8 @@ export async function getJiraProjectMetadataAction(configData: Partial<JiraConfi
       headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
       cache: 'no-store'
     });
+    
+    if (!stRes.ok) throw new Error(`Status-Metadaten Fehler ${stRes.status}`);
     const statusGroups = await stRes.json();
     const allStatuses = statusGroups.flatMap((g: any) => g.statuses || []);
 
@@ -137,13 +141,21 @@ export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): 
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
   try {
+    // Endpoint für JSM Assets (Insight) Cloud Workspaces
     const response = await fetch(`${url}/rest/servicedeskapi/assets/workspace`, {
       headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
       cache: 'no-store'
     });
-    if (!response.ok) return { success: false, error: `Fehler ${response.status}` };
+    
+    if (!response.ok) {
+      if (response.status === 404) return { success: false, error: "Assets API nicht erreichbar. Ist JSM Premium/Enterprise aktiv?" };
+      return { success: false, error: `Assets API Fehler ${response.status}` };
+    }
+    
     const data = await response.json();
-    return { success: true, workspaces: data.values || [] };
+    // Die Antwort kann ein Array direkt sein oder ein Objekt mit "values"
+    const workspaces = data.values || (Array.isArray(data) ? data : []);
+    return { success: true, workspaces };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
@@ -160,7 +172,8 @@ export async function getJiraSchemasAction(configData: Partial<JiraConfig>, work
       headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
       cache: 'no-store'
     });
-    if (!response.ok) return { success: false, error: `Fehler ${response.status}` };
+    
+    if (!response.ok) return { success: false, error: `Schema API Fehler ${response.status}` };
     const data = await response.json();
     return { success: true, schemas: data.values || [] };
   } catch (e: any) { return { success: false, error: e.message }; }
@@ -179,9 +192,10 @@ export async function getJiraObjectTypesAction(configData: Partial<JiraConfig>, 
       headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
       cache: 'no-store'
     });
-    if (!response.ok) return { success: false, error: `Fehler ${response.status}` };
+    
+    if (!response.ok) return { success: false, error: `ObjectType API Fehler ${response.status}` };
     const data = await response.json();
-    return { success: true, objectTypes: data || [] };
+    return { success: true, objectTypes: Array.isArray(data) ? data : (data.values || []) };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 

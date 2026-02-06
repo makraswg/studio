@@ -181,15 +181,26 @@ export default function SettingsPage() {
     }
     setIsJiraFetching(true);
     try {
-      // 1. Projects
+      // 1. Projekte
       const pRes = await getJiraProjectsAction(jiraDraft);
-      if (pRes.success) setJiraProjects(pRes.projects || []);
+      if (pRes.success) {
+        setJiraProjects(pRes.projects || []);
+      } else {
+        toast({ variant: "destructive", title: "Projekte Fehler", description: pRes.error });
+      }
       
       // 2. Workspaces (Assets)
       const wRes = await getJiraWorkspacesAction(jiraDraft);
-      if (wRes.success) setJiraWorkspaces(wRes.workspaces || []);
+      if (wRes.success) {
+        setJiraWorkspaces(wRes.workspaces || []);
+        if ((wRes.workspaces || []).length === 0) {
+          toast({ title: "Assets Info", description: "Keine Workspaces in Jira Assets gefunden." });
+        }
+      } else {
+        toast({ variant: "destructive", title: "Assets Fehler", description: wRes.error });
+      }
 
-      // 3. Project Specific Data
+      // 3. Projektspezifische Daten (wenn Key vorhanden)
       if (jiraDraft.projectKey) {
         const meta = await getJiraProjectMetadataAction(jiraDraft, jiraDraft.projectKey);
         if (meta.success) {
@@ -198,28 +209,30 @@ export default function SettingsPage() {
         }
       }
 
-      // 4. Asset Schema Data
+      // 4. Asset Schema & Objekttypen (wenn Workspace vorhanden)
       if (jiraDraft.workspaceId) {
         const sRes = await getJiraSchemasAction(jiraDraft, jiraDraft.workspaceId);
-        if (sRes.success) setJiraSchemas(sRes.schemas || []);
-        
-        if (jiraDraft.schemaId) {
-          const otRes = await getJiraObjectTypesAction(jiraDraft, jiraDraft.workspaceId, jiraDraft.schemaId);
-          if (otRes.success) setJiraObjectTypes(otRes.objectTypes || []);
+        if (sRes.success) {
+          setJiraSchemas(sRes.schemas || []);
+          
+          if (jiraDraft.schemaId) {
+            const otRes = await getJiraObjectTypesAction(jiraDraft, jiraDraft.workspaceId, jiraDraft.schemaId);
+            if (otRes.success) setJiraObjectTypes(otRes.objectTypes || []);
+          }
         }
       }
 
-      toast({ title: "Jira Optionen geladen" });
+      toast({ title: "Jira Optionen geladen", description: "Alle verfügbaren Metadaten wurden synchronisiert." });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler beim Laden", description: e.message });
+      toast({ variant: "destructive", title: "Systemfehler", description: e.message });
     } finally {
       setIsJiraFetching(false);
     }
   };
 
-  // Re-fetch project metadata when project key changes
+  // Kaskadierendes Laden bei Auswahländerungen
   useEffect(() => {
-    if (jiraDraft.projectKey && jiraDraft.url && jiraDraft.apiToken && isJiraFetching === false) {
+    if (jiraDraft.projectKey && jiraDraft.url && jiraDraft.apiToken) {
       getJiraProjectMetadataAction(jiraDraft, jiraDraft.projectKey).then(meta => {
         if (meta.success) {
           setJiraIssueTypes(meta.issueTypes || []);
@@ -227,25 +240,27 @@ export default function SettingsPage() {
         }
       });
     }
-  }, [jiraDraft.projectKey]);
+  }, [jiraDraft.projectKey, jiraDraft.url, jiraDraft.apiToken]);
 
-  // Re-fetch asset schemas when workspace changes
   useEffect(() => {
     if (jiraDraft.workspaceId && jiraDraft.url && jiraDraft.apiToken) {
       getJiraSchemasAction(jiraDraft, jiraDraft.workspaceId).then(sRes => {
         if (sRes.success) setJiraSchemas(sRes.schemas || []);
       });
+    } else {
+      setJiraSchemas([]);
     }
-  }, [jiraDraft.workspaceId]);
+  }, [jiraDraft.workspaceId, jiraDraft.url, jiraDraft.apiToken]);
 
-  // Re-fetch object types when schema changes
   useEffect(() => {
     if (jiraDraft.workspaceId && jiraDraft.schemaId && jiraDraft.url && jiraDraft.apiToken) {
       getJiraObjectTypesAction(jiraDraft, jiraDraft.workspaceId, jiraDraft.schemaId).then(otRes => {
         if (otRes.success) setJiraObjectTypes(otRes.objectTypes || []);
       });
+    } else {
+      setJiraObjectTypes([]);
     }
-  }, [jiraDraft.schemaId]);
+  }, [jiraDraft.schemaId, jiraDraft.workspaceId, jiraDraft.url, jiraDraft.apiToken]);
 
   const handleSaveConfig = async (collection: string, id: string, data: any) => {
     setIsSaving(true);
@@ -766,40 +781,40 @@ export default function SettingsPage() {
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Projekt</Label>
                       <Select value={jiraDraft.projectKey || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, projectKey: v})}>
-                        <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectTrigger className="rounded-none h-10"><SelectValue placeholder={isJiraFetching ? "Lade..." : "Wählen..."} /></SelectTrigger>
                         <SelectContent className="rounded-none">
                           {jiraProjects.map(p => <SelectItem key={`proj-${p.key}`} value={p.key}>{p.name} ({p.key})</SelectItem>)}
-                          {jiraProjects.length === 0 && <SelectItem value="none" disabled>Keine Projekte geladen</SelectItem>}
+                          {jiraProjects.length === 0 && !isJiraFetching && <SelectItem value="none" disabled>Keine Projekte gefunden</SelectItem>}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Vorgangstyp</Label>
                       <Select value={jiraDraft.issueTypeName || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, issueTypeName: v})}>
-                        <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectTrigger className="rounded-none h-10"><SelectValue placeholder={isJiraFetching ? "Lade..." : "Wählen..."} /></SelectTrigger>
                         <SelectContent className="rounded-none">
                           {jiraIssueTypes.map(it => <SelectItem key={`type-${it.id || it.name}`} value={it.name}>{it.name}</SelectItem>)}
-                          {jiraIssueTypes.length === 0 && <SelectItem value="none" disabled>Keine Typen geladen</SelectItem>}
+                          {jiraIssueTypes.length === 0 && !isJiraFetching && <SelectItem value="none" disabled>Keine Typen gefunden</SelectItem>}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-emerald-600">Genehmigungs-Status</Label>
                       <Select value={jiraDraft.approvedStatusName || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, approvedStatusName: v})}>
-                        <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectTrigger className="rounded-none h-10 border-emerald-200"><SelectValue placeholder={isJiraFetching ? "Lade..." : "Wählen..."} /></SelectTrigger>
                         <SelectContent className="rounded-none">
                           {jiraStatuses.map((s, idx) => <SelectItem key={`status-app-${s.id}-${idx}`} value={s.name}>{s.name}</SelectItem>)}
-                          {jiraStatuses.length === 0 && <SelectItem value="none" disabled>Keine Status geladen</SelectItem>}
+                          {jiraStatuses.length === 0 && !isJiraFetching && <SelectItem value="none" disabled>Keine Status gefunden</SelectItem>}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-blue-600">Erledigt-Status</Label>
                       <Select value={jiraDraft.doneStatusName || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, doneStatusName: v})}>
-                        <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectTrigger className="rounded-none h-10 border-blue-200"><SelectValue placeholder={isJiraFetching ? "Lade..." : "Wählen..."} /></SelectTrigger>
                         <SelectContent className="rounded-none">
                           {jiraStatuses.map((s, idx) => <SelectItem key={`status-done-${s.id}-${idx}`} value={s.name}>{s.name}</SelectItem>)}
-                          {jiraStatuses.length === 0 && <SelectItem value="none" disabled>Keine Status geladen</SelectItem>}
+                          {jiraStatuses.length === 0 && !isJiraFetching && <SelectItem value="none" disabled>Keine Status gefunden</SelectItem>}
                         </SelectContent>
                       </Select>
                     </div>
@@ -816,36 +831,40 @@ export default function SettingsPage() {
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Workspace</Label>
                       <Select value={jiraDraft.workspaceId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, workspaceId: v, schemaId: '', objectTypeId: '', entitlementObjectTypeId: ''})}>
-                        <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectTrigger className="rounded-none h-10"><SelectValue placeholder={isJiraFetching ? "Lade..." : "Wählen..."} /></SelectTrigger>
                         <SelectContent className="rounded-none">
                           {jiraWorkspaces.map(w => <SelectItem key={`ws-${w.id}`} value={w.id}>{w.name}</SelectItem>)}
+                          {jiraWorkspaces.length === 0 && !isJiraFetching && <SelectItem value="none" disabled>Keine Workspaces gefunden</SelectItem>}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Assets Schema</Label>
                       <Select value={jiraDraft.schemaId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, schemaId: v, objectTypeId: '', entitlementObjectTypeId: ''})}>
-                        <SelectTrigger className="rounded-none h-10" disabled={!jiraDraft.workspaceId}><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectTrigger className="rounded-none h-10" disabled={!jiraDraft.workspaceId}><SelectValue placeholder={isJiraFetching ? "Lade..." : "Wählen..."} /></SelectTrigger>
                         <SelectContent className="rounded-none">
                           {jiraSchemas.map(s => <SelectItem key={`sch-${s.id}`} value={s.id}>{s.name}</SelectItem>)}
+                          {jiraSchemas.length === 0 && !isJiraFetching && <SelectItem value="none" disabled>Keine Schemas gefunden</SelectItem>}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Objekttyp für IT-Systeme</Label>
                       <Select value={jiraDraft.objectTypeId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, objectTypeId: v})}>
-                        <SelectTrigger className="rounded-none h-10" disabled={!jiraDraft.schemaId}><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectTrigger className="rounded-none h-10" disabled={!jiraDraft.schemaId}><SelectValue placeholder={isJiraFetching ? "Lade..." : "Wählen..."} /></SelectTrigger>
                         <SelectContent className="rounded-none">
                           {jiraObjectTypes.map(ot => <SelectItem key={`ot-res-${ot.id}`} value={ot.id}>{ot.name}</SelectItem>)}
+                          {jiraObjectTypes.length === 0 && !isJiraFetching && <SelectItem value="none" disabled>Keine Typen gefunden</SelectItem>}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Objekttyp für Rollen</Label>
                       <Select value={jiraDraft.entitlementObjectTypeId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, entitlementObjectTypeId: v})}>
-                        <SelectTrigger className="rounded-none h-10" disabled={!jiraDraft.schemaId}><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectTrigger className="rounded-none h-10" disabled={!jiraDraft.schemaId}><SelectValue placeholder={isJiraFetching ? "Lade..." : "Wählen..."} /></SelectTrigger>
                         <SelectContent className="rounded-none">
                           {jiraObjectTypes.map(ot => <SelectItem key={`ot-role-${ot.id}`} value={ot.id}>{ot.name}</SelectItem>)}
+                          {jiraObjectTypes.length === 0 && !isJiraFetching && <SelectItem value="none" disabled>Keine Typen gefunden</SelectItem>}
                         </SelectContent>
                       </Select>
                     </div>

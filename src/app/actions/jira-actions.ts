@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getCollectionData } from './mysql-actions';
@@ -136,7 +135,6 @@ export async function getJiraProjectMetadataAction(configData: Partial<JiraConfi
 
 /**
  * Assets Discovery: Ruft Workspaces ab.
- * Jira Cloud Assets API liefert oft 'workspaceId' zurück.
  */
 export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): Promise<{ success: boolean; workspaces?: any[]; error?: string }> {
   if (!configData.url || !configData.apiToken) return { success: false, error: 'Keine Zugangsdaten' };
@@ -157,7 +155,6 @@ export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): 
     const data = await response.json();
     const rawValues = data.values || (Array.isArray(data) ? data : []);
     
-    // Normalisierung: Jira nutzt oft workspaceId statt id
     const workspaces = rawValues.map((w: any) => ({
       id: w.workspaceId || w.id,
       name: w.name || 'Standard Workspace'
@@ -176,7 +173,6 @@ export async function getJiraSchemasAction(configData: Partial<JiraConfig>, work
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
   
   try {
-    // Bevorzuge den Gateway-Pfad für Cloud Assets Schemas
     const response = await fetch(`${url}/gateway/api/jsm/assets/workspace/${workspaceId}/v1/objectschema/list`, {
       headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
       cache: 'no-store'
@@ -337,7 +333,7 @@ export async function resolveJiraTicket(
         headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' }
       });
       if (transRes.ok) {
-        const transData = await transRes.ok ? await transRes.json() : null;
+        const transData = await transRes.json();
         const target = transData?.transitions?.find((t: any) => t.name.toLowerCase() === config.doneStatusName!.toLowerCase());
         if (target) {
           await fetch(`${url}/rest/api/3/issue/${issueKey}/transitions`, {

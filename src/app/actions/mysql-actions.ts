@@ -38,7 +38,12 @@ const collectionToTableMap: { [key: string]: string } = {
   dataSubjectGroups: 'dataSubjectGroups',
   dataCategories: 'dataCategories',
   departments: 'departments',
-  jobTitles: 'jobTitles'
+  jobTitles: 'jobTitles',
+  processes: 'processes',
+  process_versions: 'process_versions',
+  process_ops: 'process_ops',
+  ai_sessions: 'ai_sessions',
+  ai_messages: 'ai_messages'
 };
 
 function normalizeRecord(item: any, tableName: string) {
@@ -50,7 +55,11 @@ function normalizeRecord(item: any, tableName: string) {
     auditEvents: ['before', 'after'],
     riskMeasures: ['riskIds', 'resourceIds', 'art32Mapping', 'gdprProtectionGoals', 'vvtIds', 'dataCategories'],
     resources: ['affectedGroups', 'riskIds', 'measureIds', 'vvtIds'],
-    processingActivities: ['dataCategories', 'subjectCategories', 'resourceIds']
+    processingActivities: ['dataCategories', 'subjectCategories', 'resourceIds'],
+    process_versions: ['model_json', 'layout_json'],
+    process_ops: ['ops_json'],
+    ai_sessions: ['context_json'],
+    ai_messages: ['structured_json']
   };
 
   if (jsonFields[tableName]) {
@@ -59,7 +68,7 @@ function normalizeRecord(item: any, tableName: string) {
         try {
           normalized[field] = typeof item[field] === 'string' ? JSON.parse(item[field]) : item[field];
         } catch (e) {
-          normalized[field] = [];
+          normalized[field] = Array.isArray(item[field]) ? [] : {};
         }
       }
     });
@@ -69,7 +78,7 @@ function normalizeRecord(item: any, tableName: string) {
     'enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets',
     'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
     'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
-    'isTom', 'isArt9Relevant'
+    'isTom', 'isArt9Relevant', 'isEffective'
   ];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
@@ -128,7 +137,11 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       auditEvents: ['before', 'after'],
       riskMeasures: ['riskIds', 'resourceIds', 'art32Mapping', 'gdprProtectionGoals', 'vvtIds', 'dataCategories'],
       resources: ['affectedGroups', 'riskIds', 'measureIds', 'vvtIds'],
-      processingActivities: ['dataCategories', 'subjectCategories', 'resourceIds']
+      processingActivities: ['dataCategories', 'subjectCategories', 'resourceIds'],
+      process_versions: ['model_json', 'layout_json'],
+      process_ops: ['ops_json'],
+      ai_sessions: ['context_json'],
+      ai_messages: ['structured_json']
     };
 
     if (jsonFields[tableName]) {
@@ -143,7 +156,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       'enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets',
       'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
       'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
-      'isTom', 'isArt9Relevant'
+      'isTom', 'isArt9Relevant', 'isEffective'
     ];
     boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
     
@@ -210,7 +223,12 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       'dataSubjectGroups',
       'dataCategories',
       'departments',
-      'jobTitles'
+      'jobTitles',
+      'processes',
+      'process_versions',
+      'process_ops',
+      'ai_sessions',
+      'ai_messages'
     ];
 
     for (const table of tablesToClear) {

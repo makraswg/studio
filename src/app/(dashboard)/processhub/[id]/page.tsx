@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -13,7 +14,8 @@ import {
   Zap, 
   Plus, 
   Share2,
-  BookOpen
+  BookOpen,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,12 +30,17 @@ import { getProcessSuggestions, ProcessDesignerOutput } from '@/ai/flows/process
 import { publishToBookStackAction } from '@/app/actions/bookstack-actions';
 import { toast } from '@/hooks/use-toast';
 import { Process, ProcessVersion, ProcessNode, ProcessModel, ProcessLayout } from '@/lib/types';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
   
-  model.nodes.forEach(node => {
-    const pos = layout.positions[node.id] || { x: 100, y: 100 };
+  const nodes = model.nodes || [];
+  const edges = model.edges || [];
+  const positions = layout.positions || {};
+
+  nodes.forEach(node => {
+    const pos = positions[node.id] || { x: 100, y: 100 };
     const style = node.type === 'start' ? 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;' : 
                   node.type === 'end' ? 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8cecc;strokeColor=#b85450;' :
                   node.type === 'decision' ? 'rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;' :
@@ -44,7 +51,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     </mxCell>`;
   });
 
-  model.edges.forEach(edge => {
+  edges.forEach(edge => {
     xml += `<mxCell id="${edge.id}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jetline=1;html=1;" edge="1" parent="1" source="${edge.source}" target="${edge.target}">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>`;
@@ -62,15 +69,14 @@ export default function ProcessDesignerPage() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState('design');
   const [chatMessage, setChatMessage] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<ProcessDesignerOutput | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
 
-  const { data: processes } = usePluggableCollection<Process>('processes');
-  const { data: versions, refresh: refreshVersion } = usePluggableCollection<ProcessVersion>('process_versions');
+  const { data: processes, isLoading: isProcLoading } = usePluggableCollection<Process>('processes');
+  const { data: versions, isLoading: isVerLoading, refresh: refreshVersion } = usePluggableCollection<ProcessVersion>('process_versions');
   
   const currentProcess = useMemo(() => processes?.find(p => p.id === id), [processes, id]);
   const currentVersion = useMemo(() => versions?.find(v => v.process_id === id), [versions, id]);
@@ -115,6 +121,8 @@ export default function ProcessDesignerPage() {
         setAiSuggestions(null);
         refreshVersion();
       }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Update fehlgeschlagen", description: e.message });
     } finally {
       setIsApplying(false);
     }
@@ -131,13 +139,38 @@ export default function ProcessDesignerPage() {
       });
       setAiSuggestions(suggestions);
       setChatMessage('');
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "KI-Fehler", description: e.message });
     } finally {
       setIsAiLoading(false);
     }
   };
 
-  if (!mounted || !currentProcess || !currentVersion) {
-    return <div className="flex h-screen items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
+  if (!mounted) return null;
+
+  if ((isProcLoading || isVerLoading) && (!currentProcess || !currentVersion)) {
+    return (
+      <div className="flex flex-col h-[80vh] items-center justify-center gap-4">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Lade Prozess-Modell...</p>
+      </div>
+    );
+  }
+
+  if (!currentProcess || !currentVersion) {
+    return (
+      <div className="p-8">
+        <Alert variant="destructive" className="rounded-none border-2">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle className="text-sm font-bold uppercase">Prozess nicht gefunden</AlertTitle>
+          <AlertDescription className="text-xs">
+            Der angeforderte Prozess existiert nicht oder die Daten konnten nicht geladen werden. 
+            Bitte initialisieren Sie die Datenbank unter "Setup".
+          </AlertDescription>
+        </Alert>
+        <Button onClick={() => router.push('/processhub')} className="mt-4 rounded-none uppercase text-[10px] font-bold">Zurück zur Übersicht</Button>
+      </div>
+    );
   }
 
   return (
@@ -166,7 +199,7 @@ export default function ProcessDesignerPage() {
           </div>
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-2">
-              {currentVersion.model_json.nodes.map((node: ProcessNode) => (
+              {(currentVersion.model_json.nodes || []).map((node: ProcessNode) => (
                 <div key={node.id} className="p-3 bg-white border border-slate-200 group hover:border-primary transition-all cursor-pointer">
                   <Badge variant="outline" className="text-[8px] h-4 rounded-none mb-1">{node.type}</Badge>
                   <div className="font-bold text-xs">{node.title}</div>

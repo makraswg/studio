@@ -57,8 +57,11 @@ export async function createProcessAction(
     created_at: now
   };
 
-  await saveCollectionRecord('processes', processId, process, dataSource);
-  await saveCollectionRecord('process_versions', version.id, version, dataSource);
+  const res1 = await saveCollectionRecord('processes', processId, process, dataSource);
+  if (!res1.success) throw new Error(`Fehler beim Speichern des Prozesses: ${res1.error}`);
+
+  const res2 = await saveCollectionRecord('process_versions', version.id, version, dataSource);
+  if (!res2.success) throw new Error(`Fehler beim Speichern der Prozessversion: ${res2.error}`);
 
   return { success: true, processId };
 }
@@ -89,6 +92,7 @@ export async function applyProcessOpsAction(
   ops.forEach(op => {
     switch (op.type) {
       case 'ADD_NODE':
+        if (!model.nodes) model.nodes = [];
         model.nodes.push(op.payload.node);
         break;
       case 'UPDATE_NODE':
@@ -96,15 +100,18 @@ export async function applyProcessOpsAction(
         break;
       case 'REMOVE_NODE':
         model.nodes = model.nodes.filter(n => n.id !== op.payload.nodeId);
-        model.edges = model.edges.filter(e => e.source !== op.payload.nodeId && e.target !== op.payload.nodeId);
+        if (model.edges) {
+          model.edges = model.edges.filter(e => e.source !== op.payload.nodeId && e.target !== op.payload.nodeId);
+        }
         break;
       case 'ADD_EDGE':
+        if (!model.edges) model.edges = [];
         model.edges.push(op.payload.edge);
         break;
       case 'UPDATE_LAYOUT':
+        if (!layout.positions) layout.positions = {};
         layout.positions = { ...layout.positions, ...op.payload.positions };
         break;
-      // ... weitere Ops
     }
   });
 
@@ -128,7 +135,9 @@ export async function applyProcessOpsAction(
     created_at: new Date().toISOString()
   };
 
-  await saveCollectionRecord('process_versions', currentVersion.id, updatedVersion, dataSource);
+  const res1 = await saveCollectionRecord('process_versions', currentVersion.id, updatedVersion, dataSource);
+  if (!res1.success) throw new Error("Update der Version fehlgeschlagen.");
+
   await saveCollectionRecord('process_ops', opRecord.id, opRecord, dataSource);
 
   return { success: true, revision: nextRevision };

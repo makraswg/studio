@@ -290,6 +290,12 @@ export interface RiskMeasure {
   vvtIds?: string[]; // Associated Processing Activities
   dataCategories?: string[]; // Associated Data Categories from Settings
   isArt9Relevant?: boolean | number;
+
+  // Audit & Evidence
+  isEffective?: boolean | number;
+  checkType?: 'Audit' | 'Test' | 'Review';
+  lastCheckDate?: string;
+  evidenceDetails?: string;
 }
 
 export interface Document {

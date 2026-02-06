@@ -30,7 +30,9 @@ import {
   Layers,
   Info,
   Save,
-  HelpCircle
+  HelpCircle,
+  CalendarCheck,
+  Link as LinkIcon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -88,6 +90,12 @@ export default function RiskMeasuresPage() {
   const [dataCategories, setDataCategories] = useState<string[]>([]);
   const [isArt9Relevant, setIsArt9Relevant] = useState(false);
 
+  // Audit State
+  const [isEffective, setIsEffective] = useState(false);
+  const [checkType, setCheckType] = useState<RiskMeasure['checkType']>('Review');
+  const [lastCheckDate, setLastCheckDate] = useState('');
+  const [evidenceDetails, setEvidenceDetails] = useState('');
+
   // Pickers search
   const [riskSearch, setRiskSearch] = useState('');
   const [resourceSearch, setResourceSearch] = useState('');
@@ -110,6 +118,7 @@ export default function RiskMeasuresPage() {
     setIsSaving(true);
     const id = selectedMeasure?.id || `msr-${Math.random().toString(36).substring(2, 9)}`;
     const measureData: RiskMeasure = {
+      ...selectedMeasure,
       id,
       riskIds: selectedRiskIds,
       resourceIds: selectedResourceIds,
@@ -125,7 +134,11 @@ export default function RiskMeasuresPage() {
       gdprProtectionGoals: isTom ? gdprProtectionGoals : [],
       vvtIds: isTom ? vvtIds : [],
       dataCategories: isTom ? dataCategories : [],
-      isArt9Relevant: isTom ? isArt9Relevant : false
+      isArt9Relevant: isTom ? isArt9Relevant : false,
+      isEffective,
+      checkType,
+      lastCheckDate,
+      evidenceDetails
     };
 
     try {
@@ -160,6 +173,10 @@ export default function RiskMeasuresPage() {
     setVvtIds([]);
     setDataCategories([]);
     setIsArt9Relevant(false);
+    setIsEffective(false);
+    setCheckType('Review');
+    setLastCheckDate('');
+    setEvidenceDetails('');
     setRiskSearch('');
     setResourceSearch('');
   };
@@ -181,6 +198,10 @@ export default function RiskMeasuresPage() {
     setVvtIds(m.vvtIds || []);
     setDataCategories(m.dataCategories || []);
     setIsArt9Relevant(!!m.isArt9Relevant);
+    setIsEffective(!!m.isEffective);
+    setCheckType(m.checkType || 'Review');
+    setLastCheckDate(m.lastCheckDate || '');
+    setEvidenceDetails(m.evidenceDetails || '');
     setIsMeasureDialogOpen(true);
   };
 
@@ -252,10 +273,10 @@ export default function RiskMeasuresPage() {
           <TableHeader className="bg-muted/30">
             <TableRow>
               <TableHead className="py-4 font-bold uppercase text-[10px]">Maßnahme / Typ</TableHead>
-              <TableHead className="font-bold uppercase text-[10px]">Frist / Deadline</TableHead>
+              <TableHead className="font-bold uppercase text-[10px]">Frist / Audit</TableHead>
               <TableHead className="font-bold uppercase text-[10px]">Verantwortung</TableHead>
-              <TableHead className="font-bold uppercase text-[10px]">Bezug</TableHead>
-              <TableHead className="text-right font-bold uppercase text-[10px]">Status</TableHead>
+              <TableHead className="font-bold uppercase text-[10px]">Wirksamkeit</TableHead>
+              <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -263,8 +284,8 @@ export default function RiskMeasuresPage() {
               <TableRow><TableCell colSpan={5} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : filteredMeasures.map((m) => {
               const riskCount = m.riskIds?.length || 0;
-              const resCount = m.resourceIds?.length || 0;
               const isOverdue = m.dueDate && new Date(m.dueDate) < new Date() && m.status !== 'completed';
+              const lastAudit = m.lastCheckDate ? new Date(m.lastCheckDate).toLocaleDateString() : 'N/A';
               
               return (
                 <TableRow key={m.id} className="hover:bg-muted/5 group border-b last:border-0">
@@ -276,14 +297,17 @@ export default function RiskMeasuresPage() {
                           TOM: {m.tomCategory}
                         </Badge>
                       )}
-                      <Badge variant="outline" className="rounded-none text-[8px] font-bold uppercase border-slate-200">WIRKSAMKEIT: {m.effectiveness}/5</Badge>
+                      <Badge variant="outline" className="rounded-none text-[8px] font-bold uppercase border-slate-200">RISIKEN: {riskCount}</Badge>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className={cn("flex items-center gap-2 text-xs font-bold", isOverdue ? "text-red-600" : "text-slate-600")}>
-                      <Calendar className="w-3.5 h-3.5" />
-                      {m.dueDate ? new Date(m.dueDate).toLocaleDateString() : 'Keine Frist'}
-                      {isOverdue && <AlertCircle className="w-3 h-3 animate-pulse" />}
+                    <div className="flex flex-col gap-1">
+                      <div className={cn("flex items-center gap-2 text-[10px] font-bold", isOverdue ? "text-red-600" : "text-slate-600")}>
+                        <Calendar className="w-3 h-3" /> Deadline: {m.dueDate ? new Date(m.dueDate).toLocaleDateString() : '---'}
+                      </div>
+                      <div className="flex items-center gap-2 text-[9px] font-black uppercase text-slate-400">
+                        <CalendarCheck className="w-3 h-3" /> Audit: {lastAudit}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -293,20 +317,28 @@ export default function RiskMeasuresPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[9px] font-black uppercase text-slate-400">Risiken: {riskCount}</span>
-                      <span className="text-[9px] font-black uppercase text-slate-400">Systeme: {resCount}</span>
+                    <div className="flex items-center gap-2">
+                      {m.isEffective ? (
+                        <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-none text-[8px] font-black px-2 h-5">
+                          <CheckCircle2 className="w-3 h-3 mr-1" /> WIRKSAM
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-slate-100 text-slate-500 border-none rounded-none text-[8px] font-black px-2 h-5">
+                          OFFEN
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-3">
-                      <Badge variant="outline" className={cn(
-                        "rounded-none uppercase text-[8px] font-bold border-none px-2",
-                        m.status === 'completed' ? "bg-emerald-50 text-emerald-700" : 
-                        m.status === 'active' ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"
-                      )}>
-                        {m.status}
-                      </Badge>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 text-[9px] font-black uppercase bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-none gap-1.5"
+                        onClick={() => openEdit(m)}
+                      >
+                        <CalendarCheck className="w-3 h-3" /> Audit durchführen
+                      </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-none w-48">
@@ -330,7 +362,7 @@ export default function RiskMeasuresPage() {
             <div className="flex items-center gap-3">
               <ClipboardCheck className="w-5 h-5 text-emerald-500" />
               <DialogTitle className="text-sm font-bold uppercase tracking-wider">
-                {selectedMeasure ? 'Maßnahme bearbeiten' : 'Neue Maßnahme planen'}
+                {selectedMeasure ? 'Maßnahme bearbeiten / Audit' : 'Neue Maßnahme planen'}
               </DialogTitle>
             </div>
           </DialogHeader>
@@ -342,7 +374,10 @@ export default function RiskMeasuresPage() {
                 <TabsTrigger value="tom" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-4 text-[10px] font-bold uppercase flex items-center gap-2">
                   <FileCheck className="w-3.5 h-3.5" /> 2. TOM & DSGVO
                 </TabsTrigger>
-                <TabsTrigger value="links" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-4 text-[10px] font-bold uppercase">3. Verknüpfungen (Risiken/Assets)</TabsTrigger>
+                <TabsTrigger value="links" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-4 text-[10px] font-bold uppercase">3. Verknüpfungen</TabsTrigger>
+                <TabsTrigger value="audit" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent h-full px-4 text-[10px] font-bold uppercase flex items-center gap-2">
+                  <CalendarCheck className="w-3.5 h-3.5" /> 4. Wirksamkeit & Audit
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -361,7 +396,7 @@ export default function RiskMeasuresPage() {
                       <Input value={owner} onChange={e => setOwner(e.target.value)} className="rounded-none h-10" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Deadline</Label>
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Implementierungs-Deadline</Label>
                       <p className="text-[9px] text-muted-foreground italic">Bis wann muss die Maßnahme implementiert sein?</p>
                       <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="rounded-none h-10" />
                     </div>
@@ -378,8 +413,8 @@ export default function RiskMeasuresPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Erwartete Wirksamkeit (1-5)</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Wie stark senkt diese Maßnahme das Risiko? (1=minimal, 5=eliminierend)</p>
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Erwartete Risikominderung (1-5)</Label>
+                      <p className="text-[9px] text-muted-foreground italic">Wie stark senkt diese Maßnahme das Risiko theoretisch? (1=minimal, 5=eliminierend)</p>
                       <Select value={effectiveness} onValueChange={setEffectiveness}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-none">
@@ -406,7 +441,6 @@ export default function RiskMeasuresPage() {
                   {isTom && (
                     <div className="space-y-10 animate-in fade-in zoom-in-95">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* A) Rechtliche Einordnung */}
                         <div className="space-y-6">
                           <h3 className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
                             <Scale className="w-4 h-4" /> A) Rechtliche Einordnung
@@ -414,7 +448,6 @@ export default function RiskMeasuresPage() {
                           
                           <div className="space-y-2">
                             <Label className="text-[10px] font-bold uppercase">TOM-Kategorie</Label>
-                            <p className="text-[9px] text-muted-foreground italic">Klassische Einteilung nach dem Kontrollziel.</p>
                             <Select value={tomCategory} onValueChange={(v: any) => setTomCategory(v)}>
                               <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
                               <SelectContent className="rounded-none">
@@ -426,8 +459,7 @@ export default function RiskMeasuresPage() {
                           </div>
 
                           <div className="space-y-3">
-                            <Label className="text-[10px] font-bold uppercase">Art.-32-Zuordnung (Mehrfachauswahl)</Label>
-                            <p className="text-[9px] text-muted-foreground italic">Welche Anforderung des Art. 32 Abs. 1 DSGVO wird erfüllt?</p>
+                            <Label className="text-[10px] font-bold uppercase">Art.-32-Zuordnung</Label>
                             <div className="grid grid-cols-2 gap-2">
                               {[
                                 { id: 'lit. a', label: 'lit. a (Verschlüsselung)' },
@@ -444,71 +476,17 @@ export default function RiskMeasuresPage() {
                           </div>
                         </div>
 
-                        {/* B) Schutzzielbezug */}
                         <div className="space-y-6">
                           <h3 className="text-sm font-black uppercase tracking-widest text-emerald-600 flex items-center gap-2">
                             <Shield className="w-4 h-4" /> B) Schutzzielbezug (DSGVO)
                           </h3>
-                          <div className="space-y-3">
-                            <p className="text-[9px] text-muted-foreground italic">Welche der klassischen Schutzziele werden durch diese TOM adressiert?</p>
-                            <div className="grid grid-cols-2 gap-2">
-                              {['Vertraulichkeit', 'Integrität', 'Verfügbarkeit', 'Belastbarkeit'].map(goal => (
-                                <div key={goal} className="flex items-center gap-2 p-2 border bg-white cursor-pointer hover:bg-slate-50" onClick={() => setGdprProtectionGoals(prev => prev.includes(goal) ? prev.filter(i => i !== goal) : [...prev, goal])}>
-                                  <Checkbox checked={gdprProtectionGoals.includes(goal)} className="rounded-none" />
-                                  <span className="text-[10px] font-bold uppercase">{goal}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <Separator />
-
-                      {/* C) DSGVO-Kontext */}
-                      <div className="space-y-6">
-                        <h3 className="text-sm font-black uppercase tracking-widest text-orange-600 flex items-center gap-2">
-                          <Info className="w-4 h-4" /> C) DSGVO-Kontext
-                        </h3>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                          <div className="space-y-4">
-                            <Label className="text-[10px] font-bold uppercase">Betroffene Datenkategorien</Label>
-                            <p className="text-[9px] text-muted-foreground italic">Pflege in den Einstellungen möglich.</p>
-                            <div className="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto border p-2 bg-slate-50">
-                              {globalDataCategories?.filter(c => activeTenantId === 'all' || c.tenantId === activeTenantId).map(cat => (
-                                <div key={cat.id} className="flex items-center gap-2 p-1.5 border bg-white">
-                                  <Checkbox checked={dataCategories.includes(cat.name)} onCheckedChange={(checked) => setDataCategories(prev => checked ? [...prev, cat.name] : prev.filter(c => c !== cat.name))} />
-                                  <span className="text-[10px] font-bold uppercase">{cat.name}</span>
-                                </div>
-                              ))}
-                              {(!globalDataCategories || globalDataCategories.length === 0) && <p className="text-[9px] text-red-600 italic">Keine Datenkategorien in Einstellungen konfiguriert.</p>}
-                            </div>
-                          </div>
-
-                          <div className="space-y-6">
-                            <div className="space-y-4">
-                              <Label className="text-[10px] font-bold uppercase">Verknüpfte Verarbeitungstätigkeiten (VVT)</Label>
-                              <div className="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto border p-2 bg-slate-50">
-                                {vvts?.filter(v => activeTenantId === 'all' || v.tenantId === activeTenantId).map(v => (
-                                  <div key={v.id} className="flex items-center gap-2 p-1.5 border bg-white">
-                                    <Checkbox checked={vvtIds.includes(v.id)} onCheckedChange={(checked) => setVvtIds(prev => checked ? [...prev, v.id] : prev.filter(id => id !== v.id))} />
-                                    <div className="min-w-0">
-                                      <p className="text-[10px] font-bold truncate">{v.name}</p>
-                                      <p className="text-[8px] text-muted-foreground uppercase font-black">V{v.version}</p>
-                                    </div>
-                                  </div>
-                                ))}
+                          <div className="grid grid-cols-2 gap-2">
+                            {['Vertraulichkeit', 'Integrität', 'Verfügbarkeit', 'Belastbarkeit'].map(goal => (
+                              <div key={goal} className="flex items-center gap-2 p-2 border bg-white cursor-pointer hover:bg-slate-50" onClick={() => setGdprProtectionGoals(prev => prev.includes(goal) ? prev.filter(i => i !== goal) : [...prev, goal])}>
+                                <Checkbox checked={gdprProtectionGoals.includes(goal)} className="rounded-none" />
+                                <span className="text-[10px] font-bold uppercase">{goal}</span>
                               </div>
-                            </div>
-
-                            <div className="flex items-center justify-between p-3 border bg-red-50/30">
-                              <div className="space-y-0.5">
-                                <Label className="text-[10px] font-bold uppercase text-red-800">Art. 9 Relevanz</Label>
-                                <p className="text-[8px] text-red-600 font-bold uppercase">Bezieht sich die Maßnahme auf sensible Daten?</p>
-                              </div>
-                              <Switch checked={!!isArt9Relevant} onCheckedChange={setIsArt9Relevant} />
-                            </div>
+                            ))}
                           </div>
                         </div>
                       </div>
@@ -518,67 +496,91 @@ export default function RiskMeasuresPage() {
 
                 <TabsContent value="links" className="mt-0 space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Risiko-Picker */}
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between border-b pb-2">
-                        <Label className="text-[10px] font-bold uppercase text-primary flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 text-orange-600" /> 1. Verknüpfte Risiken ({selectedRiskIds.length})
-                        </Label>
-                        <div className="relative w-48">
-                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-                          <Input placeholder="Risiko suchen..." value={riskSearch} onChange={e => setRiskSearch(e.target.value)} className="h-7 pl-7 text-[10px] rounded-none" />
-                        </div>
-                      </div>
+                      <Label className="text-[10px] font-bold uppercase text-primary flex items-center gap-2 border-b pb-2">
+                        <AlertTriangle className="w-4 h-4 text-orange-600" /> Verknüpfte Risiken ({selectedRiskIds.length})
+                      </Label>
                       <div className="border h-[400px] overflow-hidden flex flex-col bg-slate-50/50">
-                        <ScrollArea className="flex-1">
-                          <div className="p-2 space-y-1">
-                            {filteredRisksForSelection.map(r => {
-                              const isSelected = selectedRiskIds.includes(r.id);
-                              return (
-                                <div key={r.id} className={cn("flex items-start gap-3 p-3 cursor-pointer transition-all border border-transparent", isSelected ? "bg-white border-primary/30 ring-1 ring-inset ring-primary/10" : "hover:bg-white")} onClick={() => setSelectedRiskIds(prev => isSelected ? prev.filter(id => id !== r.id) : [...prev, r.id])}>
-                                  <Checkbox checked={isSelected} className="mt-0.5 rounded-none" />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-bold leading-tight">{r.title}</p>
-                                    <p className="text-[8px] text-muted-foreground mt-1 uppercase font-black">{r.category} | SCORE: {r.impact * r.probability}</p>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
+                        <ScrollArea className="flex-1 p-2 space-y-1">
+                          {filteredRisksForSelection.map(r => {
+                            const isSelected = selectedRiskIds.includes(r.id);
+                            return (
+                              <div key={r.id} className={cn("flex items-start gap-3 p-3 cursor-pointer transition-all border border-transparent", isSelected ? "bg-white border-primary/30 shadow-sm" : "hover:bg-white")} onClick={() => setSelectedRiskIds(prev => isSelected ? prev.filter(id => id !== r.id) : [...prev, r.id])}>
+                                <Checkbox checked={isSelected} className="mt-0.5 rounded-none" />
+                                <div className="min-w-0"><p className="text-xs font-bold truncate">{r.title}</p></div>
+                              </div>
+                            );
+                          })}
                         </ScrollArea>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <Label className="text-[10px] font-bold uppercase text-primary flex items-center gap-2 border-b pb-2">
+                        <Layers className="w-4 h-4" /> Verknüpfte IT-Systeme ({selectedResourceIds.length})
+                      </Label>
+                      <div className="border h-[400px] overflow-hidden flex flex-col bg-slate-50/50">
+                        <ScrollArea className="flex-1 p-2 space-y-1">
+                          {filteredResourcesForSelection.map(res => {
+                            const isSelected = selectedResourceIds.includes(res.id);
+                            return (
+                              <div key={res.id} className={cn("flex items-start gap-3 p-3 cursor-pointer transition-all border border-transparent", isSelected ? "bg-white border-primary/30 shadow-sm" : "hover:bg-white")} onClick={() => setSelectedResourceIds(prev => isSelected ? prev.filter(id => id !== res.id) : [...prev, res.id])}>
+                                <Checkbox checked={isSelected} className="mt-0.5 rounded-none" />
+                                <div className="min-w-0"><p className="text-xs font-bold truncate">{res.name}</p></div>
+                              </div>
+                            );
+                          })}
+                        </ScrollArea>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="audit" className="mt-0 space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between p-4 bg-blue-50 border-2 border-blue-100 rounded-none">
+                        <div className="space-y-1">
+                          <Label className="text-xs font-black uppercase text-blue-800">Wirksamkeit bestätigt?</Label>
+                          <p className="text-[10px] text-blue-600 font-bold uppercase italic">Ist die Maßnahme im operativen Betrieb greifbar?</p>
+                        </div>
+                        <Switch checked={isEffective} onCheckedChange={setIsEffective} />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Art der Prüfung</Label>
+                        <Select value={checkType} onValueChange={(v: any) => setCheckType(v)}>
+                          <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                          <SelectContent className="rounded-none">
+                            <SelectItem value="Audit">Formales Audit (Intern/Extern)</SelectItem>
+                            <SelectItem value="Test">Technischer Test (Pentest/Restore)</SelectItem>
+                            <SelectItem value="Review">Operatives Review (Stichprobe)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Letzte Überprüfung am</Label>
+                        <Input type="date" value={lastCheckDate} onChange={e => setLastCheckDate(e.target.value)} className="rounded-none h-10" />
                       </div>
                     </div>
 
-                    {/* Asset-Picker */}
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between border-b pb-2">
-                        <Label className="text-[10px] font-bold uppercase text-primary flex items-center gap-2">
-                          <Layers className="w-4 h-4" /> 2. Verknüpfte IT-Systeme ({selectedResourceIds.length})
-                        </Label>
-                        <div className="relative w-48">
-                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-                          <Input placeholder="System suchen..." value={resourceSearch} onChange={e => setResourceSearch(e.target.value)} className="h-7 pl-7 text-[10px] rounded-none" />
-                        </div>
-                      </div>
-                      <div className="border h-[400px] overflow-hidden flex flex-col bg-slate-50/50">
-                        <ScrollArea className="flex-1">
-                          <div className="p-2 space-y-1">
-                            {filteredResourcesForSelection.map(res => {
-                              const isSelected = selectedResourceIds.includes(res.id);
-                              return (
-                                <div key={res.id} className={cn("flex items-start gap-3 p-3 cursor-pointer transition-all border border-transparent", isSelected ? "bg-white border-primary/30 ring-1 ring-inset ring-primary/10" : "hover:bg-white")} onClick={() => setSelectedResourceIds(prev => isSelected ? prev.filter(id => id !== res.id) : [...prev, res.id])}>
-                                  <Checkbox checked={isSelected} className="mt-0.5 rounded-none" />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-bold leading-tight">{res.name}</p>
-                                    <p className="text-[8px] text-muted-foreground mt-1 uppercase font-black">{res.assetType} | {res.operatingModel}</p>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </ScrollArea>
-                      </div>
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-2">
+                        <LinkIcon className="w-3.5 h-3.5 text-blue-500" /> Evidence / Nachweis (Details)
+                      </Label>
+                      <p className="text-[9px] text-muted-foreground italic">Dokumentieren Sie hier, wie die Wirksamkeit nachgewiesen wurde (z.B. Pfad zum Protokoll oder Ticket-Referenz).</p>
+                      <Textarea 
+                        value={evidenceDetails} 
+                        onChange={e => setEvidenceDetails(e.target.value)} 
+                        placeholder="z.B. Siehe Restore-Protokoll vom 15.01. unter //file/compliance/backup_tests.pdf" 
+                        className="rounded-none min-h-[180px] text-xs font-mono"
+                      />
                     </div>
+                  </div>
+
+                  <div className="p-4 bg-muted/20 border-l-4 border-blue-600 text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-3">
+                    <Info className="w-5 h-5 text-blue-600" />
+                    Regelmäßige Audits sind essentiell für ISMS (ISO 27001) und DSGVO Nachweispflichten.
                   </div>
                 </TabsContent>
               </div>

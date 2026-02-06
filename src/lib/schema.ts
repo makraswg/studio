@@ -179,7 +179,11 @@ export const appSchema: AppSchema = {
       gdprProtectionGoals: 'TEXT',
       vvtIds: 'TEXT',
       dataCategories: 'TEXT',
-      isArt9Relevant: 'BOOLEAN DEFAULT FALSE'
+      isArt9Relevant: 'BOOLEAN DEFAULT FALSE',
+      isEffective: 'BOOLEAN DEFAULT FALSE',
+      checkType: 'VARCHAR(50)',
+      lastCheckDate: 'VARCHAR(50)',
+      evidenceDetails: 'TEXT'
     },
   },
   processingActivities: {

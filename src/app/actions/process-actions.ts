@@ -14,12 +14,18 @@ import {
 /**
  * Hilfsfunktion zur Generierung einer eindeutigen ID innerhalb eines Modells.
  * Verhindert den "Duplicate ID" Fehler für Knoten und Verbindungen.
+ * Falls die requestedId leer oder 'undefined' ist, wird ein Fallback genutzt.
  */
-function ensureUniqueId(requestedId: string, usedIds: Set<string>): string {
-  let finalId = requestedId;
+function ensureUniqueId(requestedId: string | null | undefined, usedIds: Set<string>, prefix: string = 'node'): string {
+  let baseId = requestedId || `${prefix}-${Math.random().toString(36).substring(2, 7)}`;
+  if (baseId === 'undefined' || baseId === 'null') {
+    baseId = `${prefix}-${Math.random().toString(36).substring(2, 7)}`;
+  }
+  
+  let finalId = baseId;
   let counter = 1;
   while (usedIds.has(finalId)) {
-    finalId = `${requestedId}-${counter}`;
+    finalId = `${baseId}-${counter}`;
     counter++;
   }
   return finalId;
@@ -154,7 +160,7 @@ export async function applyProcessOpsAction(
   ops.forEach(op => {
     if (op.type === 'ADD_NODE' && op.payload?.node) {
       const originalId = op.payload.node.id;
-      const uniqueId = ensureUniqueId(originalId, usedNodeIds);
+      const uniqueId = ensureUniqueId(originalId, usedNodeIds, 'node');
       usedNodeIds.add(uniqueId);
       if (uniqueId !== originalId) {
         nodeIdMap[originalId] = uniqueId;
@@ -162,7 +168,7 @@ export async function applyProcessOpsAction(
     }
     if (op.type === 'ADD_EDGE' && op.payload?.edge) {
       const originalId = op.payload.edge.id;
-      const uniqueId = ensureUniqueId(originalId, usedEdgeIds);
+      const uniqueId = ensureUniqueId(originalId, usedEdgeIds, 'edge');
       usedEdgeIds.add(uniqueId);
       if (uniqueId !== originalId) {
         edgeIdMap[originalId] = uniqueId;
@@ -185,7 +191,7 @@ export async function applyProcessOpsAction(
         
         if (!layout.positions[finalId]) {
           const lastX = model.nodes.length > 1 
-            ? Math.max(...Object.values(layout.positions).map((p: any) => (p as any).x)) 
+            ? Math.max(...Object.values(layout.positions).map((p: any) => (p as any).x || 0)) 
             : 50;
           layout.positions[finalId] = { x: lastX + 220, y: 150 };
         }

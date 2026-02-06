@@ -163,7 +163,6 @@ export default function ProcessDesignerPage() {
     }
   }, [selectedNode?.id]);
 
-  // Handler Definitionen vor deren Nutzung
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (isResizingLeft.current) setLeftWidth(Math.max(250, Math.min(600, e.clientX)));
     if (isResizingRight.current) setRightWidth(Math.max(300, Math.min(600, window.innerWidth - e.clientX)));

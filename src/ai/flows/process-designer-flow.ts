@@ -51,6 +51,7 @@ PRAGMATISMUS-REGELN:
 RECHTSCHREIBUNG FÜR OPS:
 - Nutze NUR diese Typen: ADD_NODE, UPDATE_NODE, REMOVE_NODE, ADD_EDGE, UPDATE_EDGE, REMOVE_EDGE, UPDATE_LAYOUT, SET_ISO_FIELD, REORDER_NODES, UPDATE_PROCESS_META.
 - Erfinde NIEMALS eigene Typen wie 'EXTENDMODEL' oder lass den Typen leer.
+- Jeder Knoten MUSS eine ID und einen Typ ('step', 'decision', 'start', 'end') haben.
 
 DEIN GEDÄCHTNIS:
 - Prüfe den CHAT-VERLAUF und die OFFENEN FRAGEN: {{{openQuestions}}}.
@@ -58,7 +59,7 @@ DEIN GEDÄCHTNIS:
 
 ANTWORT-FORMAT (STRENGES JSON):
 {
-  "proposedOps": [ { "type": "ADD_NODE", "payload": { "node": { "id": "...", "title": "..." } } } ],
+  "proposedOps": [ { "type": "ADD_NODE", "payload": { "node": { "id": "...", "type": "step", "title": "..." } } } ],
   "explanation": "Deine Nachricht an den Nutzer",
   "openQuestions": ["Frage 1", "Frage 2"]
 }`;
@@ -102,13 +103,23 @@ function normalizeAiResponse(text: string): ProcessDesignerOutput {
       // Mapping von Halluzinationen
       if (type === 'EXTENDMODEL' || type === 'EXTEND_MODEL') {
         if (Array.isArray(payload.nodes)) {
-          payload.nodes.forEach((n: any) => normalized.proposedOps.push({ type: 'ADD_NODE', payload: { node: n } }));
+          payload.nodes.forEach((n: any) => {
+            if (!n.id) n.id = `node-${Math.random().toString(36).substring(2, 7)}`;
+            if (!n.type) n.type = 'step';
+            normalized.proposedOps.push({ type: 'ADD_NODE', payload: { node: n } });
+          });
         }
         if (Array.isArray(payload.edges)) {
-          payload.edges.forEach((e: any) => normalized.proposedOps.push({ 
-            type: 'ADD_EDGE', 
-            payload: { edge: { id: e.id || `e-${Math.random().toString(36).substring(2,7)}`, source: e.source || e.from, target: e.target || e.to, label: e.label || '' } } 
-          }));
+          payload.edges.forEach((e: any) => {
+            const source = e.source || e.from;
+            const target = e.target || e.to;
+            if (source && target) {
+              normalized.proposedOps.push({ 
+                type: 'ADD_EDGE', 
+                payload: { edge: { id: e.id || `edge-${Math.random().toString(36).substring(2,7)}`, source, target, label: e.label || '' } } 
+              });
+            }
+          });
         }
         if (payload.isoFields) {
           normalized.proposedOps.push({ type: 'SET_ISO_FIELD', payload: { isoFields: payload.isoFields } });
@@ -116,11 +127,21 @@ function normalizeAiResponse(text: string): ProcessDesignerOutput {
       } else {
         const validTypes = ['ADD_NODE', 'UPDATE_NODE', 'REMOVE_NODE', 'ADD_EDGE', 'UPDATE_EDGE', 'REMOVE_EDGE', 'UPDATE_LAYOUT', 'SET_ISO_FIELD', 'REORDER_NODES', 'UPDATE_PROCESS_META'];
         if (validTypes.includes(type)) {
-          if (type === 'ADD_EDGE' && payload.from && payload.to) {
-            normalized.proposedOps.push({ 
-              type: 'ADD_EDGE', 
-              payload: { edge: { id: payload.id || `edge-${Date.now()}`, source: payload.from, target: payload.to, label: payload.label || payload.condition || '' } } 
-            });
+          if (type === 'ADD_NODE') {
+            const node = payload.node || payload;
+            if (!node.id) node.id = `node-${Math.random().toString(36).substring(2, 7)}`;
+            if (!node.type) node.type = 'step';
+            normalized.proposedOps.push({ type: 'ADD_NODE', payload: { node } });
+          } else if (type === 'ADD_EDGE') {
+            const edge = payload.edge || payload;
+            const source = edge.source || edge.from;
+            const target = edge.target || edge.to;
+            if (source && target) {
+              normalized.proposedOps.push({ 
+                type: 'ADD_EDGE', 
+                payload: { edge: { id: edge.id || `edge-${Date.now()}`, source, target, label: edge.label || edge.condition || '' } } 
+              });
+            }
           } else {
             normalized.proposedOps.push({ type: type as any, payload: payload });
           }
@@ -158,7 +179,8 @@ ${historyString}
 
 NUTZER-NACHRICHT: "${input.userMessage}"
 
-Liefere ein valides JSON-Objekt. Erstelle sofort einen Entwurf (proposedOps), wenn der Nutzer Informationen liefert.`;
+Liefere ein valides JSON-Objekt. Erstelle sofort einen Entwurf (proposedOps), wenn der Nutzer Informationen liefert. 
+Jeder Knoten MUSS eine ID und einen gültigen Typ (step, decision, start, end) besitzen.`;
 
     if (config?.provider === 'openrouter') {
       const client = new OpenAI({ apiKey: config.openrouterApiKey || '', baseURL: 'https://openrouter.ai/api/v1' });

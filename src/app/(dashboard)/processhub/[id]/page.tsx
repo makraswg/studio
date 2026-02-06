@@ -77,11 +77,8 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   const positions = layout.positions || {};
 
   nodes.forEach((node, idx) => {
-    // Robustes Fallback-Layout: Wenn keine Position da ist, ordnen wir horizontal an.
-    // 50px Start + (Index * 220px Abstand). 220px = 160px Breite + 60px Lücke.
     const defaultX = 50 + (idx * 220);
     const defaultY = 150;
-    
     const pos = positions[node.id] || { x: defaultX, y: defaultY };
     
     let style = '';
@@ -128,7 +125,7 @@ export default function ProcessDesignerPage() {
   
   const [mounted, setMounted] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
-  const [chatHistory, setChatHistory] = useState<{role: 'user' | 'ai', text: string, questions?: string[], suggestions?: any}[]>([]);
+  const [chatHistory, setChatHistory] = useState<{role: 'user' | 'ai', text: string, questions?: string[], suggestions?: any, timestamp: number}[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -142,15 +139,8 @@ export default function ProcessDesignerPage() {
     checklist: string,
     tips: string,
     errors: string
-  }>({ 
-    id: '',
-    title: '', 
-    roleId: '', 
-    description: '',
-    checklist: '',
-    tips: '',
-    errors: ''
-  });
+  }>({ id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '' });
+
   const [newEdgeTargetId, setNewEdgeTargetId] = useState<string>('');
   const [newEdgeLabel, setNewEdgeLabel] = useState<string>('');
 
@@ -167,17 +157,14 @@ export default function ProcessDesignerPage() {
 
   useEffect(() => {
     if (selectedNode) {
-      setLocalNodeEdits(prev => {
-        if (prev.id === selectedNode.id) return prev;
-        return {
-          id: selectedNode.id,
-          title: selectedNode.title || '',
-          roleId: selectedNode.roleId || '',
-          description: selectedNode.description || '',
-          checklist: (selectedNode.checklist || []).join('\n'),
-          tips: selectedNode.tips || '',
-          errors: selectedNode.errors || ''
-        };
+      setLocalNodeEdits({
+        id: selectedNode.id,
+        title: selectedNode.title || '',
+        roleId: selectedNode.roleId || '',
+        description: selectedNode.description || '',
+        checklist: (selectedNode.checklist || []).join('\n'),
+        tips: selectedNode.tips || '',
+        errors: selectedNode.errors || ''
       });
     } else {
       setLocalNodeEdits({ id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '' });
@@ -188,17 +175,13 @@ export default function ProcessDesignerPage() {
 
   useEffect(() => {
     if (!mounted || !iframeRef.current || !currentVersion) return;
-
     const handleMessage = (evt: MessageEvent) => {
       if (!evt.data || typeof evt.data !== 'string' || evt.data.length === 0) return;
       try {
         const msg = JSON.parse(evt.data);
-        if (msg.event === 'init') {
-          syncDiagramToModel();
-        }
+        if (msg.event === 'init') syncDiagramToModel();
       } catch (e) {}
     };
-
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [mounted, currentVersion?.id]);
@@ -211,14 +194,12 @@ export default function ProcessDesignerPage() {
       xml: xml,
       autosave: 1
     }), '*');
-    
-    // Nach dem Laden Zoom anpassen
     setTimeout(() => {
       iframeRef.current?.contentWindow?.postMessage(JSON.stringify({action: 'zoom', type: 'fit'}), '*');
     }, 500);
   };
 
-  const handleApplyOps = async (ops: any[]) => {
+  const handleApplyOps = async (ops: any[], historyIndex?: number) => {
     if (!currentVersion || !user || !ops.length) return;
     setIsApplying(true);
     try {
@@ -232,6 +213,11 @@ export default function ProcessDesignerPage() {
       );
       if (res.success) {
         toast({ title: "Modell aktualisiert" });
+        if (historyIndex !== undefined) {
+          const newHistory = [...chatHistory];
+          newHistory[historyIndex].suggestions = [];
+          setChatHistory(newHistory);
+        }
         refreshVersion();
       }
     } catch (e: any) {
@@ -244,14 +230,11 @@ export default function ProcessDesignerPage() {
   const saveNodeUpdate = async (field: string) => {
     if (!selectedNodeId) return;
     const value = localNodeEdits[field as keyof typeof localNodeEdits];
-    
     const serverVal = selectedNode ? (field === 'checklist' ? (selectedNode.checklist || []).join('\n') : (selectedNode as any)[field] || '') : '';
     if (value === serverVal) return;
 
     let processedValue: any = value;
-    if (field === 'checklist') {
-      processedValue = value.split('\n').filter((l: string) => l.trim() !== '');
-    }
+    if (field === 'checklist') processedValue = value.split('\n').filter((l: string) => l.trim() !== '');
 
     const ops = [{
       type: 'UPDATE_NODE',
@@ -262,7 +245,6 @@ export default function ProcessDesignerPage() {
 
   const handleQuickAdd = (type: 'step' | 'decision') => {
     const newId = `${type}-${Date.now()}`;
-    // Wir berechnen eine Position basierend auf der aktuellen Knotenanzahl
     const currentNodesCount = currentVersion?.model_json?.nodes?.length || 0;
     const newX = 50 + (currentNodesCount * 220);
 
@@ -295,14 +277,11 @@ export default function ProcessDesignerPage() {
     const nodes = [...currentVersion.model_json.nodes];
     const index = nodes.findIndex((n: any) => n.id === nodeId);
     if (index === -1) return;
-    
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= nodes.length) return;
-    
     const newNodes = [...nodes];
     const [movedNode] = newNodes.splice(index, 1);
     newNodes.splice(newIndex, 0, movedNode);
-    
     const ops = [{
       type: 'REORDER_NODES',
       payload: { orderedNodeIds: newNodes.map(n => n.id) }
@@ -339,7 +318,7 @@ export default function ProcessDesignerPage() {
     setChatMessage('');
     setIsAiLoading(true);
     
-    const newHistory = [...chatHistory, { role: 'user', text: msg } as const];
+    const newHistory = [...chatHistory, { role: 'user', text: msg, timestamp: Date.now() } as const];
     setChatHistory(newHistory);
 
     try {
@@ -353,7 +332,8 @@ export default function ProcessDesignerPage() {
         role: 'ai', 
         text: suggestions.explanation, 
         questions: suggestions.openQuestions,
-        suggestions: suggestions.proposedOps
+        suggestions: suggestions.proposedOps,
+        timestamp: Date.now()
       } as const]);
     } catch (e: any) {
       toast({ variant: "destructive", title: "KI-Fehler", description: e.message });
@@ -367,9 +347,7 @@ export default function ProcessDesignerPage() {
     setIsPublishing(true);
     try {
       const res = await publishToBookStackAction(currentProcess.id, currentVersion.version, "", dataSource);
-      if (res.success) {
-        toast({ title: "Veröffentlicht!", description: `In BookStack verfügbar.` });
-      }
+      if (res.success) toast({ title: "Veröffentlicht!", description: `In BookStack verfügbar.` });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Export Fehler", description: e.message });
     } finally {
@@ -416,16 +394,16 @@ export default function ProcessDesignerPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col -m-8 overflow-hidden bg-slate-100 font-body">
-      <header className="h-16 border-b bg-slate-900 text-white flex items-center justify-between px-6 shrink-0 z-20 shadow-lg">
+    <div className="h-[calc(100vh-120px)] flex flex-col -m-8 overflow-hidden bg-slate-50 font-body">
+      <header className="h-16 border-b bg-white flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
         <div className="flex items-center gap-6">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-9 w-9 text-slate-400 hover:text-white hover:bg-white/10 rounded-none">
+          <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-9 w-9 text-slate-400 hover:bg-slate-100 rounded-none">
             <ChevronLeft className="w-6 h-6" />
           </Button>
           <div className="flex flex-col">
             <div className="flex items-center gap-3">
-              <h2 className="font-headline font-bold text-base tracking-tight">{currentProcess.title}</h2>
-              <Badge className="bg-blue-600 rounded-none text-[8px] font-black uppercase tracking-widest px-2 h-4">Revision {currentVersion.revision}</Badge>
+              <h2 className="font-headline font-bold text-base tracking-tight text-slate-900">{currentProcess.title}</h2>
+              <Badge className="bg-blue-600 rounded-none text-[8px] font-black uppercase tracking-widest px-2 h-4">REV {currentVersion.revision}</Badge>
             </div>
             <div className="flex items-center gap-2 text-[9px] text-slate-400 font-bold uppercase mt-0.5">
               <Activity className="w-2.5 h-2.5" />
@@ -441,23 +419,24 @@ export default function ProcessDesignerPage() {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" className="rounded-none h-9 text-[10px] font-bold uppercase border-slate-700 bg-transparent text-slate-300 hover:bg-slate-800" onClick={syncDiagramToModel}>
-                  <RefreshCw className="w-3.5 h-3.5 mr-2" /> Diagramm Sync
+                <Button variant="outline" size="sm" className="rounded-none h-9 text-[10px] font-bold uppercase border-slate-200 text-slate-600 hover:bg-slate-50" onClick={syncDiagramToModel}>
+                  <RefreshCw className="w-3.5 h-3.5 mr-2" /> Sync Diagramm
                 </Button>
               </TooltipTrigger>
-              <TooltipContent className="rounded-none text-[10px] font-bold uppercase">Aktualisiert den grafischen Editor aus dem Modell</TooltipContent>
+              <TooltipContent className="rounded-none text-[10px] font-bold uppercase">Grafik aus Modell erneuern</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <Separator orientation="vertical" className="h-6 bg-slate-700 mx-1" />
-          <Button size="sm" className="rounded-none h-9 text-[10px] font-bold uppercase bg-emerald-600 hover:bg-emerald-700 text-white px-6 gap-2" onClick={handlePublish} disabled={isPublishing}>
+          <Separator orientation="vertical" className="h-6 bg-slate-200 mx-1" />
+          <Button size="sm" className="rounded-none h-9 text-[10px] font-bold uppercase bg-slate-900 hover:bg-black text-white px-6 gap-2" onClick={handlePublish} disabled={isPublishing}>
             {isPublishing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
-            Export to Workstation
+            Veröffentlichen
           </Button>
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <aside className="w-[500px] border-r flex flex-col bg-white shadow-xl z-10 overflow-hidden">
+        {/* LINKS: PROZESS-STRUKTUR */}
+        <aside className="w-[450px] border-r flex flex-col bg-white shrink-0 overflow-hidden shadow-sm">
           <Tabs defaultValue="instructions" className="flex-1 flex flex-col min-h-0">
             <div className="px-4 border-b bg-slate-50 shrink-0">
               <TabsList className="h-14 bg-transparent gap-6 p-0 w-full justify-start">
@@ -467,170 +446,121 @@ export default function ProcessDesignerPage() {
                 <TabsTrigger value="compliance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
                   <ShieldCheck className="w-3.5 h-3.5" /> ISO 9001
                 </TabsTrigger>
-                <TabsTrigger value="flow" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                  <GitBranch className="w-3.5 h-3.5" /> Flows
+                <TabsTrigger value="flow" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                  <GitBranch className="w-3.5 h-3.5" /> Logik
                 </TabsTrigger>
               </TabsList>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col">
               <ScrollArea className="flex-1">
                 <TabsContent value="instructions" className="m-0 p-0">
-                  <div className="p-5 border-b bg-slate-50/50">
+                  <div className="p-5 border-b bg-slate-50/30">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Prozess-Abfolge</h3>
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Prozess-Sequenz</h3>
                       <div className="flex gap-1">
-                        <Button variant="outline" size="sm" className="h-7 text-[8px] font-black uppercase rounded-none border-slate-200" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
-                        <Button variant="outline" size="sm" className="h-7 text-[8px] font-black uppercase rounded-none border-slate-200" onClick={() => handleQuickAdd('decision')}>+ Entscheidung</Button>
+                        <Button variant="outline" size="sm" className="h-7 text-[8px] font-black uppercase rounded-none border-slate-200 bg-white" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
+                        <Button variant="outline" size="sm" className="h-7 text-[8px] font-black uppercase rounded-none border-slate-200 bg-white" onClick={() => handleQuickAdd('decision')}>+ Entscheidung</Button>
                       </div>
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       {(currentVersion.model_json?.nodes || []).map((node: any, idx: number) => (
-                        <div 
-                          key={node.id} 
-                          className={cn(
-                            "group flex items-center gap-3 p-3 border-2 transition-all cursor-pointer relative",
-                            selectedNodeId === node.id ? "border-primary bg-primary/5 shadow-sm" : "border-slate-50 hover:border-slate-200 bg-white"
-                          )}
-                          onClick={() => setSelectedNodeId(node.id)}
-                        >
-                          <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-5 w-5 rounded-none" disabled={idx === 0} onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'up'); }}>
-                              <ChevronUp className="w-3 h-3" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-5 w-5 rounded-none" disabled={idx === (currentVersion.model_json?.nodes || []).length - 1} onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'down'); }}>
-                              <ChevronDown className="w-3 h-3" />
-                            </Button>
-                          </div>
-                          
-                          <div className={cn(
-                            "w-8 h-8 rounded-none flex items-center justify-center shrink-0 border",
-                            node.type === 'decision' ? "bg-orange-50 text-orange-600 border-orange-100" : "bg-blue-50 text-blue-600 border-blue-100"
-                          )}>
-                            {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-800 truncate uppercase tracking-tight">{node.title}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[8px] font-black uppercase text-slate-400">{node.type}</span>
-                              {node.roleId && <Badge variant="outline" className="text-[7px] h-3 px-1 rounded-none uppercase">{node.roleId}</Badge>}
+                        <div key={node.id} className="space-y-1">
+                          <div 
+                            className={cn(
+                              "group flex items-center gap-3 p-3 border transition-all cursor-pointer",
+                              selectedNodeId === node.id ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/10" : "border-slate-100 hover:border-slate-300 bg-white"
+                            )}
+                            onClick={() => setSelectedNodeId(node.id)}
+                          >
+                            <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="icon" className="h-5 w-5 rounded-none" disabled={idx === 0} onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'up'); }}>
+                                <ChevronUp className="w-3 h-3" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-5 w-5 rounded-none" disabled={idx === (currentVersion.model_json?.nodes || []).length - 1} onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'down'); }}>
+                                <ChevronDown className="w-3 h-3" />
+                              </Button>
                             </div>
+                            
+                            <div className={cn(
+                              "w-8 h-8 rounded-none flex items-center justify-center shrink-0 border shadow-sm",
+                              node.type === 'decision' ? "bg-orange-50 text-orange-600 border-orange-100" : 
+                              node.type === 'start' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                              node.type === 'end' ? "bg-red-50 text-red-600 border-red-100" :
+                              "bg-blue-50 text-blue-600 border-blue-100"
+                            )}>
+                              {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : 
+                               node.type === 'start' ? <Zap className="w-4 h-4" /> :
+                               node.type === 'end' ? <X className="w-4 h-4" /> :
+                               <Activity className="w-4 h-4" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-800 truncate uppercase tracking-tight">{node.title}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[8px] font-black uppercase text-slate-400">{node.type}</span>
+                                {node.roleId && <Badge variant="outline" className="text-[7px] h-3.5 px-1.5 rounded-none uppercase border-slate-200">{node.roleId}</Badge>}
+                              </div>
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 text-red-500 rounded-none hover:bg-red-50" onClick={(e) => { e.stopPropagation(); if(confirm("Schritt löschen?")) handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: node.id } }]); }}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
                           </div>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-red-500 rounded-none" onClick={(e) => { e.stopPropagation(); handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: node.id } }]); }}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+
+                          {/* INLINE EDITOR BEI SELEKTION */}
+                          {selectedNodeId === node.id && (
+                            <div className="p-5 bg-slate-50 border-x border-b border-primary/20 space-y-6 animate-in slide-in-from-top-2 duration-300">
+                              <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase text-slate-500">Titel</Label>
+                                <Input 
+                                  value={localNodeEdits.title} 
+                                  onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})}
+                                  onBlur={() => saveNodeUpdate('title')}
+                                  className="h-10 text-xs rounded-none border-slate-200 font-bold" 
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                  <Label className="text-[9px] font-black uppercase text-slate-500">Zuständigkeit</Label>
+                                  <Input value={localNodeEdits.roleId} onChange={e => setLocalNodeEdits({...localNodeEdits, roleId: e.target.value})} onBlur={() => saveNodeUpdate('roleId')} className="h-9 text-[10px] rounded-none border-slate-200" placeholder="z.B. IT-Admin" />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <Label className="text-[9px] font-black uppercase text-slate-500">Dauer (geschätzt)</Label>
+                                  <Input placeholder="z.B. 10 Min" className="h-9 text-[10px] rounded-none border-slate-200" />
+                                </div>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase text-slate-500">Anweisung</Label>
+                                <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-[10px] rounded-none min-h-[80px] border-slate-200 leading-relaxed" placeholder="Was ist zu tun?" />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase text-slate-500 flex items-center gap-1">
+                                  <CheckCircle className="w-3 h-3" /> Checkliste
+                                </Label>
+                                <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[10px] rounded-none min-h-[80px] border-slate-200 bg-white" placeholder="Ein Punkt pro Zeile..." />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   </div>
-
-                  {selectedNode ? (
-                    <div className="p-6 space-y-8 animate-in fade-in slide-in-from-left-4 duration-300">
-                      <div className="space-y-6">
-                        <div className="space-y-1.5">
-                          <Label className="text-[9px] font-black uppercase text-slate-500">Titel der Tätigkeit</Label>
-                          <Input 
-                            value={localNodeEdits.title} 
-                            onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})}
-                            onBlur={() => saveNodeUpdate('title')}
-                            className="h-11 text-sm rounded-none border-2 focus:border-primary font-bold uppercase tracking-tight" 
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-1.5">
-                            <Label className="text-[9px] font-black uppercase text-slate-500 flex items-center gap-1">
-                              <UserCircle className="w-3 h-3" /> Zuständigkeit
-                            </Label>
-                            <Input 
-                              value={localNodeEdits.roleId} 
-                              onChange={e => setLocalNodeEdits({...localNodeEdits, roleId: e.target.value})}
-                              onBlur={() => saveNodeUpdate('roleId')}
-                              placeholder="Rolle oder Team..." 
-                              className="h-10 text-xs rounded-none border-2" 
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-[9px] font-black uppercase text-slate-500 flex items-center gap-1">
-                              <Target className="w-3 h-3" /> Zielsetzung
-                            </Label>
-                            <Input placeholder="Ergebnis dieses Schritts..." className="h-10 text-xs rounded-none border-2" />
-                          </div>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-[9px] font-black uppercase text-slate-500">Detaillierte Handlungsanweisung</Label>
-                          <Textarea 
-                            value={localNodeEdits.description} 
-                            onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})}
-                            onBlur={() => saveNodeUpdate('description')}
-                            placeholder="Was genau ist zu tun?"
-                            className="text-xs rounded-none min-h-[100px] border-2 leading-relaxed" 
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-[9px] font-black uppercase text-slate-500 flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" /> Checkliste (Eine Zeile pro Punkt)
-                          </Label>
-                          <Textarea 
-                            value={localNodeEdits.checklist} 
-                            onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})}
-                            onBlur={() => saveNodeUpdate('checklist')}
-                            placeholder="Teilschritte..."
-                            className="text-xs rounded-none min-h-[100px] border-2 border-slate-200 bg-slate-50/30" 
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                          <div className="space-y-1.5">
-                            <Label className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-1">
-                              <Info className="w-3 h-3" /> Tipps & Tricks
-                            </Label>
-                            <Textarea 
-                              value={localNodeEdits.tips} 
-                              onChange={e => setLocalNodeEdits({...localNodeEdits, tips: e.target.value})}
-                              onBlur={() => saveNodeUpdate('tips')}
-                              className="text-[10px] rounded-none min-h-[80px] border-emerald-100 bg-emerald-50/20" 
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-[9px] font-black uppercase text-red-600 flex items-center gap-1">
-                              <BadgeAlert className="w-3 h-3" /> Typische Fehler
-                            </Label>
-                            <Textarea 
-                              value={localNodeEdits.errors} 
-                              onChange={e => setLocalNodeEdits({...localNodeEdits, errors: e.target.value})}
-                              onBlur={() => saveNodeUpdate('errors')}
-                              className="text-[10px] rounded-none min-h-[80px] border-red-100 bg-red-50/20" 
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-12 text-center space-y-4 opacity-40">
-                      <Info className="w-12 h-12 mx-auto text-slate-300" />
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Wählen Sie einen Schritt,<br/>um Details zu pflegen.</p>
-                    </div>
-                  )}
                 </TabsContent>
 
                 <TabsContent value="compliance" className="m-0 p-6 space-y-8">
-                  <div className="p-5 bg-emerald-50 border-2 border-emerald-100 rounded-none space-y-2">
+                  <div className="p-5 bg-emerald-50 border border-emerald-100 rounded-none space-y-2">
                     <div className="flex items-center gap-2 text-emerald-700">
                       <ShieldCheck className="w-4 h-4" />
-                      <h4 className="text-[10px] font-black uppercase tracking-widest">ISO 9001 Konformität</h4>
+                      <h4 className="text-[10px] font-black uppercase tracking-widest">ISO 9001 Dashboard</h4>
                     </div>
-                    <p className="text-[9px] leading-relaxed text-emerald-600 font-medium">Definition von Ressourcen und Ergebnissen.</p>
+                    <p className="text-[9px] leading-relaxed text-emerald-600 font-medium italic">Vervollständigen Sie die Audit-relevanten Merkmale des Prozesses.</p>
                   </div>
                   
                   <div className="grid grid-cols-1 gap-6">
                     {[
-                      { id: 'inputs', label: 'Eingaben (Inputs)', icon: ArrowRight, desc: 'Informationen, Artefakte oder Trigger für den Prozess' },
-                      { id: 'outputs', label: 'Ergebnisse (Outputs)', icon: Check, desc: 'Produkte, Dienstleistungen oder Daten am Prozessende' },
-                      { id: 'risks', label: 'Risiken & Chancen', icon: AlertTriangle, desc: 'Was kann den Prozesserfolg gefährden?' },
-                      { id: 'evidence', label: 'Nachweise (Evidence)', icon: FileCode, desc: 'Dokumente zur Verifizierung der Ausführung' }
+                      { id: 'inputs', label: 'Prozess-Eingaben', icon: ArrowRight, desc: 'Informationen oder Trigger' },
+                      { id: 'outputs', label: 'Prozess-Ergebnisse', icon: Check, desc: 'Produkte oder Daten' },
+                      { id: 'risks', label: 'Risiken & Chancen', icon: AlertTriangle, desc: 'Was kann schiefgehen?' },
+                      { id: 'evidence', label: 'Nachweise / Audit-Log', icon: FileCode, desc: 'Verifizierung der Ausführung' }
                     ].map(field => (
                       <div key={field.id} className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-slate-700 flex items-center gap-2">
@@ -639,7 +569,7 @@ export default function ProcessDesignerPage() {
                         <Textarea 
                           defaultValue={currentVersion.model_json?.isoFields?.[field.id] || ''}
                           placeholder={field.desc}
-                          className="text-xs rounded-none min-h-[100px] bg-white border-2 border-slate-100 focus:border-emerald-500 leading-relaxed p-3"
+                          className="text-xs rounded-none min-h-[100px] bg-white border-slate-200 focus:border-emerald-500 leading-relaxed p-3"
                           onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: field.id, value: e.target.value } }])}
                         />
                       </div>
@@ -648,51 +578,51 @@ export default function ProcessDesignerPage() {
                 </TabsContent>
 
                 <TabsContent value="flow" className="m-0 p-6 space-y-6">
-                  <div className="p-4 bg-blue-50 border-2 border-blue-100 rounded-none space-y-4">
+                  <div className="p-5 bg-blue-50 border border-blue-100 rounded-none space-y-4">
                     <h4 className="text-[10px] font-black uppercase text-blue-700 flex items-center gap-2">
-                      <GitBranch className="w-3.5 h-3.5" /> Ablauf-Logik verknüpfen
+                      <GitBranch className="w-3.5 h-3.5" /> Neue Verbindung ziehen
                     </h4>
                     <div className="space-y-3">
                       <div className="space-y-1.5">
-                        <Label className="text-[8px] font-bold uppercase text-slate-500">Von Knoten (Quelle)</Label>
+                        <Label className="text-[8px] font-bold uppercase text-slate-500">Von Schritt</Label>
                         <Select value={selectedNodeId || ''} onValueChange={setSelectedNodeId}>
                           <SelectTrigger className="h-9 text-[10px] rounded-none bg-white border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                           <SelectContent className="rounded-none">
-                            {(currentVersion.model_json?.nodes || []).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>)}
+                            {(currentVersion.model_json?.nodes || []).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs uppercase font-bold">{n.title}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[8px] font-bold uppercase text-slate-500">Zu Knoten (Ziel)</Label>
+                        <Label className="text-[8px] font-bold uppercase text-slate-500">Nach Schritt</Label>
                         <Select value={newEdgeTargetId} onValueChange={setNewEdgeTargetId}>
                           <SelectTrigger className="h-9 text-[10px] rounded-none bg-white border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                           <SelectContent className="rounded-none">
-                            {(currentVersion.model_json?.nodes || []).filter((n: any) => n.id !== selectedNodeId).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>)}
+                            {(currentVersion.model_json?.nodes || []).filter((n: any) => n.id !== selectedNodeId).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs uppercase font-bold">{n.title}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[8px] font-bold uppercase text-slate-500">Beschriftung (z.B. Ja/Nein)</Label>
-                        <Input placeholder="Optional..." value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-9 text-xs rounded-none border-slate-200 bg-white" />
+                        <Label className="text-[8px] font-bold uppercase text-slate-500">Bedingung / Label</Label>
+                        <Input placeholder="z.B. JA / NEIN" value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-9 text-xs rounded-none border-slate-200 bg-white" />
                       </div>
-                      <Button onClick={handleAddEdge} disabled={!selectedNodeId || !newEdgeTargetId} className="w-full h-10 text-[10px] font-black uppercase rounded-none bg-blue-600 hover:bg-blue-700">
-                        Verbindung erstellen
+                      <Button onClick={handleAddEdge} disabled={!selectedNodeId || !newEdgeTargetId} className="w-full h-10 text-[10px] font-black uppercase rounded-none bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
+                        Verknüpfen
                       </Button>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Aktive Verbindungen</h4>
+                  <div className="space-y-3">
+                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Aktive Logik-Pfade</h4>
                     <div className="grid grid-cols-1 gap-1">
                       {(currentVersion.model_json?.edges || []).map((edge: any) => {
                         const source = currentVersion.model_json?.nodes?.find((n: any) => n.id === edge.source);
                         const target = currentVersion.model_json?.nodes?.find((n: any) => n.id === edge.target);
                         return (
-                          <div key={edge.id} className="flex items-center justify-between p-2.5 bg-white border-2 border-slate-50 text-[10px] font-bold group hover:border-blue-200 transition-colors">
+                          <div key={edge.id} className="flex items-center justify-between p-3 bg-white border border-slate-100 text-[10px] font-bold group hover:border-blue-200 transition-colors">
                             <div className="flex items-center gap-2 truncate flex-1">
-                              <span className="text-slate-400 truncate max-w-[80px]">{source?.title || edge.source}</span>
+                              <span className="text-slate-400 truncate max-w-[100px] uppercase">{source?.title || edge.source}</span>
                               <ArrowRight className="w-3 h-3 text-blue-500 shrink-0" />
-                              <span className="truncate max-w-[80px]">{target?.title || edge.target}</span>
+                              <span className="truncate max-w-[100px] text-slate-900 uppercase">{target?.title || edge.target}</span>
                               {edge.label && <Badge className="h-4 rounded-none text-[7px] bg-blue-100 text-blue-700 border-none uppercase px-1">{edge.label}</Badge>}
                             </div>
                             <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 opacity-0 group-hover:opacity-100 rounded-none" onClick={() => handleRemoveEdge(edge.id)}>
@@ -701,9 +631,6 @@ export default function ProcessDesignerPage() {
                           </div>
                         );
                       })}
-                      {(currentVersion.model_json?.edges || []).length === 0 && (
-                        <p className="text-[10px] text-muted-foreground italic text-center py-4">Keine Verbindungen definiert.</p>
-                      )}
                     </div>
                   </div>
                 </TabsContent>
@@ -712,27 +639,28 @@ export default function ProcessDesignerPage() {
           </Tabs>
         </aside>
 
-        <main className="flex-1 relative bg-slate-200 flex flex-col p-4 overflow-hidden">
-          <div className="absolute top-8 right-8 z-10 flex flex-col gap-2">
-             <div className="bg-white/90 backdrop-blur shadow-xl border p-1 rounded-none flex flex-col gap-1">
+        {/* MITTE: GRAFISCHER DESIGNER */}
+        <main className="flex-1 relative bg-slate-100 flex flex-col p-6 overflow-hidden">
+          <div className="absolute top-10 right-10 z-10 flex flex-col gap-2">
+             <div className="bg-white/95 backdrop-blur shadow-2xl border border-slate-200 p-1.5 rounded-none flex flex-col gap-1.5">
                 {[
                   { icon: RefreshCw, label: 'Diagramm aktualisieren', action: syncDiagramToModel },
-                  { icon: Box, label: 'Ganzseitig anzeigen', action: () => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({action: 'zoom', type: 'fit'}), '*') }
+                  { icon: Box, label: 'Auf Fenstergröße zentrieren', action: () => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({action: 'zoom', type: 'fit'}), '*') }
                 ].map((btn, i) => (
                   <TooltipProvider key={i}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-slate-100" onClick={btn.action}>
-                          <btn.icon className="w-4 h-4 text-slate-600" />
+                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none hover:bg-slate-50 transition-all border border-transparent hover:border-slate-200" onClick={btn.action}>
+                          <btn.icon className="w-4.5 h-4.5 text-slate-600" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent side="left" className="text-[10px] font-bold uppercase">{btn.label}</TooltipContent>
+                      <TooltipContent side="left" className="text-[10px] font-bold uppercase rounded-none">{btn.label}</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 ))}
              </div>
           </div>
-          <div className="flex-1 bg-white shadow-2xl border-2 border-slate-300 relative group overflow-hidden">
+          <div className="flex-1 bg-white shadow-inner border-2 border-slate-200 relative group overflow-hidden">
             <iframe 
               ref={iframeRef}
               src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json"
@@ -741,41 +669,44 @@ export default function ProcessDesignerPage() {
           </div>
         </main>
 
-        <aside className="w-[380px] border-l flex flex-col bg-slate-50 shadow-2xl z-10 overflow-hidden">
+        {/* RECHTS: KI ASSISTENT */}
+        <aside className="w-[400px] border-l flex flex-col bg-white shrink-0 overflow-hidden shadow-2xl z-30">
           <div className="p-5 border-b bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-none flex items-center justify-center">
+              <div className="w-9 h-9 bg-primary rounded-none flex items-center justify-center shadow-lg">
                 <Zap className="w-5 h-5 text-white fill-current" />
               </div>
               <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] block text-blue-400">Process Advisor</span>
-                <span className="text-[8px] font-bold text-slate-400 uppercase">AI Specialist</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] block text-blue-400">Governance AI</span>
+                <span className="text-[8px] font-bold text-slate-400 uppercase">Premium Advisor v2.0</span>
               </div>
             </div>
-            <Badge className="bg-slate-800 text-slate-400 border-slate-700 rounded-none text-[8px] font-black h-5 uppercase px-2">Gemini 2.0</Badge>
+            <Badge className="bg-slate-800 text-slate-400 border-slate-700 rounded-none text-[8px] font-black h-5 uppercase px-2">Ready</Badge>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="flex-1 min-h-0 flex flex-col bg-slate-50/50">
             <ScrollArea className="flex-1 p-5">
               <div className="space-y-6">
                 {chatHistory.length === 0 && (
-                  <div className="text-center py-12 space-y-4 opacity-40">
-                    <MessageSquare className="w-12 h-12 mx-auto text-slate-300" />
-                    <p className="text-[10px] font-black uppercase text-slate-900">Bereit zur Analyse.</p>
-                    <p className="text-[9px] text-slate-500 italic px-4">
-                      Fragen Sie mich nach Prozessoptimierungen oder ISO 9001 Feldern.
+                  <div className="text-center py-20 space-y-4 opacity-40">
+                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm border border-slate-100">
+                      <MessageSquare className="w-8 h-8 text-slate-300" />
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">Assistent wartet...</p>
+                    <p className="text-[9px] text-slate-500 italic px-8 leading-relaxed">
+                      "Schlage einen Prozess für den Rechnungsprüfung vor" oder "Was fehlt diesem Modell für ISO 9001?"
                     </p>
                   </div>
                 )}
 
                 {chatHistory.map((msg, i) => (
                   <div key={i} className={cn(
-                    "flex flex-col gap-1.5",
+                    "flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300",
                     msg.role === 'user' ? "items-end" : "items-start"
                   )}>
                     <div className={cn(
-                      "p-3 text-[11px] leading-relaxed max-w-[90%] border-2",
-                      msg.role === 'user' ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-700 border-slate-200"
+                      "p-4 text-[11px] leading-relaxed max-w-[90%] shadow-sm",
+                      msg.role === 'user' ? "bg-slate-900 text-white rounded-none" : "bg-white text-slate-700 border-l-4 border-l-primary rounded-none"
                     )}>
                       {msg.text}
                     </div>
@@ -783,8 +714,8 @@ export default function ProcessDesignerPage() {
                     {msg.role === 'ai' && msg.questions && msg.questions.length > 0 && (
                       <div className="w-full mt-2 space-y-2">
                         {msg.questions.map((q, qIdx) => (
-                          <div key={qIdx} className="p-3 bg-indigo-50 border-l-4 border-indigo-600 text-[11px] font-bold text-indigo-900 italic">
-                            <span className="text-[8px] uppercase block text-indigo-400 font-black mb-1">Berater-Rückfrage</span>
+                          <div key={qIdx} className="p-4 bg-indigo-50 border-2 border-indigo-100 text-[11px] font-bold text-indigo-900 italic shadow-sm">
+                            <span className="text-[8px] uppercase block text-indigo-400 font-black mb-1.5 tracking-widest">Berater-Rückfrage</span>
                             {q}
                           </div>
                         ))}
@@ -792,18 +723,19 @@ export default function ProcessDesignerPage() {
                     )}
 
                     {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
-                      <div className="animate-in slide-in-from-bottom-4 duration-500 mt-2 w-full">
-                        <div className="bg-blue-50 border-2 border-blue-600 p-4 space-y-4 shadow-xl">
-                          <div className="flex items-center gap-2 text-blue-700">
+                      <div className="mt-3 w-full animate-in zoom-in-95 duration-500">
+                        <div className="bg-white border-2 border-primary p-5 space-y-4 shadow-xl relative overflow-hidden">
+                          <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-bl-full -mr-8 -mt-8" />
+                          <div className="flex items-center gap-2 text-primary">
                             <Sparkles className="w-4 h-4" />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Vorschlag</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest">Modell-Update Vorschlag</span>
                           </div>
                           
-                          <div className="space-y-1.5 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                          <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
                             {msg.suggestions.map((op: any, opIdx: number) => (
-                              <div key={opIdx} className="text-[9px] p-1.5 bg-white border border-blue-100 flex items-center gap-2">
-                                <div className="w-1 h-1 rounded-full bg-blue-500" />
-                                <span className="font-black text-slate-400 uppercase shrink-0">{String(op.type).replace('_', ' ')}:</span>
+                              <div key={opIdx} className="text-[9px] p-2 bg-slate-50 border border-slate-100 flex items-center gap-3">
+                                <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                                <span className="font-black text-slate-400 uppercase shrink-0 text-[7px]">{String(op.type).replace('_', ' ')}</span>
                                 <span className="truncate font-bold text-slate-700">
                                   {getOpTitle(op)}
                                 </span>
@@ -812,24 +744,25 @@ export default function ProcessDesignerPage() {
                           </div>
 
                           <div className="flex gap-2 pt-2">
-                            <button 
-                              onClick={() => handleApplyOps(msg.suggestions)} 
+                            <Button 
+                              onClick={() => handleApplyOps(msg.suggestions, i)} 
                               disabled={isApplying} 
-                              className="flex-1 h-10 rounded-none bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase shadow-lg group disabled:opacity-50"
+                              className="flex-1 h-11 rounded-none bg-primary hover:bg-blue-700 text-white text-[10px] font-black uppercase shadow-lg gap-2"
                             >
-                              {isApplying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+                              {isApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                               Anwenden
-                            </button>
-                            <button 
+                            </Button>
+                            <Button 
+                              variant="outline"
                               onClick={() => {
                                 const newHistory = [...chatHistory];
                                 newHistory[i].suggestions = [];
                                 setChatHistory(newHistory);
                               }} 
-                              className="flex-1 h-10 rounded-none border-2 border-blue-200 bg-white text-blue-700 text-[10px] font-black uppercase"
+                              className="flex-1 h-11 rounded-none border-slate-200 bg-white text-slate-500 text-[10px] font-black uppercase hover:bg-slate-50"
                             >
                               Ablehnen
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -839,9 +772,9 @@ export default function ProcessDesignerPage() {
 
                 {isAiLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-white border-2 border-slate-200 p-3 rounded-none flex items-center gap-3 shadow-sm">
-                      <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Berater analysiert...</span>
+                    <div className="bg-white border p-4 rounded-none flex items-center gap-4 shadow-sm border-blue-100">
+                      <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Analysiere Modell...</span>
                     </div>
                   </div>
                 )}
@@ -849,19 +782,19 @@ export default function ProcessDesignerPage() {
             </ScrollArea>
           </div>
 
-          <div className="p-5 border-t-2 border-slate-200 bg-white shrink-0 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
+          <div className="p-5 border-t bg-white shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.03)]">
             <div className="relative group">
               <Input 
-                placeholder="Nachricht an Berater..." 
+                placeholder="An den Berater schreiben..." 
                 value={chatMessage}
                 onChange={e => setChatMessage(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAiChat()}
-                className="h-14 rounded-none border-2 border-slate-200 text-sm focus:border-slate-900 focus:ring-0 transition-all pl-4 pr-14 shadow-sm"
+                className="h-14 rounded-none border-2 border-slate-100 text-sm focus:border-primary focus:ring-0 transition-all pl-5 pr-14 shadow-sm bg-slate-50/50"
                 disabled={isAiLoading}
               />
               <Button 
                 size="icon" 
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 shrink-0 rounded-none bg-slate-900 hover:bg-black text-white" 
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-none bg-slate-900 hover:bg-black text-white shadow-md active:scale-95 transition-all" 
                 onClick={handleAiChat} 
                 disabled={isAiLoading || !chatMessage}
               >
@@ -869,8 +802,8 @@ export default function ProcessDesignerPage() {
               </Button>
             </div>
             <div className="flex justify-between mt-3 px-1">
-               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Context Ready</span>
-               <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-1"><Terminal className="w-2.5 h-2.5" /> ISO Consultant Active</span>
+               <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Revision Context Ready</span>
+               <span className="text-[8px] font-black text-primary uppercase tracking-widest flex items-center gap-1.5"><Terminal className="w-3 h-3" /> GPT-4 Engine Active</span>
             </div>
           </div>
         </aside>

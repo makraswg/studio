@@ -13,6 +13,19 @@ import {
 } from '@/lib/types';
 
 /**
+ * Hilfsfunktion zur Generierung einer eindeutigen ID innerhalb eines Modells.
+ */
+function ensureUniqueId(requestedId: string, existingNodes: ProcessNode[]): string {
+  let finalId = requestedId;
+  let counter = 1;
+  while (existingNodes.some(n => n.id === finalId)) {
+    finalId = `${requestedId}-${counter}`;
+    counter++;
+  }
+  return finalId;
+}
+
+/**
  * Erstellt einen neuen Prozess.
  */
 export async function createProcessAction(
@@ -37,7 +50,7 @@ export async function createProcessAction(
   };
 
   const initialModel: ProcessModel = {
-    nodes: [{ id: 'start', type: 'start', title: 'Start' }],
+    nodes: [{ id: 'start', type: 'start', title: 'START' }],
     edges: [],
     roles: [],
     isoFields: {}
@@ -83,23 +96,26 @@ export async function applyProcessOpsAction(
 
   if (!currentVersion) throw new Error("Prozessversion nicht gefunden.");
   
-  let model = { ...currentVersion.model_json };
-  let layout = { ...currentVersion.layout_json };
+  let model = JSON.parse(JSON.stringify(currentVersion.model_json));
+  let layout = JSON.parse(JSON.stringify(currentVersion.layout_json));
 
   // Operationen anwenden
   ops.forEach(op => {
     switch (op.type) {
       case 'ADD_NODE':
         if (!model.nodes) model.nodes = [];
-        model.nodes.push(op.payload.node);
+        // DUPLICATE ID FIX: Sicherstellen, dass die ID eindeutig ist
+        const uniqueId = ensureUniqueId(op.payload.node.id, model.nodes);
+        const nodeToAdd = { ...op.payload.node, id: uniqueId };
+        model.nodes.push(nodeToAdd);
         break;
       case 'UPDATE_NODE':
-        model.nodes = model.nodes.map(n => n.id === op.payload.nodeId ? { ...n, ...op.payload.patch } : n);
+        model.nodes = model.nodes.map((n: any) => n.id === op.payload.nodeId ? { ...n, ...op.payload.patch } : n);
         break;
       case 'REMOVE_NODE':
-        model.nodes = model.nodes.filter(n => n.id !== op.payload.nodeId);
+        model.nodes = model.nodes.filter((n: any) => n.id !== op.payload.nodeId);
         if (model.edges) {
-          model.edges = model.edges.filter(e => e.source !== op.payload.nodeId && e.target !== op.payload.nodeId);
+          model.edges = model.edges.filter((e: any) => e.source !== op.payload.nodeId && e.target !== op.payload.nodeId);
         }
         if (layout.positions) {
           delete layout.positions[op.payload.nodeId];
@@ -111,7 +127,7 @@ export async function applyProcessOpsAction(
         break;
       case 'REMOVE_EDGE':
         if (model.edges) {
-          model.edges = model.edges.filter(e => e.id !== op.payload.edgeId);
+          model.edges = model.edges.filter((e: any) => e.id !== op.payload.edgeId);
         }
         break;
       case 'UPDATE_LAYOUT':
@@ -127,11 +143,10 @@ export async function applyProcessOpsAction(
         if (Array.isArray(orderedNodeIds)) {
           const newNodes: ProcessNode[] = [];
           orderedNodeIds.forEach((id: string) => {
-            const node = model.nodes.find(n => n.id === id);
+            const node = model.nodes.find((n: any) => n.id === id);
             if (node) newNodes.push(node);
           });
-          // Sicherstellen, dass keine Knoten verloren gehen, die nicht im Payload waren
-          model.nodes.forEach(n => {
+          model.nodes.forEach((n: any) => {
             if (!orderedNodeIds.includes(n.id)) newNodes.push(n);
           });
           model.nodes = newNodes;

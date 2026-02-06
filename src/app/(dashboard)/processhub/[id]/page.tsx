@@ -24,7 +24,9 @@ import {
   Trash2,
   Edit3,
   Layers,
-  ArrowRight
+  ArrowRight,
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -116,8 +118,7 @@ export default function ProcessDesignerPage() {
           syncDiagramToModel();
         }
         if (msg.event === 'change') {
-          // Diagram changed, but we only react if user finishes action
-          // Actually diagrams.net sends xml on save or auto-save
+          // Diagram changed logic would go here
         }
       } catch (e) {}
     };
@@ -190,7 +191,6 @@ export default function ProcessDesignerPage() {
     if (!currentVersion || !currentProcess) return;
     setIsPublishing(true);
     try {
-      // In a real scenario, we'd trigger an export from diagrams.net first to get SVG
       const res = await publishToBookStackAction(currentProcess.id, currentVersion.version, "", dataSource);
       if (res.success) {
         toast({ title: "Veröffentlicht!", description: `In BookStack verfügbar unter ID ${res.pageId}` });

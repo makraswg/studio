@@ -5,7 +5,7 @@
  * Pragmatischer Business-Analyst Flow:
  * - Liefert sofort Entwürfe, sobald eine Beschreibung vorliegt.
  * - Nutzt 'openQuestions' im Stammblatt als To-Do Liste für Unklarheiten.
- * - Mappt Halluzinationen (wie EXTENDMODEL) automatisch auf valide Ops.
+ * - Mappt Halluzinationen (wie EXTENDMODEL) oder leere Typen automatisch auf valide Ops.
  */
 
 import { ai } from '@/ai/genkit';
@@ -43,14 +43,14 @@ const SYSTEM_PROMPT = `Du bist ein pragmatischer Prozess-Analyst und ISO 9001:20
 Deine Aufgabe ist es, einen Geschäftsprozess schnell zu erfassen und professionell zu modellieren.
 
 PRAGMATISMUS-REGELN:
-1. Falls der Nutzer den Prozess beschreibt, erstelle SOFORT einen ersten Entwurf (ADD_NODE, ADD_EDGE).
+1. Falls der Nutzer den Prozess beschreibt, erstelle SOFORT einen Entwurf (ADD_NODE, ADD_EDGE).
 2. Sei nicht pedantisch. Fehlende Informationen hindern dich nicht am Modellieren.
 3. Alles, was unklar ist, formulierst du als Frage und schlägst ein UPDATE_PROCESS_META { openQuestions: "..." } vor.
 4. Nutze einfache Sprache im Chat, aber Fachsprache im Modell.
 
 RECHTSCHREIBUNG FÜR OPS:
-- Erfinde NIEMALS eigene Typen wie 'EXTENDMODEL'.
-- Nutze atomare Befehle: ADD_NODE für jeden Schritt, ADD_EDGE für jede Verbindung.
+- Nutze NUR diese Typen: ADD_NODE, UPDATE_NODE, REMOVE_NODE, ADD_EDGE, UPDATE_EDGE, REMOVE_EDGE, UPDATE_LAYOUT, SET_ISO_FIELD, REORDER_NODES, UPDATE_PROCESS_META.
+- Erfinde NIEMALS eigene Typen wie 'EXTENDMODEL' oder lass den Typen leer.
 
 DEIN GEDÄCHTNIS:
 - Prüfe den CHAT-VERLAUF und die OFFENEN FRAGEN: {{{openQuestions}}}.
@@ -58,15 +58,16 @@ DEIN GEDÄCHTNIS:
 
 ANTWORT-FORMAT (STRENGES JSON):
 {
-  "proposedOps": [],
+  "proposedOps": [ { "type": "ADD_NODE", "payload": { "node": { "id": "...", "title": "..." } } } ],
   "explanation": "Deine Nachricht an den Nutzer",
   "openQuestions": ["Frage 1", "Frage 2"]
 }`;
 
 /**
  * Hilfsfunktion zum Bereinigen und Normalisieren der KI-Antwort.
+ * Behebt leere Typen und Halluzinationen.
  */
-function normalizeAiResponse(text: string): any {
+function normalizeAiResponse(text: string): ProcessDesignerOutput {
   if (!text) return { proposedOps: [], explanation: "Keine Antwort erhalten.", openQuestions: [] };
   
   let jsonText = text.trim();
@@ -85,13 +86,21 @@ function normalizeAiResponse(text: string): any {
       openQuestions: Array.isArray(raw.openQuestions) ? raw.openQuestions : (Array.isArray(raw.questions) ? raw.questions : [])
     };
 
-    // Mapping von Halluzinationen (z.B. EXTENDMODEL)
     const rawOps = raw.proposedOps || raw.ops || [];
     rawOps.forEach((op: any) => {
-      const type = String(op.type || op.action || '').toUpperCase();
+      let type = String(op.type || op.action || '').toUpperCase();
+      const payload = op.payload || op;
+
+      // Fallback für leere Typen (Inferenz aus dem Payload)
+      if (!type || type === "") {
+        if (payload.node || (payload.id && payload.title)) type = 'ADD_NODE';
+        else if (payload.edge || (payload.from && payload.to) || (payload.source && payload.target)) type = 'ADD_EDGE';
+        else if (payload.field || payload.isoFields) type = 'SET_ISO_FIELD';
+        else if (payload.openQuestions || payload.title || payload.status) type = 'UPDATE_PROCESS_META';
+      }
       
+      // Mapping von Halluzinationen (z.B. EXTENDMODEL)
       if (type === 'EXTENDMODEL' || type === 'EXTEND_MODEL') {
-        const payload = op.payload || {};
         if (Array.isArray(payload.nodes)) {
           payload.nodes.forEach((n: any) => normalized.proposedOps.push({ type: 'ADD_NODE', payload: { node: n } }));
         }
@@ -105,7 +114,19 @@ function normalizeAiResponse(text: string): any {
           normalized.proposedOps.push({ type: 'SET_ISO_FIELD', payload: { isoFields: payload.isoFields } });
         }
       } else {
-        normalized.proposedOps.push({ type: type as any, payload: op.payload || op });
+        // Nur valide Typen zulassen
+        const validTypes = ['ADD_NODE', 'UPDATE_NODE', 'REMOVE_NODE', 'ADD_EDGE', 'UPDATE_EDGE', 'REMOVE_EDGE', 'UPDATE_LAYOUT', 'SET_ISO_FIELD', 'REORDER_NODES', 'UPDATE_PROCESS_META'];
+        if (validTypes.includes(type)) {
+          // Payload Korrektur für Kanten (from/to -> source/target)
+          if (type === 'ADD_EDGE' && payload.from && payload.to) {
+            normalized.proposedOps.push({ 
+              type: 'ADD_EDGE', 
+              payload: { edge: { id: payload.id || `edge-${Date.now()}`, source: payload.from, target: payload.to, label: payload.label || payload.condition || '' } } 
+            });
+          } else {
+            normalized.proposedOps.push({ type: type as any, payload: payload });
+          }
+        }
       }
     });
 
@@ -139,7 +160,7 @@ ${historyString}
 
 NUTZER-NACHRICHT: "${input.userMessage}"
 
-Liefere ein valides JSON-Objekt. Falls der Nutzer einen Prozess beschreibt, liefere direkt die ADD_NODE Befehle.`;
+Liefere ein valides JSON-Objekt. Erstelle sofort einen Entwurf (proposedOps), wenn der Nutzer Informationen liefert.`;
 
     if (config?.provider === 'openrouter') {
       const client = new OpenAI({ apiKey: config.openrouterApiKey || '', baseURL: 'https://openrouter.ai/api/v1' });

@@ -437,7 +437,7 @@ export default function ProcessDesignerPage() {
                     <div className="space-y-2 w-full">
                       {msg.questions.map((q: string, qIdx: number) => (
                         <div key={qIdx} className="p-4 bg-indigo-50 border-2 border-indigo-100 text-[11px] font-bold text-indigo-900 italic shadow-sm relative group">
-                          <HelpCircle className="w-3 h-3 absolute top-2 right-2 opacity-20" />
+                          <HelpCircle className="w-3.5 h-3.5 absolute top-2 right-2 opacity-20" />
                           {q}
                         </div>
                       ))}

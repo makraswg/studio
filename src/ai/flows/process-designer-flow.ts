@@ -43,81 +43,83 @@ export type ProcessDesignerOutput = z.infer<typeof ProcessDesignerOutputSchema>;
 const SYSTEM_PROMPT = `Du bist ein erfahrener Prozess-Analyst und ISO 9001:2015 Experte.
 Deine Aufgabe ist es, einen realen Geschäftsprozess zu verstehen und professionell zu modellieren.
 
+DEIN GEDÄCHTNIS:
+- Beachte unbedingt die Liste der bereits offenen Fragen: {{{openQuestions}}}.
+- Wiederhole NIEMALS Fragen, die bereits im Stammblatt stehen oder im Chat beantwortet wurden.
+
 PHASE 1: VERSTEHEN (ERSTE 5-7 NACHRICHTEN)
 - Sei geduldig. Schlage KEINE Änderungen am Diagramm vor (proposedOps leer lassen).
 - Stelle 1-2 gezielte Fragen zum IST-Zustand.
 - Nutze einfache, klare Sprache im Chat (kein Fachchinesisch).
-- Beachte die Liste der bereits offenen Fragen: {{{openQuestions}}}.
+- Aktualisiere die 'openQuestions' im Stammblatt via UPDATE_PROCESS_META { openQuestions: "..." }, um den Fortschritt festzuhalten. Join die Fragen mit Zeilenumbrüchen.
 
 PHASE 2: MODELLIEREN (ERST WENN DER PROZESS KLAR IST)
 - Erzeuge hochprofessionelle Inhalte für das Modell (Titel, Anweisungen, ISO-Felder).
 - Nutze 'proposedOps' für die Struktur.
-- Pflege das Stammblatt via UPDATE_PROCESS_META { openQuestions: "..." }, um den Fortschritt festzuhalten.
+- Pflege das Stammblatt weiterhin, um erledigte Fragen zu entfernen.
 
 WICHTIGE REGELN:
-1. Keine Wiederholungen von Fragen.
-2. Wenn du Fragen stellst, schlage IMMER ein UPDATE_PROCESS_META vor, um die 'openQuestions' im Stammblatt zu aktualisieren.
-3. Nutze für Knoten-IDs ein 250px Raster.
+1. Antworte IMMER im JSON-Format.
+2. Nutze für neue Knoten-IDs ein 250px Raster (x: 250, 500, 750...).
+3. Wenn du Fragen stellst, schlage IMMER ein UPDATE_PROCESS_META vor.
 
-ANTWORT-FORMAT:
-Du MUSST ein valides JSON-Objekt zurückgeben. Antworte NIEMALS mit normalem Text außerhalb des JSON.`;
+ANTWORT-FORMAT (STRENGES JSON):
+{
+  "proposedOps": [],
+  "explanation": "Deine Nachricht an den Nutzer",
+  "openQuestions": ["Frage 1", "Frage 2"]
+}`;
 
 /**
- * Extrahiert JSON aus einem String, auch wenn dieser Markdown-Wrapper enthält.
+ * Robuste JSON-Extraktion für KI-Antworten.
  */
 function extractJson(text: string): any {
+  if (!text) throw new Error("Keine Antwort von der KI erhalten.");
+  
   try {
-    // 1. Direkter Parse
-    return JSON.parse(text);
+    // 1. Direkter Parse-Versuch
+    return JSON.parse(text.trim());
   } catch (e) {
-    // 2. Suche nach ```json ... ``` oder ``` ... ```
-    const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (match && match[1]) {
+    // 2. Suche nach Markdown-JSON
+    const markdownMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (markdownMatch && markdownMatch[1]) {
       try {
-        return JSON.parse(match[1]);
-      } catch (e2) {
-        // 3. Suche nach der ersten { und letzten }
-        const start = text.indexOf('{');
-        const end = text.lastIndexOf('}');
-        if (start !== -1 && end !== -1) {
-          try {
-            return JSON.parse(text.substring(start, end + 1));
-          } catch (e3) {
-            throw new Error("JSON parsing failed even after extraction attempts.");
-          }
-        }
+        return JSON.parse(markdownMatch[1].trim());
+      } catch (e2) {}
+    }
+
+    // 3. Suche nach dem ersten { und letzten } (Brute Force Extraction)
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      const candidate = text.substring(firstBrace, lastBrace + 1);
+      try {
+        return JSON.parse(candidate);
+      } catch (e3) {
+        console.error("JSON Extraction failed even after cleaning. Raw text:", text);
+        throw new Error("Die KI-Antwort konnte nicht als JSON verarbeitet werden.");
       }
     }
-    throw e;
+    throw new Error("Die KI hat kein gültiges Ergebnis geliefert.");
   }
 }
 
 function normalizeOps(rawOps: any[]): any[] {
   if (!Array.isArray(rawOps)) return [];
-  const normalized: any[] = [];
-  rawOps.forEach(op => {
-    let type = String(op.type || op.action || '').toUpperCase();
-    if (!type) return;
-    if (type === 'ADD_NODE' && op.payload?.node) {
-      normalized.push({ type: 'ADD_NODE', payload: op.payload });
-    } else if (type === 'ADD_EDGE' && (op.payload?.edge || op.from)) {
-      const e = op.payload?.edge || op;
-      normalized.push({ 
-        type: 'ADD_EDGE', 
-        payload: { edge: { id: e.id || `e-${Math.random().toString(36).substr(2,5)}`, source: e.source || e.from, target: e.target || e.to, label: e.label || '' } } 
-      });
-    } else {
-      normalized.push({ type, payload: op.payload || op });
-    }
-  });
-  return normalized;
+  return rawOps.map(op => {
+    const type = String(op.type || op.action || '').toUpperCase();
+    return {
+      type: type as any,
+      payload: op.payload || op
+    };
+  }).filter(op => !!op.type);
 }
 
 function normalizeOutput(raw: any): ProcessDesignerOutput {
   return {
     proposedOps: normalizeOps(raw.proposedOps || raw.ops || []),
-    explanation: raw.explanation || raw.message || "Ich versuche den Prozess noch besser zu verstehen. Könnten Sie mir folgendes erklären?",
-    openQuestions: Array.isArray(raw.openQuestions) ? raw.openQuestions : (raw.questions || [])
+    explanation: raw.explanation || raw.message || "Ich benötige noch weitere Informationen, um den Prozess präzise abzubilden.",
+    openQuestions: Array.isArray(raw.openQuestions) ? raw.openQuestions : (Array.isArray(raw.questions) ? raw.questions : [])
   };
 }
 
@@ -129,27 +131,30 @@ const processDesignerFlow = ai.defineFlow(
   },
   async (input) => {
     const config = await getActiveAiConfig(input.dataSource as DataSource);
-    const historyString = (input.chatHistory || []).map(h => `${h.role}: ${h.text}`).join('\n');
+    const historyString = (input.chatHistory || []).map(h => `${h.role === 'user' ? 'Nutzer' : 'Assistent'}: ${h.text}`).join('\n');
     
     const userMessageCount = (input.chatHistory || []).filter(h => h.role === 'user').length;
     const patienceInstruction = userMessageCount < 5 
-      ? "HINWEIS: Du bist in Phase 1. Stelle nur Fragen. Schlage noch KEINE ADD_NODE/UPDATE_NODE Operationen vor, außer UPDATE_PROCESS_META für die Fragenliste."
-      : "HINWEIS: Du kannst nun in Phase 2 übergehen und das Modell aktiv mitgestalten.";
+      ? "HINWEIS: Du bist in Phase 1 (Verstehen). Stelle nur Fragen. Nutze UPDATE_PROCESS_META nur für die Fragenliste im Stammblatt. Noch keine ADD_NODE Operationen."
+      : "HINWEIS: Du bist in Phase 2 (Modellieren). Du kannst nun strukturelle Änderungen vorschlagen.";
 
     const systemPromptPopulated = SYSTEM_PROMPT
-      .replace('{{{openQuestions}}}', input.openQuestions || "Keine offenen Fragen im Stammblatt.");
+      .replace('{{{openQuestions}}}', input.openQuestions || "Keine offenen Fragen dokumentiert.");
 
     const prompt = `${patienceInstruction}
 
 AKTUELLER MODELL-ZUSTAND: 
 ${JSON.stringify(input.currentModel, null, 2)}
 
+OFFENE FRAGEN IM STAMMBLATT:
+${input.openQuestions || 'Keine'}
+
 CHAT-VERLAUF:
 ${historyString}
 
 AKTUELLE NACHRICHT VOM NUTZER: "${input.userMessage}"
 
-Bitte antworte im JSON-Format. Pflege die 'openQuestions' im Stammblatt mit UPDATE_PROCESS_META.`;
+Bitte liefere ein valides JSON-Objekt zurück.`;
 
     try {
       if (config?.provider === 'openrouter') {
@@ -167,7 +172,13 @@ Bitte antworte im JSON-Format. Pflege die 'openQuestions' im Stammblatt mit UPDA
         ? `ollama/${config.ollamaModel || 'llama3'}` 
         : `googleai/${config?.geminiModel || 'gemini-1.5-flash'}`;
 
-      const { output } = await ai.generate({ model: modelIdentifier, system: systemPromptPopulated, prompt, output: { schema: ProcessDesignerOutputSchema } });
+      const { output } = await ai.generate({ 
+        model: modelIdentifier, 
+        system: systemPromptPopulated, 
+        prompt, 
+        output: { schema: ProcessDesignerOutputSchema } 
+      });
+      
       return normalizeOutput(output || {});
     } catch (e: any) {
       console.error("AI Flow Execution Error:", e);
@@ -181,6 +192,10 @@ export async function getProcessSuggestions(input: any): Promise<ProcessDesigner
     return await processDesignerFlow(input);
   } catch (error: any) {
     console.error("Public Wrapper Error:", error);
-    return { proposedOps: [], explanation: "Entschuldigung, ich hatte ein technisches Problem bei der Analyse. Können wir den letzten Punkt nochmal besprechen?", openQuestions: ["Was genau passiert in diesem Schritt?"] };
+    return { 
+      proposedOps: [], 
+      explanation: `Entschuldigung, ich hatte ein technisches Problem bei der Analyse (${error.message || 'Verbindungsfehler'}). Können wir den letzten Punkt nochmal besprechen?`, 
+      openQuestions: [] 
+    };
   }
 }

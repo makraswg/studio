@@ -43,13 +43,17 @@ export type IamAuditOutput = z.infer<typeof IamAuditOutputSchema>;
 const SYSTEM_PROMPT = `You are a specialized IAM Auditor.
 Analyze the provided identity and assignment data against the specified audit criteria.
 
-Criteria to apply:
-{{#each criteria}}
-- {{{title}}}: {{{description}}} (Severity: {{{severity}}})
-{{/each}}
-
 Identify violations such as Privilege Creep, SoD conflicts, Orphaned accounts, etc.
-Return your response as a valid JSON object matching the requested schema.`;
+
+ANTWORT-FORMAT:
+Liefere ein valides JSON-Objekt mit folgendem Schema:
+{
+  "score": number (0-100),
+  "summary": "Zusammenfassung auf Deutsch",
+  "findings": [
+    { "entityId": "...", "entityName": "...", "finding": "...", "severity": "...", "recommendation": "...", "criteriaMatched": "..." }
+  ]
+}`;
 
 const iamAuditFlow = ai.defineFlow(
   {
@@ -59,16 +63,28 @@ const iamAuditFlow = ai.defineFlow(
   },
   async (input) => {
     const config = await getActiveAiConfig(input.dataSource as DataSource);
+    
+    const criteriaList = input.criteria
+      .map((c: any) => `- ${c.title}: ${c.description} (Severity: ${c.severity})`)
+      .join('\n');
+
     const prompt = `Audit the following data:
 Users: ${input.users.length}
 Assignments: ${input.assignments.length}
-Resources: ${input.resources.length}`;
+Resources: ${input.resources.length}
+
+Criteria to apply:
+${criteriaList}`;
 
     // Direct OpenRouter handling
     if (config?.provider === 'openrouter') {
       const client = new OpenAI({
-        apiKey: config.openrouterApiKey,
+        apiKey: config.openrouterApiKey || '',
         baseURL: 'https://openrouter.ai/api/v1',
+        defaultHeaders: {
+          "HTTP-Referer": "https://compliance-hub.local",
+          "X-Title": "ComplianceHub",
+        }
       });
 
       const response = await client.chat.completions.create({
@@ -109,7 +125,7 @@ export async function runIamAudit(input: any): Promise<IamAuditOutput> {
     console.error("IAM Audit Error:", error);
     return {
       score: 0,
-      summary: "Audit konnte nicht durchgeführt werden.",
+      summary: `Audit-Fehler: ${error.message || "Verbindung fehlgeschlagen"}.`,
       findings: []
     };
   }

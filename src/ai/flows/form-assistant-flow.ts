@@ -34,12 +34,11 @@ Current Data: {{{partialData}}}
 Based on the user's prompt and current context, suggest professional values for the missing or incomplete fields.
 Be specific, adhere to BSI IT-Grundschutz, ISO 27001 and GDPR standards.
 
-IMPORTANT: Use ONLY specific keys in the "suggestions" object depending on the formType.
-Explain your suggestions in the "explanation" field in German language.
-Return your response as a valid JSON object matching this schema:
+ANTWORT-FORMAT:
+Du MUSST eine valide JSON-Antwort in deutscher Sprache liefern:
 {
   "suggestions": { [key: string]: any },
-  "explanation": string
+  "explanation": "Erklärung der Vorschläge"
 }`;
 
 const formAssistantFlow = ai.defineFlow(
@@ -50,18 +49,25 @@ const formAssistantFlow = ai.defineFlow(
   },
   async (input) => {
     const config = await getActiveAiConfig(input.dataSource as DataSource);
+    const systemPromptPopulated = SYSTEM_PROMPT
+      .replace('{{{formType}}}', input.formType)
+      .replace('{{{partialData}}}', JSON.stringify(input.partialData));
     
     // Direct OpenRouter handling
     if (config?.provider === 'openrouter') {
       const client = new OpenAI({
-        apiKey: config.openrouterApiKey,
+        apiKey: config.openrouterApiKey || '',
         baseURL: 'https://openrouter.ai/api/v1',
+        defaultHeaders: {
+          "HTTP-Referer": "https://compliance-hub.local",
+          "X-Title": "ComplianceHub",
+        }
       });
 
       const response = await client.chat.completions.create({
         model: config.openrouterModel || 'google/gemini-2.0-flash-001',
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT.replace('{{{formType}}}', input.formType).replace('{{{partialData}}}', JSON.stringify(input.partialData)) },
+          { role: 'system', content: systemPromptPopulated },
           { role: 'user', content: input.userPrompt }
         ],
         response_format: { type: 'json_object' }
@@ -79,7 +85,7 @@ const formAssistantFlow = ai.defineFlow(
     
     const { output } = await ai.generate({
       model: modelIdentifier,
-      system: SYSTEM_PROMPT,
+      system: systemPromptPopulated,
       prompt: input.userPrompt,
       output: { schema: FormAssistantOutputSchema }
     });
@@ -96,7 +102,7 @@ export async function getFormSuggestions(input: FormAssistantInput): Promise<For
     console.error("AI Assistant Error:", error);
     return {
       suggestions: {},
-      explanation: "KI-Vorschläge konnten nicht geladen werden. Bitte prüfen Sie die Verbindung zum KI-Dienst."
+      explanation: `KI-Vorschläge konnten nicht geladen werden: ${error.message || "Verbindungsfehler"}.`
     };
   }
 }

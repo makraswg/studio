@@ -23,9 +23,11 @@ const ProcessDesignerInputSchema = z.object({
   dataSource: z.enum(['mysql', 'firestore', 'mock']).optional(),
 });
 
+export type ProcessDesignerInput = z.infer<typeof ProcessDesignerInputSchema>;
+
 const ProcessDesignerOutputSchema = z.object({
   proposedOps: z.array(z.object({
-    type: z.enum(['ADD_NODE', 'UPDATE_NODE', 'REMOVE_NODE', 'ADD_EDGE', 'UPDATE_EDGE', 'REMOVE_EDGE', 'UPDATE_LAYOUT', 'SET_ISO_FIELD']),
+    type: z.enum(['ADD_NODE', 'UPDATE_NODE', 'REMOVE_NODE', 'ADD_EDGE', 'UPDATE_EDGE', 'REMOVE_EDGE', 'UPDATE_LAYOUT', 'SET_ISO_FIELD', 'REORDER_NODES']),
     payload: z.any()
   })).describe('Structured list of operations to modify the model.'),
   explanation: z.string().describe('Professional natural language explanation of what changed and why (in German).'),
@@ -48,12 +50,19 @@ OPERATIONEN:
 - ADD_NODE: Füge neue Schritte hinzu. Gib ihnen immer eine 'description', 'checklist', 'tips' und 'errors'.
 - SET_ISO_FIELD: Setze Felder wie 'inputs', 'outputs', 'risks', 'evidence'.
 - ADD_EDGE: Verbinde Knoten. Edges von 'decision' Knoten MÜSSEN ein 'label' haben (z.B. "Ja", "Nein").
+- REORDER_NODES: Ändere die Reihenfolge der Knoten.
 
 ANTWORT-FORMAT:
-- Sprache: Deutsch.
-- Erkläre im Feld 'explanation' kurz und professionell, was du vorschlägst und warum (z.B. "Ich habe einen Entscheidungsschritt für die Budgetprüfung hinzugefügt, um die Compliance-Anforderungen zu erfüllen").
-- Stelle im Feld 'openQuestions' Fragen, die helfen, den Prozess zu vervollständigen.`;
+Du MUSST eine valide JSON-Antwort liefern, die exakt folgendem Schema entspricht:
+{
+  "proposedOps": [ { "type": "...", "payload": { ... } } ],
+  "explanation": "Erklärung auf Deutsch",
+  "openQuestions": ["Frage 1", "Frage 2"]
+}`;
 
+/**
+ * The main Flow definition for Process Designer.
+ */
 const processDesignerFlow = ai.defineFlow(
   {
     name: 'processDesignerFlow',
@@ -74,10 +83,15 @@ AKTUELLE ANWEISUNG: "${input.userMessage}"
 
 MODELL-ZUSTAND (JSON): ${JSON.stringify(input.currentModel)}`;
 
+    // Handling OpenRouter
     if (config?.provider === 'openrouter') {
       const client = new OpenAI({
-        apiKey: config.openrouterApiKey,
+        apiKey: config.openrouterApiKey || '',
         baseURL: 'https://openrouter.ai/api/v1',
+        defaultHeaders: {
+          "HTTP-Referer": "https://compliance-hub.local",
+          "X-Title": "ComplianceHub",
+        }
       });
 
       const response = await client.chat.completions.create({
@@ -90,10 +104,11 @@ MODELL-ZUSTAND (JSON): ${JSON.stringify(input.currentModel)}`;
       });
 
       const content = response.choices[0].message.content;
-      if (!content) throw new Error('AI failed via OpenRouter.');
+      if (!content) throw new Error('AI lieferte leere Antwort via OpenRouter.');
       return JSON.parse(content) as ProcessDesignerOutput;
     }
 
+    // Standard Genkit handling
     const modelIdentifier = config?.provider === 'ollama' 
       ? `ollama/${config.ollamaModel || 'llama3'}` 
       : `googleai/${config?.geminiModel || 'gemini-1.5-flash'}`;
@@ -105,11 +120,14 @@ MODELL-ZUSTAND (JSON): ${JSON.stringify(input.currentModel)}`;
       output: { schema: ProcessDesignerOutputSchema }
     });
 
-    if (!output) throw new Error('AI failed.');
+    if (!output) throw new Error('AI lieferte keine strukturierte Antwort.');
     return output;
   }
 );
 
+/**
+ * Public wrapper function to call the flow.
+ */
 export async function getProcessSuggestions(input: any): Promise<ProcessDesignerOutput> {
   try {
     return await processDesignerFlow(input);
@@ -117,7 +135,7 @@ export async function getProcessSuggestions(input: any): Promise<ProcessDesigner
     console.error("Process AI Error:", error);
     return {
       proposedOps: [],
-      explanation: "Ein Fehler ist bei der KI-Analyse aufgetreten. Bitte prüfen Sie die Verbindung.",
+      explanation: `Fehler bei der KI-Analyse: ${error.message || "Unbekannter Fehler"}. Bitte prüfen Sie die Verbindung zum Provider.`,
       openQuestions: ["Können Sie die Anweisung bitte wiederholen?"]
     };
   }

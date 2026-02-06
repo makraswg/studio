@@ -1,9 +1,9 @@
-
 'use server';
 /**
  * @fileOverview AI Form Assistant Flow.
  * 
  * Provides contextual suggestions for completing compliance forms (Resources, Risks, etc.)
+ * Structured to return keys that match the frontend state for direct "Auto-Fill" capability.
  */
 
 import { ai } from '@/ai/genkit';
@@ -41,7 +41,46 @@ Context: {{{formType}}}
 Current Data: {{{partialData}}}
 
 Based on the user's prompt and current context, suggest professional values for the missing or incomplete fields.
-Be specific, adhere to BSI IT-Grundschutz and ISO 27001 standards where applicable.`;
+Be specific, adhere to BSI IT-Grundschutz and ISO 27001 standards where applicable.
+
+IMPORTANT: Use ONLY the following keys in the "suggestions" object depending on the formType to allow automatic filling:
+
+For "resource":
+- name: (string)
+- assetType: ("Hardware", "Software", "SaaS", "Infrastruktur")
+- category: ("Fachanwendung", "Infrastruktur", "Sicherheitskomponente", "Support-Tool")
+- operatingModel: ("On-Prem", "Cloud", "Hybrid", "Private Cloud")
+- criticality: ("low", "medium", "high")
+- confidentialityReq: ("low", "medium", "high")
+- integrityReq: ("low", "medium", "high")
+- availabilityReq: ("low", "medium", "high")
+- processingPurpose: (string)
+- dataClassification: ("public", "internal", "confidential", "strictly_confidential")
+
+For "risk":
+- title: (string)
+- category: ("IT-Sicherheit", "Datenschutz", "Rechtlich", "Betrieblich")
+- description: (string)
+- impact: (Number 1-5)
+- probability: (Number 1-5)
+- bruttoReason: (string)
+- nettoReason: (string)
+
+For "measure":
+- title: (string)
+- description: (string)
+- owner: (string)
+- effectiveness: (Number 1-5)
+- tomCategory: (string)
+
+For "gdpr":
+- name: (string)
+- description: (string)
+- responsibleDepartment: (string)
+- legalBasis: (string)
+- retentionPeriod: (string)
+
+Explain your suggestions in the "explanation" field in German language.`;
 
 const formAssistantFlow = ai.defineFlow(
   {

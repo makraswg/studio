@@ -1,11 +1,10 @@
-
 "use client";
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FileCheck, Plus, Archive, RotateCcw } from 'lucide-react';
+import { FileCheck, Plus, Archive, RotateCcw, Layers } from 'lucide-react';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';

@@ -14,10 +14,8 @@ import {
 /**
  * Hilfsfunktion zur Generierung einer eindeutigen ID innerhalb eines Modells.
  * Verhindert den "Duplicate ID" Fehler für Knoten und Verbindungen.
- * Falls die requestedId leer, 'undefined' oder 'null' ist, wird ein Fallback genutzt.
  */
 function ensureUniqueId(requestedId: string | null | undefined, usedIds: Set<string>, prefix: string = 'node'): string {
-  // Radikale Prüfung auf ungültige IDs
   const isInvalid = !requestedId || 
                     String(requestedId).toLowerCase() === 'undefined' || 
                     String(requestedId).toLowerCase() === 'null' || 
@@ -97,16 +95,12 @@ export async function createProcessAction(
  */
 export async function deleteProcessAction(processId: string, dataSource: DataSource = 'mysql') {
   try {
-    // 1. Versionen löschen
     const verRes = await getCollectionData('process_versions', dataSource);
     const versions = verRes.data?.filter((v: any) => v.process_id === processId) || [];
     for (const v of versions) {
       await deleteCollectionRecord('process_versions', v.id, dataSource);
     }
-
-    // 2. Prozess löschen
     await deleteCollectionRecord('processes', processId, dataSource);
-    
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -136,7 +130,7 @@ export async function updateProcessMetadataAction(
 
 /**
  * Wendet Operationen auf eine Prozessversion an.
- * Inklusive intelligenter Konfliktlösung für IDs (Duplicate ID Fix).
+ * Behebt ID-Kollisionen und stellt globale Eindeutigkeit sicher.
  */
 export async function applyProcessOpsAction(
   processId: string,
@@ -154,56 +148,59 @@ export async function applyProcessOpsAction(
   let model = JSON.parse(JSON.stringify(currentVersion.model_json));
   let layout = JSON.parse(JSON.stringify(currentVersion.layout_json));
 
-  // Sicherheitsnetz für IDs
-  const usedNodeIds = new Set((model.nodes || []).map((n: any) => String(n.id)));
-  const usedEdgeIds = new Set((model.edges || []).map((e: any) => String(e.id)));
+  // Globale Liste aller IDs im Modell (mxGraph erfordert Eindeutigkeit über Nodes UND Edges)
+  const usedIds = new Set([
+    ...(model.nodes || []).map((n: any) => String(n.id)),
+    ...(model.edges || []).map((e: any) => String(e.id))
+  ]);
   
   const nodeIdMap: Record<string, string> = {};
   const edgeIdMap: Record<string, string> = {};
 
-  // 1. Pass: Eindeutigkeit prüfen und Mapping für Knoten und Edges erstellen
+  // 1. Pass: Eindeutigkeit prüfen und Mapping erstellen
   ops.forEach(op => {
     if (op.type === 'ADD_NODE' && op.payload?.node) {
       const originalId = op.payload.node.id;
-      const uniqueId = ensureUniqueId(originalId, usedNodeIds, 'node');
-      usedNodeIds.add(uniqueId);
-      if (uniqueId !== String(originalId)) {
+      const uniqueId = ensureUniqueId(originalId, usedIds, 'node');
+      usedIds.add(uniqueId);
+      // Nur mappen, wenn eine valide ID vorhanden war, die geändert werden musste
+      if (originalId && String(originalId).toLowerCase() !== 'undefined') {
         nodeIdMap[String(originalId)] = uniqueId;
+      } else {
+        // Falls keine ID da war, setzen wir sie direkt im Payload für den 2. Pass
+        op.payload.node.id = uniqueId;
       }
     }
     if (op.type === 'ADD_EDGE' && op.payload?.edge) {
       const originalId = op.payload.edge.id;
-      const uniqueId = ensureUniqueId(originalId, usedEdgeIds, 'edge');
-      usedEdgeIds.add(uniqueId);
-      if (uniqueId !== String(originalId)) {
+      const uniqueId = ensureUniqueId(originalId, usedIds, 'edge');
+      usedIds.add(uniqueId);
+      if (originalId && String(originalId).toLowerCase() !== 'undefined') {
         edgeIdMap[String(originalId)] = uniqueId;
+      } else {
+        op.payload.edge.id = uniqueId;
       }
     }
   });
 
-  // 2. Pass: Operationen anwenden mit korrigierten IDs (Remapping)
+  // 2. Pass: Operationen anwenden
   for (const op of ops) {
     switch (op.type) {
       case 'ADD_NODE':
         if (!model.nodes) model.nodes = [];
         if (!op.payload?.node) break;
         
-        const reqId = String(op.payload.node.id);
-        const finalId = nodeIdMap[reqId] || reqId;
-        
-        // Finales Sicherheitsnetz: Falls finalId immer noch null/undefined/empty
-        const safeId = (finalId && finalId.toLowerCase() !== 'undefined' && finalId.toLowerCase() !== 'null' && finalId.trim() !== '') ? finalId : `node-${Math.random().toString(36).substring(2, 7)}`;
-        
-        const nodeToAdd = { ...op.payload.node, id: safeId };
+        const nodeToAdd = { ...op.payload.node };
+        if (!nodeToAdd.id) nodeToAdd.id = `node-${Math.random().toString(36).substring(2, 7)}`;
         if (!nodeToAdd.checklist) nodeToAdd.checklist = [];
         model.nodes.push(nodeToAdd);
         
-        if (!layout.positions[safeId]) {
+        if (!layout.positions[nodeToAdd.id]) {
           const posValues = Object.values(layout.positions);
           const lastX = posValues.length > 0 
             ? Math.max(...posValues.map((p: any) => (p as any).x || 0)) 
             : 50;
-          layout.positions[safeId] = { x: lastX + 220, y: 150 };
+          layout.positions[nodeToAdd.id] = { x: lastX + 220, y: 150 };
         }
         break;
 
@@ -229,16 +226,13 @@ export async function applyProcessOpsAction(
         if (!model.edges) model.edges = [];
         if (!op.payload?.edge) break;
         
-        const reqEId = String(op.payload.edge.id);
-        const finalEId = edgeIdMap[reqEId] || reqEId;
-        const safeEId = (finalEId && finalEId.toLowerCase() !== 'undefined' && finalEId.toLowerCase() !== 'null' && finalEId.trim() !== '') ? finalEId : `edge-${Date.now()}`;
-        
-        const edge = { ...op.payload.edge, id: safeEId };
+        const edgeToAdd = { ...op.payload.edge };
+        if (!edgeToAdd.id) edgeToAdd.id = `edge-${Date.now()}`;
         // Referenzen korrigieren, falls Quelle/Ziel umgemappt wurden
-        edge.source = nodeIdMap[String(edge.source)] || String(edge.source);
-        edge.target = nodeIdMap[String(edge.target)] || String(edge.target);
+        edgeToAdd.source = nodeIdMap[String(edgeToAdd.source)] || String(edgeToAdd.source);
+        edgeToAdd.target = nodeIdMap[String(edgeToAdd.target)] || String(edgeToAdd.target);
         
-        model.edges.push(edge);
+        model.edges.push(edgeToAdd);
         break;
 
       case 'REMOVE_EDGE':
@@ -279,7 +273,6 @@ export async function applyProcessOpsAction(
             const node = (model.nodes || []).find((n: any) => n.id === id);
             if (node) newNodes.push(node);
           });
-          // Fallback für nicht gelistete Knoten
           (model.nodes || []).forEach((n: any) => {
             if (!mappedOrderedIds.includes(n.id)) newNodes.push(n);
           });

@@ -61,6 +61,10 @@ import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 
+/**
+ * Erzeugt das XML für mxGraph. 
+ * Garantiert Eindeutigkeit der IDs durch Fallbacks.
+ */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
   const nodes = model.nodes || [];
@@ -68,7 +72,8 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   const positions = layout.positions || {};
 
   nodes.forEach((node, idx) => {
-    const pos = positions[node.id] || { x: 50 + (idx * 220), y: 150 };
+    const nodeSafeId = node.id || `node-gen-${idx}`;
+    const pos = positions[nodeSafeId] || { x: 50 + (idx * 220), y: 150 };
     let style = '';
     let w = 160, h = 80;
     switch (node.type) {
@@ -83,11 +88,12 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
       case 'decision': style = 'rhombus;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;'; w = 100; h = 100; break;
       default: style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=1.5;shadow=1;';
     }
-    xml += `<mxCell id="${node.id}" value="${node.title}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
+    xml += `<mxCell id="${nodeSafeId}" value="${node.title}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
   });
 
-  edges.forEach(edge => {
-    xml += `<mxCell id="${edge.id}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="${edge.source}" target="${edge.target}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+  edges.forEach((edge, idx) => {
+    const edgeSafeId = edge.id || `edge-gen-${idx}`;
+    xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="${edge.source}" target="${edge.target}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
   });
   xml += `</root></mxGraphModel>`;
   return xml;
@@ -163,6 +169,7 @@ export default function ProcessDesignerPage() {
     }
   }, [selectedNode?.id]);
 
+  // Handler für das Resizing (Verschoben nach oben für korrekte Initialisierung)
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (isResizingLeft.current) setLeftWidth(Math.max(250, Math.min(600, e.clientX)));
     if (isResizingRight.current) setRightWidth(Math.max(300, Math.min(600, window.innerWidth - e.clientX)));
@@ -325,13 +332,13 @@ export default function ProcessDesignerPage() {
 
       <div className="flex-1 flex overflow-hidden">
         <aside style={{ width: `${leftWidth}px` }} className="border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar">
-          <Tabs defaultValue="steps" className="flex-1 flex flex-col min-h-0">
-            <TabsList className="h-14 bg-slate-50 border-b gap-2 p-0 w-full justify-start px-4 shrink-0 rounded-none">
+          <Tabs defaultValue="steps" className="flex-1 flex flex-col">
+            <TabsList className="h-12 bg-slate-50 border-b gap-2 p-0 w-full justify-start px-4 shrink-0 rounded-none">
               <TabsTrigger value="meta" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2"><FilePen className="w-3.5 h-3.5" /> Stammblatt</TabsTrigger>
               <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2"><ClipboardList className="w-3.5 h-3.5" /> Prozessschritte</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="meta" className="flex-1 mt-0 m-0 p-0 overflow-hidden data-[state=active]:flex flex-col outline-none">
+            <TabsContent value="meta" className="flex-1 m-0 p-0 overflow-hidden data-[state=active]:flex flex-col outline-none">
               <ScrollArea className="flex-1">
                 <div className="p-6 space-y-10 pb-24">
                   <div className="space-y-6">
@@ -370,7 +377,7 @@ export default function ProcessDesignerPage() {
               </ScrollArea>
             </TabsContent>
 
-            <TabsContent value="steps" className="flex-1 mt-0 m-0 p-0 overflow-hidden data-[state=active]:flex flex-col outline-none">
+            <TabsContent value="steps" className="flex-1 m-0 p-0 overflow-hidden data-[state=active]:flex flex-col outline-none">
               <div className="px-5 py-3 border-b bg-slate-50 flex items-center justify-between shrink-0">
                 <h3 className="text-[10px] font-bold uppercase text-slate-400">Ablauffolge</h3>
                 <div className="flex gap-1">
@@ -386,7 +393,7 @@ export default function ProcessDesignerPage() {
                     const linkedProc = isEndLinked ? processes?.find(p => p.id === node.targetProcessId) : null;
                     
                     return (
-                      <div key={`${node.id}-${idx}`} className={cn("group flex items-center gap-3 p-2.5 border transition-all cursor-pointer bg-white", selectedNodeId === node.id ? "border-primary ring-1 ring-primary/10" : "border-slate-100 hover:border-slate-300")} onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}>
+                      <div key={`${node.id || idx}`} className={cn("group flex items-center gap-3 p-2.5 border transition-all cursor-pointer bg-white", selectedNodeId === node.id ? "border-primary ring-1 ring-primary/10" : "border-slate-100 hover:border-slate-300")} onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}>
                         <div className={cn(
                           "w-7 h-7 rounded-none flex items-center justify-center shrink-0 border", 
                           node.type === 'decision' ? "bg-orange-50 text-orange-600" : 
@@ -404,7 +411,7 @@ export default function ProcessDesignerPage() {
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button variant="ghost" size="icon" className="h-6 w-6" disabled={idx === 0} onClick={e => { e.stopPropagation(); handleMoveNode(node.id, 'up'); }}><ChevronUp className="w-3 h-3" /></Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={idx === currentVersion.model_json.nodes.length - 1} onClick={e => { e.stopPropagation(); handleMoveNode(node.id, 'down'); }}><ChevronDown className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={idx === (currentVersion?.model_json?.nodes?.length || 0) - 1} onClick={e => { e.stopPropagation(); handleMoveNode(node.id, 'down'); }}><ChevronDown className="w-3 h-3" /></Button>
                         </div>
                       </div>
                     );
@@ -546,7 +553,7 @@ export default function ProcessDesignerPage() {
                       {(currentVersion?.model_json?.edges || []).filter((e: any) => e.source === selectedNodeId).map((edge: any, eidx: number) => {
                         const targetNode = currentVersion?.model_json?.nodes?.find((n: any) => n.id === edge.target);
                         return (
-                          <div key={`${edge.id}-${eidx}`} className="flex items-center justify-between p-3 border-2 bg-slate-50 hover:bg-white transition-colors text-[11px] shadow-sm group">
+                          <div key={`${edge.id || eidx}`} className="flex items-center justify-between p-3 border-2 bg-slate-50 hover:bg-white transition-colors text-[11px] shadow-sm group">
                             <div className="flex items-center gap-3 truncate">
                               <ArrowRightCircle className="w-4 h-4 text-primary" />
                               <div className="truncate">
@@ -578,7 +585,7 @@ export default function ProcessDesignerPage() {
                             <SelectValue placeholder="Wählen..." />
                           </SelectTrigger>
                           <SelectContent className="rounded-none">
-                            {(currentVersion?.model_json?.nodes || []).filter((n: any) => n.id !== selectedNodeId).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>)}
+                            {(currentVersion?.model_json?.nodes || []).filter((n: any) => n.id !== selectedNodeId).map((n: any) => <SelectItem key={n.id || n.title} value={n.id}>{n.title}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>

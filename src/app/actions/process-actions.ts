@@ -8,7 +8,8 @@ import {
   ProcessOperation, 
   ProcessModel, 
   ProcessLayout, 
-  DataSource 
+  DataSource,
+  ProcessNode
 } from '@/lib/types';
 
 /**
@@ -120,6 +121,21 @@ export async function applyProcessOpsAction(
       case 'SET_ISO_FIELD':
         if (!model.isoFields) model.isoFields = {};
         model.isoFields[op.payload.field] = op.payload.value;
+        break;
+      case 'REORDER_NODES':
+        const { orderedNodeIds } = op.payload;
+        if (Array.isArray(orderedNodeIds)) {
+          const newNodes: ProcessNode[] = [];
+          orderedNodeIds.forEach((id: string) => {
+            const node = model.nodes.find(n => n.id === id);
+            if (node) newNodes.push(node);
+          });
+          // Sicherstellen, dass keine Knoten verloren gehen, die nicht im Payload waren
+          model.nodes.forEach(n => {
+            if (!orderedNodeIds.includes(n.id)) newNodes.push(n);
+          });
+          model.nodes = newNodes;
+        }
         break;
     }
   });

@@ -34,7 +34,9 @@ import {
   Box,
   AlertTriangle,
   ChevronRight,
-  Info
+  Info,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -226,6 +228,26 @@ export default function ProcessDesignerPage() {
     setSelectedNodeId(newId);
   };
 
+  const handleMoveNode = async (nodeId: string, direction: 'up' | 'down') => {
+    if (!currentVersion) return;
+    const nodes = [...currentVersion.model_json.nodes];
+    const index = nodes.findIndex(n => n.id === nodeId);
+    if (index === -1) return;
+    
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= nodes.length) return;
+    
+    const newNodes = [...nodes];
+    const [movedNode] = newNodes.splice(index, 1);
+    newNodes.splice(newIndex, 0, movedNode);
+    
+    const ops = [{
+      type: 'REORDER_NODES',
+      payload: { orderedNodeIds: newNodes.map(n => n.id) }
+    }];
+    await handleApplyOps(ops);
+  };
+
   const handleAddEdge = async () => {
     if (!selectedNodeId || !newEdgeTargetId) return;
     const ops = [{
@@ -373,7 +395,7 @@ export default function ProcessDesignerPage() {
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      {(currentVersion.model_json.nodes || []).map((node: ProcessNode) => (
+                      {(currentVersion.model_json.nodes || []).map((node: ProcessNode, idx: number) => (
                         <div 
                           key={node.id} 
                           className={cn(
@@ -382,6 +404,27 @@ export default function ProcessDesignerPage() {
                           )}
                           onClick={() => setSelectedNodeId(node.id)}
                         >
+                          <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-5 w-5 rounded-none hover:bg-slate-100 disabled:opacity-30" 
+                              disabled={idx === 0}
+                              onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'up'); }}
+                            >
+                              <ChevronUp className="w-3 h-3" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-5 w-5 rounded-none hover:bg-slate-100 disabled:opacity-30" 
+                              disabled={idx === currentVersion.model_json.nodes.length - 1}
+                              onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'down'); }}
+                            >
+                              <ChevronDown className="w-3 h-3" />
+                            </Button>
+                          </div>
+                          
                           <div className={cn(
                             "w-8 h-8 rounded-none flex items-center justify-center shrink-0 border",
                             node.type === 'decision' ? "bg-orange-50 text-orange-600 border-orange-100" : "bg-blue-50 text-blue-600 border-blue-100"

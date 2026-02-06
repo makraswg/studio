@@ -279,7 +279,7 @@ export default function DashboardPage() {
                 className="w-full justify-start h-14 rounded-none border-primary/20 hover:border-primary hover:bg-primary/5 gap-3 bg-transparent"
                 onClick={() => handleExport('pdf', 'resource')}
                 disabled={isExporting}
-              ) : (
+              >
                 <FileText className="w-4 h-4 text-primary" />
                 <span className="text-[10px] font-bold uppercase">PDF: System-Bericht</span>
               </Button>

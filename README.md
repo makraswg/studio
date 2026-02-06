@@ -9,8 +9,6 @@ Die Plattform ist für den Betrieb in einer Docker-Umgebung optimiert und nutzt 
 ### 1. Erstinstallation
 Stellen Sie sicher, dass `docker` und das `docker-compose-plugin` installiert sind. 
 
-**Hinweis:** Verwenden Sie den modernen Befehl `docker compose` (V2), um Fehler mit veralteten Python-Versionen zu vermeiden.
-
 ```bash
 # Container bauen und im Hintergrund starten
 docker compose up -d --build
@@ -35,7 +33,7 @@ Verwenden Sie für die erste Anmeldung nach der Initialisierung folgende Zugangs
 
 ## 🔄 Updates durchführen
 
-Wenn neue Funktionen implementiert wurden, führen Sie folgende Schritte aus, um das Image zu aktualisieren und die Datenbank-Migrationen anzuwenden:
+Wenn neue Funktionen implementiert wurden, führen Sie folgende Schritte aus:
 
 ```bash
 # Container stoppen und neue Version bauen
@@ -51,8 +49,15 @@ docker compose up -d --build
 
 ### ModuleNotFoundError: No module named 'distutils'
 Falls dieser Fehler beim Aufruf von `docker-compose` erscheint, verwenden Sie eine veraltete Python-basierte Version. 
-**Lösung:** Installieren Sie das Docker Compose Plugin (`apt install docker-compose-v2`) und nutzen Sie den Befehl ohne Bindestrich:
-`docker compose up` statt `docker-compose up`.
+**Lösung:** Verwenden Sie den modernen Befehl ohne Bindestrich: `docker compose` statt `docker-compose`.
+
+### Error: open sysctl net.ipv4.ip_unprivileged_port_start permission denied
+Dieser Fehler tritt in manchen virtualisierten Umgebungen auf (z.B. LXC oder Cloud Workstations). 
+**Lösung:** Führen Sie auf Ihrem Host-System (nicht im Container) folgenden Befehl als root aus:
+`sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0`
+
+### Build-Fehler: /app/public not found
+Stellen Sie sicher, dass ein Verzeichnis namens `public` im Stammverzeichnis existiert. Es wurde in der aktuellen Version automatisch angelegt.
 
 ## 🛠 Technologien
 *   **Frontend/Backend:** Next.js 15 (App Router)

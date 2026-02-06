@@ -9,16 +9,14 @@ services:
       MYSQL_PASSWORD: hub_secret_password
       MYSQL_ROOT_PASSWORD: root_secret_password
     ports:
-      - "3307:3306" # Extern 3307, falls schon ein lokales MySQL auf 3306 läuft
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
       - compliance-hub-network
 
   compliance-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     container_name: compliance-hub-app
     restart: always
     ports:

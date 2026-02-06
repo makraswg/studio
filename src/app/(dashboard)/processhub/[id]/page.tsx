@@ -333,7 +333,7 @@ export default function ProcessDesignerPage() {
             
             <TabsContent value="meta" className="flex-1 mt-0 m-0 p-0 overflow-hidden data-[state=active]:flex flex-col outline-none">
               <ScrollArea className="flex-1">
-                <div className="p-6 space-y-10 pb-20">
+                <div className="p-6 space-y-10 pb-24">
                   <div className="space-y-6">
                     <h3 className="text-[10px] font-black uppercase text-slate-400 border-b pb-1">Allgemein</h3>
                     <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase">Name</Label><Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="rounded-none font-bold h-10" /></div>

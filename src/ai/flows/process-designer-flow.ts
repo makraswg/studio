@@ -44,7 +44,7 @@ Deine Aufgabe ist es, einen Geschäftsprozess schnell zu erfassen und profession
 
 PRAGMATISMUS-REGELN:
 1. Falls der Nutzer den Prozess beschreibt, erstelle SOFORT einen Entwurf (ADD_NODE, ADD_EDGE).
-2. Sei nicht pedantisch. Fehlende Informationen hindern dich nicht am Modellieren.
+2. Sei nicht pedantisch. Fehlende Informationen hindern dich nicht am Modellieren. Nutze Annahmen basierend auf Best-Practices.
 3. Alles, was unklar ist, formulierst du als Frage und schlägst ein UPDATE_PROCESS_META { openQuestions: "..." } vor.
 4. Nutze einfache Sprache im Chat, aber Fachsprache im Modell.
 
@@ -52,6 +52,7 @@ RECHTSCHREIBUNG FÜR OPS:
 - Nutze NUR diese Typen: ADD_NODE, UPDATE_NODE, REMOVE_NODE, ADD_EDGE, UPDATE_EDGE, REMOVE_EDGE, UPDATE_LAYOUT, SET_ISO_FIELD, REORDER_NODES, UPDATE_PROCESS_META.
 - Erfinde NIEMALS eigene Typen wie 'EXTENDMODEL' oder lass den Typen leer.
 - Jeder Knoten MUSS eine ID und einen Typ ('step', 'decision', 'start', 'end') haben.
+- Vermeide die ID "undefined". Nutze sprechende IDs (z.B. "it_pruefung").
 
 DEIN GEDÄCHTNIS:
 - Prüfe den CHAT-VERLAUF und die OFFENEN FRAGEN: {{{openQuestions}}}.
@@ -104,9 +105,9 @@ function normalizeAiResponse(text: string): ProcessDesignerOutput {
       if (type === 'EXTENDMODEL' || type === 'EXTEND_MODEL') {
         if (Array.isArray(payload.nodes)) {
           payload.nodes.forEach((n: any) => {
-            if (!n.id || n.id === 'undefined') n.id = `node-${Math.random().toString(36).substring(2, 7)}`;
+            const nodeId = (n.id && String(n.id).toLowerCase() !== 'undefined') ? n.id : `node-${Math.random().toString(36).substring(2, 7)}`;
             if (!n.type) n.type = 'step';
-            normalized.proposedOps.push({ type: 'ADD_NODE', payload: { node: n } });
+            normalized.proposedOps.push({ type: 'ADD_NODE', payload: { node: { ...n, id: nodeId } } });
           });
         }
         if (Array.isArray(payload.edges)) {
@@ -116,7 +117,7 @@ function normalizeAiResponse(text: string): ProcessDesignerOutput {
             if (source && target) {
               normalized.proposedOps.push({ 
                 type: 'ADD_EDGE', 
-                payload: { edge: { id: e.id || `edge-${Math.random().toString(36).substring(2,7)}`, source, target, label: e.label || '' } } 
+                payload: { edge: { id: e.id || `edge-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`, source, target, label: e.label || '' } } 
               });
             }
           });
@@ -129,9 +130,9 @@ function normalizeAiResponse(text: string): ProcessDesignerOutput {
         if (validTypes.includes(type)) {
           if (type === 'ADD_NODE') {
             const node = payload.node || payload;
-            if (!node.id || node.id === 'undefined') node.id = `node-${Math.random().toString(36).substring(2, 7)}`;
+            const nodeId = (node.id && String(node.id).toLowerCase() !== 'undefined') ? node.id : `node-${Math.random().toString(36).substring(2, 7)}`;
             if (!node.type) node.type = 'step';
-            normalized.proposedOps.push({ type: 'ADD_NODE', payload: { node } });
+            normalized.proposedOps.push({ type: 'ADD_NODE', payload: { node: { ...node, id: nodeId } } });
           } else if (type === 'ADD_EDGE') {
             const edge = payload.edge || payload;
             const source = edge.source || edge.from;
@@ -180,7 +181,7 @@ ${historyString}
 NUTZER-NACHRICHT: "${input.userMessage}"
 
 Liefere ein valides JSON-Objekt. Erstelle sofort einen Entwurf (proposedOps), wenn der Nutzer Informationen liefert. 
-Jeder Knoten MUSS eine ID und einen gültigen Typ (step, decision, start, end) besitzen.`;
+Jeder Knoten MUSS eine ID (KEIN "undefined") und einen gültigen Typ (step, decision, start, end) besitzen.`;
 
     if (config?.provider === 'openrouter') {
       const client = new OpenAI({ apiKey: config.openrouterApiKey || '', baseURL: 'https://openrouter.ai/api/v1' });

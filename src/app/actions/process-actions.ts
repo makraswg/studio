@@ -17,9 +17,15 @@ import {
  * Falls die requestedId leer, 'undefined' oder 'null' ist, wird ein Fallback genutzt.
  */
 function ensureUniqueId(requestedId: string | null | undefined, usedIds: Set<string>, prefix: string = 'node'): string {
-  let baseId = (requestedId && String(requestedId).toLowerCase() !== 'undefined' && String(requestedId).toLowerCase() !== 'null' && String(requestedId).trim() !== '') 
-    ? String(requestedId) 
-    : `${prefix}-${Math.random().toString(36).substring(2, 7)}`;
+  // Radikale Prüfung auf ungültige IDs
+  const isInvalid = !requestedId || 
+                    String(requestedId).toLowerCase() === 'undefined' || 
+                    String(requestedId).toLowerCase() === 'null' || 
+                    String(requestedId).trim() === '';
+
+  let baseId = isInvalid 
+    ? `${prefix}-${Math.random().toString(36).substring(2, 7)}` 
+    : String(requestedId);
   
   let finalId = baseId;
   let counter = 1;
@@ -149,8 +155,8 @@ export async function applyProcessOpsAction(
   let layout = JSON.parse(JSON.stringify(currentVersion.layout_json));
 
   // Sicherheitsnetz für IDs
-  const usedNodeIds = new Set((model.nodes || []).map((n: any) => n.id));
-  const usedEdgeIds = new Set((model.edges || []).map((e: any) => e.id));
+  const usedNodeIds = new Set((model.nodes || []).map((n: any) => String(n.id)));
+  const usedEdgeIds = new Set((model.edges || []).map((e: any) => String(e.id)));
   
   const nodeIdMap: Record<string, string> = {};
   const edgeIdMap: Record<string, string> = {};
@@ -185,7 +191,7 @@ export async function applyProcessOpsAction(
         const reqId = String(op.payload.node.id);
         const finalId = nodeIdMap[reqId] || reqId;
         
-        // Finales Sicherheitsnetz: Falls finalId immer noch null/undefined
+        // Finales Sicherheitsnetz: Falls finalId immer noch null/undefined/empty
         const safeId = (finalId && finalId.toLowerCase() !== 'undefined' && finalId.toLowerCase() !== 'null' && finalId.trim() !== '') ? finalId : `node-${Math.random().toString(36).substring(2, 7)}`;
         
         const nodeToAdd = { ...op.payload.node, id: safeId };
@@ -204,13 +210,13 @@ export async function applyProcessOpsAction(
       case 'UPDATE_NODE':
         if (!op.payload?.nodeId) break;
         const targetUpdId = nodeIdMap[String(op.payload.nodeId)] || String(op.payload.nodeId);
-        model.nodes = model.nodes.map((n: any) => n.id === targetUpdId ? { ...n, ...op.payload.patch } : n);
+        model.nodes = (model.nodes || []).map((n: any) => n.id === targetUpdId ? { ...n, ...op.payload.patch } : n);
         break;
 
       case 'REMOVE_NODE':
         if (!op.payload?.nodeId) break;
         const targetRemId = nodeIdMap[String(op.payload.nodeId)] || String(op.payload.nodeId);
-        model.nodes = model.nodes.filter((n: any) => n.id !== targetRemId);
+        model.nodes = (model.nodes || []).filter((n: any) => n.id !== targetRemId);
         if (model.edges) {
           model.edges = model.edges.filter((e: any) => e.source !== targetRemId && e.target !== targetRemId);
         }
@@ -270,11 +276,11 @@ export async function applyProcessOpsAction(
           const mappedOrderedIds = orderedNodeIds.map((id: string) => nodeIdMap[String(id)] || String(id));
           const newNodes: ProcessNode[] = [];
           mappedOrderedIds.forEach((id: string) => {
-            const node = model.nodes.find((n: any) => n.id === id);
+            const node = (model.nodes || []).find((n: any) => n.id === id);
             if (node) newNodes.push(node);
           });
           // Fallback für nicht gelistete Knoten
-          model.nodes.forEach((n: any) => {
+          (model.nodes || []).forEach((n: any) => {
             if (!mappedOrderedIds.includes(n.id)) newNodes.push(n);
           });
           model.nodes = newNodes;

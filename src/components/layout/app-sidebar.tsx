@@ -103,6 +103,7 @@ export function AppSidebar() {
     { name: 'Rollenverwaltung', href: '/roles', icon: ShieldCheck },
     { name: 'Zuweisungsgruppen', href: '/groups', icon: Workflow },
     { name: 'Einzelzuweisungen', href: '/assignments', icon: Shield },
+    { name: 'Jira Gateway', href: '/jira-sync', icon: RefreshCw },
     { name: 'Lifecycle Hub', href: '/lifecycle', icon: UserPlus },
     { name: 'Access Reviews', href: '/reviews', icon: CheckCircle },
   ];

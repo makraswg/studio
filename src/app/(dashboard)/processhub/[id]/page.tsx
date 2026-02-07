@@ -35,7 +35,10 @@ import {
   Sparkles,
   Briefcase,
   Minus,
-  Plus
+  Plus,
+  ArrowRightCircle,
+  Link2,
+  Share2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,12 +56,13 @@ import { getProcessSuggestions } from '@/ai/flows/process-designer-flow';
 import { publishToBookStackAction } from '@/app/actions/bookstack-actions';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation, ProcessEdge } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
 
 /**
  * Erzeugt MX-XML für draw.io Integration mit Fokus auf sauberem orthogonalem Layout.
@@ -164,6 +168,16 @@ export default function ProcessDesignerPage() {
 
   const selectedNode = useMemo(() => 
     currentVersion?.model_json?.nodes?.find((n: any) => n.id === selectedNodeId), 
+    [currentVersion, selectedNodeId]
+  );
+
+  const incomingEdges = useMemo(() => 
+    currentVersion?.model_json?.edges?.filter((e: ProcessEdge) => e.target === selectedNodeId) || [],
+    [currentVersion, selectedNodeId]
+  );
+
+  const outgoingEdges = useMemo(() => 
+    currentVersion?.model_json?.edges?.filter((e: ProcessEdge) => e.source === selectedNodeId) || [],
     [currentVersion, selectedNodeId]
   );
 
@@ -325,10 +339,24 @@ export default function ProcessDesignerPage() {
   const handleDeleteNode = async () => {
     if (!selectedNodeId) return;
     if (confirm("Dieses Modul unwiderruflich entfernen?")) {
-      await handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }]);
+      const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
+      await handleApplyOps(ops);
       setIsStepDialogOpen(false);
       setSelectedNodeId(null);
+      toast({ title: "Modul entfernt" });
     }
+  };
+
+  const handleAddEdge = async (targetId: string) => {
+    if (!selectedNodeId || !targetId || targetId === 'none') return;
+    const edgeId = `edge-${Date.now()}`;
+    const ops = [{ type: 'ADD_EDGE', payload: { edge: { id: edgeId, source: selectedNodeId, target: targetId } } }];
+    await handleApplyOps(ops);
+  };
+
+  const handleRemoveEdge = async (edgeId: string) => {
+    const ops = [{ type: 'REMOVE_EDGE', payload: { edgeId } }];
+    await handleApplyOps(ops);
   };
 
   const handleAiChat = async () => {
@@ -678,7 +706,7 @@ export default function ProcessDesignerPage() {
 
       {/* Node Edit Dialog - Enterprise Standard Icon-Tile Header */}
       <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
-        <DialogContent className="max-w-2xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[85vh]">
+        <DialogContent className="max-w-3xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[90vh]">
           <DialogHeader className="p-6 bg-white border-b shrink-0 pr-10">
             <div className="flex items-center gap-5">
               <div className={cn(
@@ -690,7 +718,7 @@ export default function ProcessDesignerPage() {
               )}>
                 {localNodeEdits.type === 'decision' ? <GitBranch className="w-6 h-6" /> : localNodeEdits.type === 'end' ? <CircleDot className="w-6 h-6" /> : localNodeEdits.type === 'subprocess' ? <LinkIcon className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">
                   {localNodeEdits.title || 'Modul bearbeiten'}
                 </DialogTitle>
@@ -701,73 +729,143 @@ export default function ProcessDesignerPage() {
             </div>
           </DialogHeader>
           
-          <ScrollArea className="flex-1 p-0">
-            <div className="p-8 space-y-10">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Bezeichnung</Label>
-                  <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} onBlur={() => saveNodeUpdate('title')} className="h-11 text-sm font-bold rounded-xl border-slate-200 bg-white shadow-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Verantwortliche Stelle</Label>
-                  <Select value={localNodeEdits.roleId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, roleId: val}); saveNodeUpdate('roleId', val); }}>
-                    <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs">
-                      <SelectValue placeholder="Rolle wählen..." />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      <SelectItem value="none" className="text-xs">Keine spezifische Rolle</SelectItem>
-                      {jobTitles?.filter(j => j.tenantId === currentProcess?.tenantId || j.tenantId === 'global').map(j => (
-                        <SelectItem key={j.id} value={j.id} className="text-xs">{j.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+          <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
+            <TabsList className="bg-slate-50 border-b h-11 px-6 justify-start rounded-none">
+              <TabsTrigger value="base" className="text-[10px] font-bold uppercase gap-2"><FilePen className="w-3.5 h-3.5" /> Stammdaten</TabsTrigger>
+              <TabsTrigger value="logic" className="text-[10px] font-bold uppercase gap-2"><Share2 className="w-3.5 h-3.5" /> Prozess-Logik</TabsTrigger>
+              <TabsTrigger value="details" className="text-[10px] font-bold uppercase gap-2"><ClipboardList className="w-3.5 h-3.5" /> Ausführung</TabsTrigger>
+            </TabsList>
 
-              {(localNodeEdits.type === 'end' || localNodeEdits.type === 'subprocess') && (
-                <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Zielprozess (Handover/Link)</Label>
-                  <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, targetProcessId: val}); saveNodeUpdate('targetProcessId', val); }}>
-                    <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs">
-                      <SelectValue placeholder="Prozess wählen..." />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      <SelectItem value="none" className="text-xs">Kein Folgeprozess</SelectItem>
-                      {processes?.filter(p => p.id !== id).map(p => (
-                        <SelectItem key={p.id} value={p.id} className="text-xs">{p.title}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+            <ScrollArea className="flex-1 p-0">
+              <div className="p-8 space-y-10">
+                <TabsContent value="base" className="mt-0 space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Bezeichnung</Label>
+                      <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} onBlur={() => saveNodeUpdate('title')} className="h-11 text-sm font-bold rounded-xl border-slate-200 bg-white shadow-sm" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Verantwortliche Stelle</Label>
+                      <Select value={localNodeEdits.roleId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, roleId: val}); saveNodeUpdate('roleId', val); }}>
+                        <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs">
+                          <SelectValue placeholder="Rolle wählen..." />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="none" className="text-xs">Keine spezifische Rolle</SelectItem>
+                          {jobTitles?.filter(j => j.tenantId === currentProcess?.tenantId || j.tenantId === 'global').map(j => (
+                            <SelectItem key={j.id} value={j.id} className="text-xs">{j.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
 
-              <div className="space-y-8">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Tätigkeitsbeschreibung</Label>
-                  <div className="p-1 rounded-2xl border border-slate-100 bg-slate-50/30">
-                    <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-xs min-h-[120px] rounded-xl border-none bg-transparent leading-relaxed p-4 shadow-none focus:ring-0" placeholder="Beschreiben Sie hier die auszuführende Aktion..." />
+                  {(localNodeEdits.type === 'end' || localNodeEdits.type === 'subprocess') && (
+                    <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
+                      <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Zielprozess (Handover/Link)</Label>
+                      <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, targetProcessId: val}); saveNodeUpdate('targetProcessId', val); }}>
+                        <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs">
+                          <SelectValue placeholder="Prozess wählen..." />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="none" className="text-xs">Kein Folgeprozess</SelectItem>
+                          {processes?.filter(p => p.id !== id).map(p => (
+                            <SelectItem key={p.id} value={p.id} className="text-xs">{p.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="logic" className="mt-0 space-y-8">
+                  <div className="space-y-6">
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-bold uppercase text-emerald-600 flex items-center gap-2">
+                        <ArrowRightCircle className="w-4 h-4" /> Nachfolgende Schritte
+                      </h4>
+                      <div className="grid grid-cols-1 gap-2">
+                        {outgoingEdges.map((edge: ProcessEdge) => {
+                          const targetNode = currentVersion?.model_json?.nodes?.find((n: any) => n.id === edge.target);
+                          return (
+                            <div key={edge.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                              <div className="flex items-center gap-3">
+                                <Link2 className="w-3.5 h-3.5 text-slate-400" />
+                                <span className="text-xs font-bold text-slate-700">{targetNode?.title || edge.target}</span>
+                              </div>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => handleRemoveEdge(edge.id)}>
+                                <X className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                        <div className="flex items-center gap-2 pt-2">
+                          <Select onValueChange={handleAddEdge}>
+                            <SelectTrigger className="h-10 text-xs rounded-xl border-dashed">
+                              <SelectValue placeholder="Neuen Nachfolger verknüpfen..." />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="none" disabled>Schritt wählen...</SelectItem>
+                              {currentVersion?.model_json?.nodes?.filter((n: any) => n.id !== selectedNodeId && !outgoingEdges.some((e: any) => e.target === n.id)).map((n: any) => (
+                                <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator className="bg-slate-100" />
+
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-2">
+                        <ArrowRightCircle className="w-4 h-4 rotate-180" /> Vorhergehende Schritte
+                      </h4>
+                      <div className="space-y-2">
+                        {incomingEdges.map((edge: ProcessEdge) => {
+                          const sourceNode = currentVersion?.model_json?.nodes?.find((n: any) => n.id === edge.source);
+                          return (
+                            <div key={edge.id} className="flex items-center gap-3 p-3 bg-slate-50/50 rounded-xl border border-slate-100 border-dashed opacity-60">
+                              <Link2 className="w-3.5 h-3.5 text-slate-300" />
+                              <span className="text-xs font-medium text-slate-500">{sourceNode?.title || edge.source}</span>
+                            </div>
+                          ))}
+                        {incomingEdges.length === 0 && <p className="text-[10px] text-slate-400 italic px-2">Kein direkter Vorgänger definiert</p>}
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="details" className="mt-0 space-y-8">
+                  <div className="space-y-8">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Tätigkeitsbeschreibung</Label>
+                      <div className="p-1 rounded-2xl border border-slate-100 bg-slate-50/30">
+                        <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-xs min-h-[120px] rounded-xl border-none bg-transparent leading-relaxed p-4 shadow-none focus:ring-0" placeholder="Beschreiben Sie hier die auszuführende Aktion..." />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-2 tracking-widest uppercase">
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Prüfschritte / Checkliste
+                      </Label>
+                      <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[11px] min-h-[100px] bg-slate-50 text-slate-900 border border-slate-200 rounded-xl p-4 leading-relaxed shadow-inner focus:bg-white transition-colors" placeholder="Einen Punkt pro Zeile eingeben..." />
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100 flex items-start gap-3 shadow-inner">
+                  <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="text-[11px] font-bold text-slate-800">Versionskontrolle</p>
+                    <p className="text-[10px] text-slate-500 italic leading-relaxed">
+                      Änderungen an der Prozess-Logik wirken sich sofort auf das grafische Modell aus.
+                    </p>
                   </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-2 tracking-widest uppercase">
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Prüfschritte / Checkliste
-                  </Label>
-                  <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[11px] min-h-[100px] bg-slate-50 text-slate-900 border border-slate-200 rounded-xl p-4 leading-relaxed shadow-inner focus:bg-white transition-colors" placeholder="Einen Punkt pro Zeile eingeben..." />
-                </div>
               </div>
-
-              <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100 flex items-start gap-3 shadow-inner">
-                <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                <div className="space-y-0.5">
-                  <p className="text-[11px] font-bold text-slate-800">Versionskontrolle</p>
-                  <p className="text-[10px] text-slate-500 italic leading-relaxed">
-                    Jede Änderung an diesem Schritt wird automatisch als neue Revision im Audit-Log erfasst.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </ScrollArea>
+            </ScrollArea>
+          </Tabs>
 
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
             <Button 

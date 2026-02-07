@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -251,16 +250,19 @@ export default function ProcessDesignerPage() {
   }, [mounted, currentVersion?.id, syncDiagramToModel]);
 
   const handleApplyOps = async (ops: any[]) => {
-    if (!currentVersion || !user || !ops.length) return;
+    if (!currentVersion || !user || !ops.length) return false;
     setIsApplying(true);
     try {
       const res = await applyProcessOpsAction(currentVersion.process_id, currentVersion.version, ops, currentVersion.revision, user.id, dataSource);
       if (res.success) {
         refreshVersion();
         refreshProc();
+        return true;
       }
+      return false;
     } catch (e: any) {
       toast({ variant: "destructive", title: "Update fehlgeschlagen", description: e.message });
+      return false;
     } finally {
       setIsApplying(false);
     }
@@ -318,9 +320,11 @@ export default function ProcessDesignerPage() {
       });
     }
 
-    handleApplyOps(ops).then(() => {
-      setSelectedNodeId(newId);
-      setIsStepDialogOpen(true);
+    handleApplyOps(ops).then((success) => {
+      if (success) {
+        setSelectedNodeId(newId);
+        setIsStepDialogOpen(true);
+      }
     });
   };
 
@@ -338,12 +342,14 @@ export default function ProcessDesignerPage() {
 
   const handleDeleteNode = async () => {
     if (!selectedNodeId) return;
-    if (confirm("Dieses Modul unwiderruflich entfernen?")) {
+    if (window.confirm("Möchten Sie dieses Prozessmodul und alle zugehörigen Verbindungen wirklich unwiderruflich löschen?")) {
       const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
-      await handleApplyOps(ops);
-      setIsStepDialogOpen(false);
-      setSelectedNodeId(null);
-      toast({ title: "Modul entfernt" });
+      const success = await handleApplyOps(ops);
+      if (success) {
+        setIsStepDialogOpen(false);
+        setSelectedNodeId(null);
+        toast({ title: "Modul entfernt" });
+      }
     }
   };
 
@@ -611,7 +617,7 @@ export default function ProcessDesignerPage() {
                 </div>
               </div>
               <button onClick={() => setIsAiAdvisorOpen(false)} className="text-white/50 hover:text-white transition-colors">
-                <Minus className="w-4 h-4" />
+                <X className="w-4 h-4" />
               </button>
             </header>
             <ScrollArea className="flex-1 bg-slate-50/50">

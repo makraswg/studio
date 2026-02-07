@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -364,8 +363,8 @@ export default function ProcessDesignerPage() {
     >
       <Tabs defaultValue="steps" className="h-full flex flex-col overflow-hidden">
         <TabsList className="h-12 bg-slate-50 border-b gap-4 p-0 w-full justify-start px-6 shrink-0 rounded-none">
-          <TabsTrigger value="meta" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2"><FilePen className="w-4 h-4" /> Stammblatt</TabsTrigger>
-          <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2"><ClipboardList className="w-4 h-4" /> Schritte</TabsTrigger>
+          <TabsTrigger value="meta" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2"><FilePen className="w-4 h-4" /> Stammdaten</TabsTrigger>
+          <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2"><ClipboardList className="w-4 h-4" /> Ablauf</TabsTrigger>
         </TabsList>
         
         <TabsContent value="meta" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
@@ -409,7 +408,7 @@ export default function ProcessDesignerPage() {
               
               <div className="space-y-8 pt-10 border-t border-slate-100">
                 <div className="flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-emerald-600" /><h3 className="text-[10px] font-bold uppercase text-emerald-700 tracking-[0.2em]">ISO 9001 Compliance</h3></div>
-                {[{ id: 'inputs', label: 'Inputs', icon: ArrowRight }, { id: 'outputs', label: 'Outputs', icon: Check }, { id: 'risks', label: 'Risiken & Chancen', icon: AlertTriangle }, { id: 'evidence', label: 'Nachweise', icon: FileCode }].map(f => (
+                {[{ id: 'inputs', label: 'Eingaben', icon: ArrowRight }, { id: 'outputs', label: 'Ausgaben', icon: Check }, { id: 'risks', label: 'Risiken & Chancen', icon: AlertTriangle }, { id: 'evidence', label: 'Nachweise', icon: FileCode }].map(f => (
                   <div key={f.id} className="space-y-3">
                     <Label className="text-[10px] font-bold uppercase flex items-center gap-2 text-slate-600"><f.icon className="w-3.5 h-3.5 text-emerald-600" /> {f.label}</Label>
                     <Textarea 
@@ -436,7 +435,7 @@ export default function ProcessDesignerPage() {
             <h3 className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Ablauffolge</h3>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase rounded-lg border-slate-200 hover:bg-primary/5 hover:text-primary transition-all" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
-              <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase rounded-lg border-slate-200 hover:bg-accent/5 hover:text-accent transition-all" onClick={() => handleQuickAdd('decision')}>+ Entscheidung</Button>
+              <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase rounded-lg border-slate-200 hover:bg-accent/5 hover:text-accent transition-all" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
             </div>
           </div>
           <ScrollArea className="flex-1 bg-slate-50/30">
@@ -506,8 +505,8 @@ export default function ProcessDesignerPage() {
       
       <Tabs value={rightActiveTab} onValueChange={(v: any) => setRightActiveTab(v)} className="flex-1 flex flex-col overflow-hidden">
         <TabsList className="h-12 bg-slate-900 border-b border-white/10 gap-0 p-0 w-full justify-start rounded-none shrink-0">
-          <TabsTrigger value="ai" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/10 h-full text-[10px] font-bold uppercase tracking-widest text-white/50 data-[state=active]:text-primary flex items-center gap-2 transition-all"><BrainCircuit className="w-4 h-4" /> AI Advisor</TabsTrigger>
-          <TabsTrigger value="collab" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/10 h-full text-[10px] font-bold uppercase tracking-widest text-white/50 data-[state=active]:text-primary flex items-center gap-2 transition-all"><MessageCircle className="w-4 h-4" /> Diskussion</TabsTrigger>
+          <TabsTrigger value="ai" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/10 h-full text-[10px] font-bold uppercase tracking-widest text-white/50 data-[state=active]:text-primary flex items-center gap-2 transition-all"><BrainCircuit className="w-4 h-4" /> KI Advisor</TabsTrigger>
+          <TabsTrigger value="collab" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/10 h-full text-[10px] font-bold uppercase tracking-widest text-white/50 data-[state=active]:text-primary flex items-center gap-2 transition-all"><MessageCircle className="w-4 h-4" /> Diskurs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="ai" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
@@ -516,7 +515,7 @@ export default function ProcessDesignerPage() {
               {chatHistory.length === 0 && (
                 <div className="text-center py-20 opacity-30 flex flex-col items-center gap-4">
                   <MessageSquare className="w-12 h-12" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest max-w-[180px]">Beschreiben Sie Ihren Prozess für einen Entwurf</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest max-w-[180px]">Beschreiben Sie den Ablauf für einen KI-Entwurf</p>
                 </div>
               )}
               {chatHistory.map((msg, i) => (
@@ -542,18 +541,18 @@ export default function ProcessDesignerPage() {
                     <div className="mt-4 w-full bg-white border-2 border-primary p-6 rounded-3xl space-y-5 shadow-2xl animate-in zoom-in-95">
                       <div className="flex items-center gap-2 text-primary">
                         <BrainCircuit className="w-5 h-5" />
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em]">KI Vorschlag</span>
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em]">KI-Vorschlag</span>
                       </div>
                       <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
                         {msg.suggestions.map((op: any, opIdx: number) => (
                           <div key={opIdx} className="text-[10px] p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center gap-4">
                             <Badge variant="outline" className="text-[8px] font-bold bg-white shrink-0 border-slate-200 uppercase">{String(op.type).split('_')[0]}</Badge>
-                            <span className="truncate font-bold text-slate-700">{op.payload?.node?.title || op.payload?.field || 'Modellanpassung'}</span>
+                            <span className="truncate font-bold text-slate-700">{op.payload?.node?.title || op.payload?.field || 'Modell-Änderung'}</span>
                           </div>
                         ))}
                       </div>
                       <div className="flex gap-3 pt-2">
-                        <Button onClick={() => { handleApplyOps(msg.suggestions); msg.suggestions = []; }} disabled={isApplying} className="flex-1 h-12 bg-primary text-white text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-primary/20 rounded-xl transition-all active:scale-95">Übernehmen</Button>
+                        <Button onClick={() => { handleApplyOps(msg.suggestions); msg.suggestions = []; }} disabled={isApplying} className="flex-1 h-12 bg-primary text-white text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-primary/20 rounded-xl transition-all active:scale-95">Anwenden</Button>
                         <Button variant="ghost" onClick={() => msg.suggestions = []} className="flex-1 h-12 text-[10px] font-bold uppercase border border-slate-200 rounded-xl">Ablehnen</Button>
                       </div>
                     </div>
@@ -581,7 +580,7 @@ export default function ProcessDesignerPage() {
                 className="h-16 rounded-2xl border-2 border-slate-100 bg-slate-50 pr-16 focus:bg-white focus:border-primary transition-all text-sm font-medium" 
                 disabled={isAiLoading} 
               />
-              <Button size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-12 w-12 bg-slate-900 hover:bg-black text-white rounded-xl shadow-xl active:scale-95 transition-transform" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
+              <Button size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-12 w-12 bg-slate-900 hover:bg-black text-white rounded-xl shadow-xl active:scale-[0.95] transition-transform" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
                 {isAiLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
               </Button>
             </div>
@@ -590,7 +589,7 @@ export default function ProcessDesignerPage() {
 
         <TabsContent value="collab" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
           <div className="p-6 bg-slate-50 border-b shrink-0">
-            <h3 className="text-[10px] font-bold uppercase text-slate-400 tracking-[0.2em] mb-4">Bearbeitungsverlauf</h3>
+            <h3 className="text-[10px] font-bold uppercase text-slate-400 tracking-[0.2em] mb-4">Verlauf</h3>
             <div className="flex items-center gap-2">
               {lastEditors.length > 0 ? lastEditors.map((e, i) => (
                 <TooltipProvider key={i}>
@@ -603,7 +602,7 @@ export default function ProcessDesignerPage() {
                     <TooltipContent className="text-[9px] font-bold uppercase">{e.actorUid}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-              )) : <p className="text-[9px] text-slate-400 font-bold italic uppercase tracking-widest">Keine Daten</p>}
+              )) : <p className="text-[9px] text-slate-400 font-bold italic uppercase tracking-widest">Keine Editoren</p>}
             </div>
           </div>
 
@@ -612,7 +611,7 @@ export default function ProcessDesignerPage() {
               {processComments.length === 0 ? (
                 <div className="py-20 text-center space-y-4 opacity-20">
                   <MessageCircle className="w-12 h-12 mx-auto" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest">Noch keine Anmerkungen</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest">Keine Anmerkungen</p>
                 </div>
               ) : processComments.map((comm) => (
                 <div key={comm.id} className="space-y-2 group animate-in slide-in-from-right-2">
@@ -648,7 +647,7 @@ export default function ProcessDesignerPage() {
                 onChange={e => setChatMessageCollab(e.target.value)}
                 className="min-h-[80px] rounded-2xl border-slate-200 focus:border-primary text-xs shadow-sm" 
               />
-              <Button onClick={handleAddComment} disabled={isCommenting || !commentText.trim()} className="w-full rounded-xl h-10 font-bold uppercase text-[10px] gap-2 tracking-widest bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-95">
+              <Button onClick={handleAddComment} disabled={isCommenting || !commentText.trim()} className="w-full rounded-xl h-10 font-bold uppercase text-[10px] gap-2 tracking-widest bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-[0.95]">
                 {isCommenting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Senden
               </Button>
             </div>
@@ -686,7 +685,7 @@ export default function ProcessDesignerPage() {
           <Button variant="outline" size="sm" className="rounded-xl h-10 text-[10px] font-bold uppercase border-slate-200 px-6 gap-2 hidden md:flex hover:bg-indigo-50 hover:text-indigo-600 transition-all" onClick={() => publishToBookStackAction(currentProcess?.id || '', currentVersion?.version || 1, "", dataSource).then(() => toast({ title: "Export erfolgreich" }))} disabled={isPublishing}>
             {isPublishing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BookOpen className="w-4 h-4" />} Export
           </Button>
-          <Button size="sm" className="rounded-xl h-10 text-[10px] font-bold uppercase bg-primary hover:bg-primary/90 text-white px-8 shadow-lg shadow-primary/20 transition-all active:scale-95" onClick={() => syncDiagramToModel()}>
+          <Button size="sm" className="rounded-xl h-10 text-[10px] font-bold uppercase bg-primary hover:bg-primary/90 text-white px-8 shadow-lg shadow-primary/20 transition-all active:scale-[0.95]" onClick={() => syncDiagramToModel()}>
             <RefreshCw className="w-4 h-4 mr-2" /> <span className="hidden sm:inline">Aktualisieren</span>
           </Button>
         </div>
@@ -728,17 +727,17 @@ export default function ProcessDesignerPage() {
             <div className="p-6 md:p-12 space-y-8 md:space-y-12">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                 <div className="space-y-2">
-                  <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Schrittbezeichnung</Label>
+                  <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung</Label>
                   <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} onBlur={() => saveNodeUpdate('title')} className="h-12 md:h-14 text-base font-bold rounded-2xl border-slate-200 focus:border-primary focus:ring-4 ring-primary/5 bg-white" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortliche Stelle</Label>
+                  <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortung</Label>
                   <Select value={localNodeEdits.roleId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, roleId: val}); saveNodeUpdate('roleId', val); }}>
                     <SelectTrigger className="h-12 md:h-14 rounded-2xl border-slate-200 bg-white">
                       <SelectValue placeholder="Rolle wählen..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl">
-                      <SelectItem value="none">Nicht zugewiesen</SelectItem>
+                      <SelectItem value="none">Keine Zuweisung</SelectItem>
                       {jobTitles?.filter(j => j.tenantId === currentProcess?.tenantId || j.tenantId === 'global').map(j => (
                         <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>
                       ))}
@@ -749,15 +748,15 @@ export default function ProcessDesignerPage() {
 
               <div className="space-y-6 md:space-y-8">
                 <div className="space-y-3">
-                  <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Handlungsanweisung</Label>
-                  <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-sm min-h-[120px] md:min-h-[150px] rounded-2xl border-slate-200 bg-white focus:border-primary transition-all leading-relaxed p-4 md:p-5" placeholder="Beschreiben Sie präzise, was in diesem Schritt zu tun ist..." />
+                  <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Anweisung</Label>
+                  <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-sm min-h-[120px] md:min-h-[150px] rounded-2xl border-slate-200 bg-white focus:border-primary transition-all leading-relaxed p-4 md:p-5" placeholder="Beschreiben Sie die Tätigkeit..." />
                 </div>
                 
                 <div className="space-y-3">
                   <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-emerald-600" /> Operative Checkliste
+                    <CheckCircle className="w-4 h-4 text-emerald-600" /> Checkliste
                   </Label>
-                  <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[10px] md:text-xs min-h-[100px] md:min-h-[120px] bg-slate-900 text-slate-100 rounded-2xl font-mono p-4 md:p-5 leading-relaxed shadow-inner" placeholder="Ein Prüfpunkt pro Zeile..." />
+                  <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[10px] md:text-xs min-h-[100px] md:min-h-[120px] bg-slate-900 text-slate-100 rounded-2xl font-mono p-4 md:p-5 leading-relaxed shadow-inner" placeholder="Punkt pro Zeile..." />
                 </div>
               </div>
 
@@ -766,9 +765,9 @@ export default function ProcessDesignerPage() {
                   <Info className="w-4 h-4" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-bold text-slate-800">Versionshinweis</p>
+                  <p className="text-xs font-bold text-slate-800">Änderungskontrolle</p>
                   <p className="text-[10px] text-slate-500 italic leading-relaxed">
-                    Änderungen an diesem Knoten erzeugen sofort eine neue Revision im Modell-Verlauf.
+                    Alle Anpassungen an diesem Knoten werden sofort als neue Revision erfasst.
                   </p>
                 </div>
               </div>
@@ -777,10 +776,10 @@ export default function ProcessDesignerPage() {
 
           <DialogFooter className="p-6 md:p-10 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
             <Button variant="ghost" className="text-red-600 rounded-xl h-12 md:h-14 px-8 hover:bg-red-50 font-bold uppercase text-[10px] gap-3 transition-colors w-full sm:w-auto" onClick={() => { if(confirm("Schritt permanent löschen?")) { handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }]); setIsStepDialogOpen(false); } }}>
-              <Trash2 className="w-5 h-5" /> Schritt entfernen
+              <Trash2 className="w-5 h-5" /> Entfernen
             </Button>
-            <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-2xl h-12 md:h-14 px-16 font-bold uppercase text-[10px] md:text-xs tracking-[0.2em] bg-slate-900 hover:bg-black text-white shadow-2xl transition-all active:scale-95 w-full sm:w-auto">
-              Konfiguration schließen
+            <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-2xl h-12 md:h-14 px-16 font-bold uppercase text-[10px] md:text-xs tracking-[0.2em] bg-slate-900 hover:bg-black text-white shadow-2xl transition-all active:scale-[0.95] w-full sm:w-auto">
+              Schließen
             </Button>
           </DialogFooter>
         </DialogContent>

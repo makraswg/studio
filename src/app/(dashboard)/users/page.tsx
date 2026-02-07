@@ -177,10 +177,10 @@ export default function UsersPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200" onClick={() => exportUsersExcel(filteredUsers, tenants || [])}>
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 active:scale-95" onClick={() => exportUsersExcel(filteredUsers, tenants || [])}>
             <Download className="w-3.5 h-3.5 mr-2" /> Excel
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-sm" onClick={() => { resetForm(); setIsAddOpen(true); }}>
+          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-sm active:scale-95" onClick={() => { resetForm(); setIsAddOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> Benutzer anlegen
           </Button>
         </div>
@@ -207,7 +207,7 @@ export default function UsersPage() {
               )}
               onClick={() => setActiveStatusFilter(f as any)}
             >
-              {f === 'all' ? 'Alle' : f === 'active' ? 'Aktiv' : 'Inaktiv'}
+              {f === 'all' ? 'Alle' : f === 'active' ? 'Aktiv' : f === 'disabled' ? 'Inaktiv' : f}
             </button>
           ))}
         </div>
@@ -258,11 +258,11 @@ export default function UsersPage() {
                     </TableCell>
                     <TableCell className="text-right px-6">
                       <div className="flex justify-end items-center gap-1.5">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white opacity-0 group-hover:opacity-100" onClick={() => openEdit(user)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => openEdit(user)}>
                           <Pencil className="w-3.5 h-3.5 text-slate-400" />
                         </Button>
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-56 rounded-lg p-1 shadow-xl border">
                             <DropdownMenuItem onSelect={() => openEdit(user)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
                           </DropdownMenuContent>

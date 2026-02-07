@@ -68,6 +68,10 @@ export default function ProcessHubOverview() {
 
   useEffect(() => { setMounted(true); }, []);
 
+  const handleNavigate = (id: string) => {
+    router.push(`/processhub/${id}`);
+  };
+
   const handleCreate = async () => {
     if (!user || activeTenantId === 'all') {
       toast({ variant: "destructive", title: "Fehler", description: "Bitte wählen Sie einen spezifischen Mandanten aus." });
@@ -78,7 +82,7 @@ export default function ProcessHubOverview() {
       const res = await createProcessAction(activeTenantId, "Neuer Prozess", user.id, dataSource);
       if (res.success) {
         toast({ title: "Prozess angelegt" });
-        router.push(`/processhub/${res.processId}`);
+        handleNavigate(res.processId);
       }
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
@@ -181,7 +185,7 @@ export default function ProcessHubOverview() {
             </TableHeader>
             <TableBody>
               {filtered.map(p => (
-                <TableRow key={p.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/processhub/${p.id}`)}>
+                <TableRow key={p.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => handleNavigate(p.id)}>
                   <TableCell className="py-4 px-6">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shadow-inner">
@@ -214,7 +218,7 @@ export default function ProcessHubOverview() {
                   </TableCell>
                   <TableCell className="text-right px-6">
                     <div className="flex justify-end gap-1.5" onClick={e => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-all" onClick={() => router.push(`/processhub/${p.id}`)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-all" onClick={() => handleNavigate(p.id)}>
                         <ChevronRight className="w-4 h-4 text-slate-400" />
                       </Button>
                       <DropdownMenu>
@@ -222,7 +226,7 @@ export default function ProcessHubOverview() {
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all"><MoreVertical className="w-4 h-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56 rounded-lg p-1 shadow-xl border">
-                          <DropdownMenuItem className="rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => router.push(`/processhub/${p.id}`)}><Workflow className="w-3.5 h-3.5 text-primary" /> Designer öffnen</DropdownMenuItem>
+                          <DropdownMenuItem className="rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => handleNavigate(p.id)}><Workflow className="w-3.5 h-3.5 text-primary" /> Designer öffnen</DropdownMenuItem>
                           <DropdownMenuSeparator className="my-1" />
                           <DropdownMenuItem className="text-red-600 rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => setProcessToDelete(p.id)}>
                             <Trash2 className="w-3.5 h-3.5" /> Löschen

@@ -77,14 +77,14 @@ export default function ResourcesPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200" onClick={() => exportResourcesExcel(filteredResources)}>
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 active:scale-95" onClick={() => exportResourcesExcel(filteredResources)}>
             <Download className="w-3.5 h-3.5 mr-2" /> Excel
           </Button>
           <Button variant="ghost" size="sm" className="h-9 rounded-md font-bold text-xs gap-2" onClick={() => setShowArchived(!showArchived)}>
-            {showArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+            {showArchived ? <RotateCcw className="w-3.5 h-3.5 mr-2" /> : <Archive className="w-3.5 h-3.5 mr-2" />}
             {showArchived ? 'Aktiv' : 'Archiv'}
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6">
+          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 active:scale-95 transition-all">
             <Plus className="w-3.5 h-3.5 mr-2" /> System registrieren
           </Button>
         </div>
@@ -102,7 +102,7 @@ export default function ResourcesPage() {
         </div>
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-md border border-slate-200 dark:border-slate-700 h-9 shrink-0">
           <Select value={assetTypeFilter} onValueChange={setAssetTypeFilter}>
-            <SelectTrigger className="h-full border-none shadow-none text-[9px] font-bold min-w-[140px] bg-transparent">
+            <SelectTrigger className="h-full border-none shadow-none text-[10px] font-bold min-w-[140px] bg-transparent">
               <Filter className="w-3 h-3 mr-1.5 text-slate-400" />
               <SelectValue />
             </SelectTrigger>
@@ -151,7 +151,7 @@ export default function ResourcesPage() {
                   </TableCell>
                   <TableCell className="text-xs font-bold text-slate-700">{res.systemOwner || '---'}</TableCell>
                   <TableCell className="text-right px-6">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 opacity-0 group-hover:opacity-100"><MoreVertical className="w-4 h-4 text-slate-400" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all shadow-sm"><MoreVertical className="w-4 h-4 text-slate-400" /></Button>
                   </TableCell>
                 </TableRow>
               ))}

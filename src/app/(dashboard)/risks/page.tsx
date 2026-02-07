@@ -64,10 +64,10 @@ function RiskDashboardContent() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200" onClick={() => exportRisksExcel(filteredRisks, resources || [])}>
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 active:scale-95" onClick={() => exportRisksExcel(filteredRisks, resources || [])}>
             <Download className="w-3.5 h-3.5 mr-2" /> Excel
           </Button>
-          <Button variant="outline" size="sm" onClick={() => router.push('/risks/catalog')} className="h-9 rounded-md font-bold text-xs px-4 border-blue-200 text-blue-700 bg-blue-50">
+          <Button variant="outline" size="sm" onClick={() => router.push('/risks/catalog')} className="h-9 rounded-md font-bold text-xs px-4 border-blue-200 text-blue-700 bg-blue-50 active:scale-95 transition-all">
             <Library className="w-3.5 h-3.5 mr-2" /> Kataloge
           </Button>
           <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-accent hover:bg-accent/90 text-white shadow-sm transition-all active:scale-95">
@@ -133,11 +133,11 @@ function RiskDashboardContent() {
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge className={cn("rounded-md font-bold text-[10px] h-6 w-8 justify-center shadow-sm", score >= 15 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600")}>{score}</Badge>
+                      <Badge className={cn("rounded-md font-bold text-[10px] h-6 w-8 justify-center shadow-sm border-none", score >= 15 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600")}>{score}</Badge>
                     </TableCell>
                     <TableCell className="text-[10px] font-bold text-slate-500">{risk.category}</TableCell>
                     <TableCell className="text-right px-6">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all"><MoreVertical className="w-4 h-4 text-slate-400" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-sm"><MoreVertical className="w-4 h-4 text-slate-400" /></Button>
                     </TableCell>
                   </TableRow>
                 );

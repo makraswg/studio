@@ -22,7 +22,8 @@ import {
   XCircle,
   Layers,
   ArrowRight,
-  Filter
+  Filter,
+  Info
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -159,7 +160,7 @@ export default function AccessReviewsPage() {
       });
       setAiAdvice(advice);
     } catch (e) {
-      toast({ variant: "destructive", title: "KI-Fehler", description: "Fehler beim Laden." });
+      toast({ variant: "destructive", title: "KI-Fehler", description: "Fehler beim Laden der Beratung." });
       setIsAdvisorOpen(false);
     } finally {
       setIsAdvisorLoading(false);

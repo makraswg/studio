@@ -73,7 +73,7 @@ export default function AccessReviewsPage() {
   }, []);
 
   const stats = useMemo(() => {
-    if (!assignments) return { total: 0, completed: 0, overdue: 0, percent: 0 };
+    if (!assignments) return { total: 0, completed: 0, percent: 0 };
     const base = assignments.filter((a: any) => activeTenantId === 'all' || a.tenantId === activeTenantId);
     const totalCount = base.filter((a: any) => a.status === 'active').length;
     const completedCount = base.filter((a: any) => !!a.lastReviewedAt && a.status === 'active').length;
@@ -200,6 +200,7 @@ export default function AccessReviewsPage() {
         </Card>
       </div>
 
+      {/* Compact Filtering Row */}
       <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
         <div className="relative flex-1 group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />

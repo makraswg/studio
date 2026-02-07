@@ -25,7 +25,14 @@ import {
   FileCheck,
   BrainCircuit,
   Network,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  Building2,
+  Briefcase,
+  Sparkles,
+  BookOpen,
+  Mail,
+  FileCode
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -53,6 +60,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { toast } from '@/hooks/use-toast';
 import { updatePlatformUserPasswordAction } from '@/app/actions/mysql-actions';
 import { usePlatformAuth } from '@/context/auth-context';
@@ -70,6 +82,8 @@ export function AppSidebar() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  
+  const [isSettingsOpen, setIsSettingsOpen] = useState(pathname.startsWith('/settings'));
 
   useEffect(() => {
     setMounted(true);
@@ -103,6 +117,20 @@ export function AppSidebar() {
     { name: 'KI Identity Audit', href: '/iam-audit', icon: BrainCircuit },
   ];
 
+  const settingSubItems = [
+    { name: 'Organisation', href: '/settings/general', icon: Building2 },
+    { name: 'Struktur & Stellen', href: '/settings/structure', icon: Briefcase },
+    { name: 'User Experience', href: '/settings/ux', icon: Sparkles },
+    { name: 'Administratoren', href: '/settings/pusers', icon: Users },
+    { name: 'Identität & Sync', href: '/settings/sync', icon: Network },
+    { name: 'Jira Gateway', href: '/settings/integrations', icon: RefreshCw },
+    { name: 'BookStack Export', href: '/settings/bookstack', icon: BookOpen },
+    { name: 'KI Access Advisor', href: '/settings/ai', icon: BrainCircuit },
+    { name: 'Datenschutz-Basis', href: '/settings/dsgvo', icon: FileCheck },
+    { name: 'E-Mail (SMTP)', href: '/settings/email', icon: Mail },
+    { name: 'Katalog-Import', href: '/settings/data', icon: FileCode },
+  ];
+
   const handleLogout = async () => {
     logout();
     try { await signOut(auth); } catch(e) {}
@@ -128,11 +156,10 @@ export function AppSidebar() {
 
   if (!mounted) return null;
 
-  const NavLink = ({ item, activeColor = "bg-primary" }: { item: any, activeColor?: string }) => {
-    const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href) && !pathname.startsWith('/processhub/map') && item.href !== '/processhub/map');
-    const isMapActive = item.href === '/processhub/map' && pathname === '/processhub/map';
-    const isProcActive = item.href === '/processhub' && pathname.startsWith('/processhub') && !pathname.startsWith('/processhub/map');
-    const active = item.href === '/processhub/map' ? isMapActive : item.href === '/processhub' ? isProcActive : isActive;
+  const NavLink = ({ item, activeColor = "bg-primary", isSubItem = false }: { item: any, activeColor?: string, isSubItem?: boolean }) => {
+    const isActive = pathname === item.href || (item.href !== '/dashboard' && !isSubItem && pathname.startsWith(item.href) && !pathname.startsWith('/processhub/map') && item.href !== '/processhub/map');
+    const isExact = pathname === item.href;
+    const active = isSubItem ? isExact : isActive;
 
     return (
       <Link 
@@ -142,14 +169,15 @@ export function AppSidebar() {
           "flex items-center justify-between px-3 py-2 rounded-md transition-all group",
           active 
             ? `${activeColor} text-white shadow-sm` 
-            : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+            : "text-slate-500 hover:text-slate-900 hover:bg-slate-50",
+          isSubItem && "pl-9"
         )}
       >
         <div className="flex items-center gap-2.5">
-          <item.icon className={cn("w-4 h-4 transition-transform", active ? "text-white" : "text-slate-400")} />
-          <span className="text-[10.5px] font-bold uppercase tracking-tight">{item.name}</span>
+          <item.icon className={cn(isSubItem ? "w-3.5 h-3.5" : "w-4 h-4", "transition-transform", active ? "text-white" : "text-slate-400")} />
+          <span className={cn(isSubItem ? "text-[9.5px]" : "text-[10.5px]", "font-bold uppercase tracking-tight")}>{item.name}</span>
         </div>
-        {active && <ChevronRight className="w-3 h-3 opacity-50" />}
+        {active && !isSubItem && <ChevronRight className="w-3 h-3 opacity-50" />}
       </Link>
     );
   };
@@ -193,9 +221,28 @@ export function AppSidebar() {
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Config</p>
-            <NavLink item={{ name: 'Setup', href: '/setup', icon: Settings2 }} />
-            <NavLink item={{ name: 'Settings', href: '/settings', icon: Settings }} />
+            <p className="px-3 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Admin</p>
+            <NavLink item={{ name: 'Setup & Infra', href: '/setup', icon: Settings2 }} />
+            
+            <Collapsible open={isSettingsOpen} onOpenChange={setIsSettingsOpen} className="space-y-1">
+              <CollapsibleTrigger asChild>
+                <button 
+                  className={cn(
+                    "w-full flex items-center justify-between px-3 py-2 rounded-md transition-all group",
+                    pathname.startsWith('/settings') ? "bg-slate-100 text-slate-900" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                  )}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Settings className={cn("w-4 h-4", pathname.startsWith('/settings') ? "text-primary" : "text-slate-400")} />
+                    <span className="text-[10.5px] font-bold uppercase tracking-tight text-left">Systemeinstellungen</span>
+                  </div>
+                  <ChevronDown className={cn("w-3 h-3 transition-transform duration-200", isSettingsOpen ? "rotate-180" : "")} />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-1 overflow-hidden animate-in slide-in-from-top-1 duration-200">
+                {settingSubItems.map((item) => <NavLink key={item.name} item={item} isSubItem />)}
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         </div>
       </ScrollArea>
@@ -224,7 +271,7 @@ export function AppSidebar() {
 
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
         <DialogContent className="rounded-xl max-w-sm border-none shadow-2xl p-0 overflow-hidden bg-white">
-          <DialogHeader className="p-6 bg-slate-900 text-white">
+          <DialogHeader className="p-6 bg-slate-50 border-b">
             <div className="flex items-center gap-3">
               <Lock className="w-6 h-6 text-primary" />
               <DialogTitle className="text-base font-bold uppercase">Passwort ändern</DialogTitle>

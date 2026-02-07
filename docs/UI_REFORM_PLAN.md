@@ -1,33 +1,38 @@
-# UI/UX Reform Plan - AccessHub
+# UI/UX Reform Plan - ComplianceHub
 
-## Status: Abgeschlossen ✅
+## Phase 1: Fundament & Transformation (ABGESCHLOSSEN ✅)
 
-### 1. Fundament & Design System (ERLEDIGT ✅)
-- [x] Farben gemäß PRD in `globals.css` (Vibrant Blue #29ABE2, Accent Orange #FF9800).
-- [x] Typografie-Fix: Space Grotesk für Headlines, Inter für Body.
-- [x] Darkmode-Kontrast-Optimierung.
-- [x] Globales Layout-Shell Refactoring (Sticky Header, Fluid Body).
+### 1. Design System & Core
+- [x] Farbsystem gemäß PRD (#29ABE2 / #FF9800).
+- [x] Typografie-Dualität (Space Grotesk für Headlines, Inter für Body).
+- [x] Globale Layout-Shell (Glassmorphism Header, Fluid Body).
+- [x] Radikale Beseitigung von Scroll-in-Scroll Problemen.
 
-### 2. Authentifizierung & Dashboard (ERLEDIGT ✅)
-- [x] Login-Page Redesign (Clean, Modern, Fokus).
-- [x] Dashboard Stats-Cards & Chart-Layouts (Mobile-First Grid).
+### 2. Modul-Redesign (Mobile First)
+- [x] **IAM / Users**: Umstellung auf Card-Grids für Mobilgeräte.
+- [x] **ProcessHub**: Designer mit mobilem View-Switcher & optimiertem Schritt-Dialog.
+- [x] **Risk & Compliance**: Visuelle Risiko-Matrix & responsive VVT-Listen.
+- [x] **Settings**: Strukturierung der Konzern-Konfiguration in modernem Card-Design.
 
-### 3. IAM Module (Identitäten & Zuweisungen) (ERLEDIGT ✅)
-- [x] Umstellung von Tabellen auf Responsive Cards für Mobilgeräte.
-- [x] Action-Buttons für Daumenbedienung optimieren.
-- [x] Filter-Sektionen kompakter gestaltet.
+---
 
-### 4. ProcessHub (Vibe Coding UI) (ERLEDIGT ✅)
-- [x] Redesign des Designers (Beseitigung von Scroll-in-Scroll Problemen).
-- [x] Optimierung des View-Switchers für Mobilgeräte.
-- [x] Modernisierung des KI-Chat-Interfaces.
+## Phase 2: Advanced UX & Polish (GEPLANT 🚀)
 
-### 5. Risk & Compliance (ERLEDIGT ✅)
-- [x] Risikomatrix-Visualisierung für kleine Bildschirme.
-- [x] Formular-Assistent Integration (UI-Overlay statt Side-Panel).
-- [x] Umstellung der Risiko- und VVT-Listen auf Mobile-First Cards.
+### 1. Motion & Micro-Interactions
+- [ ] **Smooth Transitions**: Weiche Einblend-Effekte für Seitenwechsel (Animate-in).
+- [ ] **Button States**: Subtiles Haptik-Feedback beim Klicken/Tippen.
+- [ ] **Loading States**: Skeleton-Screens für alle datenlastigen Tabellen.
 
-### 6. Settings & Global Navigation (ERLEDIGT ✅)
-- [x] Strukturierung der Einstellungen in modernen Cards.
-- [x] Finaler Schliff der Navigations-Ergonomie.
-- [x] Mobile-First Navigation für komplexe Konfigurationsseiten.
+### 2. Interactive Reporting (Intelligence)
+- [ ] **Matrix-Drilldown**: Klickbare Felder in der Risiko-Heatmap zur Echtzeit-Filterung.
+- [ ] **Dynamic Charts**: Animierte Charts in den Risk Reports.
+- [ ] **Audit-Visuals**: Grafische Aufbereitung der Compliance-Lücken im IAM-Audit.
+
+### 3. Visual Veredelung
+- [ ] **Gradients & Depth**: Einsatz von dezenten Verläufen in den Header-Bereichen.
+- [ ] **Empty States**: Liebevoll gestaltete Illustrationen für leere Listen.
+- [ ] **Darkmode Fine-Tuning**: Perfektionierung der Kontraste in allen Detail-Dialogen.
+
+### 4. User Guidance
+- [ ] **Quick Tours**: Geführte Einführung für neue Administratoren.
+- [ ] **Contextual Help**: Integration der Hilfe-Inhalte direkt in die Formular-Assistenten.

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -336,19 +335,32 @@ export default function ProcessDesignerPage() {
   };
 
   const handleDeleteNode = async () => {
-    if (!selectedNodeId) return;
+    if (!selectedNodeId || !currentVersion || !user) return;
+    
     const confirmed = window.confirm('Möchten Sie diesen Prozessschritt wirklich unwiderruflich löschen? Alle Verknüpfungen werden ebenfalls entfernt.');
     if (!confirmed) return;
     
     setIsDeleting(true);
     try {
       const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
-      const success = await handleApplyOps(ops);
-      if (success) {
+      const res = await applyProcessOpsAction(
+        currentVersion.process_id, 
+        currentVersion.version, 
+        ops, 
+        currentVersion.revision, 
+        user.id, 
+        dataSource
+      );
+      
+      if (res.success) {
         toast({ title: "Schritt entfernt" });
         setIsStepDialogOpen(false);
         setSelectedNodeId(null);
+        refreshVersion();
+        refreshProc();
       }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler beim Löschen", description: e.message });
     } finally {
       setIsDeleting(false);
     }
@@ -529,7 +541,6 @@ export default function ProcessDesignerPage() {
                     </div>
                   </div>
 
-                  {/* Networking summary in Stammdaten */}
                   <div className="space-y-6 pt-8 border-t border-slate-100">
                     <div className="flex items-center gap-2">
                       <Network className="w-4 h-4 text-primary" />
@@ -973,7 +984,7 @@ export default function ProcessDesignerPage() {
               variant="outline" 
               size="sm" 
               onClick={handleDeleteNode} 
-              disabled={isDeleting || isApplying}
+              disabled={isDeleting}
               className="rounded-xl h-10 px-6 font-bold text-xs text-red-600 border-red-100 hover:bg-red-50 hover:border-red-200 transition-all gap-2"
             >
               {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}

@@ -53,17 +53,16 @@ import { getProcessSuggestions } from '@/ai/flows/process-designer-flow';
 import { publishToBookStackAction } from '@/app/actions/bookstack-actions';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 /**
  * Erzeugt MX-XML für draw.io Integration.
- * Korrektur: Linien (Edges) werden nun explizit mit Kontrastfarben gezeichnet.
+ * Edges werden nun mit expliziten Stilen und Kontrastfarben gezeichnet.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -130,7 +129,7 @@ export default function ProcessDesignerPage() {
   const [leftWidth, setLeftWidth] = useState(360);
   const isResizingLeft = useRef(false);
 
-  // Floating AI State
+  // Floating AI State - Indigo Branding
   const [isAiAdvisorOpen, setIsAiAdvisorOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<any[]>([]);
@@ -281,7 +280,11 @@ export default function ProcessDesignerPage() {
     await handleApplyOps(ops);
   };
 
+  /**
+   * Fügt einen neuen Knoten hinzu und verbindet ihn automatisch mit dem vorherigen.
+   */
   const handleQuickAdd = (type: 'step' | 'decision' | 'end' | 'subprocess') => {
+    if (!currentVersion) return;
     const newId = `${type}-${Date.now()}`;
     const titles = {
       step: 'Neuer Schritt',
@@ -289,7 +292,21 @@ export default function ProcessDesignerPage() {
       end: 'Endpunkt',
       subprocess: 'Prozess-Link'
     };
-    const ops = [{ type: 'ADD_NODE', payload: { node: { id: newId, type, title: titles[type] } } }];
+    
+    const nodes = currentVersion.model_json.nodes || [];
+    const lastNode = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : nodes[nodes.length - 1];
+    
+    const ops: ProcessOperation[] = [
+      { type: 'ADD_NODE', payload: { node: { id: newId, type, title: titles[type] } } }
+    ];
+
+    if (lastNode && lastNode.id !== newId) {
+      ops.push({
+        type: 'ADD_EDGE',
+        payload: { edge: { id: `edge-${Date.now()}`, source: lastNode.id, target: newId } }
+      });
+    }
+
     handleApplyOps(ops).then(() => {
       setSelectedNodeId(newId);
       setIsStepDialogOpen(true);
@@ -554,7 +571,7 @@ export default function ProcessDesignerPage() {
         </main>
       </div>
 
-      {/* Floating AI Advisor (Bottom Right) */}
+      {/* Floating AI Advisor (Bottom Right) - Fancy Indigo Brand */}
       <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-4 pointer-events-none">
         {isAiAdvisorOpen && (
           <Card className="w-[calc(100vw-2rem)] sm:w-[400px] h-[600px] rounded-3xl shadow-2xl border-none flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300 bg-white pointer-events-auto">

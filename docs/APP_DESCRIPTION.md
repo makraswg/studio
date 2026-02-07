@@ -55,10 +55,12 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
 
 *   **Step 3.1: Risiko-Inventar & Szenario-Analyse**
     *   *Status*: In Prüfung (Audit Phase) 🔍
+    *   *Consultant Audit*: Ein Risiko-Score von "15" ist für Azubis zu abstrakt.
     *   **NEUE AUFGABE**: KI-Szenario-Übersetzer implementieren. Score "15" -> "Kritischer Betriebsstopp für 48h".
     *   **NEUE AUFGABE**: Risiken müssen mit Prozessschritten aus Step 4 verknüpft werden.
 *   **Step 3.2: Maßnahmenplan (TOM) & Wirksamkeit**
     *   *Status*: In Prüfung (Audit Phase) 🔍
+    *   *Consultant Audit*: Maßnahmen ohne Beweis sind im Audit wertlos.
     *   **NEUE AUFGABE**: Einführung einer "Nachweispflicht" (Dokument-Link/Upload) für erledigte Maßnahmen.
     *   **NEUE AUFGABE**: "Audit-Ready" Review-Zyklus. Maßnahmen müssen periodisch bestätigt werden.
 
@@ -67,10 +69,12 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
 
 *   **Step 4.1: BPMN Designer mit KI-Assistenz**
     *   *Status*: In Prüfung (Audit Phase) 🔍
+    *   *Consultant Audit*: Rollen im Designer sind aktuell oft Freitext (Silo-Gefahr).
     *   **NEUE AUFGABE**: Strikte Rollen-Validierung gegen den Stellenplan (Step 6). Kein Freitext bei Verantwortlichkeiten!
     *   **NEUE AUFGABE**: "Schritt als Kontrollpunkt markieren" -> Verknüpfung zu Risiken (Step 3).
 *   **Step 4.2: Prozess-Landkarte (Enterprise Map)**
     *   *Status*: In Prüfung (Audit Phase) 🔍
+    *   *Consultant Audit*: Die Karte zeigt keine Compliance-Probleme.
     *   **NEUE AUFGABE**: "Health-Overlay". Landkarte zeigt farblich, wo Compliance-Lücken (offene Risiken) lauern.
     *   **NEUE AUFGABE**: Automatischer Export eines "Prozesshandbuchs" als PDF für Auditoren.
 
@@ -90,8 +94,11 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
 
 *   **Step 6.1: Stellenplan & Rollen-Blueprints**
     *   *Status*: In Prüfung (Audit Phase) 🔍
+    *   *Consultant Audit*: Der Stellenplan ist aktuell ein "totes Telefonbuch". Er muss das Fundament für RBAC werden.
     *   **NEUE AUFGABE**: RBAC-Blueprint: Stellen direkt mit Standard-Rechten verknüpfen für Auto-Onboarding.
-    *   **NEUE AUFGABE**: Visualisierung als grafisches Org-Chart.
+    *   **NEUE AUFGABE**: Visualisierung als grafisches Org-Chart (Baumstruktur für Azubis).
+    *   **NEUE AUFGABE**: Stellenbeschreibungen für Auditoren (Feld für Aufgabenbeschreibung hinzufügen).
+    *   **NEUE AUFGABE**: Impact-Check bei Löschung (Prüfe Verknüpfung zu Prozessen und VVT).
 
 ### 7. Ressourcenkatalog & Asset-Inventar
 *Die technische Basis.*
@@ -110,4 +117,4 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
     *   **NEUE AUFGABE**: KI-Config-Assistent übersetzt technische Fehlermeldungen (LDAP/Jira) in einfaches Deutsch.
 
 ---
-*Ende der Master-Liste (Stand: Audit Phase Step 5)*
+*Ende der Master-Liste (Stand: Audit Phase Step 6)*

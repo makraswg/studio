@@ -34,6 +34,7 @@ import {
   Briefcase,
   Plus,
   ArrowRightCircle,
+  ArrowLeftCircle,
   Link2,
   Share2,
   ArrowRight as ArrowRightIcon,

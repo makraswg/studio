@@ -135,15 +135,15 @@ export default function StructureSettingsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
-          <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-black uppercase tracking-wider">Org Structure</Badge>
-          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase">Struktur & Stellen</h1>
+          <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold">Org Structure</Badge>
+          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Struktur & Stellen</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">Hierarchischer Stellenplan der Organisationseinheiten.</p>
         </div>
         <Button 
           variant="outline" 
           size="sm"
           className={cn(
-            "h-9 rounded-md font-bold uppercase text-[9px] tracking-wider",
+            "h-9 rounded-md font-bold text-xs",
             showArchived && "text-orange-600 bg-orange-50"
           )} 
           onClick={() => setShowArchived(!showArchived)}
@@ -167,11 +167,11 @@ export default function StructureSettingsPage() {
         {(tenantsLoading || deptsLoading || jobsLoading) ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
-            <p className="text-[9px] font-black uppercase text-slate-400">Lade Struktur...</p>
+            <p className="text-[10px] font-bold text-slate-400">Lade Struktur...</p>
           </div>
         ) : filteredData.length === 0 ? (
           <div className="py-20 text-center border-2 border-dashed rounded-xl bg-white/50">
-            <p className="text-xs font-bold uppercase text-slate-400">Keine Daten gefunden</p>
+            <p className="text-xs font-bold text-slate-400">Keine Daten gefunden</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
@@ -183,12 +183,12 @@ export default function StructureSettingsPage() {
                       <Building2 className="w-5 h-5" />
                     </div>
                     <div>
-                      <CardTitle className="text-base font-bold uppercase text-slate-900 dark:text-white">{tenant.name}</CardTitle>
-                      <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">{tenant.slug}</p>
+                      <CardTitle className="text-base font-bold text-slate-900 dark:text-white">{tenant.name}</CardTitle>
+                      <p className="text-[10px] text-slate-400 font-bold">{tenant.slug}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button size="sm" variant="ghost" className="h-8 text-[9px] font-bold uppercase hover:bg-primary/5 gap-1.5" onClick={() => setActiveAddParent({ id: tenant.id, type: 'tenant' })}>
+                    <Button size="sm" variant="ghost" className="h-8 text-[10px] font-bold hover:bg-primary/5 gap-1.5" onClick={() => setActiveAddParent({ id: tenant.id, type: 'tenant' })}>
                       <PlusCircle className="w-3.5 h-3.5 text-primary" /> Abt.
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-500" onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}>
@@ -206,10 +206,10 @@ export default function StructureSettingsPage() {
                             <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 flex items-center justify-center border border-emerald-100 dark:border-emerald-900/30">
                               <Layers className="w-4 h-4" />
                             </div>
-                            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">{dept.name}</h4>
+                            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">{dept.name}</h4>
                           </div>
                           <div className="flex items-center gap-2 opacity-0 group-hover/dept:opacity-100">
-                            <Button variant="ghost" size="sm" className="h-7 text-[8px] font-black uppercase text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 gap-1" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}>
+                            <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 gap-1" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}>
                               <Plus className="w-3 h-3" /> Stelle
                             </Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300" onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}>
@@ -236,7 +236,7 @@ export default function StructureSettingsPage() {
                               <div className="col-span-full pt-2">
                                 <div className="flex gap-2 p-2 bg-white dark:bg-slate-950 rounded-lg border-2 border-primary shadow-sm">
                                   <Input autoFocus placeholder="Name der Stelle..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreate()} className="h-8 border-none shadow-none text-[11px] font-bold" />
-                                  <Button size="sm" className="h-8 px-4 rounded-md font-black uppercase text-[9px]" onClick={handleCreate}>Hinzufügen</Button>
+                                  <Button size="sm" className="h-8 px-4 rounded-md font-bold text-[10px]" onClick={handleCreate}>Hinzufügen</Button>
                                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setActiveAddParent(null)}><X className="w-3.5 h-3.5" /></Button>
                                 </div>
                               </div>
@@ -249,7 +249,7 @@ export default function StructureSettingsPage() {
                       <div className="p-4 px-8 bg-primary/5 border-y border-primary/10">
                         <div className="flex items-center gap-3">
                           <Input autoFocus placeholder="Abteilungsname..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreate()} className="h-10 border-slate-200 dark:border-slate-800 rounded-md bg-white dark:bg-slate-950 text-xs font-bold" />
-                          <Button size="sm" className="h-10 px-6 rounded-md font-black uppercase text-[10px]" onClick={handleCreate}>Erstellen</Button>
+                          <Button size="sm" className="h-10 px-6 rounded-md font-bold text-[10px]" onClick={handleCreate}>Erstellen</Button>
                           <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-400" onClick={() => setActiveAddParent(null)}><X className="w-4 h-4" /></Button>
                         </div>
                       </div>
@@ -269,17 +269,17 @@ export default function StructureSettingsPage() {
               <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                 <Briefcase className="w-5 h-5" />
               </div>
-              <DialogTitle className="text-lg font-bold uppercase tracking-tight text-slate-900 dark:text-white">Stelle bearbeiten</DialogTitle>
+              <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">Stelle bearbeiten</DialogTitle>
             </div>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
             <div className="p-6 space-y-6">
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Bezeichnung</Label>
+                <Label className="text-[10px] font-bold text-slate-400">Bezeichnung</Label>
                 <Input value={jobName} onChange={e => setJobName(e.target.value)} className="rounded-md h-11 font-bold text-sm border-slate-200 dark:border-slate-800" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Stellenbeschreibung</Label>
+                <Label className="text-[10px] font-bold text-slate-400">Stellenbeschreibung</Label>
                 <Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[150px] rounded-lg p-4 text-xs leading-relaxed border-slate-200 dark:border-slate-800" placeholder="Aufgaben & Kompetenzen..." />
               </div>
               <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg flex items-start gap-3 border border-blue-100 dark:border-blue-900/30">
@@ -289,8 +289,8 @@ export default function StructureSettingsPage() {
             </div>
           </ScrollArea>
           <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-900 border-t flex flex-col sm:flex-row gap-2">
-            <Button variant="ghost" onClick={() => setIsEditorOpen(false)} className="rounded-md h-10 px-6 font-bold uppercase text-[10px]">Abbrechen</Button>
-            <Button onClick={saveJobEdits} disabled={isSavingJob} className="rounded-md h-10 px-8 bg-primary text-white font-bold uppercase text-[10px] gap-2 shadow-lg shadow-primary/20">
+            <Button variant="ghost" onClick={() => setIsEditorOpen(false)} className="rounded-md h-10 px-6 font-bold text-[10px]">Abbrechen</Button>
+            <Button onClick={saveJobEdits} disabled={isSavingJob} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[10px] gap-2 shadow-lg shadow-primary/20">
               {isSavingJob ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Speichern
             </Button>
           </DialogFooter>

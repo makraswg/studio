@@ -192,18 +192,18 @@ export default function DashboardPage() {
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-primary"><Info className="w-3.5 h-3.5" /></Button>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-[180px] bg-slate-900 text-white text-[9px] uppercase font-black p-2 border-none rounded-md">
+                  <TooltipContent className="max-w-[180px] bg-slate-900 text-white text-[10px] font-bold p-2 border-none rounded-md">
                     {help}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
             <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">{label}</p>
+              <p className="text-[10px] font-bold text-slate-400">{label}</p>
               <div className="flex items-baseline justify-between mt-0.5">
                 <h3 className="text-2xl font-headline font-bold text-slate-800 dark:text-slate-100">{value}</h3>
                 {trend && (
-                  <div className={cn("flex items-center gap-0.5 text-[9px] font-black", trend > 0 ? "text-emerald-500" : "text-red-500")}>
+                  <div className={cn("flex items-center gap-0.5 text-[10px] font-bold", trend > 0 ? "text-emerald-500" : "text-red-500")}>
                     {trend > 0 ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
                     {Math.abs(trend)}%
                   </div>
@@ -221,15 +221,15 @@ export default function DashboardPage() {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
-          <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-black uppercase tracking-wider">Control Center</Badge>
-          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase">Governance Cockpit</h1>
+          <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold">Control Center</Badge>
+          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Governance Cockpit</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Status der Sicherheit & Compliance für {activeTenantId === 'all' ? 'die gesamte Organisation' : activeTenantId}.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold uppercase text-[9px] tracking-wider px-4 border-slate-200 hover:bg-slate-50 active:scale-95" onClick={() => setIsReportDialogOpen(true)}>
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 hover:bg-slate-50 active:scale-95" onClick={() => setIsReportDialogOpen(true)}>
             <FileDown className="w-3.5 h-3.5 mr-2 text-primary" /> Audit Snapshot
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold uppercase text-[10px] tracking-wider px-6 bg-slate-900 hover:bg-black text-white shadow-sm active:scale-95" onClick={() => router.push('/iam-audit')}>
+          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-slate-900 hover:bg-black text-white shadow-sm active:scale-95" onClick={() => router.push('/iam-audit')}>
             <BrainCircuit className="w-3.5 h-3.5 mr-2" /> KI Audit starten
           </Button>
         </div>
@@ -245,38 +245,38 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Action Center */}
-        <Card className="xl:col-span-2 border shadow-sm bg-slate-900 text-white rounded-xl overflow-hidden">
-          <CardHeader className="p-6 pb-2 flex flex-row items-center justify-between">
+        <Card className="xl:col-span-2 border shadow-sm bg-white dark:bg-slate-900 rounded-xl overflow-hidden">
+          <CardHeader className="p-6 pb-2 border-b bg-slate-50/50 flex flex-row items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-primary/20 rounded-md flex items-center justify-center text-primary">
+              <div className="w-8 h-8 bg-primary/10 rounded-md flex items-center justify-center text-primary">
                 <Target className="w-5 h-5" />
               </div>
               <div>
-                <CardTitle className="text-sm font-headline font-bold uppercase tracking-widest">Action Center</CardTitle>
-                <p className="text-[9px] font-bold text-slate-400 uppercase">Was heute zu tun ist</p>
+                <CardTitle className="text-sm font-headline font-bold">Action Center</CardTitle>
+                <p className="text-[10px] font-bold text-slate-400">Was heute zu tun ist</p>
               </div>
             </div>
-            <Badge className="bg-primary text-white border-none rounded-none text-[7px] font-black uppercase h-4 px-1.5">Priority High</Badge>
+            <Badge className="bg-primary/10 text-primary border-none rounded-none text-[8px] font-bold h-4 px-1.5">Priority High</Badge>
           </CardHeader>
           <CardContent className="p-6 space-y-3">
             {prioritizedTasks.length === 0 ? (
               <div className="py-10 text-center space-y-2 opacity-40">
                 <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500" />
-                <p className="text-[10px] font-bold uppercase tracking-widest">Alle Workflows sind aktuell</p>
+                <p className="text-[10px] font-bold">Alle Workflows sind aktuell</p>
               </div>
             ) : prioritizedTasks.map((task) => (
-              <div key={task.id} className="group flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-lg hover:bg-white/10 transition-all cursor-pointer" onClick={() => router.push(task.href)}>
+              <div key={task.id} className="group flex items-center justify-between p-4 bg-slate-50/50 border border-slate-100 rounded-lg hover:bg-slate-50 hover:border-primary/20 transition-all cursor-pointer" onClick={() => router.push(task.href)}>
                 <div className="flex items-center gap-4">
                   <div className={cn("w-10 h-10 rounded-md flex items-center justify-center shadow-sm", task.bg, task.color)}>
                     <task.icon className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white group-hover:text-primary transition-colors">{task.title}</h4>
-                    <p className="text-[10px] text-slate-400">{task.desc}</p>
+                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">{task.title}</h4>
+                    <p className="text-[10px] text-slate-500">{task.desc}</p>
                   </div>
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md group-hover:translate-x-1 transition-transform">
-                  <ArrowRight className="w-4 h-4 text-slate-500" />
+                  <ArrowRight className="w-4 h-4 text-slate-400" />
                 </Button>
               </div>
             ))}
@@ -286,7 +286,7 @@ export default function DashboardPage() {
         {/* RISK PIE */}
         <Card className="border shadow-sm bg-white dark:bg-slate-900 rounded-xl overflow-hidden flex flex-col">
           <CardHeader className="border-b py-4 px-6 bg-slate-50/50">
-            <CardTitle className="text-xs font-headline font-bold uppercase tracking-widest">Risiko-Verteilung</CardTitle>
+            <CardTitle className="text-xs font-headline font-bold">Risiko-Verteilung</CardTitle>
           </CardHeader>
           <CardContent className="p-6 flex-1 flex flex-col items-center justify-center">
             <div className="h-[180px] w-full relative">
@@ -301,11 +301,11 @@ export default function DashboardPage() {
                   >
                     {riskPieData.map((entry, index) => <Cell key={index} fill={entry.color} cornerRadius={4} className="cursor-pointer hover:opacity-80" />)}
                   </Pie>
-                  <RechartsTooltip contentStyle={{ borderRadius: '0.5rem', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '9px', fontWeight: 'bold' }} />
+                  <RechartsTooltip contentStyle={{ borderRadius: '0.5rem', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 'bold' }} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-[10px] font-black uppercase text-slate-400">Scan</span>
+                <span className="text-[10px] font-bold text-slate-400">Scan</span>
               </div>
             </div>
             <div className="w-full space-y-1.5 mt-4">
@@ -317,9 +317,9 @@ export default function DashboardPage() {
                 >
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-[9px] font-bold uppercase text-slate-500">{item.name}</span>
+                    <span className="text-[10px] font-bold text-slate-500">{item.name}</span>
                   </div>
-                  <span className="text-xs font-black text-slate-800 dark:text-slate-100">{item.value}</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{item.value}</span>
                 </div>
               ))}
             </div>
@@ -330,29 +330,29 @@ export default function DashboardPage() {
       {/* Report Dialog */}
       <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
         <DialogContent className="rounded-xl max-w-xl w-[95vw] bg-white p-0 border-none shadow-2xl overflow-hidden">
-          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center text-primary">
+              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                 <FileText className="w-5 h-5" />
               </div>
               <div>
-                <DialogTitle className="text-base font-headline font-bold uppercase">Compliance Snapshot</DialogTitle>
-                <DialogDescription className="text-slate-400 text-[9px] font-bold uppercase">Offizieller Bericht für Auditoren</DialogDescription>
+                <DialogTitle className="text-base font-headline font-bold">Compliance Snapshot</DialogTitle>
+                <DialogDescription className="text-slate-400 text-[10px] font-bold">Offizieller Bericht für Auditoren</DialogDescription>
               </div>
             </div>
           </DialogHeader>
           <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Button variant="outline" className="h-16 rounded-lg border-slate-100 flex flex-col gap-1 items-start px-4 justify-center hover:bg-primary/5 transition-all" onClick={() => handleExport('pdf', 'user')}>
-              <span className="font-black uppercase text-[10px]">Identitäten (PDF)</span>
-              <span className="text-[8px] text-slate-400">IAM-Gesamtbericht</span>
+              <span className="font-bold text-xs">Identitäten (PDF)</span>
+              <span className="text-[10px] text-slate-400">IAM-Gesamtbericht</span>
             </Button>
             <Button variant="outline" className="h-16 rounded-lg border-slate-100 flex flex-col gap-1 items-start px-4 justify-center hover:bg-indigo-50 transition-all" onClick={() => handleExport('pdf', 'resource')}>
-              <span className="font-black uppercase text-[10px]">Systeme (PDF)</span>
-              <span className="text-[8px] text-slate-400">Assetbericht</span>
+              <span className="font-bold text-xs">Systeme (PDF)</span>
+              <span className="text-[10px] text-slate-400">Assetbericht</span>
             </Button>
           </div>
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
-            <Button variant="ghost" size="sm" onClick={() => setIsReportDialogOpen(false)} className="w-full sm:w-auto rounded-md text-[9px] font-black uppercase">Abbrechen</Button>
+            <Button variant="ghost" size="sm" onClick={() => setIsReportDialogOpen(false)} className="w-full sm:w-auto rounded-md text-[10px] font-bold">Abbrechen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

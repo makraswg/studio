@@ -176,7 +176,7 @@ export function AppSidebar() {
       >
         <div className="flex items-center gap-2.5">
           <item.icon className={cn(isSubItem ? "w-3.5 h-3.5" : "w-4 h-4", "transition-transform", active ? "text-white" : "text-slate-400")} />
-          <span className={cn(isSubItem ? "text-[9.5px]" : "text-[10.5px]", "font-bold uppercase tracking-tight")}>{item.name}</span>
+          <span className={cn(isSubItem ? "text-[10px]" : "text-[11px]", "font-bold")}>{item.name}</span>
         </div>
         {active && !isSubItem && <ChevronRight className="w-3 h-3 opacity-50" />}
       </Link>
@@ -191,8 +191,8 @@ export function AppSidebar() {
             <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           <div>
-            <span className="font-headline font-black text-base tracking-tight block text-slate-900 dark:text-white uppercase leading-none">AccessHub</span>
-            <span className="text-[8px] text-primary font-black tracking-[0.2em] uppercase block mt-1">Enterprise GRC</span>
+            <span className="font-headline font-black text-base tracking-tight block text-slate-900 dark:text-white leading-none">AccessHub</span>
+            <span className="text-[9px] text-primary font-bold block mt-1">Enterprise GRC</span>
           </div>
         </div>
       </div>
@@ -202,27 +202,27 @@ export function AppSidebar() {
       <ScrollArea className="flex-1 px-3">
         <div className="space-y-8 py-4">
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Platform Core</p>
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">Platform Core</p>
             {navItems.map((item) => <NavLink key={item.name} item={item} />)}
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">ProcessHub</p>
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">ProcessHub</p>
             {processItems.map((item) => <NavLink key={item.name} item={item} />)}
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Compliance</p>
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">Compliance</p>
             {complianceItems.map((item) => <NavLink key={item.name} item={item} activeColor="bg-emerald-600" />)}
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Risk Engine</p>
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">Risk Engine</p>
             {riskItems.map((item) => <NavLink key={item.name} item={item} activeColor="bg-accent" />)}
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Admin</p>
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">Admin</p>
             <NavLink item={{ name: 'Setup & Infra', href: '/setup', icon: Settings2 }} />
             
             <Collapsible open={isSettingsOpen} onOpenChange={setIsSettingsOpen} className="space-y-1">
@@ -235,7 +235,7 @@ export function AppSidebar() {
                 >
                   <div className="flex items-center gap-2.5">
                     <Settings className={cn("w-4 h-4", pathname.startsWith('/settings') ? "text-primary" : "text-slate-400")} />
-                    <span className="text-[10.5px] font-bold uppercase tracking-tight text-left">Systemeinstellungen</span>
+                    <span className="text-[11px] font-bold text-left">Systemeinstellungen</span>
                   </div>
                   <ChevronDown className={cn("w-3 h-3 transition-transform duration-200", isSettingsOpen ? "rotate-180" : "")} />
                 </button>
@@ -253,16 +253,16 @@ export function AppSidebar() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="w-full h-auto p-2 justify-start items-center gap-3 rounded-lg hover:bg-white border border-transparent hover:border-slate-200">
               <Avatar className="h-8 w-8 rounded-md border shadow-inner">
-                <AvatarFallback className="bg-primary text-white font-black text-[10px] uppercase">{platformUser?.displayName?.charAt(0) || 'A'}</AvatarFallback>
+                <AvatarFallback className="bg-primary text-white font-bold text-[10px]">{platformUser?.displayName?.charAt(0) || 'A'}</AvatarFallback>
               </Avatar>
               <div className="flex-1 overflow-hidden text-left">
                 <p className="text-[11px] font-bold text-slate-900 truncate leading-tight">{platformUser?.displayName || 'Administrator'}</p>
-                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-tight mt-0.5">{platformUser?.role || 'User'}</p>
+                <p className="text-[9px] text-slate-400 font-bold mt-0.5">{platformUser?.role || 'User'}</p>
               </div>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="right" align="end" className="w-56 rounded-lg p-1 shadow-2xl">
-            <DropdownMenuLabel className="text-[9px] font-black uppercase text-slate-400 px-2 py-1.5">System</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-[10px] font-bold text-slate-400 px-2 py-1.5">System</DropdownMenuLabel>
             <DropdownMenuItem onSelect={() => setIsPasswordDialogOpen(true)} className="rounded-md gap-2 py-2 text-xs font-bold"><Lock className="w-3.5 h-3.5" /> Passwort ändern</DropdownMenuItem>
             <DropdownMenuSeparator className="my-1" />
             <DropdownMenuItem onSelect={handleLogout} className="rounded-md gap-2 py-2 text-xs font-bold text-red-600"><LogOut className="w-3.5 h-3.5" /> Abmelden</DropdownMenuItem>
@@ -275,21 +275,21 @@ export function AppSidebar() {
           <DialogHeader className="p-6 bg-slate-50 border-b">
             <div className="flex items-center gap-3">
               <Lock className="w-6 h-6 text-primary" />
-              <DialogTitle className="text-base font-bold uppercase">Passwort ändern</DialogTitle>
+              <DialogTitle className="text-base font-bold">Passwort ändern</DialogTitle>
             </div>
           </DialogHeader>
           <div className="p-6 space-y-4">
             <div className="space-y-1.5">
-              <Label className="text-[10px] font-bold uppercase text-slate-400">Neues Passwort</Label>
+              <Label className="text-[10px] font-bold text-slate-400">Neues Passwort</Label>
               <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="rounded-md h-10 border-slate-200" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[10px] font-bold uppercase text-slate-400">Bestätigen</Label>
+              <Label className="text-[10px] font-bold text-slate-400">Bestätigen</Label>
               <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="rounded-md h-10 border-slate-200" />
             </div>
           </div>
           <DialogFooter className="p-4 bg-slate-50 border-t">
-            <Button onClick={handleUpdatePassword} disabled={isUpdatingPassword} className="rounded-md font-bold uppercase text-[10px] h-10 w-full shadow-lg">
+            <Button onClick={handleUpdatePassword} disabled={isUpdatingPassword} className="rounded-md font-bold text-xs h-10 w-full shadow-lg">
               Passwort aktualisieren
             </Button>
           </DialogFooter>

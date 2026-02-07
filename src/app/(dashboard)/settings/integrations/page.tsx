@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -12,7 +11,12 @@ import {
   Ticket, 
   Layers, 
   ShieldCheck, 
-  Save
+  Save,
+  Globe,
+  Settings2,
+  ExternalLink,
+  ChevronRight,
+  Database
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
@@ -30,6 +34,8 @@ import {
 import { JiraConfig } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function JiraGatewaySettingsPage() {
   const { dataSource } = useSettings();
@@ -75,11 +81,8 @@ export default function JiraGatewaySettingsPage() {
     if (jiraDraft.projectKey && jiraDraft.url && jiraDraft.apiToken) {
       getJiraProjectMetadataAction(jiraDraft, jiraDraft.projectKey).then(meta => {
         if (meta.success) {
-          // Deduplicate issue types by ID
           const uniqueIssueTypes = Array.from(new Map((meta.issueTypes || []).map((it: any) => [it.id || it.name, it])).values());
-          // Deduplicate statuses by ID
           const uniqueStatuses = Array.from(new Map((meta.statuses || []).map((s: any) => [s.id || s.name, s])).values());
-          
           setJiraIssueTypes(uniqueIssueTypes);
           setJiraStatuses(uniqueStatuses);
         }
@@ -118,73 +121,106 @@ export default function JiraGatewaySettingsPage() {
   };
 
   return (
-    <Card className="rounded-none border shadow-none">
-      <CardHeader className="bg-muted/10 border-b py-4">
-        <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-          <RefreshCw className="w-4 h-4" /> Jira Gateway (API v3)
-        </CardTitle>
+    <Card className="rounded-[2.5rem] border-none shadow-2xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 overflow-hidden">
+      <CardHeader className="p-10 bg-slate-900 text-white shrink-0">
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-6">
+            <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-xl">
+              <RefreshCw className="w-8 h-8" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-headline font-bold uppercase tracking-tight">Jira Gateway (API v3)</CardTitle>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1.5">Anbindung an Atlassian Jira Service Management</p>
+            </div>
+          </div>
+          <div className="hidden sm:flex items-center gap-2">
+            <Badge variant={jiraDraft.enabled ? 'default' : 'outline'} className={cn(
+              "rounded-full text-[10px] font-black uppercase px-4 h-7 border-white/20",
+              jiraDraft.enabled ? "bg-emerald-600 text-white" : "bg-transparent text-slate-400"
+            )}>
+              {jiraDraft.enabled ? 'Aktiv' : 'Inaktiv'}
+            </Badge>
+          </div>
+        </div>
       </CardHeader>
-      <CardContent className="p-8 space-y-10">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between p-4 border bg-blue-50/20 rounded-none">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-bold">Jira Gateway aktiv</Label>
-              <p className="text-[9px] uppercase font-bold text-muted-foreground">Automatische Erstellung von Berechtigungs-Tickets.</p>
+      
+      <CardContent className="p-10 space-y-12">
+        {/* Core Credentials */}
+        <div className="space-y-8">
+          <div className="flex items-center justify-between p-6 bg-slate-50 dark:bg-slate-950 rounded-3xl border border-slate-100 dark:border-slate-800">
+            <div className="space-y-1">
+              <Label className="text-base font-black text-slate-800 dark:text-slate-100 uppercase">Jira Gateway aktivieren</Label>
+              <p className="text-[10px] uppercase font-bold text-slate-400 italic">Erlaubt automatische Ticketerstellung und Asset-Sync.</p>
             </div>
             <Switch checked={!!jiraDraft.enabled} onCheckedChange={v => setJiraDraft({...jiraDraft, enabled: v})} />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Jira Cloud URL</Label><Input value={jiraDraft.url || ''} onChange={e => setJiraDraft({...jiraDraft, url: e.target.value})} placeholder="https://firma.atlassian.net" className="rounded-none h-10" /></div>
-            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Reporter E-Mail</Label><Input value={jiraDraft.email || ''} onChange={e => setJiraDraft({...jiraDraft, email: e.target.value})} className="rounded-none h-10" /></div>
-            <div className="space-y-2 md:col-span-2"><Label className="text-[10px] font-bold uppercase">API Token</Label><Input type="password" value={jiraDraft.apiToken || ''} onChange={e => setJiraDraft({...jiraDraft, apiToken: e.target.value})} className="rounded-none h-10" /></div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Jira Cloud URL</Label>
+              <div className="relative">
+                <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                <Input value={jiraDraft.url || ''} onChange={e => setJiraDraft({...jiraDraft, url: e.target.value})} placeholder="https://firma.atlassian.net" className="rounded-2xl h-14 pl-11 border-slate-200" />
+              </div>
+            </div>
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Reporter E-Mail</Label>
+              <Input value={jiraDraft.email || ''} onChange={e => setJiraDraft({...jiraDraft, email: e.target.value})} placeholder="admin@firma.de" className="rounded-2xl h-14 border-slate-200" />
+            </div>
+            <div className="space-y-3 md:col-span-2">
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">API Token (Atlassian Account)</Label>
+              <Input type="password" value={jiraDraft.apiToken || ''} onChange={e => setJiraDraft({...jiraDraft, apiToken: e.target.value})} className="rounded-2xl h-14 border-slate-200 font-mono" />
+            </div>
           </div>
         </div>
 
-        <Separator />
+        <Separator className="bg-slate-50 dark:bg-slate-800" />
 
-        <div className="space-y-6">
+        {/* Workflow Mapping */}
+        <div className="space-y-8">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2">
-              <Ticket className="w-3.5 h-3.5" /> 1. Workflow & Tickets
+            <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-3 tracking-widest">
+              <Ticket className="w-5 h-5 text-primary" /> 1. Workflow & Tickets
             </h3>
-            <Button variant="outline" size="sm" onClick={handleFetchJiraOptions} disabled={isJiraFetching} className="h-8 rounded-none text-[9px] font-bold uppercase gap-2">
-              {isJiraFetching ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} 
+            <Button variant="outline" size="sm" onClick={handleFetchJiraOptions} disabled={isJiraFetching} className="h-10 rounded-xl text-[10px] font-black uppercase gap-2 px-6 border-slate-200">
+              {isJiraFetching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4" />} 
               Optionen laden
             </Button>
           </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Projekt</Label>
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Projekt</Label>
               <Select value={jiraDraft.projectKey || ''} onValueChange={v => setJiraDraft({...jiraDraft, projectKey: v})}>
-                <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Projekt..." /></SelectTrigger>
-                <SelectContent className="rounded-none">
+                <SelectTrigger className="rounded-xl h-12 border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                <SelectContent className="rounded-2xl">
                   {jiraProjects.map(p => <SelectItem key={p.key || p.id} value={p.key}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Vorgangstyp</Label>
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Vorgangstyp</Label>
               <Select value={jiraDraft.issueTypeName || ''} onValueChange={v => setJiraDraft({...jiraDraft, issueTypeName: v})}>
-                <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Typ..." /></SelectTrigger>
-                <SelectContent className="rounded-none">
+                <SelectTrigger className="rounded-xl h-12 border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                <SelectContent className="rounded-2xl">
                   {jiraIssueTypes.map(it => <SelectItem key={it.id || it.name} value={it.name}>{it.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-emerald-600">Genehmigungs-Status</Label>
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-emerald-600 ml-1">Zustand: Genehmigt</Label>
               <Select value={jiraDraft.approvedStatusName || ''} onValueChange={v => setJiraDraft({...jiraDraft, approvedStatusName: v})}>
-                <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                <SelectContent className="rounded-none">
+                <SelectTrigger className="rounded-xl h-12 border-emerald-100 bg-emerald-50/20"><SelectValue placeholder="Status..." /></SelectTrigger>
+                <SelectContent className="rounded-2xl">
                   {jiraStatuses.map(s => <SelectItem key={`app-${s.id || s.name}`} value={s.name}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-blue-600">Erledigt-Status</Label>
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-blue-600 ml-1">Zustand: Erledigt</Label>
               <Select value={jiraDraft.doneStatusName || ''} onValueChange={v => setJiraDraft({...jiraDraft, doneStatusName: v})}>
-                <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                <SelectContent className="rounded-none">
+                <SelectTrigger className="rounded-xl h-12 border-blue-100 bg-blue-50/20"><SelectValue placeholder="Status..." /></SelectTrigger>
+                <SelectContent className="rounded-2xl">
                   {jiraStatuses.map(s => <SelectItem key={`done-${s.id || s.name}`} value={s.name}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -192,45 +228,46 @@ export default function JiraGatewaySettingsPage() {
           </div>
         </div>
 
-        <Separator />
+        <Separator className="bg-slate-50 dark:bg-slate-800" />
 
-        <div className="space-y-6">
-          <h3 className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2">
-            <Layers className="w-3.5 h-3.5" /> 2. JSM Assets Discovery
+        {/* Assets Discovery */}
+        <div className="space-y-8">
+          <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-3 tracking-widest">
+            <Layers className="w-5 h-5 text-indigo-600" /> 2. JSM Assets Discovery
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Workspace</Label>
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Workspace</Label>
               <Select value={jiraDraft.workspaceId || ''} onValueChange={v => setJiraDraft({...jiraDraft, workspaceId: v, schemaId: '', objectTypeId: '', entitlementObjectTypeId: ''})}>
-                <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Workspace..." /></SelectTrigger>
-                <SelectContent className="rounded-none">
+                <SelectTrigger className="rounded-xl h-12 border-slate-200"><SelectValue placeholder="Workspace..." /></SelectTrigger>
+                <SelectContent className="rounded-2xl">
                   {jiraWorkspaces.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Schema</Label>
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Schema</Label>
               <Select value={jiraDraft.schemaId || ''} onValueChange={v => setJiraDraft({...jiraDraft, schemaId: v, objectTypeId: '', entitlementObjectTypeId: ''})}>
-                <SelectTrigger className="rounded-none h-10" disabled={!jiraDraft.workspaceId}><SelectValue placeholder="Schema..." /></SelectTrigger>
-                <SelectContent className="rounded-none">
+                <SelectTrigger className="rounded-xl h-12 border-slate-200" disabled={!jiraDraft.workspaceId}><SelectValue placeholder="Schema..." /></SelectTrigger>
+                <SelectContent className="rounded-2xl">
                   {jiraSchemas.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Typ: IT-Systeme</Label>
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Typ: IT-Systeme</Label>
               <Select value={jiraDraft.objectTypeId || ''} onValueChange={v => setJiraDraft({...jiraDraft, objectTypeId: v})}>
-                <SelectTrigger className="rounded-none h-10" disabled={!jiraDraft.schemaId}><SelectValue placeholder="Typ wählen..." /></SelectTrigger>
-                <SelectContent className="rounded-none">
+                <SelectTrigger className="rounded-xl h-12 border-slate-200" disabled={!jiraDraft.schemaId}><SelectValue placeholder="Asset Typ..." /></SelectTrigger>
+                <SelectContent className="rounded-2xl">
                   {jiraObjectTypes.map(ot => <SelectItem key={ot.id} value={ot.id}>{ot.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Typ: Rollen</Label>
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Typ: Rollen</Label>
               <Select value={jiraDraft.entitlementObjectTypeId || ''} onValueChange={v => setJiraDraft({...jiraDraft, entitlementObjectTypeId: v})}>
-                <SelectTrigger className="rounded-none h-10" disabled={!jiraDraft.schemaId}><SelectValue placeholder="Typ wählen..." /></SelectTrigger>
-                <SelectContent className="rounded-none">
+                <SelectTrigger className="rounded-xl h-12 border-slate-200" disabled={!jiraDraft.schemaId}><SelectValue placeholder="Rollen Typ..." /></SelectTrigger>
+                <SelectContent className="rounded-2xl">
                   {jiraObjectTypes.map(ot => <SelectItem key={`role-${ot.id}`} value={ot.id}>{ot.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -238,10 +275,20 @@ export default function JiraGatewaySettingsPage() {
           </div>
         </div>
 
-        <div className="flex justify-between items-center pt-6 border-t">
-          <Button variant="outline" onClick={() => testJiraConnectionAction(jiraDraft).then(res => toast({ title: "Jira-Test", description: res.message }))} className="rounded-none text-[10px] font-bold uppercase h-11 px-8">Verbindung Testen</Button>
-          <Button onClick={handleSave} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] px-12 h-11 gap-2">
-            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+        <div className="flex flex-col sm:flex-row justify-between items-center pt-10 border-t border-slate-100 dark:border-slate-800 gap-6">
+          <Button 
+            variant="outline" 
+            onClick={() => testJiraConnectionAction(jiraDraft).then(res => toast({ title: "Jira-Test", description: res.message }))} 
+            className="rounded-2xl h-14 px-10 font-black uppercase text-[10px] tracking-widest border-slate-200 hover:bg-slate-50 transition-all active:scale-95"
+          >
+            Verbindung Testen
+          </Button>
+          <Button 
+            onClick={handleSave} 
+            disabled={isSaving} 
+            className="w-full sm:w-auto rounded-2xl h-14 px-16 font-black uppercase text-xs tracking-[0.2em] bg-slate-900 hover:bg-black text-white shadow-2xl transition-all active:scale-95 gap-3"
+          >
+            {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             Konfiguration Speichern
           </Button>
         </div>

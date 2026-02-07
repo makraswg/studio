@@ -1,6 +1,6 @@
 # UI/UX Reform Plan - AccessHub
 
-## Status: Schritt 5 abgeschlossen ✅
+## Status: Abgeschlossen ✅
 
 ### 1. Fundament & Design System (ERLEDIGT ✅)
 - [x] Farben gemäß PRD in `globals.css` (Vibrant Blue #29ABE2, Accent Orange #FF9800).
@@ -27,6 +27,7 @@
 - [x] Formular-Assistent Integration (UI-Overlay statt Side-Panel).
 - [x] Umstellung der Risiko- und VVT-Listen auf Mobile-First Cards.
 
-### 6. Settings & Global Navigation
-- [ ] Strukturierung der Einstellungen.
-- [ ] Finaler Schliff der Navigations-Ergonomie.
+### 6. Settings & Global Navigation (ERLEDIGT ✅)
+- [x] Strukturierung der Einstellungen in modernen Cards.
+- [x] Finaler Schliff der Navigations-Ergonomie.
+- [x] Mobile-First Navigation für komplexe Konfigurationsseiten.

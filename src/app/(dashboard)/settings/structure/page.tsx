@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -18,7 +17,9 @@ import {
   Layers,
   ArrowRight,
   BadgeAlert,
-  Loader2
+  Loader2,
+  Trash2,
+  Settings2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -29,6 +30,7 @@ import { Tenant, Department, JobTitle } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 export default function StructureSettingsPage() {
   const { dataSource } = useSettings();
@@ -134,66 +136,78 @@ export default function StructureSettingsPage() {
   };
 
   return (
-    <div className="space-y-8 pb-20">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-          <Briefcase className="w-4 h-4" /> Organisationsstruktur
+    <div className="space-y-10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-3">
+          <div className="w-1.5 h-6 bg-primary rounded-full" />
+          Unternehmens-Struktur (Konzern-Sicht)
         </h2>
-        <div className="flex items-center gap-2 border bg-white p-1 rounded-none">
-          <Badge variant="outline" className={cn("rounded-none border-none text-[9px] uppercase", showArchived ? "text-orange-600" : "text-emerald-600")}>
-            {showArchived ? 'Archiv wird angezeigt' : 'Nur Aktive'}
-          </Badge>
-          <Button variant="ghost" size="sm" className="h-7 text-[9px] font-bold uppercase gap-2" onClick={() => setShowArchived(!showArchived)}>
-            {showArchived ? <RotateCcw className="w-3 h-3" /> : <Archive className="w-3 h-3" />}
-            {showArchived ? 'Aktive anzeigen' : 'Archiv anzeigen'}
+        <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className={cn(
+              "h-9 text-[10px] font-black uppercase gap-2 px-4 rounded-xl transition-all",
+              showArchived ? "text-orange-600 bg-orange-50 dark:bg-orange-900/20" : "text-slate-500 hover:text-slate-900"
+            )} 
+            onClick={() => setShowArchived(!showArchived)}
+          >
+            {showArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+            {showArchived ? 'Archiv wird angezeigt' : 'Archiv anzeigen'}
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {/* TENANTS */}
-        <Card className="rounded-none border shadow-none flex flex-col h-[600px]">
-          <CardHeader className="bg-slate-900 text-white py-3 shrink-0">
-            <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-              <Building2 className="w-3.5 h-3.5 text-primary" /> 1. Mandanten
-            </CardTitle>
+        <Card className="rounded-[2.5rem] border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 flex flex-col h-[650px] overflow-hidden group">
+          <CardHeader className="bg-slate-900 text-white p-6 shrink-0 transition-colors group-hover:bg-primary duration-500">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0 border border-white/20">
+                <Building2 className="w-5 h-5 text-white" />
+              </div>
+              <CardTitle className="text-xs font-black uppercase tracking-widest">1. Mandanten</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent className="p-4 space-y-4 flex-1 flex flex-col min-h-0">
+          <CardContent className="p-6 space-y-6 flex-1 flex flex-col min-h-0">
             {!showArchived && (
-              <div className="flex gap-1 border p-1 bg-muted/10 rounded-none shrink-0">
+              <div className="flex gap-2 p-2 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 shrink-0">
                 <Input 
-                  placeholder="Name..." 
+                  placeholder="Mandant-Name..." 
                   value={newTenantName} 
                   onChange={e => setNewTenantName(e.target.value)} 
-                  className="h-8 border-none shadow-none text-xs rounded-none bg-transparent" 
+                  onKeyDown={e => e.key === 'Enter' && handleCreateTenant()}
+                  className="h-10 border-none shadow-none text-xs rounded-xl bg-transparent focus:bg-white" 
                 />
-                <Button size="icon" className="h-8 w-8 shrink-0 rounded-none" onClick={handleCreateTenant}>
+                <Button size="icon" className="h-10 w-10 shrink-0 rounded-xl bg-slate-900 hover:bg-black text-white" onClick={handleCreateTenant}>
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
             )}
-            <ScrollArea className="flex-1 -mx-4 px-4">
-              <div className="space-y-1">
+            <ScrollArea className="flex-1 -mx-2 px-2">
+              <div className="space-y-2">
                 {filteredTenants.map(t => (
                   <div 
                     key={t.id} 
                     className={cn(
-                      "flex items-center justify-between p-2.5 border cursor-pointer group transition-all",
-                      selectedTenantId === t.id ? "bg-primary/5 border-primary ring-1 ring-primary/20" : "bg-white hover:border-slate-300"
+                      "flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer group/item",
+                      selectedTenantId === t.id ? "bg-primary/5 border-primary shadow-lg shadow-primary/5" : "bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 hover:border-slate-300"
                     )}
                     onClick={() => { setSelectedTenantId(t.id); setSelectedDeptId(''); }}
                   >
                     <div className="min-w-0 flex-1">
-                      <p className={cn("text-xs font-bold truncate", t.status === 'archived' && "line-through text-muted-foreground")}>{t.name}</p>
-                      <p className="text-[8px] font-black uppercase text-muted-foreground">{t.slug}</p>
+                      <p className={cn("text-sm font-bold truncate", t.status === 'archived' && "line-through text-slate-400")}>{t.name}</p>
+                      <p className="text-[9px] font-black uppercase text-slate-400 mt-0.5 tracking-widest">{t.slug}</p>
                     </div>
-                    <Button 
-                      variant="ghost" size="icon" 
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 rounded-none text-muted-foreground hover:text-red-600"
-                      onClick={(e) => { e.stopPropagation(); handleStatusChange('tenants', t, t.status === 'active' ? 'archived' : 'active'); }}
-                    >
-                      {t.status === 'active' ? <Archive className="w-3.5 h-3.5" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                    </Button>
+                    <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                      <Button 
+                        variant="ghost" size="icon" 
+                        className="h-8 w-8 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50"
+                        onClick={(e) => { e.stopPropagation(); handleStatusChange('tenants', t, t.status === 'active' ? 'archived' : 'active'); }}
+                      >
+                        {t.status === 'active' ? <Archive className="w-4 h-4" /> : <RotateCcw className="w-4 h-4" />}
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -202,52 +216,65 @@ export default function StructureSettingsPage() {
         </Card>
 
         {/* DEPARTMENTS */}
-        <Card className="rounded-none border shadow-none flex flex-col h-[600px]">
-          <CardHeader className="bg-slate-900 text-white py-3 shrink-0">
-            <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-              <Layers className="w-3.5 h-3.5 text-emerald-400" /> 2. Abteilungen
-            </CardTitle>
+        <Card className="rounded-[2.5rem] border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 flex flex-col h-[650px] overflow-hidden group">
+          <CardHeader className="bg-slate-900 text-white p-6 shrink-0 transition-colors group-hover:bg-emerald-600 duration-500">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0 border border-white/20">
+                <Layers className="w-5 h-5 text-white" />
+              </div>
+              <CardTitle className="text-xs font-black uppercase tracking-widest">2. Abteilungen</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent className="p-4 space-y-4 flex-1 flex flex-col min-h-0">
+          <CardContent className="p-6 space-y-6 flex-1 flex flex-col min-h-0">
             {!showArchived && (
-              <div className={cn("flex gap-1 border p-1 bg-muted/10 rounded-none shrink-0", !selectedTenantId && "opacity-50 pointer-events-none")}>
+              <div className={cn("flex gap-2 p-2 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 shrink-0", !selectedTenantId && "opacity-30 grayscale cursor-not-allowed")}>
                 <Input 
                   placeholder={selectedTenantId ? "Abteilung..." : "Mandant wählen..."} 
                   value={newDeptName} 
                   onChange={e => setNewDeptName(e.target.value)} 
-                  className="h-8 border-none shadow-none text-xs rounded-none bg-transparent" 
+                  onKeyDown={e => e.key === 'Enter' && handleCreateDept()}
+                  className="h-10 border-none shadow-none text-xs rounded-xl bg-transparent focus:bg-white" 
+                  disabled={!selectedTenantId}
                 />
-                <Button size="icon" className="h-8 w-8 shrink-0 rounded-none" onClick={handleCreateDept} disabled={!selectedTenantId}>
+                <Button size="icon" className="h-10 w-10 shrink-0 rounded-xl bg-slate-900 hover:bg-black text-white" onClick={handleCreateDept} disabled={!selectedTenantId}>
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
             )}
-            <ScrollArea className="flex-1 -mx-4 px-4">
-              <div className="space-y-1">
+            <ScrollArea className="flex-1 -mx-2 px-2">
+              <div className="space-y-2">
                 {filteredDepts.map(d => (
                   <div 
                     key={d.id} 
                     className={cn(
-                      "flex items-center justify-between p-2.5 border cursor-pointer group transition-all",
-                      selectedDeptId === d.id ? "bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500/20" : "bg-white hover:border-slate-300"
+                      "flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer group/item",
+                      selectedDeptId === d.id ? "bg-emerald-50 border-emerald-500 shadow-lg shadow-emerald-500/5" : "bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 hover:border-slate-300"
                     )}
                     onClick={() => setSelectedDeptId(d.id)}
                   >
-                    <p className={cn("text-xs font-bold truncate", d.status === 'archived' && "line-through text-muted-foreground")}>{d.name}</p>
-                    <Button 
-                      variant="ghost" size="icon" 
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 rounded-none text-muted-foreground hover:text-red-600"
-                      onClick={(e) => { e.stopPropagation(); handleStatusChange('departments', d, d.status === 'active' ? 'archived' : 'active'); }}
-                    >
-                      {d.status === 'active' ? <Archive className="w-3.5 h-3.5" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                    </Button>
+                    <p className={cn("text-sm font-bold truncate", d.status === 'archived' && "line-through text-slate-400")}>{d.name}</p>
+                    <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                      <Button 
+                        variant="ghost" size="icon" 
+                        className="h-8 w-8 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50"
+                        onClick={(e) => { e.stopPropagation(); handleStatusChange('departments', d, d.status === 'active' ? 'archived' : 'active'); }}
+                      >
+                        {d.status === 'active' ? <Archive className="w-4 h-4" /> : <RotateCcw className="w-4 h-4" />}
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {selectedTenantId && filteredDepts.length === 0 && (
-                  <div className="py-10 text-center text-[9px] font-bold uppercase text-muted-foreground">Keine Abteilungen gefunden.</div>
+                  <div className="py-20 text-center space-y-3 opacity-20">
+                    <Layers className="w-10 h-10 mx-auto" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Keine Abteilungen</p>
+                  </div>
                 )}
                 {!selectedTenantId && (
-                  <div className="py-10 text-center text-[9px] font-bold uppercase text-muted-foreground italic">Wählen Sie links einen Mandanten aus.</div>
+                  <div className="py-20 text-center space-y-3 opacity-20 italic">
+                    <Building2 className="w-10 h-10 mx-auto" />
+                    <p className="text-[9px] font-black uppercase tracking-widest">Mandant links wählen</p>
+                  </div>
                 )}
               </div>
             </ScrollArea>
@@ -255,53 +282,87 @@ export default function StructureSettingsPage() {
         </Card>
 
         {/* JOB TITLES */}
-        <Card className="rounded-none border shadow-none flex flex-col h-[600px]">
-          <CardHeader className="bg-slate-900 text-white py-3 shrink-0">
-            <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-              <BadgeAlert className="w-3.5 h-3.5 text-orange-400" /> 3. Stellen / Rollen
-            </CardTitle>
+        <Card className="rounded-[2.5rem] border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 flex flex-col h-[650px] overflow-hidden group">
+          <CardHeader className="bg-slate-900 text-white p-6 shrink-0 transition-colors group-hover:bg-accent duration-500">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0 border border-white/20">
+                <BadgeAlert className="w-5 h-5 text-white" />
+              </div>
+              <CardTitle className="text-xs font-black uppercase tracking-widest">3. Stellen / Rollen</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent className="p-4 space-y-4 flex-1 flex flex-col min-h-0">
+          <CardContent className="p-6 space-y-6 flex-1 flex flex-col min-h-0">
             {!showArchived && (
-              <div className={cn("flex gap-1 border p-1 bg-muted/10 rounded-none shrink-0", !selectedDeptId && "opacity-50 pointer-events-none")}>
+              <div className={cn("flex gap-2 p-2 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 shrink-0", !selectedDeptId && "opacity-30 grayscale cursor-not-allowed")}>
                 <Input 
-                  placeholder={selectedDeptId ? "Stellenbezeichnung..." : "Abt. wählen..."} 
+                  placeholder={selectedDeptId ? "Bezeichnung..." : "Abteilung wählen..."} 
                   value={newJobName} 
                   onChange={e => setNewJobName(e.target.value)} 
-                  className="h-8 border-none shadow-none text-xs rounded-none bg-transparent" 
+                  onKeyDown={e => e.key === 'Enter' && handleCreateJob()}
+                  className="h-10 border-none shadow-none text-xs rounded-xl bg-transparent focus:bg-white" 
+                  disabled={!selectedDeptId}
                 />
-                <Button size="icon" className="h-8 w-8 shrink-0 rounded-none" onClick={handleCreateJob} disabled={!selectedDeptId}>
+                <Button size="icon" className="h-10 w-10 shrink-0 rounded-xl bg-slate-900 hover:bg-black text-white" onClick={handleCreateJob} disabled={!selectedDeptId}>
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
             )}
-            <ScrollArea className="flex-1 -mx-4 px-4">
-              <div className="space-y-1">
+            <ScrollArea className="flex-1 -mx-2 px-2">
+              <div className="space-y-2">
                 {filteredJobs.map(j => (
                   <div 
                     key={j.id} 
-                    className="flex items-center justify-between p-2.5 border bg-white group hover:border-slate-300"
+                    className="flex items-center justify-between p-4 rounded-2xl border bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 group/item hover:border-slate-300 transition-all shadow-sm"
                   >
-                    <p className={cn("text-xs font-bold truncate", j.status === 'archived' && "line-through text-muted-foreground")}>{j.name}</p>
-                    <Button 
-                      variant="ghost" size="icon" 
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 rounded-none text-muted-foreground hover:text-red-600"
-                      onClick={(e) => { e.stopPropagation(); handleStatusChange('jobTitles', j, j.status === 'active' ? 'archived' : 'active'); }}
-                    >
-                      {j.status === 'active' ? <Archive className="w-3.5 h-3.5" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                    </Button>
+                    <div className="min-w-0">
+                      <p className={cn("text-sm font-bold truncate", j.status === 'archived' && "line-through text-slate-400")}>{j.name}</p>
+                      <p className="text-[9px] font-black uppercase text-slate-400 mt-0.5">ID: {j.id}</p>
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                      <Button 
+                        variant="ghost" size="icon" 
+                        className="h-8 w-8 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50"
+                        onClick={(e) => { e.stopPropagation(); handleStatusChange('jobTitles', j, j.status === 'active' ? 'archived' : 'active'); }}
+                      >
+                        {j.status === 'active' ? <Archive className="w-4 h-4" /> : <RotateCcw className="w-4 h-4" />}
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {selectedDeptId && filteredJobs.length === 0 && (
-                  <div className="py-10 text-center text-[9px] font-bold uppercase text-muted-foreground">Keine Stellen gefunden.</div>
+                  <div className="py-20 text-center space-y-3 opacity-20">
+                    <BadgeAlert className="w-10 h-10 mx-auto" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Keine Stellen</p>
+                  </div>
                 )}
                 {!selectedDeptId && (
-                  <div className="py-10 text-center text-[9px] font-bold uppercase text-muted-foreground italic">Wählen Sie eine Abteilung aus.</div>
+                  <div className="py-20 text-center space-y-3 opacity-20 italic">
+                    <Layers className="w-10 h-10 mx-auto" />
+                    <p className="text-[9px] font-black uppercase tracking-widest">Abteilung wählen</p>
+                  </div>
                 )}
               </div>
             </ScrollArea>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="p-8 bg-slate-900 text-white rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl">
+        <div className="flex items-center gap-6">
+          <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center text-primary shrink-0">
+            <Settings2 className="w-8 h-8" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-lg font-headline font-bold uppercase tracking-widest">Konzern-Struktur & Prozessmanagement</h3>
+            <p className="text-[11px] text-slate-400 leading-relaxed max-w-2xl">
+              Diese Stellenpläne werden direkt im **ProcessHub Designer** zur Rollenzuweisung genutzt. 
+              Stellen Sie sicher, dass alle fachlichen Rollen hier korrekt hinterlegt sind, um eine präzise Prozesslandkarte zu erstellen.
+            </p>
+          </div>
+        </div>
+        <Button variant="outline" className="rounded-xl border-white/20 text-white hover:bg-white hover:text-slate-900 font-black uppercase text-[10px] h-12 px-8 shrink-0">
+          Stellenplan-Import (CSV)
+        </Button>
       </div>
     </div>
   );

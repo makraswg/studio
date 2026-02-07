@@ -129,6 +129,16 @@ export interface ProcessVersion {
   created_at: string;
 }
 
+export interface ProcessComment {
+  id: string;
+  process_id: string;
+  node_id?: string;
+  user_id: string;
+  user_name: string;
+  text: string;
+  created_at: string;
+}
+
 export interface Document {
   id: string;
   [key: string]: any;

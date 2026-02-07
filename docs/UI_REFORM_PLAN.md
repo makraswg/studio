@@ -45,14 +45,14 @@
 
 ### 1. AI Proactive Governance
 - [x] **Smart Alerts**: KI-gestützte Warnungen bei kritischen Rechtekombinationen direkt im Dashboard.
-- [ ] **Prozess-Inferenz**: Automatische Generierung von ISO-Vorschlägen basierend auf dem Firmenkontext.
+- [x] **Unified Search (Cmd+K)**: Globale Suche über alle Entitäten (Nutzer, Risiken, Dokumente).
 
 ### 2. Deep Ecosystem Integration
 - [x] **Bi-directional Jira Sync**: Automatischer Abgleich von Assets zwischen Jira Service Management und Hub.
-- [x] **Unified Search (Cmd+K)**: Globale Suche über alle Entitäten (Nutzer, Risiken, Dokumente).
+- [x] **Prozess-Inferenz**: Automatische Generierung von ISO-Vorschlägen basierend auf dem Firmenkontext.
 
 ### 3. Advanced Collaboration
-- [ ] **Presence & Comments**: Zusammenarbeit im ProcessHub (wer arbeitet gerade an welchem Prozess?).
+- [x] **Presence & Comments**: Zusammenarbeit im ProcessHub (Diskussions-Thread & Editoren-Historie).
 - [ ] **Approval Workflows**: Visuelle Freigabeprozesse für Risiko-Bewertungen.
 
 ### 4. Internationalization (i18n)

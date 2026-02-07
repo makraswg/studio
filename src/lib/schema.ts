@@ -86,6 +86,17 @@ export const appSchema: AppSchema = {
       created_at: 'VARCHAR(50)',
     }
   },
+  process_comments: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      process_id: 'VARCHAR(255) NOT NULL',
+      node_id: 'VARCHAR(255)',
+      user_id: 'VARCHAR(255) NOT NULL',
+      user_name: 'VARCHAR(255)',
+      text: 'TEXT NOT NULL',
+      created_at: 'VARCHAR(50)',
+    }
+  },
   process_ops: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -37,7 +38,10 @@ import {
   Tags,
   PlusCircle,
   Layout,
-  LayoutGrid
+  LayoutGrid,
+  UserCircle,
+  History,
+  MessageCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,17 +57,18 @@ import { usePlatformAuth } from '@/context/auth-context';
 import { applyProcessOpsAction, updateProcessMetadataAction } from '@/app/actions/process-actions';
 import { getProcessSuggestions } from '@/ai/flows/process-designer-flow';
 import { publishToBookStackAction } from '@/app/actions/bookstack-actions';
+import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, ProcessNode, Process, JobTitle } from '@/lib/types';
+import { ProcessModel, ProcessLayout, ProcessNode, Process, JobTitle, ProcessComment } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 /**
  * Erzeugt das XML für mxGraph mit robustem Fallback für IDs.
- * Verhindert den "Duplicate ID undefined" Fehler.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -73,7 +78,6 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
 
   nodes.forEach((node, idx) => {
     let nodeSafeId = String(node.id || `node-gen-${idx}`);
-    // Finale Härtung gegen mxGraph Auto-ID Konflikte
     if (nodeSafeId === 'undefined' || nodeSafeId === 'null' || nodeSafeId === '' || nodeSafeId === '[object Object]') {
       nodeSafeId = `node-fix-${idx}-${Math.random().toString(36).substring(2, 7)}`;
     }
@@ -98,13 +102,8 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
 
   edges.forEach((edge, idx) => {
     let edgeSafeId = String(edge.id || `edge-gen-${idx}`);
-    if (edgeSafeId === 'undefined' || edgeSafeId === 'null' || edgeSafeId === '' || edgeSafeId === '[object Object]') {
-      edgeSafeId = `edge-fix-${idx}-${Math.random().toString(36).substring(2, 7)}`;
-    }
-
     const sourceExists = nodes.some(n => n.id === edge.source);
     const targetExists = nodes.some(n => n.id === edge.target);
-    
     if (sourceExists && targetExists) {
       xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="${edge.source}" target="${edge.target}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
@@ -128,6 +127,7 @@ export default function ProcessDesignerPage() {
   const isResizingRight = useRef(false);
 
   const [mobileView, setMobileView] = useState<'steps' | 'diagram' | 'ai'>('steps');
+  const [rightActiveTab, setRightActiveTab] = useState<'ai' | 'collab'>('ai');
 
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<any[]>([]);
@@ -142,22 +142,34 @@ export default function ProcessDesignerPage() {
     id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '', type: 'step', targetProcessId: '', customFields: {} as Record<string, string>
   });
 
+  const [commentText, setChatMessageCollab] = useState('');
+  const [isCommenting, setIsCommenting] = useState(false);
+
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDesc, setMetaDesc] = useState('');
   const [metaOpenQuestions, setMetaOpenQuestions] = useState('');
   const [metaStatus, setMetaStatus] = useState<any>('draft');
-  const [metaCustomFields, setMetaCustomFields] = useState<Record<string, string>>({});
 
   const [newEdgeTargetId, setNewEdgeTargetId] = useState<string>('');
   const [newEdgeLabel, setNewEdgeLabel] = useState<string>('');
-  const [newFieldName, setNewFieldName] = useState('');
 
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
   const { data: versions, refresh: refreshVersion } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: comments, refresh: refreshComments } = usePluggableCollection<ProcessComment>('process_comments');
+  const { data: auditEvents } = usePluggableCollection<any>('auditEvents');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id), [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
+  const processComments = useMemo(() => comments?.filter(c => c.process_id === id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) || [], [comments, id]);
+
+  const lastEditors = useMemo(() => {
+    if (!auditEvents) return [];
+    const related = auditEvents.filter(e => e.entityId === id || e.entityId?.startsWith(`ver-${id}`));
+    const unique = new Map();
+    related.forEach(e => unique.set(e.actorUid, e));
+    return Array.from(unique.values()).slice(0, 3);
+  }, [auditEvents, id]);
 
   const selectedNode = useMemo(() => 
     currentVersion?.model_json?.nodes?.find((n: any) => n.id === selectedNodeId), 
@@ -170,9 +182,8 @@ export default function ProcessDesignerPage() {
       setMetaDesc(currentProcess.description || '');
       setMetaOpenQuestions(currentProcess.openQuestions || '');
       setMetaStatus(currentProcess.status || 'draft');
-      setMetaCustomFields(currentVersion?.model_json?.customFields || {});
     }
-  }, [currentProcess?.id, currentVersion?.id]);
+  }, [currentProcess?.id]);
 
   useEffect(() => {
     if (selectedNode) {
@@ -239,12 +250,6 @@ export default function ProcessDesignerPage() {
     return () => window.removeEventListener('message', handleMessage);
   }, [mounted, currentVersion?.id, syncDiagramToModel]);
 
-  useEffect(() => {
-    if (isMobile && mobileView === 'diagram' && mounted) {
-      setTimeout(syncDiagramToModel, 100);
-    }
-  }, [mobileView, mounted, syncDiagramToModel, isMobile]);
-
   const handleApplyOps = async (ops: any[]) => {
     if (!currentVersion || !user || !ops.length) return;
     setIsApplying(true);
@@ -287,20 +292,6 @@ export default function ProcessDesignerPage() {
     if (field === 'checklist' && typeof val === 'string') processedValue = val.split('\n').filter((l: string) => l.trim() !== '');
     const ops = [{ type: 'UPDATE_NODE', payload: { nodeId: selectedNodeId, patch: { [field]: processedValue } } }];
     await handleApplyOps(ops);
-  };
-
-  const handleAddCustomField = (target: 'process' | 'node') => {
-    if (!newFieldName.trim()) return;
-    if (target === 'process') {
-      const updated = { ...metaCustomFields, [newFieldName]: '' };
-      setMetaCustomFields(updated);
-      handleApplyOps([{ type: 'SET_CUSTOM_FIELD', payload: { customFields: updated } }]);
-    } else {
-      const updated = { ...localNodeEdits.customFields, [newFieldName]: '' };
-      setLocalNodeEdits({ ...localNodeEdits, customFields: updated });
-      saveNodeUpdate('customFields', updated);
-    }
-    setNewFieldName('');
   };
 
   const handleQuickAdd = (type: 'step' | 'decision' | 'end') => {
@@ -351,6 +342,31 @@ export default function ProcessDesignerPage() {
     } catch (e: any) {
       toast({ variant: "destructive", title: "KI-Fehler", description: e.message });
     } finally { setIsAiLoading(false); }
+  };
+
+  const handleAddComment = async () => {
+    if (!commentText.trim() || !user || !id) return;
+    setIsCommenting(true);
+    const commentId = `comm-${Math.random().toString(36).substring(2, 9)}`;
+    const commentData: ProcessComment = {
+      id: commentId,
+      process_id: id as string,
+      node_id: selectedNodeId || undefined,
+      user_id: user.id,
+      user_name: user.displayName || 'Unbekannt',
+      text: commentText,
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      const res = await saveCollectionRecord('process_comments', commentId, commentData, dataSource);
+      if (res.success) {
+        setChatMessageCollab('');
+        refreshComments();
+      }
+    } finally {
+      setIsCommenting(false);
+    }
   };
 
   if (!mounted) return null;
@@ -445,6 +461,7 @@ export default function ProcessDesignerPage() {
               {(currentVersion?.model_json?.nodes || []).map((node: any, idx: number) => {
                 const isEndLinked = node.type === 'end' && !!node.targetProcessId && node.targetProcessId !== 'none';
                 const linkedProc = isEndLinked ? processes?.find(p => p.id === node.targetProcessId) : null;
+                const nodeCommentCount = comments?.filter(c => c.node_id === node.id).length || 0;
                 
                 return (
                   <div 
@@ -456,7 +473,7 @@ export default function ProcessDesignerPage() {
                     onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}
                   >
                     <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-inner", 
+                      "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-inner relative", 
                       node.type === 'decision' ? "bg-accent/10 text-accent border-accent/20" : 
                       node.type === 'start' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : 
                       node.type === 'end' ? (isEndLinked ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-red-50 text-red-600 border-red-100") :
@@ -465,6 +482,9 @@ export default function ProcessDesignerPage() {
                       {node.type === 'decision' ? <GitBranch className="w-5 h-5" /> : 
                        node.type === 'end' ? (isEndLinked ? <LinkIcon className="w-5 h-5" /> : <CircleDot className="w-5 h-5" />) :
                        <Activity className="w-5 h-5" />}
+                      {nodeCommentCount > 0 && (
+                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-primary text-white rounded-full flex items-center justify-center text-[8px] font-black border-2 border-white">{nodeCommentCount}</div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-slate-800 truncate leading-tight">{node.title}</p>
@@ -514,93 +534,158 @@ export default function ProcessDesignerPage() {
       )}
     >
       {!isMobile && <div onMouseDown={startResizeRight} className="absolute top-0 left-0 w-1 h-full cursor-col-resize hover:bg-primary/30 z-30 transition-all opacity-0 group-hover/right:opacity-100" />}
-      <div className="p-6 border-b bg-slate-900 text-white flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-primary flex items-center justify-center rounded-2xl shadow-xl shadow-primary/20 transition-transform hover:scale-105 duration-300">
-            <Zap className="w-6 h-6 text-white fill-current" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xs font-black uppercase tracking-widest text-primary">KI Advisor</span>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Prozess-Engineering</span>
-          </div>
-        </div>
-      </div>
       
-      <ScrollArea className="flex-1 bg-slate-50/50">
-        <div className="p-6 space-y-8 pb-32">
-          {chatHistory.length === 0 && (
-            <div className="text-center py-20 opacity-30 flex flex-col items-center gap-4">
-              <MessageSquare className="w-12 h-12" />
-              <p className="text-[10px] font-black uppercase tracking-widest max-w-[180px]">Beschreiben Sie Ihren Prozess für einen Entwurf</p>
-            </div>
-          )}
-          {chatHistory.map((msg, i) => (
-            <div key={i} className={cn("flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2", msg.role === 'user' ? "items-end" : "items-start")}>
-              <div className={cn(
-                "p-5 text-xs leading-relaxed max-w-[92%] shadow-sm rounded-2xl", 
-                msg.role === 'user' ? "bg-slate-900 text-white" : "bg-white text-slate-700 border border-slate-100"
-              )}>
-                {msg.text}
-              </div>
-              {msg.role === 'ai' && msg.questions && msg.questions.length > 0 && (
-                <div className="space-y-3 w-full pl-2">
-                  {msg.questions.map((q: string, qIdx: number) => (
-                    <div key={qIdx} className="p-4 bg-indigo-50 border border-indigo-100 text-xs font-bold text-indigo-900 italic rounded-xl shadow-sm relative overflow-hidden group">
-                      <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
-                      <HelpCircle className="w-4 h-4 absolute top-2 right-2 opacity-10" />
-                      {q}
+      <Tabs value={rightActiveTab} onValueChange={(v: any) => setRightActiveTab(v)} className="flex-1 flex flex-col overflow-hidden">
+        <TabsList className="h-12 bg-slate-900 border-b border-white/10 gap-0 p-0 w-full justify-start rounded-none shrink-0">
+          <TabsTrigger value="ai" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/10 h-full text-[10px] font-black uppercase tracking-widest text-white/50 data-[state=active]:text-primary flex items-center gap-2 transition-all"><Zap className="w-4 h-4 fill-current" /> AI Advisor</TabsTrigger>
+          <TabsTrigger value="collab" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/10 h-full text-[10px] font-black uppercase tracking-widest text-white/50 data-[state=active]:text-primary flex items-center gap-2 transition-all"><MessageCircle className="w-4 h-4" /> Diskussion</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="ai" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
+          <ScrollArea className="flex-1 bg-slate-50/50">
+            <div className="p-6 space-y-8 pb-32">
+              {chatHistory.length === 0 && (
+                <div className="text-center py-20 opacity-30 flex flex-col items-center gap-4">
+                  <MessageSquare className="w-12 h-12" />
+                  <p className="text-[10px] font-black uppercase tracking-widest max-w-[180px]">Beschreiben Sie Ihren Prozess für einen Entwurf</p>
+                </div>
+              )}
+              {chatHistory.map((msg, i) => (
+                <div key={i} className={cn("flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2", msg.role === 'user' ? "items-end" : "items-start")}>
+                  <div className={cn(
+                    "p-5 text-xs leading-relaxed max-w-[92%] shadow-sm rounded-2xl", 
+                    msg.role === 'user' ? "bg-slate-900 text-white" : "bg-white text-slate-700 border border-slate-100"
+                  )}>
+                    {msg.text}
+                  </div>
+                  {msg.role === 'ai' && msg.questions && msg.questions.length > 0 && (
+                    <div className="space-y-3 w-full pl-2">
+                      {msg.questions.map((q: string, qIdx: number) => (
+                        <div key={qIdx} className="p-4 bg-indigo-50 border border-indigo-100 text-xs font-bold text-indigo-900 italic rounded-xl shadow-sm relative overflow-hidden group">
+                          <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+                          <HelpCircle className="w-4 h-4 absolute top-2 right-2 opacity-10" />
+                          {q}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-              {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
-                <div className="mt-4 w-full bg-white border-2 border-primary p-6 rounded-3xl space-y-5 shadow-2xl animate-in zoom-in-95">
-                  <div className="flex items-center gap-2 text-primary">
-                    <Sparkles className="w-5 h-5" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Visueller Vorschlag</span>
-                  </div>
-                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
-                    {msg.suggestions.map((op: any, opIdx: number) => (
-                      <div key={opIdx} className="text-[10px] p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center gap-4">
-                        <Badge variant="outline" className="text-[8px] font-black bg-white shrink-0 border-slate-200">{op.type.split('_')[0]}</Badge>
-                        <span className="truncate font-bold text-slate-700">{op.payload?.node?.title || op.payload?.field || 'Update'}</span>
+                  )}
+                  {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
+                    <div className="mt-4 w-full bg-white border-2 border-primary p-6 rounded-3xl space-y-5 shadow-2xl animate-in zoom-in-95">
+                      <div className="flex items-center gap-2 text-primary">
+                        <Sparkles className="w-5 h-5" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Visueller Vorschlag</span>
                       </div>
-                    ))}
-                  </div>
-                  <div className="flex gap-3 pt-2">
-                    <Button onClick={() => { handleApplyOps(msg.suggestions); msg.suggestions = []; }} disabled={isApplying} className="flex-1 h-12 bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 rounded-xl">Übernehmen</Button>
-                    <Button variant="ghost" onClick={() => msg.suggestions = []} className="flex-1 h-12 text-[10px] font-black uppercase border border-slate-200 rounded-xl">Ablehnen</Button>
+                      <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+                        {msg.suggestions.map((op: any, opIdx: number) => (
+                          <div key={opIdx} className="text-[10px] p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center gap-4">
+                            <Badge variant="outline" className="text-[8px] font-black bg-white shrink-0 border-slate-200">{op.type.split('_')[0]}</Badge>
+                            <span className="truncate font-bold text-slate-700">{op.payload?.node?.title || op.payload?.field || 'Update'}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-3 pt-2">
+                        <Button onClick={() => { handleApplyOps(msg.suggestions); msg.suggestions = []; }} disabled={isApplying} className="flex-1 h-12 bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 rounded-xl">Übernehmen</Button>
+                        <Button variant="ghost" onClick={() => msg.suggestions = []} className="flex-1 h-12 text-[10px] font-black uppercase border border-slate-200 rounded-xl">Ablehnen</Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {isAiLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-white border border-slate-100 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse">KI modelliert...</span>
                   </div>
                 </div>
               )}
             </div>
-          ))}
-          {isAiLoading && (
-            <div className="flex justify-start">
-              <div className="bg-white border border-slate-100 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
-                <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse">KI modelliert...</span>
-              </div>
+          </ScrollArea>
+          
+          <div className="p-6 border-t bg-white shrink-0">
+            <div className="relative group">
+              <Input 
+                placeholder="Prozess beschreiben..." 
+                value={chatMessage} 
+                onChange={e => setChatMessage(e.target.value)} 
+                onKeyDown={e => e.key === 'Enter' && handleAiChat()} 
+                className="h-16 rounded-2xl border-2 border-slate-100 bg-slate-50 pr-16 focus:bg-white focus:border-primary transition-all text-sm font-medium" 
+                disabled={isAiLoading} 
+              />
+              <Button size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-12 w-12 bg-slate-900 hover:bg-black text-white rounded-xl shadow-xl active:scale-95 transition-transform" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
+                {isAiLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+              </Button>
             </div>
-          )}
-        </div>
-      </ScrollArea>
-      
-      <div className="p-6 border-t bg-white shrink-0">
-        <div className="relative group">
-          <Input 
-            placeholder="Prozess beschreiben..." 
-            value={chatMessage} 
-            onChange={e => setChatMessage(e.target.value)} 
-            onKeyDown={e => e.key === 'Enter' && handleAiChat()} 
-            className="h-16 rounded-2xl border-2 border-slate-100 bg-slate-50 pr-16 focus:bg-white focus:border-primary transition-all text-sm font-medium" 
-            disabled={isAiLoading} 
-          />
-          <Button size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-12 w-12 bg-slate-900 hover:bg-black text-white rounded-xl shadow-xl active:scale-95 transition-transform" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
-            {isAiLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-          </Button>
-        </div>
-      </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="collab" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
+          <div className="p-6 bg-slate-50 border-b shrink-0">
+            <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-4">Letzte Editoren</h3>
+            <div className="flex items-center gap-2">
+              {lastEditors.length > 0 ? lastEditors.map((e, i) => (
+                <TooltipProvider key={i}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Avatar className="h-8 w-8 border-2 border-white ring-2 ring-primary/5">
+                        <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-black">{e.actorUid.charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[9px] font-bold uppercase">{e.actorUid}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )) : <p className="text-[9px] text-slate-400 font-bold uppercase italic">Keine Daten verfügbar</p>}
+            </div>
+          </div>
+
+          <ScrollArea className="flex-1 bg-white">
+            <div className="p-6 space-y-6">
+              {processComments.length === 0 ? (
+                <div className="py-20 text-center space-y-4 opacity-20">
+                  <MessageCircle className="w-12 h-12 mx-auto" />
+                  <p className="text-[10px] font-black uppercase">Noch keine Anmerkungen</p>
+                </div>
+              ) : processComments.map((comm) => (
+                <div key={comm.id} className="space-y-2 group animate-in slide-in-from-right-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase text-slate-900">{comm.user_name}</span>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase">{new Date(comm.created_at).toLocaleDateString()}</span>
+                    </div>
+                    {comm.node_id && (
+                      <Badge variant="outline" className="text-[7px] h-4 rounded-none font-black uppercase border-primary/20 text-primary bg-primary/5">Node ID: {comm.node_id}</Badge>
+                    )}
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs leading-relaxed text-slate-600">
+                    {comm.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+
+          <div className="p-6 border-t bg-slate-50 shrink-0">
+            <div className="space-y-3">
+              <Label className="text-[9px] font-black uppercase text-slate-400 ml-1">Kommentar verfassen</Label>
+              {selectedNodeId && (
+                <div className="flex items-center justify-between bg-primary/5 p-2 rounded-xl border border-primary/10 mb-2">
+                  <span className="text-[9px] font-black text-primary uppercase flex items-center gap-2"><Activity className="w-3 h-3" /> Bezug: {selectedNode?.title}</span>
+                  <button onClick={() => setSelectedNodeId(null)} className="text-primary hover:text-primary/80"><X className="w-3 h-3" /></button>
+                </div>
+              )}
+              <Textarea 
+                placeholder="Anmerkung hinterlassen..." 
+                value={commentText} 
+                onChange={e => setChatMessageCollab(e.target.value)}
+                className="min-h-[80px] rounded-2xl border-slate-200 focus:border-primary text-xs" 
+              />
+              <Button onClick={handleAddComment} disabled={isCommenting || !commentText.trim()} className="w-full rounded-xl h-10 font-black uppercase text-[10px] gap-2 tracking-widest bg-primary text-white">
+                {isCommenting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Kommentar senden
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </aside>
   );
 
@@ -618,11 +703,22 @@ export default function ProcessDesignerPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-2 mr-4 border-r pr-6 border-slate-100">
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Aktiv:</span>
+            <div className="flex -space-x-2">
+              <Avatar className="h-7 w-7 border-2 border-white">
+                <AvatarFallback className="bg-blue-100 text-blue-600 text-[8px] font-black">AI</AvatarFallback>
+              </Avatar>
+              <Avatar className="h-7 w-7 border-2 border-white">
+                <AvatarFallback className="bg-primary/10 text-primary text-[8px] font-black">{user?.displayName?.charAt(0)}</AvatarFallback>
+              </Avatar>
+            </div>
+          </div>
           <Button variant="outline" size="sm" className="rounded-xl h-10 text-[10px] font-black uppercase border-slate-200 px-6 gap-2 hidden md:flex hover:bg-indigo-50 hover:text-indigo-600 transition-all" onClick={() => publishToBookStackAction(currentProcess.id, currentVersion?.version || 1, "", dataSource).then(() => toast({ title: "Export erfolgreich" }))} disabled={isPublishing}>
             {isPublishing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BookOpen className="w-4 h-4" />} Export
           </Button>
           <Button size="sm" className="rounded-xl h-10 text-[10px] font-black uppercase bg-primary hover:bg-primary/90 text-white px-8 shadow-lg shadow-primary/20" onClick={() => syncDiagramToModel()}>
-            <RefreshCw className="w-4 h-4 mr-2" /> <span className="hidden sm:inline">Refresh Diagram</span>
+            <RefreshCw className="w-4 h-4 mr-2" /> <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
       </header>
@@ -689,31 +785,6 @@ export default function ProcessDesignerPage() {
                 </div>
               </div>
 
-              {localNodeEdits.type === 'end' && (
-                <div className="p-8 bg-blue-50 border border-blue-100 rounded-[2rem] space-y-6 animate-in slide-in-from-top-4">
-                  <div className="flex items-center gap-3 text-blue-700">
-                    <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-200">
-                      <LinkIcon className="w-5 h-5 text-white" />
-                    </div>
-                    <Label className="text-xs font-black uppercase tracking-widest">Prozess-Vernetzung (Handover)</Label>
-                  </div>
-                  <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, targetProcessId: val}); saveNodeUpdate('targetProcessId', val); }}>
-                    <SelectTrigger className="h-14 rounded-2xl bg-white border-blue-200 font-bold text-sm shadow-sm">
-                      <SelectValue placeholder="Folgeprozess auswählen..." />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl">
-                      <SelectItem value="none">Keine Verknüpfung</SelectItem>
-                      {processes?.filter(p => p.id !== id).map(p => (
-                        <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[11px] text-blue-600/70 leading-relaxed italic px-2">
-                    Visualisierung der Prozessketten: Bei Auswahl eines Folgeprozesses wird eine Schnittstelle in der Landkarte generiert.
-                  </p>
-                </div>
-              )}
-
               <div className="space-y-8">
                 <div className="space-y-3">
                   <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Detaillierte Anweisung</Label>
@@ -728,60 +799,14 @@ export default function ProcessDesignerPage() {
                 </div>
               </div>
 
-              <div className="pt-10 border-t border-slate-100">
-                <div className="flex items-center gap-3 text-primary mb-8">
-                  <GitBranch className="w-5 h-5" />
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em]">Ablauf-Logik & Verzweigungen</h4>
-                </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
-                  <div className="space-y-4">
-                    <Label className="text-[9px] font-black uppercase text-slate-400 ml-1">Existierende Ausgänge</Label>
-                    <div className="space-y-3">
-                      {(currentVersion?.model_json?.edges || []).filter((e: any) => e.source === selectedNodeId).map((edge: any, eidx: number) => {
-                        const targetNode = currentVersion?.model_json?.nodes?.find((n: any) => n.id === edge.target);
-                        return (
-                          <div key={`${edge.id || eidx}`} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-lg transition-all group">
-                            <div className="flex items-center gap-4 truncate">
-                              <ArrowRightCircle className="w-5 h-5 text-primary" />
-                              <div className="truncate">
-                                <span className="font-black text-primary uppercase text-[8px] block tracking-widest">{edge.label || 'Direkt'}</span>
-                                <span className="font-bold text-slate-700 truncate">{targetNode?.title || edge.target}</span>
-                              </div>
-                            </div>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 text-red-500 hover:bg-red-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all" onClick={() => handleApplyOps([{ type: 'REMOVE_EDGE', payload: { edgeId: edge.id } }])}>
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="p-8 bg-slate-100 rounded-3xl border border-slate-200 space-y-6">
-                    <p className="text-[10px] font-black uppercase text-slate-500 border-b border-slate-200 pb-3 tracking-widest">Pfad verknüpfen</p>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="text-[9px] uppercase font-black text-slate-600 ml-1">Zielschritt</Label>
-                        <Select value={newEdgeTargetId} onValueChange={setNewEdgeTargetId}>
-                          <SelectTrigger className="h-12 rounded-xl bg-white border-none shadow-sm font-bold text-xs">
-                            <SelectValue placeholder="Wählen..." />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            {(currentVersion?.model_json?.nodes || []).filter((n: any) => n.id !== selectedNodeId).map((n: any) => <SelectItem key={n.id || n.title} value={n.id}>{n.title}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[9px] uppercase font-black text-slate-600 ml-1">Bedingung (Label)</Label>
-                        <Input value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-12 rounded-xl bg-white border-none shadow-sm text-xs" placeholder="z.B. OK, Fehler, Alternative" />
-                      </div>
-                      <Button onClick={handleAddEdge} disabled={!newEdgeTargetId} className="w-full h-12 text-[10px] font-black bg-slate-900 hover:bg-black text-white rounded-xl uppercase shadow-xl gap-3 transition-transform active:scale-95">
-                        <Plus className="w-4 h-4" /> Pfad erstellen
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+              <div className="flex gap-4">
+                <Button 
+                  variant="outline" 
+                  className="rounded-xl h-12 font-black uppercase text-[10px] gap-2 flex-1"
+                  onClick={() => { setRightActiveTab('collab'); setIsStepDialogOpen(false); }}
+                >
+                  <MessageCircle className="w-4 h-4" /> Zum Schritt diskutieren
+                </Button>
               </div>
             </div>
           </ScrollArea>

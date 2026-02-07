@@ -448,6 +448,22 @@ export default function ProcessDesignerPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className="h-8 w-8 rounded-md border-slate-200 text-slate-600 hover:bg-slate-100 transition-all shadow-sm"
+                  onClick={syncDiagramToModel}
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px] font-bold uppercase">Diagramm aktualisieren</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           <Button 
             variant="outline" 
             size="sm" 

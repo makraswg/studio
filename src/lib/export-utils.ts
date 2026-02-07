@@ -1,13 +1,12 @@
+
 'use client';
+
+import { Process, ProcessVersion, Tenant, JobTitle } from './types';
 
 /**
  * Utility-Modul für den Export von Daten (PDF & Excel).
- * Verwendet dynamische Importe, um SSR-Fehler zu vermeiden.
  */
 
-/**
- * Universeller Excel-Export
- */
 export async function exportToExcel(data: any[], fileName: string) {
   try {
     const XLSX = await import('xlsx');
@@ -20,9 +19,6 @@ export async function exportToExcel(data: any[], fileName: string) {
   }
 }
 
-/**
- * Spezifischer IAM Benutzer-Export (Excel)
- */
 export async function exportUsersExcel(users: any[], tenants: any[]) {
   const data = users.map(u => ({
     'ID': u.id,
@@ -38,9 +34,6 @@ export async function exportUsersExcel(users: any[], tenants: any[]) {
   await exportToExcel(data, `Benutzerverzeichnis_${new Date().toISOString().split('T')[0]}`);
 }
 
-/**
- * Spezifischer Risikomanagement-Export (Excel)
- */
 export async function exportRisksExcel(risks: any[], resources: any[]) {
   const data = risks.map(r => {
     const asset = resources.find(res => res.id === r.assetId);
@@ -62,9 +55,6 @@ export async function exportRisksExcel(risks: any[], resources: any[]) {
   await exportToExcel(data, `Risikoinventar_${new Date().toISOString().split('T')[0]}`);
 }
 
-/**
- * Spezifischer Datenschutz-Export (VVT Excel)
- */
 export async function exportGdprExcel(activities: any[]) {
   const data = activities.map(a => ({
     'ID': a.id,
@@ -79,9 +69,6 @@ export async function exportGdprExcel(activities: any[]) {
   await exportToExcel(data, `Verarbeitungsverzeichnis_VVT_${new Date().toISOString().split('T')[0]}`);
 }
 
-/**
- * Spezifischer Ressourcen-Export (Excel)
- */
 export async function exportResourcesExcel(resources: any[]) {
   const data = resources.map(r => ({
     'Name': r.name,
@@ -100,8 +87,107 @@ export async function exportResourcesExcel(resources: any[]) {
 }
 
 /**
- * Bestehende PDF Exports
+ * Detaillierter Prozessbericht (PDF)
+ * Enthält Logo, Stammdaten, Leitfaden und Diagramm-Notiz.
  */
+export async function exportDetailedProcessPdf(
+  process: Process,
+  version: ProcessVersion,
+  tenant: Tenant,
+  jobTitles: JobTitle[]
+) {
+  try {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    
+    const doc = new jsPDF();
+    const timestamp = new Date().toLocaleString('de-DE');
+
+    // 1. Header & Logo
+    if (tenant.logoUrl) {
+      try {
+        doc.addImage(tenant.logoUrl, 'PNG', 14, 10, 30, 30);
+      } catch (e) {}
+    }
+    
+    doc.setFontSize(22);
+    doc.setTextColor(37, 99, 235);
+    doc.text(process.title, 50, 25);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Prozessbericht V${version.version}.0`, 50, 32);
+    doc.text(`Mandant: ${tenant.name}`, 50, 37);
+    doc.text(`Erstellungsdatum: ${timestamp}`, 14, 45);
+
+    // 2. Stammdaten Tabelle
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text('1. Stammdaten', 14, 55);
+    
+    autoTable(doc, {
+      startY: 60,
+      body: [
+        ['Bezeichnung', process.title],
+        ['Status', process.status.toUpperCase()],
+        ['Regulatorik', process.regulatoryFramework || 'Nicht definiert'],
+        ['Zusammenfassung', process.description || '-']
+      ],
+      theme: 'grid',
+      styles: { fontSize: 9 },
+      columnStyles: { 0: { fontStyle: 'bold', width: 40 } }
+    });
+
+    // 3. Leitfaden (Operative Schritte)
+    doc.text('2. Operativer Leitfaden', 14, (doc as any).lastAutoTable.finalY + 15);
+    
+    const stepsData = version.model_json.nodes.map((node, i) => {
+      const role = jobTitles.find(j => j.id === node.roleId);
+      return [
+        (i + 1).toString(),
+        node.title,
+        role?.name || '-',
+        node.description || '-',
+        (node.checklist || []).join('\n')
+      ];
+    });
+
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 20,
+      head: [['#', 'Schritt', 'Verantwortung', 'Tätigkeit', 'Prüfschritte']],
+      body: stepsData,
+      theme: 'striped',
+      headStyles: { fillColor: [37, 99, 235] },
+      styles: { fontSize: 8 }
+    });
+
+    // 4. Diagramm-Anhang (Text-Repräsentation für den Druck)
+    doc.addPage();
+    doc.setFontSize(14);
+    doc.text('3. Visuelle Prozesslogik', 14, 20);
+    doc.setFontSize(10);
+    doc.text('Logische Verknüpfungen (Diagramm-Zusammenfassung):', 14, 30);
+
+    const edgesData = version.model_json.edges.map(edge => {
+      const src = version.model_json.nodes.find(n => n.id === edge.source);
+      const trg = version.model_json.nodes.find(n => n.id === edge.target);
+      return [`${src?.title}`, `-->`, `${trg?.title}`, `${edge.label || '-'}`];
+    });
+
+    autoTable(doc, {
+      startY: 35,
+      head: [['Von', '', 'Nach', 'Bedingung']],
+      body: edgesData,
+      theme: 'plain',
+      styles: { fontSize: 8 }
+    });
+
+    doc.save(`Prozessbericht_${process.title.replace(/\s+/g, '_')}_V${version.version}.pdf`);
+  } catch (error) {
+    console.error('PDF Export fehlgeschlagen:', error);
+  }
+}
+
 export async function exportComplianceReportPdf(
   users: any[],
   resources: any[],

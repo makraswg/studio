@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -23,7 +24,9 @@ import {
   Globe,
   BrainCircuit,
   Settings2,
-  AlertTriangle
+  AlertTriangle,
+  Link as LinkIcon,
+  Image as ImageIcon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -66,6 +69,7 @@ export default function UnifiedOrganizationPage() {
   const [tenantSlug, setTenantSlug] = useState('');
   const [tenantRegion, setTenantRegion] = useState('EU-DSGVO');
   const [tenantDescription, setTenantDescription] = useState('');
+  const [tenantLogoUrl, setTenantLogoUrl] = useState('');
   const [isSavingTenant, setIsSavingTenant] = useState(false);
 
   // Job Editor
@@ -128,6 +132,7 @@ export default function UnifiedOrganizationPage() {
       slug: tenantSlug.toLowerCase().replace(/[^a-z0-9]/g, '-'),
       region: tenantRegion,
       companyDescription: tenantDescription,
+      logoUrl: tenantLogoUrl,
       status: editingTenant?.status || 'active',
       createdAt: editingTenant?.createdAt || new Date().toISOString(),
     } as Tenant;
@@ -241,6 +246,7 @@ export default function UnifiedOrganizationPage() {
     setTenantSlug(tenant.slug || '');
     setTenantRegion(tenant.region || 'EU-DSGVO');
     setTenantDescription(tenant.companyDescription || '');
+    setTenantLogoUrl(tenant.logoUrl || '');
     setIsTenantDialogOpen(true);
   };
 
@@ -295,7 +301,7 @@ export default function UnifiedOrganizationPage() {
             {showArchived ? <RotateCcw className="w-3.5 h-3.5 mr-2" /> : <Archive className="w-3.5 h-3.5 mr-2" />}
             {showArchived ? 'Aktive Ansicht' : 'Archiv'}
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs" onClick={() => { setEditingTenant(null); setTenantName(''); setTenantSlug(''); setTenantRegion('EU-DSGVO'); setTenantDescription(''); setIsTenantDialogOpen(true); }}>
+          <Button size="sm" className="h-9 rounded-md font-bold text-xs" onClick={() => { setEditingTenant(null); setTenantName(''); setTenantSlug(''); setTenantRegion('EU-DSGVO'); setTenantDescription(''); setTenantLogoUrl(''); setIsTenantDialogOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> Neuer Mandant
           </Button>
         </div>
@@ -327,8 +333,12 @@ export default function UnifiedOrganizationPage() {
               <Card key={tenant.id} className="border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
                 <CardHeader className="bg-slate-50/80 dark:bg-slate-900/80 border-b p-4 px-6 flex flex-row items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shadow-sm border border-primary/10">
-                      <Building2 className="w-5 h-5" />
+                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shadow-sm border border-primary/10 overflow-hidden">
+                      {tenant.logoUrl ? (
+                        <img src={tenant.logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
+                      ) : (
+                        <Building2 className="w-5 h-5" />
+                      )}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -469,6 +479,13 @@ export default function UnifiedOrganizationPage() {
                       <SelectItem value="ISO-GLOBAL">International (ISO 27001)</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[11px] font-bold text-slate-400">Unternehmenslogo (URL)</Label>
+                  <div className="relative">
+                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
+                    <Input value={tenantLogoUrl} onChange={e => setTenantLogoUrl(e.target.value)} className="rounded-md h-11 pl-9 border-slate-200 dark:border-slate-800" placeholder="https://..." />
+                  </div>
                 </div>
               </div>
               <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">

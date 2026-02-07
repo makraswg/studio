@@ -31,7 +31,8 @@ import {
   Lightbulb,
   ArrowDown,
   GitBranch,
-  ArrowRight
+  ArrowRight,
+  Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -39,12 +40,13 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, ProcessNode } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, ProcessNode, Tenant } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { exportDetailedProcessPdf } from '@/lib/export-utils';
 
 /**
  * Erzeugt MX-XML für draw.io Integration (Read-Only Modus).
@@ -100,13 +102,16 @@ export default function ProcessDetailViewPage() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mounted, setMounted] = useState(false);
   const [viewMode, setViewMode] = useState<'diagram' | 'guide'>('diagram');
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
+  const currentTenant = useMemo(() => tenants?.find(t => t.id === currentProcess?.tenantId), [tenants, currentProcess]);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -130,6 +135,16 @@ export default function ProcessDetailViewPage() {
     return () => window.removeEventListener('message', handleMessage);
   }, [mounted, currentVersion?.id, syncDiagram, viewMode]);
 
+  const handlePdfExport = async () => {
+    if (!currentProcess || !currentVersion || !currentTenant) return;
+    setIsExporting(true);
+    try {
+      await exportDetailedProcessPdf(currentProcess, currentVersion, currentTenant, jobTitles || []);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (!mounted) return null;
 
   return (
@@ -139,8 +154,12 @@ export default function ProcessDetailViewPage() {
           <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl transition-all">
             <ChevronLeft className="w-6 h-6" />
           </Button>
-          <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200 border border-emerald-500/20">
-            <ShieldCheck className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200 border border-emerald-500/20 overflow-hidden">
+            {currentTenant?.logoUrl ? (
+              <img src={currentTenant.logoUrl} alt="Logo" className="w-full h-full object-contain p-1 invert brightness-0" />
+            ) : (
+              <ShieldCheck className="w-5 h-5 text-white" />
+            )}
           </div>
           <div className="min-w-0">
             <h1 className="text-lg font-headline font-bold tracking-tight text-slate-900 truncate">{currentProcess?.title}</h1>
@@ -168,8 +187,8 @@ export default function ProcessDetailViewPage() {
             </Button>
           </div>
           <Separator orientation="vertical" className="h-8 mx-1" />
-          <Button variant="outline" className="rounded-xl h-10 px-6 font-bold text-xs gap-2 border-slate-200 hover:bg-slate-50">
-            <Download className="w-4 h-4" /> PDF
+          <Button variant="outline" className="rounded-xl h-10 px-6 font-bold text-xs gap-2 border-slate-200 hover:bg-slate-50" onClick={handlePdfExport} disabled={isExporting}>
+            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} PDF
           </Button>
           <Button className="rounded-xl h-10 px-8 font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-lg" onClick={() => router.push(`/processhub/${id}`)}>
             <FilePen className="w-4 h-4 mr-2" /> Designer
@@ -193,9 +212,14 @@ export default function ProcessDetailViewPage() {
                   </div>
                   <div className="pt-4 border-t border-slate-200/50">
                     <Label className="text-[9px] font-bold text-slate-400 uppercase">Regulatorik</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className="rounded-md border-slate-200 text-[9px] font-bold text-slate-500">ISO 9001</Badge>
-                      <Badge variant="outline" className="rounded-md border-slate-200 text-[9px] font-bold text-slate-500">BSI Grundschutz</Badge>
+                    <div className="flex flex-wrap gap-2 mt-1.5">
+                      {currentProcess?.regulatoryFramework ? (
+                        <Badge variant="outline" className="rounded-md border-primary/20 bg-primary/5 text-primary text-[10px] font-bold px-2 h-6">
+                          <Shield className="w-3 h-3 mr-1.5" /> {currentProcess.regulatoryFramework}
+                        </Badge>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 italic">Keine Regulatorik definiert</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -281,16 +305,6 @@ export default function ProcessDetailViewPage() {
           ) : (
             <ScrollArea className="flex-1">
               <div className="p-8 md:p-12 max-w-4xl mx-auto space-y-12 pb-32">
-                <div className="flex flex-col items-center text-center space-y-4 mb-16">
-                  <div className="w-16 h-16 bg-primary/10 rounded-3xl flex items-center justify-center text-primary shadow-inner mb-2 border border-primary/10">
-                    <ListChecks className="w-8 h-8" />
-                  </div>
-                  <h2 className="text-2xl font-headline font-bold text-slate-900 uppercase tracking-tight">Strukturierter Prozess-Leitfaden</h2>
-                  <p className="text-sm text-slate-500 max-w-lg leading-relaxed">
-                    Dieser Leitfaden dient als operative Arbeitsanweisung. Er beschreibt die logische Abfolge der Schritte sowie die jeweiligen Verantwortlichkeiten und Kontrollen.
-                  </p>
-                </div>
-
                 <div className="space-y-8 relative">
                   <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-800 z-0" />
                   

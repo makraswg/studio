@@ -43,7 +43,8 @@ import {
   Lock,
   Unlock,
   PlusCircle,
-  Zap
+  Zap,
+  Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -152,6 +153,7 @@ export default function ProcessDesignerPage() {
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDesc, setMetaDesc] = useState('');
   const [metaOpenQuestions, setMetaOpenQuestions] = useState('');
+  const [metaRegulatory, setMetaRegulatory] = useState('');
   const [metaStatus, setMetaStatus] = useState<any>('draft');
 
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
@@ -207,6 +209,7 @@ export default function ProcessDesignerPage() {
       setMetaTitle(currentProcess.title || '');
       setMetaDesc(currentProcess.description || '');
       setMetaOpenQuestions(currentProcess.openQuestions || '');
+      setMetaRegulatory(currentProcess.regulatoryFramework || '');
       setMetaStatus(currentProcess.status || 'draft');
     }
   }, [currentProcess?.id]);
@@ -288,19 +291,13 @@ export default function ProcessDesignerPage() {
     }
   };
 
-  /**
-   * Löscht einen Knoten und schließt den Dialog.
-   * Nutzt einen isolierten isDeleting-State für maximale Reaktivität.
-   */
   const handleDeleteNode = async () => {
     if (!selectedNodeId || !currentVersion || !user) return;
     
     const confirmed = window.confirm('Möchten Sie diesen Prozessschritt wirklich unwiderruflich löschen? Alle Verknüpfungen werden ebenfalls entfernt.');
     if (!confirmed) return;
     
-    console.log("[DEBUG] Starting deletion for node:", selectedNodeId);
     setIsDeleting(true);
-    
     try {
       const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
       const res = await applyProcessOpsAction(
@@ -313,17 +310,13 @@ export default function ProcessDesignerPage() {
       );
       
       if (res.success) {
-        console.log("[DEBUG] Node deleted successfully");
         toast({ title: "Schritt entfernt" });
         setIsStepDialogOpen(false);
         setSelectedNodeId(null);
         refreshVersion();
         refreshProc();
-      } else {
-        throw new Error("Server confirmed action but success was false");
       }
     } catch (e: any) {
-      console.error("[DEBUG] Deletion failed:", e);
       toast({ variant: "destructive", title: "Fehler beim Löschen", description: e.message });
     } finally {
       setIsDeleting(false);
@@ -338,6 +331,7 @@ export default function ProcessDesignerPage() {
         title: metaTitle, 
         description: metaDesc, 
         openQuestions: metaOpenQuestions,
+        regulatoryFramework: metaRegulatory,
         status: metaStatus 
       }, dataSource);
       if (res.success) {
@@ -513,6 +507,10 @@ export default function ProcessDesignerPage() {
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold text-slate-500 ml-1">Bezeichnung</Label>
                       <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="rounded-xl font-bold h-10 border-slate-200 bg-white" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold text-slate-500 ml-1">Regulatorik (ISO / BSI / DSGVO)</Label>
+                      <Input value={metaRegulatory} onChange={e => setMetaRegulatory(e.target.value)} placeholder="z.B. ISO 9001:2015, BSI NET.2.2..." className="rounded-xl h-10 border-slate-200 bg-white font-bold text-xs" />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold text-slate-500 ml-1">Status</Label>

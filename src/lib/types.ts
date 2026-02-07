@@ -10,6 +10,7 @@ export interface Tenant {
   status: 'active' | 'archived';
   region?: string; 
   companyDescription?: string; 
+  logoUrl?: string;
   ldapEnabled?: boolean | number;
   ldapUrl?: string;
   ldapPort?: string;
@@ -126,6 +127,7 @@ export interface Process {
   title: string;
   description?: string;
   openQuestions?: string; 
+  regulatoryFramework?: string;
   status: 'draft' | 'published' | 'archived';
   ownerUserId: string;
   currentVersion: number;

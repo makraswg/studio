@@ -66,7 +66,7 @@ import {
 
 /**
  * Erzeugt BPMN 2.0 MX-XML für draw.io Integration mit fachlichen Standards.
- * Fokus: Hohe Kontraste, orthogonale Linien, technische Bauplan-Optik.
+ * Fokus: Hoch-kontrastreiche Bauplan-Optik, orthogonale Linien, XOR-Gateways.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -79,8 +79,9 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     const pos = positions[nodeSafeId] || { x: 50 + (idx * 220), y: 150 };
     let style = '';
     let w = 140, h = 70;
+    let label = node.title;
     
-    // BPMN 2.0 Standard Styles
+    // BPMN 2.0 Standard Styles - High Contrast Bauplan
     switch (node.type) {
       case 'start': 
         style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;shadow=0;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;'; 
@@ -91,8 +92,10 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
         w = 40; h = 40; 
         break;
       case 'decision': 
+        // XOR Gateway style with internal X
         style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;shadow=0;'; 
-        w = 60; h = 60; 
+        w = 60; h = 60;
+        label = 'X'; // Standard XOR Symbol
         break;
       case 'subprocess':
         style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;dashed=1;shadow=0;';
@@ -102,7 +105,9 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
         style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;shadow=0;';
         w = 140; h = 70;
     }
-    xml += `<mxCell id="${nodeSafeId}" value="${node.title}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
+    
+    const displayValue = node.type === 'decision' ? label : node.title;
+    xml += `<mxCell id="${nodeSafeId}" value="${displayValue}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
   });
 
   edges.forEach((edge, idx) => {

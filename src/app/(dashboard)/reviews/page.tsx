@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -80,12 +79,18 @@ export default function AccessReviewsPage() {
     if (!assignments) return [];
     return assignments.filter(a => {
       if (activeTenantId !== 'all' && a.tenantId !== activeTenantId) return false;
-      const userDoc = users?.find(u => u.id === a.userId);
-      const ent = entitlements?.find(e => e.id === a.entitlementId);
-      const res = resources?.find(r => r.id === ent?.resourceId);
+      
+      const userDoc = users?.find((u: any) => u.id === a.userId);
+      const ent = entitlements?.find((e: any) => e.id === a.entitlementId);
+      const res = resources?.find((r: any) => r.id === ent?.resourceId);
+      
       const userName = userDoc?.displayName || '';
       const resName = res?.name || '';
-      if (!userName.toLowerCase().includes(search.toLowerCase()) && !resName.toLowerCase().includes(search.toLowerCase())) return false;
+      const lowerSearch = search.toLowerCase();
+      
+      if (!userName.toLowerCase().includes(lowerSearch) && !resName.toLowerCase().includes(lowerSearch)) {
+        return false;
+      }
       
       const isCompleted = !!a.lastReviewedAt;
       if (activeFilter === 'pending') return !isCompleted && a.status === 'active';
@@ -95,7 +100,7 @@ export default function AccessReviewsPage() {
   }, [assignments, users, entitlements, resources, search, activeFilter, activeTenantId]);
 
   const handleReview = async (assignmentId: string, action: 'certify' | 'revoke') => {
-    const existing = assignments?.find(a => a.id === assignmentId);
+    const existing = assignments?.find((a: any) => a.id === assignmentId);
     if (!existing) return;
     
     const timestamp = new Date().toISOString();
@@ -119,9 +124,9 @@ export default function AccessReviewsPage() {
   };
 
   const openQuickAdvisor = async (assignment: any) => {
-    const userDoc = users?.find(u => u.id === assignment.userId);
-    const ent = entitlements?.find(e => e.id === assignment.entitlementId);
-    const res = resources?.find(r => r.id === ent?.resourceId);
+    const userDoc = users?.find((u: any) => u.id === assignment.userId);
+    const ent = entitlements?.find((e: any) => e.id === assignment.entitlementId);
+    const res = resources?.find((r: any) => r.id === ent?.resourceId);
     if (!userDoc) return;
 
     setSelectedReviewItem({ assignment, user: userDoc, ent, res });
@@ -152,10 +157,10 @@ export default function AccessReviewsPage() {
   };
 
   const stats = useMemo(() => {
-    const base = assignments?.filter(a => activeTenantId === 'all' || a.tenantId === activeTenantId) || [];
-    const total = base.filter(a => a.status === 'active').length;
-    const completed = base.filter(a => !!a.lastReviewedAt && a.status === 'active').length;
-    const overdue = base.filter(a => !a.lastReviewedAt && a.validUntil && new Date(a.validUntil) < new Date() && a.status === 'active').length;
+    const base = assignments?.filter((a: any) => activeTenantId === 'all' || a.tenantId === activeTenantId) || [];
+    const total = base.filter((a: any) => a.status === 'active').length;
+    const completed = base.filter((a: any) => !!a.lastReviewedAt && a.status === 'active').length;
+    const overdue = base.filter((a: any) => !a.lastReviewedAt && a.validUntil && new Date(a.validUntil) < new Date() && a.status === 'active').length;
     
     return {
       total,
@@ -240,7 +245,7 @@ export default function AccessReviewsPage() {
       </div>
 
       {/* Data Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-lg border shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
@@ -436,13 +441,13 @@ export default function AccessReviewsPage() {
                 <Button 
                   variant="outline"
                   className="flex-1 sm:flex-none h-10 px-6 rounded-md font-bold text-[10px] border-red-200 text-red-600 hover:bg-red-50"
-                  onClick={() => { handleReview(selectedReviewItem.assignment.id, 'revoke'); setIsAdvisorOpen(false); }}
+                  onClick={() => { handleReview(selectedReviewItem?.assignment?.id, 'revoke'); setIsAdvisorOpen(false); }}
                 >
                   KI-Widerruf folgen
                 </Button>
                 <Button 
                   className="flex-1 sm:flex-none h-10 px-8 rounded-md font-bold text-[10px] bg-primary text-white shadow-lg shadow-primary/20"
-                  onClick={() => { handleReview(selectedReviewItem.assignment.id, 'certify'); setIsAdvisorOpen(false); }}
+                  onClick={() => { handleReview(selectedReviewItem?.assignment?.id, 'certify'); setIsAdvisorOpen(false); }}
                 >
                   Bestätigen
                 </Button>

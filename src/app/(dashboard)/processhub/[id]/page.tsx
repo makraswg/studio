@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -287,13 +288,25 @@ export default function ProcessDesignerPage() {
     } finally { setIsSavingMeta(false); }
   };
 
-  const saveNodeUpdate = async (field: string, value?: any) => {
+  const handleSaveNodeEdits = async () => {
     if (!selectedNodeId) return;
-    const val = value !== undefined ? value : (localNodeEdits as any)[field];
-    let processedValue: any = val;
-    if (field === 'checklist' && typeof val === 'string') processedValue = val.split('\n').filter((l: string) => l.trim() !== '');
-    const ops = [{ type: 'UPDATE_NODE', payload: { nodeId: selectedNodeId, patch: { [field]: processedValue } } }];
-    await handleApplyOps(ops);
+    
+    const patch = {
+      title: localNodeEdits.title,
+      roleId: localNodeEdits.roleId,
+      description: localNodeEdits.description,
+      checklist: localNodeEdits.checklist.split('\n').filter((l: string) => l.trim() !== ''),
+      tips: localNodeEdits.tips,
+      errors: localNodeEdits.errors,
+      targetProcessId: localNodeEdits.targetProcessId
+    };
+
+    const ops = [{ type: 'UPDATE_NODE', payload: { nodeId: selectedNodeId, patch } }];
+    const success = await handleApplyOps(ops);
+    if (success) {
+      toast({ title: "Schritt gespeichert" });
+      setIsStepDialogOpen(false);
+    }
   };
 
   const handleQuickAdd = (type: 'step' | 'decision' | 'end' | 'subprocess') => {
@@ -307,9 +320,6 @@ export default function ProcessDesignerPage() {
     };
     
     const nodes = currentVersion.model_json.nodes || [];
-    // Logik für automatischen Vorgänger:
-    // Wenn ein Knoten ausgewählt ist, nimm diesen.
-    // Ansonsten nimm den letzten in der Liste (Element darüber).
     const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : nodes[nodes.length - 1];
     
     const ops: ProcessOperation[] = [
@@ -645,7 +655,7 @@ export default function ProcessDesignerPage() {
               <div className="p-5 space-y-6 pb-10">
                 {chatHistory.length === 0 && (
                   <div className="text-center py-20 opacity-30 flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center shadow-inner"><BrainCircuit className="w-8 h-8 text-emerald-600" /></div>
+                    <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center shadow-inner"><BrainCircuit className="w-8 h-8 text-emerald-600" /></div>
                     <p className="text-[10px] font-bold max-w-[200px] leading-relaxed uppercase tracking-tight italic text-emerald-900">Beschreiben Sie Ihren Prozess für einen KI-Entwurf</p>
                   </div>
                 )}
@@ -755,11 +765,11 @@ export default function ProcessDesignerPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Bezeichnung</Label>
-                      <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} onBlur={() => saveNodeUpdate('title')} className="h-11 text-sm font-bold rounded-xl border-slate-200 bg-white shadow-sm" />
+                      <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 text-sm font-bold rounded-xl border-slate-200 bg-white shadow-sm" />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Verantwortliche Stelle</Label>
-                      <Select value={localNodeEdits.roleId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, roleId: val}); saveNodeUpdate('roleId', val); }}>
+                      <Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}>
                         <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs">
                           <SelectValue placeholder="Rolle wählen..." />
                         </SelectTrigger>
@@ -775,7 +785,7 @@ export default function ProcessDesignerPage() {
                   {(localNodeEdits.type === 'end' || localNodeEdits.type === 'subprocess') && (
                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
                       <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Zielprozess (Handover/Link)</Label>
-                      <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, targetProcessId: val}); saveNodeUpdate('targetProcessId', val); }}>
+                      <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, targetProcessId: val})}>
                         <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs">
                           <SelectValue placeholder="Prozess wählen..." />
                         </SelectTrigger>
@@ -869,23 +879,23 @@ export default function ProcessDesignerPage() {
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Tätigkeitsbeschreibung</Label>
                       <div className="p-1 rounded-2xl border border-slate-100 bg-slate-50/30">
-                        <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-xs min-h-[120px] rounded-xl border-none bg-transparent leading-relaxed p-4 shadow-none focus:ring-0" placeholder="Beschreiben Sie hier die auszuführende Aktion..." />
+                        <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} className="text-xs min-h-[120px] rounded-xl border-none bg-transparent leading-relaxed p-4 shadow-none focus:ring-0" placeholder="Beschreiben Sie hier die auszuführende Aktion..." />
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-2 tracking-widest uppercase">
                         <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Prüfschritte / Checkliste
                       </Label>
-                      <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[11px] min-h-[100px] bg-slate-50 text-slate-900 border border-slate-200 rounded-xl p-4 leading-relaxed shadow-inner focus:bg-white transition-colors" placeholder="Einen Punkt pro Zeile eingeben..." />
+                      <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} className="text-[11px] min-h-[100px] bg-slate-50 text-slate-900 border border-slate-200 rounded-xl p-4 leading-relaxed shadow-inner focus:bg-white transition-colors" placeholder="Einen Punkt pro Zeile eingeben..." />
                     </div>
                   </div>
                 </TabsContent>
                 <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100 flex items-start gap-3 shadow-inner">
                   <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
-                    <p className="text-[11px] font-bold text-slate-800">Versionskontrolle</p>
+                    <p className="text-[11px] font-bold text-slate-800">Manuelle Speicherung</p>
                     <p className="text-[10px] text-slate-500 italic leading-relaxed">
-                      Änderungen an der Prozess-Logik wirken sich sofort auf das grafische Modell aus.
+                      Klicken Sie auf „Änderungen speichern“, um Ihre Bearbeitung im Diagramm zu aktualisieren.
                     </p>
                   </div>
                 </div>
@@ -901,9 +911,15 @@ export default function ProcessDesignerPage() {
             >
               {isApplying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Modul löschen
             </Button>
-            <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-[0.95] w-full sm:w-auto" disabled={isApplying}>
-              Schließen
-            </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button variant="ghost" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs" disabled={isApplying}>
+                Abbrechen
+              </Button>
+              <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-[0.95]" disabled={isApplying}>
+                {isApplying ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Save className="w-3.5 h-3.5 mr-2" />} 
+                Änderungen speichern
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

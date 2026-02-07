@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -43,16 +42,16 @@ export default function GeneralSettingsPage() {
   };
 
   return (
-    <Card className="rounded-[2.5rem] border-none shadow-2xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 overflow-hidden">
-      <CardHeader className="p-10 bg-slate-900 text-white shrink-0">
+    <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+      <CardHeader className="p-8 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
         <div className="flex items-center gap-6">
-          <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-xl">
-            <Building2 className="w-8 h-8" />
+          <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
+            <Building2 className="w-7 h-7" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-headline font-bold uppercase tracking-tight">Mandanten-Stammdaten</CardTitle>
+            <CardTitle className="text-xl font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Mandanten-Stammdaten</CardTitle>
             <div className="flex items-center gap-2 mt-1.5">
-              <Badge className="bg-primary/20 text-primary border-none rounded-full text-[9px] font-black uppercase px-3 h-5">
+              <Badge className="bg-primary/10 text-primary border-none rounded-full text-[9px] font-black uppercase px-3 h-5">
                 ID: {tenantDraft.id || 'NEW'}
               </Badge>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Primäre Konfiguration</p>
@@ -60,14 +59,14 @@ export default function GeneralSettingsPage() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-10 space-y-10">
+      <CardContent className="p-8 space-y-10">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-3">
             <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Unternehmensname</Label>
             <Input 
               value={tenantDraft.name || ''} 
               onChange={e => setTenantDraft({...tenantDraft, name: e.target.value})} 
-              className="rounded-2xl h-14 font-bold text-lg border-slate-200 dark:border-slate-800 focus:border-primary transition-all" 
+              className="rounded-xl h-12 font-bold text-base border-slate-200 dark:border-slate-800 focus:border-primary transition-all" 
               placeholder="z.B. Acme Corp"
             />
           </div>
@@ -77,10 +76,10 @@ export default function GeneralSettingsPage() {
               value={tenantDraft.region || 'EU-DSGVO'} 
               onValueChange={v => setTenantDraft({...tenantDraft, region: v})}
             >
-              <SelectTrigger className="rounded-2xl h-14 border-slate-200 dark:border-slate-800 font-bold">
+              <SelectTrigger className="rounded-xl h-12 border-slate-200 dark:border-slate-800 font-bold">
                 <SelectValue placeholder="Wählen..." />
               </SelectTrigger>
-              <SelectContent className="rounded-2xl">
+              <SelectContent className="rounded-xl">
                 <SelectItem value="EU-DSGVO">Europa (GDPR / DSGVO)</SelectItem>
                 <SelectItem value="BSI-IT-Grundschutz">Deutschland (BSI Grundschutz)</SelectItem>
                 <SelectItem value="NIST-USA">USA (NIST / HIPAA)</SelectItem>
@@ -95,18 +94,18 @@ export default function GeneralSettingsPage() {
               <Input 
                 value={tenantDraft.slug || ''} 
                 disabled 
-                className="rounded-2xl h-14 pl-11 bg-slate-50 dark:bg-slate-950 font-mono text-sm border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed" 
+                className="rounded-xl h-12 pl-11 bg-slate-50 dark:bg-slate-950 font-mono text-sm border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed" 
               />
             </div>
           </div>
         </div>
 
-        <div className="space-y-6 pt-6 border-t border-slate-50 dark:border-slate-800">
+        <div className="space-y-6 pt-6 border-t border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-3">
             <BrainCircuit className="w-5 h-5 text-primary" />
             <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white tracking-widest">KI-Kontext (Unternehmensbeschreibung)</h3>
           </div>
-          <div className="p-8 bg-primary/5 dark:bg-primary/10 rounded-[2rem] border border-primary/10 space-y-4">
+          <div className="p-6 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/10 space-y-4">
             <div className="flex items-start gap-4">
               <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
               <p className="text-[11px] text-slate-500 italic leading-relaxed">
@@ -118,29 +117,16 @@ export default function GeneralSettingsPage() {
               value={tenantDraft.companyDescription || ''} 
               onChange={e => setTenantDraft({...tenantDraft, companyDescription: e.target.value})}
               placeholder="Beispiel: Wir sind ein mittelständisches Logistikunternehmen mit 200 Mitarbeitern. Unsere IT-Infrastruktur ist hybrid (On-Prem SAP und Microsoft 365). Wir legen höchsten Wert auf Ausfallsicherheit der ERP-Systeme..."
-              className="min-h-[180px] rounded-2xl border-slate-200 focus:border-primary bg-white p-6 text-xs font-medium leading-relaxed"
+              className="min-h-[150px] rounded-xl border-slate-200 focus:border-primary bg-white dark:bg-slate-950 p-4 text-xs font-medium leading-relaxed"
             />
           </div>
         </div>
 
-        <div className="p-6 rounded-3xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 flex items-start gap-4">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-blue-200">
-            <Shield className="w-5 h-5" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-xs font-black uppercase text-slate-800 dark:text-slate-200">Contextual Governance</p>
-            <p className="text-[11px] text-slate-500 italic leading-relaxed">
-              Die gewählte Region beeinflusst, wie die KI Ihre Risiken und Audit-Kriterien interpretiert. 
-              Änderungen wirken sich direkt auf die Empfehlungen der **Governance Intelligence Engine** aus.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex justify-end pt-10 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex justify-end pt-8 border-t border-slate-100 dark:border-slate-800">
           <Button 
             onClick={handleSave} 
             disabled={isSaving} 
-            className="rounded-2xl font-black uppercase text-xs tracking-[0.2em] h-14 px-12 gap-3 bg-slate-900 hover:bg-black text-white shadow-2xl transition-all active:scale-95"
+            className="rounded-xl font-black uppercase text-xs tracking-[0.1em] h-12 px-12 gap-3 bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-95"
           >
             {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             Änderungen Speichern

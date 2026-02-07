@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -80,11 +79,11 @@ export default function UxSettingsPage() {
     onCheckedChange: (v: boolean) => void,
     badge?: string
   }) => (
-    <div className="p-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl transition-all hover:shadow-lg hover:border-primary/20 flex items-center justify-between group">
+    <div className="p-6 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl transition-all hover:shadow-md hover:border-primary/20 flex items-center justify-between group">
       <div className="flex items-center gap-5">
         <div className={cn(
-          "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500",
-          checked ? "bg-primary/10 text-primary group-hover:rotate-6" : "bg-slate-100 text-slate-400"
+          "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-500 border shadow-inner",
+          checked ? "bg-primary/10 text-primary border-primary/10 group-hover:scale-105" : "bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800"
         )}>
           <Icon className="w-6 h-6" />
         </div>
@@ -102,22 +101,22 @@ export default function UxSettingsPage() {
 
   return (
     <div className="space-y-10">
-      <Card className="rounded-[2.5rem] border-none shadow-2xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 overflow-hidden">
-        <CardHeader className="p-10 bg-slate-900 text-white shrink-0">
+      <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+        <CardHeader className="p-8 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
           <div className="flex items-center gap-6">
-            <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-xl">
-              <Sparkles className="w-8 h-8" />
+            <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
+              <Sparkles className="w-7 h-7" />
             </div>
             <div>
-              <CardTitle className="text-2xl font-headline font-bold uppercase tracking-tight">Erlebnis & Design</CardTitle>
+              <CardTitle className="text-xl font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Erlebnis & Design</CardTitle>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1.5">Personalisierung der Plattform-Interaktion</p>
             </div>
           </div>
         </CardHeader>
         
-        <CardContent className="p-10 space-y-10">
-          <div className="p-6 rounded-3xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-blue-200">
+        <CardContent className="p-8 space-y-10">
+          <div className="p-6 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-md">
               <Info className="w-5 h-5" />
             </div>
             <div className="space-y-1">
@@ -135,7 +134,7 @@ export default function UxSettingsPage() {
               desc="Weiche Übergänge und Einblend-Effekte für Seiten und Dialoge."
               checked={!!uxDraft.enableAdvancedAnimations}
               onCheckedChange={v => setUxDraft({...uxDraft, enableAdvancedAnimations: v})}
-              badge="Phase 2"
+              badge="Standard"
             />
             <UxCard 
               icon={MousePointer2}
@@ -160,14 +159,14 @@ export default function UxSettingsPage() {
             />
           </div>
 
-          <div className="flex justify-end pt-10 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex justify-end pt-8 border-t border-slate-100 dark:border-slate-800">
             <Button 
               onClick={handleSave} 
               disabled={isSaving || isLoading} 
-              className="rounded-2xl font-black uppercase text-xs tracking-[0.2em] h-14 px-16 gap-3 bg-slate-900 hover:bg-black text-white shadow-2xl transition-all active:scale-95"
+              className="rounded-xl font-black uppercase text-xs tracking-[0.1em] h-12 px-12 gap-3 bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
               {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-              UX-Design Speichern
+              Speichern
             </Button>
           </div>
         </CardContent>

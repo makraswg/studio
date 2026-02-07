@@ -16,16 +16,13 @@ import {
   Loader2,
   RefreshCw,
   BrainCircuit,
-  ShieldAlert,
   AlertTriangle,
   ShieldCheck,
   CheckCircle2,
   XCircle,
-  User as UserIcon,
   Layers,
   ArrowRight,
-  Shield,
-  Info
+  Filter
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -79,13 +76,11 @@ export default function AccessReviewsPage() {
     const base = assignments.filter((a: any) => activeTenantId === 'all' || a.tenantId === activeTenantId);
     const totalCount = base.filter((a: any) => a.status === 'active').length;
     const completedCount = base.filter((a: any) => !!a.lastReviewedAt && a.status === 'active').length;
-    const overdueCount = base.filter((a: any) => !a.lastReviewedAt && a.validUntil && new Date(a.validUntil) < new Date() && a.status === 'active').length;
     
     const rawPercent = totalCount > 0 ? (completedCount * 100) / totalCount : 0;
     return {
       total: totalCount,
       completed: completedCount,
-      overdue: overdueCount,
       percent: Math.round(rawPercent)
     };
   }, [assignments, activeTenantId]);
@@ -131,7 +126,7 @@ export default function AccessReviewsPage() {
       } else {
         updateDocumentNonBlocking(doc(db, 'assignments', assignmentId), reviewData);
       }
-      toast({ title: action === 'certify' ? "Zugriff zertifiziert" : "Zugriff widerrufen" });
+      toast({ title: action === 'certify' ? "Bestätigt" : "Widerrufen" });
       setTimeout(() => refreshAssignments(), 150);
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
@@ -164,7 +159,7 @@ export default function AccessReviewsPage() {
       });
       setAiAdvice(advice);
     } catch (e) {
-      toast({ variant: "destructive", title: "KI-Advisor Fehler", description: "Empfehlungen konnten nicht geladen werden." });
+      toast({ variant: "destructive", title: "KI-Fehler", description: "Fehler beim Laden." });
       setIsAdvisorOpen(false);
     } finally {
       setIsAdvisorLoading(false);
@@ -183,10 +178,10 @@ export default function AccessReviewsPage() {
           <div>
             <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none">Compliance Review</Badge>
             <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Access Reviews</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Regelmäßige Zertifizierung von Identitäts-Berechtigungen.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zertifizierung von Identitäts-Berechtigungen.</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 hover:bg-slate-50 transition-all active:scale-95" onClick={() => refreshAssignments()}>
+        <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 active:scale-95" onClick={() => refreshAssignments()}>
           <RefreshCw className="w-3.5 h-3.5 mr-2" /> Aktualisieren
         </Button>
       </div>
@@ -194,23 +189,12 @@ export default function AccessReviewsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border shadow-sm rounded-xl overflow-hidden bg-white">
           <CardContent className="p-5">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Fortschritt</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase mb-3">Fortschritt</p>
             <div className="flex items-end justify-between">
               <h3 className="text-2xl font-bold text-slate-800">{stats.percent}%</h3>
-              <span className="text-[10px] font-bold text-slate-500">{stats.completed} von {stats.total}</span>
+              <span className="text-[10px] font-bold text-slate-500">{stats.completed} / {stats.total}</span>
             </div>
             <Progress value={stats.percent} className="h-1.5 mt-3 rounded-full bg-slate-100" />
-          </CardContent>
-        </Card>
-        <Card className="border shadow-sm rounded-xl overflow-hidden bg-white border-red-100">
-          <CardContent className="p-5">
-            <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-3">Überfällig</p>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center text-red-600 shadow-inner">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <h3 className="text-2xl font-bold text-red-600">{stats.overdue}</h3>
-            </div>
           </CardContent>
         </Card>
       </div>
@@ -239,21 +223,12 @@ export default function AccessReviewsPage() {
           >
             Geprüft
           </button>
-          <button 
-            className={cn("px-6 h-full text-[10px] font-bold rounded-sm transition-all whitespace-nowrap", activeFilter === 'all' ? "bg-white dark:bg-slate-700 text-primary shadow-sm" : "text-slate-500 hover:text-slate-700")}
-            onClick={() => setActiveFilter('all')}
-          >
-            Alle
-          </button>
         </div>
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
-            <p className="text-xs font-bold text-slate-400">Lade Review-Liste...</p>
-          </div>
+          <div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-20" /></div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
@@ -270,8 +245,6 @@ export default function AccessReviewsPage() {
                   const userDoc = users?.find((u: any) => u.id === a.userId);
                   const ent = entitlements?.find((e: any) => e.id === a.entitlementId);
                   const res = resources?.find((r: any) => r.id === ent?.resourceId);
-                  const isAdmin = !!(ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1");
-
                   return (
                     <TableRow key={a.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0">
                       <TableCell className="py-4 px-6">
@@ -281,14 +254,14 @@ export default function AccessReviewsPage() {
                           </div>
                           <div>
                             <div className="font-bold text-xs text-slate-800">{userDoc?.displayName || a.userId}</div>
-                            <div className="text-[10px] text-slate-400 font-medium">{userDoc?.department || 'Abteilung n.a.'}</div>
+                            <div className="text-[10px] text-slate-400 font-medium">{userDoc?.department}</div>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <div className={cn("p-1.5 rounded-lg", isAdmin ? "bg-red-50 text-red-600" : "bg-primary/10 text-primary")}>
-                            {isAdmin ? <ShieldAlert className="w-3.5 h-3.5" /> : <Layers className="w-3.5 h-3.5" />}
+                          <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                            <Layers className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
                             <div className="font-bold text-xs text-slate-800 truncate">{res?.name}</div>
@@ -311,26 +284,11 @@ export default function AccessReviewsPage() {
                           <Badge className={cn(
                             "rounded-full px-3 h-6 text-[9px] font-bold border-none",
                             a.status === 'active' ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                          )}>
-                            {a.status === 'active' ? 'Bestätigt' : 'Widerrufen'}
-                          </Badge>
+                          )}>{a.status === 'active' ? 'Bestätigt' : 'Widerrufen'}</Badge>
                         ) : (
                           <div className="flex justify-end gap-2">
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="h-8 rounded-md text-[10px] font-bold border-red-200 text-red-600 hover:bg-red-50 transition-all"
-                              onClick={() => handleReview(a.id, 'revoke')}
-                            >
-                              <XCircle className="w-3 h-3 mr-1.5" /> Widerrufen
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              className="h-8 rounded-md text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-sm"
-                              onClick={() => handleReview(a.id, 'certify')}
-                            >
-                              <CheckCircle2 className="w-3 h-3 mr-1.5" /> Bestätigen
-                            </Button>
+                            <Button size="sm" variant="outline" className="h-8 rounded-md text-[10px] font-bold border-red-200 text-red-600 hover:bg-red-50" onClick={() => handleReview(a.id, 'revoke')}><XCircle className="w-3 h-3 mr-1.5" /> Widerrufen</Button>
+                            <Button size="sm" className="h-8 rounded-md text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleReview(a.id, 'certify')}><CheckCircle2 className="w-3 h-3 mr-1.5" /> Bestätigen</Button>
                           </div>
                         )}
                       </TableCell>
@@ -352,22 +310,19 @@ export default function AccessReviewsPage() {
               </div>
               <div className="min-w-0">
                 <DialogTitle className="text-lg font-headline font-bold">KI Access Advisor</DialogTitle>
-                <DialogDescription className="text-[10px] text-white/50 font-bold mt-0.5">Analysiert: {selectedReviewItem?.user?.displayName}</DialogDescription>
+                <DialogDescription className="text-[10px] text-white/50 font-bold mt-0.5">Analyse: {selectedReviewItem?.user?.displayName}</DialogDescription>
               </div>
             </div>
           </DialogHeader>
           
           <ScrollArea className="flex-1">
             {isAdvisorLoading ? (
-              <div className="py-20 text-center space-y-6 animate-in fade-in">
+              <div className="py-20 text-center space-y-6">
                 <div className="relative w-16 h-16 mx-auto">
                   <Loader2 className="w-16 h-16 animate-spin text-primary opacity-20" />
                   <BrainCircuit className="absolute inset-0 m-auto w-7 h-7 text-primary animate-pulse" />
                 </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-bold text-slate-800">KI evaluiert Zugriffsprofil...</p>
-                  <p className="text-[10px] text-slate-400 font-medium italic">Abgleich mit Job-Description und Least-Privilege Prinzip.</p>
-                </div>
+                <p className="text-sm font-bold text-slate-800">KI evaluiert Zugriffsprofil...</p>
               </div>
             ) : aiAdvice && (
               <div className="p-8 space-y-10">
@@ -383,11 +338,11 @@ export default function AccessReviewsPage() {
                     "p-6 rounded-2xl border shadow-inner flex flex-col justify-center",
                     aiAdvice.riskScore > 50 ? "bg-red-50 border-red-100" : "bg-emerald-50 border-emerald-100"
                   )}>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">KI-Empfehlung</p>
+                    <p className="text-[10px] font-bold uppercase text-slate-400">Empfehlung</p>
                     <div className="flex items-center gap-2 mt-1">
                       {aiAdvice.riskScore > 50 ? <AlertTriangle className="w-5 h-5 text-red-600" /> : <ShieldCheck className="w-5 h-5 text-emerald-600" />}
                       <h4 className={cn("text-lg font-black", aiAdvice.riskScore > 50 ? "text-red-700" : "text-emerald-700")}>
-                        {aiAdvice.riskScore > 50 ? 'Widerruf prüfen' : 'Zugriff behalten'}
+                        {aiAdvice.riskScore > 50 ? 'Widerruf' : 'Konform'}
                       </h4>
                     </div>
                   </div>
@@ -403,7 +358,7 @@ export default function AccessReviewsPage() {
                 <div className="space-y-6">
                   <div className="space-y-3">
                     <h4 className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2 ml-1">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> Bedenken & Auffälligkeiten
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> Bedenken
                     </h4>
                     <div className="grid grid-cols-1 gap-2">
                       {aiAdvice.concerns?.map((c: string, i: number) => (
@@ -417,7 +372,7 @@ export default function AccessReviewsPage() {
 
                   <div className="space-y-3">
                     <h4 className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2 ml-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Handlungsempfehlungen
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Handlungsschritte
                     </h4>
                     <div className="grid grid-cols-1 gap-2">
                       {aiAdvice.recommendations?.map((r: string, i: number) => (
@@ -434,22 +389,11 @@ export default function AccessReviewsPage() {
           </ScrollArea>
           
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col sm:flex-row gap-2">
-            <Button variant="ghost" onClick={() => setIsAdvisorOpen(false)} className="rounded-md font-bold text-xs px-8">Abbrechen</Button>
+            <Button variant="ghost" onClick={() => setIsAdvisorOpen(false)} className="rounded-md font-bold text-xs px-8">Schließen</Button>
             {aiAdvice && (
               <div className="flex gap-2 w-full sm:w-auto">
-                <Button 
-                  variant="outline"
-                  className="flex-1 sm:flex-none h-10 px-6 rounded-md font-bold text-[10px] border-red-200 text-red-600 hover:bg-red-50"
-                  onClick={() => { handleReview(selectedReviewItem?.assignment?.id, 'revoke'); setIsAdvisorOpen(false); }}
-                >
-                  KI-Widerruf folgen
-                </Button>
-                <Button 
-                  className="flex-1 sm:flex-none h-10 px-8 rounded-md font-bold text-[10px] bg-primary text-white shadow-lg shadow-primary/20"
-                  onClick={() => { handleReview(selectedReviewItem?.assignment?.id, 'certify'); setIsAdvisorOpen(false); }}
-                >
-                  Zertifizieren
-                </Button>
+                <Button variant="outline" className="flex-1 sm:flex-none h-10 px-6 rounded-md font-bold text-[10px] border-red-200 text-red-600 hover:bg-red-50" onClick={() => { handleReview(selectedReviewItem?.assignment?.id, 'revoke'); setIsAdvisorOpen(false); }}>KI-Widerruf</Button>
+                <Button className="flex-1 sm:flex-none h-10 px-8 rounded-md font-bold text-[10px] bg-primary text-white shadow-lg" onClick={() => { handleReview(selectedReviewItem?.assignment?.id, 'certify'); setIsAdvisorOpen(false); }}>Zertifizieren</Button>
               </div>
             )}
           </DialogFooter>

@@ -1,49 +1,30 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   AlertTriangle, 
   Plus, 
   Search, 
-  Clock, 
-  MoreHorizontal, 
-  Pencil, 
-  Trash2, 
   Loader2, 
   Library, 
-  Save, 
   Filter,
   Layers,
   ShieldAlert,
   Download,
-  MoreVertical,
-  ChevronRight,
-  ShieldCheck,
-  Scale
+  MoreVertical
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter,
-  DialogDescription
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { exportRisksExcel } from '@/lib/export-utils';
 import { Risk, Resource } from '@/lib/types';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 function RiskDashboardContent() {
   const router = useRouter();
@@ -52,7 +33,7 @@ function RiskDashboardContent() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   
-  const { data: risks, isLoading, refresh } = usePluggableCollection<Risk>('risks');
+  const { data: risks, isLoading } = usePluggableCollection<Risk>('risks');
   const { data: resources } = usePluggableCollection<Resource>('resources');
 
   useEffect(() => { setMounted(true); }, []);
@@ -79,12 +60,12 @@ function RiskDashboardContent() {
           <div>
             <Badge className="mb-1 rounded-full px-2 py-0 bg-accent/10 text-accent text-[9px] font-bold border-none">GRC Module</Badge>
             <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Risikoinventar</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Überwachung der Bedrohungslage für {activeTenantId === 'all' ? 'alle Standorte' : activeTenantId}.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Bedrohungslage für {activeTenantId === 'all' ? 'alle Standorte' : activeTenantId}.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200" onClick={() => exportRisksExcel(filteredRisks, resources || [])}>
-            <Download className="w-3.5 h-3.5 mr-2 text-primary" /> Excel
+            <Download className="w-3.5 h-3.5 mr-2" /> Excel
           </Button>
           <Button variant="outline" size="sm" onClick={() => router.push('/risks/catalog')} className="h-9 rounded-md font-bold text-xs px-4 border-blue-200 text-blue-700 bg-blue-50">
             <Library className="w-3.5 h-3.5 mr-2" /> Kataloge
@@ -147,14 +128,14 @@ function RiskDashboardContent() {
                         </div>
                         <div className="min-w-0">
                           <div className="font-bold text-xs text-slate-800 truncate">{risk.title}</div>
-                          {asset && <p className="text-[9px] text-slate-400 font-bold mt-0.5 uppercase tracking-tighter flex items-center gap-1"><Layers className="w-2.5 h-2.5" /> {asset.name}</p>}
+                          {asset && <p className="text-[9px] text-slate-400 font-bold mt-0.5 flex items-center gap-1"><Layers className="w-2.5 h-2.5" /> {asset.name}</p>}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge className={cn("rounded-md font-bold text-[10px] h-6 w-8 justify-center shadow-sm", score >= 15 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600")}>{score}</Badge>
                     </TableCell>
-                    <TableCell className="text-[10px] font-bold text-slate-500 uppercase">{risk.category}</TableCell>
+                    <TableCell className="text-[10px] font-bold text-slate-500">{risk.category}</TableCell>
                     <TableCell className="text-right px-6">
                       <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all"><MoreVertical className="w-4 h-4 text-slate-400" /></Button>
                     </TableCell>

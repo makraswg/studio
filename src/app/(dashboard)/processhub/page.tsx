@@ -24,8 +24,7 @@ import {
   AlertTriangle,
   Network,
   Filter,
-  Layers,
-  History
+  Layers
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -152,7 +151,7 @@ export default function ProcessHubOverview() {
         </div>
         <div className="flex items-center gap-2 px-3 h-9 border rounded-md bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 shrink-0">
           <Filter className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-[10px] font-bold text-slate-500 whitespace-nowrap italic">Alle Filter aktiv</span>
+          <span className="text-[10px] font-bold text-slate-500 whitespace-nowrap italic">Filter aktiv</span>
         </div>
       </div>
 
@@ -176,7 +175,7 @@ export default function ProcessHubOverview() {
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Bezeichnung</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400">Status</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 text-center">Version</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400">Letzte Änderung</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Geändert</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
@@ -224,10 +223,9 @@ export default function ProcessHubOverview() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56 rounded-lg p-1 shadow-xl border">
                           <DropdownMenuItem className="rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => router.push(`/processhub/${p.id}`)}><Workflow className="w-3.5 h-3.5 text-primary" /> Designer öffnen</DropdownMenuItem>
-                          <DropdownMenuItem className="rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => router.push('/processhub/map')}><Network className="w-3.5 h-3.5 text-slate-400" /> Auf Landkarte zeigen</DropdownMenuItem>
                           <DropdownMenuSeparator className="my-1" />
                           <DropdownMenuItem className="text-red-600 rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => setProcessToDelete(p.id)}>
-                            <Trash2 className="w-3.5 h-3.5" /> Permanent löschen
+                            <Trash2 className="w-3.5 h-3.5" /> Löschen
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -255,7 +253,7 @@ export default function ProcessHubOverview() {
             <AlertDialogCancel className="rounded-md font-bold text-xs h-11 px-8">Abbrechen</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs h-11 px-10 gap-2 shadow-lg" disabled={isDeleting}>
               {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-              Prozess löschen
+              Löschen
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

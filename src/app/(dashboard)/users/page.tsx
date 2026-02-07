@@ -13,31 +13,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   Search, 
-  RefreshCw,
   Plus,
-  MoreHorizontal,
   Loader2,
-  ShieldCheck,
-  Trash2,
   Pencil,
-  Network,
-  User as UserIcon,
-  Info,
-  History,
-  ShieldAlert,
-  Clock,
-  UserPlus,
-  Layers,
-  Shield,
-  Download,
+  UserCircle,
   MoreVertical,
   Building2,
+  Download,
+  Filter,
+  UserPlus,
   Mail,
-  ArrowRight,
-  Activity,
-  UserCircle,
-  Briefcase,
-  Filter
+  Info
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -55,24 +41,12 @@ import {
   DialogFooter,
   DialogDescription
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
   setDocumentNonBlocking, 
-  deleteDocumentNonBlocking,
   useUser as useAuthUser
 } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -80,10 +54,9 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSettings } from '@/context/settings-context';
-import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
+import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { exportUsersExcel } from '@/lib/export-utils';
 
 export default function UsersPage() {
@@ -93,14 +66,8 @@ export default function UsersPage() {
   const { dataSource, activeTenantId } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [isSavingAssignment, setIsSavingAssignment] = useState(false);
   
   const [isDialogOpen, setIsAddOpen] = useState(false);
-  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isQuickAssignOpen, setIsQuickAssignOpen] = useState(false);
-  
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const [displayName, setDisplayName] = useState('');
@@ -109,21 +76,11 @@ export default function UsersPage() {
   const [tenantId, setTenantId] = useState('');
   const [userTitle, setUserTitle] = useState('');
 
-  const [qaResourceId, setQaResourceId] = useState('');
-  const [qaEntitlementId, setQaEntitlementId] = useState('');
-  const [qaValidUntil, setQaValidUntil] = useState('');
-
   const [activeStatusFilter, setActiveStatusFilter] = useState<'all' | 'active' | 'disabled'>('all');
-  const [activeSourceFilter, setActiveSourceFilter] = useState<'all' | 'ad' | 'manual'>('all');
 
   const { data: users, isLoading, refresh: refreshUsers } = usePluggableCollection<any>('users');
   const { data: tenants } = usePluggableCollection<any>('tenants');
-  const { data: entitlements } = usePluggableCollection<any>('entitlements');
-  const { data: resources } = usePluggableCollection<any>('resources');
-  const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
-  const { data: auditLogs, refresh: refreshAudit } = usePluggableCollection<any>('auditEvents');
-  const { data: jobTitles } = usePluggableCollection<any>('jobTitles');
-  const { data: departments } = usePluggableCollection<any>('departments');
+  const { refresh: refreshAudit } = usePluggableCollection<any>('auditEvents');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -151,7 +108,6 @@ export default function UsersPage() {
       tenantId,
       title: userTitle,
       enabled: selectedUser ? selectedUser.enabled : true,
-      externalId: selectedUser?.externalId || `MANUAL_${userId}`,
       lastSyncedAt: new Date().toISOString()
     };
 
@@ -201,12 +157,9 @@ export default function UsersPage() {
       const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
       if (activeStatusFilter === 'active' && !isEnabled) return false;
       if (activeStatusFilter === 'disabled' && isEnabled) return false;
-      const isAd = user.externalId && !user.externalId.startsWith('MANUAL_');
-      if (activeSourceFilter === 'ad' && !isAd) return false;
-      if (activeSourceFilter === 'manual' && isAd) return false;
       return true;
     });
-  }, [users, search, activeTenantId, activeStatusFilter, activeSourceFilter]);
+  }, [users, search, activeTenantId, activeStatusFilter]);
 
   if (!mounted) return null;
 
@@ -220,12 +173,12 @@ export default function UsersPage() {
           <div>
             <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none">IAM Directory</Badge>
             <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Benutzerverzeichnis</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Verwaltung der Identitäten für {activeTenantId === 'all' ? 'alle Standorte' : getTenantSlug(activeTenantId)}.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Identitäten für {activeTenantId === 'all' ? 'alle Standorte' : getTenantSlug(activeTenantId)}.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200" onClick={() => exportUsersExcel(filteredUsers, tenants || [])}>
-            <Download className="w-3.5 h-3.5 mr-2 text-primary" /> Excel
+            <Download className="w-3.5 h-3.5 mr-2" /> Excel
           </Button>
           <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-sm" onClick={() => { resetForm(); setIsAddOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> Benutzer anlegen
@@ -254,22 +207,9 @@ export default function UsersPage() {
               )}
               onClick={() => setActiveStatusFilter(f as any)}
             >
-              {f === 'all' ? 'Alle' : f === 'active' ? 'Aktiv' : f === 'disabled' ? 'Inaktiv' : ''}
+              {f === 'all' ? 'Alle' : f === 'active' ? 'Aktiv' : 'Inaktiv'}
             </button>
           ))}
-        </div>
-
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-md border border-slate-200 dark:border-slate-700 h-9 shrink-0">
-          <Select value={activeSourceFilter} onValueChange={(v: any) => setActiveSourceFilter(v)}>
-            <SelectTrigger className="h-full border-none shadow-none text-[9px] font-bold min-w-[120px] bg-transparent">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="text-xs">Alle Quellen</SelectItem>
-              <SelectItem value="ad" className="text-xs">LDAP/AD Sync</SelectItem>
-              <SelectItem value="manual" className="text-xs">Manueller Eintrag</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </div>
 
@@ -282,7 +222,7 @@ export default function UsersPage() {
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Identität</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400">Mandant</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400">Abteilung / Stelle</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Abteilung</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400">Status</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
               </TableRow>
@@ -298,9 +238,7 @@ export default function UsersPage() {
                           {user.displayName?.charAt(0)}
                         </div>
                         <div>
-                          <div className="font-bold text-sm text-slate-800 cursor-pointer hover:text-primary transition-colors" onClick={() => { setSelectedUser(user); setIsDetailOpen(true); }}>
-                            {user.displayName}
-                          </div>
+                          <div className="font-bold text-sm text-slate-800">{user.displayName}</div>
                           <div className="text-[10px] text-slate-400 font-medium">{user.email}</div>
                         </div>
                       </div>
@@ -311,10 +249,7 @@ export default function UsersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-slate-600">{user.department || '—'}</span>
-                        <span className="text-[9px] font-medium text-slate-400 italic">{user.title || 'Keine Angabe'}</span>
-                      </div>
+                      <span className="text-[10px] font-bold text-slate-600">{user.department || '—'}</span>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={cn("text-[8px] font-bold rounded-full border-none px-2 h-5", isEnabled ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600")}>
@@ -323,18 +258,12 @@ export default function UsersPage() {
                     </TableCell>
                     <TableCell className="text-right px-6">
                       <div className="flex justify-end items-center gap-1.5">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 rounded-md text-[9px] font-bold gap-1.5 opacity-0 group-hover:opacity-100 hover:bg-emerald-50 hover:text-emerald-600 transition-all active:scale-95"
-                          onClick={() => { setSelectedUser(user); setIsQuickAssignOpen(true); }}
-                        >
-                          <UserPlus className="w-3.5 h-3.5" /> Zuweisen
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white opacity-0 group-hover:opacity-100" onClick={() => openEdit(user)}>
+                          <Pencil className="w-3.5 h-3.5 text-slate-400" />
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-56 rounded-lg p-1 shadow-xl border">
-                            <DropdownMenuItem onSelect={() => { setSelectedUser(user); setIsDetailOpen(true); }} className="rounded-md py-2 gap-2 text-xs font-bold"><Info className="w-3.5 h-3.5 text-primary" /> Details</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => openEdit(user)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -345,8 +274,50 @@ export default function UsersPage() {
               })}
             </TableBody>
           </Table>
-        </div>
+        )}
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsAddOpen}>
+        <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+                <UserCircle className="w-5 h-5" />
+              </div>
+              <DialogTitle className="text-lg font-bold text-slate-900">{selectedUser ? 'Benutzer bearbeiten' : 'Neuer Benutzer'}</DialogTitle>
+            </div>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold text-slate-400 ml-1">Anzeigename</Label>
+              <Input value={displayName} onChange={e => setDisplayName(e.target.value)} className="rounded-md h-11 border-slate-200" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold text-slate-400 ml-1">E-Mail</Label>
+              <Input value={email} onChange={e => setEmail(e.target.value)} className="rounded-md h-11 border-slate-200" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold text-slate-400 ml-1">Abteilung</Label>
+              <Input value={department} onChange={e => setDepartment(e.target.value)} className="rounded-md h-11 border-slate-200" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold text-slate-400 ml-1">Mandant</Label>
+              <Select value={tenantId} onValueChange={setTenantId}>
+                <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                <SelectContent>
+                  {tenants?.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2">
+            <Button variant="ghost" onClick={() => setIsAddOpen(false)} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
+            <Button onClick={handleSaveUser} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
+              Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

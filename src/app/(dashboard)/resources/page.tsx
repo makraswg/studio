@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -15,33 +14,18 @@ import { Input } from '@/components/ui/input';
 import { 
   Plus, 
   Search, 
-  MoreHorizontal, 
   Loader2, 
-  Trash2, 
-  Pencil, 
-  Network,
-  ShieldAlert,
-  Settings2,
-  Info,
-  Layers,
-  ChevronRight,
-  Shield,
-  RefreshCw,
-  Server,
-  Save,
-  Archive,
-  RotateCcw,
-  Download,
-  X,
-  AlertTriangle,
+  Layers, 
   Filter,
-  Building2
+  Download,
+  MoreVertical,
+  Server,
+  Archive,
+  RotateCcw
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { toast } from '@/hooks/use-toast';
 import { Resource, Tenant } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportResourcesExcel } from '@/lib/export-utils';
@@ -54,7 +38,7 @@ export default function ResourcesPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [assetTypeFilter, setAssetTypeFilter] = useState('all');
 
-  const { data: resources, isLoading, refresh: refreshResources } = usePluggableCollection<Resource>('resources');
+  const { data: resources, isLoading } = usePluggableCollection<Resource>('resources');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
 
   useEffect(() => { setMounted(true); }, []);
@@ -89,7 +73,7 @@ export default function ResourcesPage() {
           <div>
             <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none">Plattform Core</Badge>
             <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Ressourcenkatalog</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Sicherheits- & Compliance-Inventar für {activeTenantId === 'all' ? 'alle Standorte' : getTenantSlug(activeTenantId)}.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">IT-Inventar für {activeTenantId === 'all' ? 'alle Standorte' : getTenantSlug(activeTenantId)}.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -162,15 +146,12 @@ export default function ResourcesPage() {
                   <TableCell>
                     <div className="flex flex-col">
                       <Badge variant="outline" className="text-[8px] font-bold h-4 px-1.5 border-slate-200 text-slate-500 w-fit">{res.category}</Badge>
-                      <span className="text-[8px] font-bold text-slate-400 mt-1 uppercase">CIA: {res.confidentialityReq?.charAt(0)}|{res.integrityReq?.charAt(0)}|{res.availabilityReq?.charAt(0)}</span>
+                      <span className="text-[8px] font-bold text-slate-400 mt-1">CIA: {res.confidentialityReq?.charAt(0)}|{res.integrityReq?.charAt(0)}|{res.availabilityReq?.charAt(0)}</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-xs font-bold text-slate-700">{res.systemOwner || '---'}</TableCell>
                   <TableCell className="text-right px-6">
-                    <div className="flex justify-end gap-1.5">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all"><Settings2 className="w-3.5 h-3.5 text-slate-400" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all"><MoreVertical className="w-4 h-4 text-slate-400" /></Button>
-                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 opacity-0 group-hover:opacity-100"><MoreVertical className="w-4 h-4 text-slate-400" /></Button>
                   </TableCell>
                 </TableRow>
               ))}

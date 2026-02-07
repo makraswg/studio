@@ -79,8 +79,11 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
 
 *   **Step 5.1: Verarbeitungsverzeichnis**
     *   *Status*: In Prüfung (Audit Phase) 🔍
-    *   **NEUE AUFGABE**: System-Abhängigkeit zwingend machen (Link zu Step 7).
-    *   **NEUE AUFGABE**: KI-Legal-Translator für Rechtsgrundlagen (Azubi-Modus).
+    *   *Consultant Audit*: Aktuell ein Datensilo. Es fehlt die Kopplung zur IT-Infrastruktur.
+    *   **NEUE AUFGABE**: System-Abhängigkeit zwingend machen (Pflichtfeld Link zu Step 7). Keine Dokumentation ohne Asset!
+    *   **NEUE AUFGABE**: KI-Legal-Translator für Rechtsgrundlagen (Azubi-Modus erklärt Zwecke statt Paragraphen).
+    *   **NEUE AUFGABE**: Automatischer Trigger für Risikoanalyse (Step 3) bei Erfassung sensibler Daten (Art. 9).
+    *   **NEUE AUFGABE**: Revisionssichere Versionierung (V1.0 -> V1.1) bei jeder Änderung am Zweck oder Umfang.
 
 ### 6. Organisations-Struktur & Stellenplan
 *Das Fundament der Verantwortlichkeit.*
@@ -107,4 +110,4 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
     *   **NEUE AUFGABE**: KI-Config-Assistent übersetzt technische Fehlermeldungen (LDAP/Jira) in einfaches Deutsch.
 
 ---
-*Ende der Master-Liste (Stand: Audit Phase Step 4)*
+*Ende der Master-Liste (Stand: Audit Phase Step 5)*

@@ -34,7 +34,8 @@ import {
   Archive,
   RotateCcw,
   MoreVertical,
-  Info
+  Info,
+  ShieldAlert
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -69,7 +70,6 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
   setDocumentNonBlocking,
-  useUser as useAuthUser
 } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
@@ -86,6 +86,7 @@ export default function GroupsPage() {
   const { dataSource, activeTenantId } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
+  const [roleSearch, setRoleSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -93,15 +94,14 @@ export default function GroupsPage() {
   const [selectedGroup, setSelectedGroup] = useState<AssignmentGroup | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [userConfigs, setUserConfigs] = useState<GroupMemberConfig[]>([]);
-  const [entitlementConfigs, setEntitlementConfigs] = useState<GroupMemberConfig[]>([]);
+  const [selectedEntitlementIds, setSelectedEntitlementIds] = useState<string[]>([]);
 
   const [deleteTarget, setDeleteTarget] = useState<{ id: string, label: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: groups, isLoading, refresh: refreshGroups } = usePluggableCollection<AssignmentGroup>('groups');
-  const { data: users } = usePluggableCollection<User>('users');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
+  const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
 
   useEffect(() => {
@@ -125,28 +125,56 @@ export default function GroupsPage() {
     });
   }, [groups, search, activeTenantId, showArchived]);
 
+  const filteredEntitlements = useMemo(() => {
+    if (!entitlements || !resources) return [];
+    return entitlements.filter(e => {
+      const res = resources.find(r => r.id === e.resourceId);
+      if (activeTenantId !== 'all' && res?.tenantId !== activeTenantId && res?.tenantId !== 'global') return false;
+      const matchSearch = e.name.toLowerCase().includes(roleSearch.toLowerCase()) || res?.name.toLowerCase().includes(roleSearch.toLowerCase());
+      return matchSearch;
+    });
+  }, [entitlements, resources, roleSearch, activeTenantId]);
+
   const handleSaveGroup = async () => {
-    if (!name) return;
+    if (!name) {
+      toast({ variant: "destructive", title: "Fehler", description: "Bitte einen Gruppennamen angeben." });
+      return;
+    }
+    
     setIsSaving(true);
     const id = selectedGroup?.id || `grp_${Math.random().toString(36).substring(2, 9)}`;
+    const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
+    
     const groupData: AssignmentGroup = {
       ...selectedGroup,
       id,
-      tenantId: activeTenantId === 'all' ? 't1' : activeTenantId,
+      tenantId: targetTenantId,
       name,
       description,
       status: selectedGroup?.status || 'active',
-      userConfigs,
-      entitlementConfigs
+      entitlementIds: selectedEntitlementIds,
+      userConfigs: selectedGroup?.userConfigs || [],
+      entitlementConfigs: selectedGroup?.entitlementConfigs || []
     };
 
     try {
       const res = await saveCollectionRecord('groups', id, groupData, dataSource);
       if (res.success) {
+        await logAuditEventAction(dataSource, {
+          tenantId: targetTenantId,
+          actorUid: user?.email || 'system',
+          action: selectedGroup ? `Zuweisungsgruppe aktualisiert: ${name}` : `Zuweisungsgruppe erstellt: ${name}`,
+          entityType: 'group',
+          entityId: id,
+          after: groupData
+        });
+
         toast({ title: "Gruppe gespeichert" });
         setIsDialogOpen(false);
         refreshGroups();
       }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
     } finally {
       setIsSaving(false);
     }
@@ -188,9 +216,14 @@ export default function GroupsPage() {
     setSelectedGroup(group);
     setName(group.name);
     setDescription(group.description || '');
-    setUserConfigs(group.userConfigs || []);
-    setEntitlementConfigs(group.entitlementConfigs || []);
+    setSelectedEntitlementIds(group.entitlementIds || []);
     setIsDialogOpen(true);
+  };
+
+  const toggleEntitlement = (id: string) => {
+    setSelectedEntitlementIds(prev => 
+      prev.includes(id) ? prev.filter(eid => eid !== id) : [...prev, id]
+    );
   };
 
   if (!mounted) return null;
@@ -198,17 +231,22 @@ export default function GroupsPage() {
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
-        <div>
-          <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none">Lifecycle Management</Badge>
-          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Zuweisungsgruppen</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Regelbasierte Berechtigungen für Abteilungen oder Projekt-Teams.</p>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
+            <Workflow className="w-6 h-6" />
+          </div>
+          <div>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none">Lifecycle Management</Badge>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Zuweisungsgruppen</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Regelbasierte Berechtigungen für Abteilungen oder Projekt-Teams.</p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" className="h-9 font-bold text-xs gap-2" onClick={() => setShowArchived(!showArchived)}>
             {showArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
             {showArchived ? 'Aktive anzeigen' : 'Archiv'}
           </Button>
-          <Button size="sm" className="h-9 font-bold text-xs px-6 shadow-sm" onClick={() => { setSelectedGroup(null); setName(''); setDescription(''); setIsDialogOpen(true); }}>
+          <Button size="sm" className="h-9 font-bold text-xs px-6 shadow-sm" onClick={() => { setSelectedGroup(null); setName(''); setDescription(''); setSelectedEntitlementIds([]); setIsDialogOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> Gruppe erstellen
           </Button>
         </div>
@@ -233,7 +271,7 @@ export default function GroupsPage() {
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Gruppe</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400">Mandant</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400">Besetzung</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Enthaltene Rollen</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
@@ -258,8 +296,8 @@ export default function GroupsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Users className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="text-xs font-bold text-slate-700">{group.userConfigs?.length || 0} Nutzer</span>
+                      <Shield className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="text-xs font-bold text-slate-700">{group.entitlementIds?.length || 0} Rollen</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-right px-6">
@@ -299,7 +337,7 @@ export default function GroupsPage() {
 
       {/* Group Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] h-[80vh] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-8">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shadow-sm border border-primary/10">
@@ -312,8 +350,8 @@ export default function GroupsPage() {
             </div>
           </DialogHeader>
           <ScrollArea className="flex-1">
-            <div className="p-6 md:p-10 space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-6 md:p-10 space-y-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
                   <Label className="text-[11px] font-bold text-slate-400 ml-1">Name der Gruppe</Label>
                   <Input value={name} onChange={e => setName(e.target.value)} className="rounded-md h-11 border-slate-200 font-bold" placeholder="z.B. Marketing-Team, IT-Support..." />
@@ -323,15 +361,68 @@ export default function GroupsPage() {
                   <Input value={description} onChange={e => setDescription(e.target.value)} className="rounded-md h-11 border-slate-200" placeholder="Zuständigkeitsbereich..." />
                 </div>
               </div>
+
+              <div className="space-y-6 pt-6 border-t border-slate-100">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <Label className="text-[11px] font-bold text-primary flex items-center gap-2">
+                      <Layers className="w-4 h-4" /> Rollen auswählen ({selectedEntitlementIds.length} gewählt)
+                    </Label>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Diese Berechtigungen werden Mitgliedern der Gruppe automatisch zugewiesen.</p>
+                  </div>
+                  <div className="relative group">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary" />
+                    <Input 
+                      placeholder="Rollen filtern..." 
+                      value={roleSearch}
+                      onChange={e => setRoleSearch(e.target.value)}
+                      className="h-9 pl-9 text-[11px] rounded-md min-w-[220px]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {filteredEntitlements.map((ent) => {
+                    const res = resources?.find(r => r.id === ent.resourceId);
+                    return (
+                      <div 
+                        key={ent.id} 
+                        className={cn(
+                          "p-4 border rounded-xl cursor-pointer transition-all flex items-center gap-3 group shadow-sm",
+                          selectedEntitlementIds.includes(ent.id) 
+                            ? "border-primary bg-primary/5 ring-2 ring-primary/5" 
+                            : "bg-white border-slate-100 hover:border-slate-200"
+                        )} 
+                        onClick={() => toggleEntitlement(ent.id)}
+                      >
+                        <Checkbox checked={selectedEntitlementIds.includes(ent.id)} className="rounded-sm h-4 w-4" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">{ent.name}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[9px] font-bold text-slate-400 truncate max-w-[100px]">{res?.name}</span>
+                            {ent.isAdmin && <Badge className="bg-red-50 text-red-600 border-none rounded-full text-[7px] font-bold h-3 px-1">Admin</Badge>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {filteredEntitlements.length === 0 && (
+                    <div className="col-span-full py-10 text-center border-2 border-dashed rounded-xl opacity-30">
+                      <Shield className="w-8 h-8 mx-auto mb-2" />
+                      <p className="text-xs font-bold">Keine Rollen für diese Auswahl gefunden</p>
+                    </div>
+                  )}
+                </div>
+              </div>
               
               <div className="p-6 rounded-xl bg-blue-50/50 border border-blue-100 flex items-start gap-4">
                 <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm">
                   <Info className="w-4 h-4" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-bold text-slate-800">Hinweis zur Konfiguration</p>
+                  <p className="text-xs font-bold text-slate-800">Automatisierungshinweis</p>
                   <p className="text-[10px] text-slate-500 italic leading-relaxed">
-                    Nachdem Sie die Gruppe gespeichert haben, können Sie in der Detailansicht die spezifischen Filterregeln (Abteilungen, Standorte) definieren, um Benutzer und Rollen automatisch zu verknüpfen.
+                    Mitglieder können Sie später über die Identitäten-Verwaltung oder die LDAP-Filterregeln dieser Gruppe hinzufügen.
                   </p>
                 </div>
               </div>

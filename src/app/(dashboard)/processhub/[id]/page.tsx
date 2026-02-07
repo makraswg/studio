@@ -63,7 +63,6 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
 import { applyProcessOpsAction, updateProcessMetadataAction, commitProcessVersionAction } from '@/app/actions/process-actions';
-import { getProcessSuggestions } from '@/ai/flows/process-designer-flow';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
 import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation, ProcessEdge, ProcessVersion, Department, RegulatoryOption } from '@/lib/types';
@@ -71,9 +70,7 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { Checkbox } from '@/components/ui/checkbox';
 
 /**
  * Erzeugt BPMN 2.0 MX-XML für draw.io Integration.
@@ -143,9 +140,7 @@ export default function ProcessDesignerPage() {
 
   // UI States
   const [isDiagramLocked, setIsDiagramLocked] = useState(false);
-  const [isAiAdvisorOpen, setIsAiAdvisorOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
-  const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
@@ -170,7 +165,7 @@ export default function ProcessDesignerPage() {
   const [metaStatus, setMetaStatus] = useState<any>('draft');
 
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
-  const { data: versions, refresh: refreshVersion, isLoading: isVerLoading } = usePluggableCollection<any>('process_versions');
+  const { data: versions, refresh: refreshVersion } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: regulatoryOptions } = usePluggableCollection<RegulatoryOption>('regulatory_options');
@@ -333,9 +328,30 @@ export default function ProcessDesignerPage() {
     }
   };
 
+  const handleAddComment = async () => {
+    if (!commentText.trim() || !user || !currentProcess) return;
+    setIsCommenting(true);
+    try {
+      const id = `comm-${Math.random().toString(36).substring(2, 9)}`;
+      const data = {
+        id,
+        process_id: currentProcess.id,
+        user_id: user.id,
+        user_name: user.displayName || user.email,
+        text: commentText,
+        created_at: new Date().toISOString()
+      };
+      await saveCollectionRecord('process_comments', id, data, dataSource);
+      setCommentText('');
+      refreshComments();
+    } finally {
+      setIsCommenting(false);
+    }
+  };
+
   const handleDeleteNode = async () => {
     if (!selectedNodeId || !currentVersion || !user) return;
-    if (!confirm('Modul permanent löschen?')) return;
+    if (!confirm('Modul permanent löschen? Alle Verknüpfungen werden ebenfalls entfernt.')) return;
     setIsDeleting(true);
     try {
       const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
@@ -349,6 +365,21 @@ export default function ProcessDesignerPage() {
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleRemoveEdge = async (edgeId: string) => {
+    await handleApplyOps([{ type: 'REMOVE_EDGE', payload: { edgeId } }]);
+  };
+
+  const handleAddEdge = async (targetId: string, direction: 'forward' | 'backward') => {
+    if (!selectedNodeId) return;
+    const edge = {
+      id: `edge-${Date.now()}`,
+      source: direction === 'forward' ? selectedNodeId : targetId,
+      target: direction === 'forward' ? targetId : selectedNodeId,
+      label: ''
+    };
+    await handleApplyOps([{ type: 'ADD_EDGE', payload: { edge } }]);
   };
 
   const handleSaveMetadata = async () => {
@@ -459,7 +490,7 @@ export default function ProcessDesignerPage() {
                       <Select value={metaDeptId} onValueChange={setMetaDeptId}>
                         <SelectTrigger className="rounded-xl h-10 border-slate-200 text-xs bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                         <SelectContent className="rounded-xl">
-                          {departments?.filter(d => d.tenantId === currentProcess?.tenantId).map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                          {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -521,7 +552,7 @@ export default function ProcessDesignerPage() {
               </div>
               <ScrollArea className="flex-1 bg-slate-50/30">
                 <div className="p-4 space-y-2 pb-32">
-                  {(currentVersion?.model_json?.nodes || []).map((node: any, idx: number) => {
+                  {(currentVersion?.model_json?.nodes || []).map((node: any) => {
                     const nodeCommentCount = comments?.filter(c => c.node_id === node.id).length || 0;
                     const roleName = jobTitles?.find(j => j.id === node.roleId)?.name;
                     return (
@@ -595,13 +626,13 @@ export default function ProcessDesignerPage() {
           <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
             <TabsList className="bg-slate-50 border-b h-11 px-6 justify-start rounded-none"><TabsTrigger value="base" className="text-[10px] font-bold uppercase gap-2">Stammdaten</TabsTrigger><TabsTrigger value="logic" className="text-[10px] font-bold uppercase gap-2">Prozess-Logik</TabsTrigger><TabsTrigger value="details" className="text-[10px] font-bold uppercase gap-2">Ausführung</TabsTrigger></TabsList>
             <ScrollArea className="flex-1 p-8 space-y-10">
-              <TabsContent value="base" className="mt-0 space-y-8"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Bezeichnung</Label><Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 font-bold rounded-xl" /></div><div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortliche Stelle</Label><Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent>{jobTitles?.filter(j => j.tenantId === currentProcess?.tenantId).map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}</SelectContent></Select></div></div></TabsContent>
+              <TabsContent value="base" className="mt-0 space-y-8"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Bezeichnung</Label><Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 font-bold rounded-xl" /></div><div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortliche Stelle</Label><Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent>{jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}</SelectContent></Select></div></div></TabsContent>
               <TabsContent value="logic" className="mt-0 space-y-10">
-                <div className="space-y-4"><h4 className="text-[10px] font-bold uppercase text-slate-400 ml-1">Vorgänger (Eingehend)</h4>
+                <div className="space-y-4"><h4 className="text-[10px] font-bold uppercase text-slate-400 ml-1 flex items-center gap-2"><ArrowLeftCircle className="w-4 h-4" /> Vorgänger (Eingehend)</h4>
                   <div className="grid grid-cols-1 gap-2">{incomingEdges.map((edge: ProcessEdge) => (<div key={edge.id} className="flex items-center justify-between p-3 bg-slate-50/50 rounded-xl border border-dashed"><span className="text-xs text-slate-500">{currentVersion?.model_json?.nodes?.find((n: any) => String(n.id) === String(edge.source))?.title || edge.source}</span><Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => handleRemoveEdge(edge.id)}><X className="w-3.5 h-3.5" /></Button></div>))}
                   <Select onValueChange={(val) => handleAddEdge(val, 'backward')}><SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white"><SelectValue placeholder="Vorgänger hinzufügen..." /></SelectTrigger><SelectContent>{currentVersion?.model_json?.nodes?.filter((n: any) => String(n.id) !== String(selectedNodeId)).map((n: any) => <SelectItem key={n.id} value={n.id}>{n.title}</SelectItem>)}</SelectContent></Select></div>
                 </div>
-                <div className="space-y-4"><h4 className="text-[10px] font-bold uppercase text-emerald-600 ml-1">Nachfolger (Ausgehend)</h4>
+                <div className="space-y-4"><h4 className="text-[10px] font-bold uppercase text-emerald-600 ml-1 flex items-center gap-2"><ArrowRightCircle className="w-4 h-4" /> Nachfolger (Ausgehend)</h4>
                   <div className="grid grid-cols-1 gap-2">{outgoingEdges.map((edge: ProcessEdge) => (<div key={edge.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-700">{currentVersion?.model_json?.nodes?.find((n: any) => String(n.id) === String(edge.target))?.title || edge.target}</span><Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => handleRemoveEdge(edge.id)}><X className="w-3.5 h-3.5" /></Button></div>))}
                   <Select onValueChange={(val) => handleAddEdge(val, 'forward')}><SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white"><SelectValue placeholder="Nachfolger hinzufügen..." /></SelectTrigger><SelectContent>{currentVersion?.model_json?.nodes?.filter((n: any) => String(n.id) !== String(selectedNodeId)).map((n: any) => <SelectItem key={n.id} value={n.id}>{n.title}</SelectItem>)}</SelectContent></Select></div>
                 </div>

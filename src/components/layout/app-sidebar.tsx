@@ -24,7 +24,9 @@ import {
   PieChart,
   Library,
   FileCheck,
-  BrainCircuit
+  BrainCircuit,
+  Network,
+  Map as MapIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -76,11 +78,15 @@ export function AppSidebar() {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Benutzerverzeichnis', href: '/users', icon: Users },
     { name: 'Lifecycle Hub', href: '/lifecycle', icon: UserPlus },
-    { name: 'ProcessHub', href: '/processhub', icon: Workflow },
     { name: 'Ressourcenkatalog', href: '/resources', icon: Layers },
     { name: 'Zuweisungsgruppen', href: '/groups', icon: Workflow },
     { name: 'Einzelzuweisungen', href: '/assignments', icon: Shield },
     { name: 'Access Reviews', href: '/reviews', icon: CheckCircle },
+  ];
+
+  const processItems = [
+    { name: 'Prozessübersicht', href: '/processhub', icon: Workflow },
+    { name: 'Prozesslandkarte', href: '/processhub/map', icon: Network },
   ];
 
   const riskItems = [
@@ -159,6 +165,20 @@ export function AppSidebar() {
           <nav className="space-y-1">
             {navItems.map((item) => (
               <Link key={item.name} href={item.href} className={cn("flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider", pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)) ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+                <item.icon className="w-3.5 h-3.5" />
+                <span>{item.name}</span>
+              </Link>
+            ))}
+          </nav>
+        </div>
+
+        <div>
+          <p className="px-3 mb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2 text-primary">
+            <Workflow className="w-3.5 h-3.5" /> Prozessmanagement
+          </p>
+          <nav className="space-y-1">
+            {processItems.map((item) => (
+              <Link key={item.name} href={item.href} className={cn("flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider", pathname === item.href || (item.href === '/processhub' && pathname.startsWith('/processhub/')) && pathname !== '/processhub/map' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
                 <item.icon className="w-3.5 h-3.5" />
                 <span>{item.name}</span>
               </Link>

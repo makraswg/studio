@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -317,7 +316,7 @@ export default function ProcessDesignerPage() {
       step: 'Neuer Schritt',
       decision: 'Entscheidung?',
       end: 'Endpunkt',
-      subprocess: 'Prozess-Link'
+      subprocess: 'Prozess-Referenz'
     };
     
     const nodes = currentVersion.model_json.nodes || [];
@@ -530,12 +529,11 @@ export default function ProcessDesignerPage() {
             </TabsContent>
 
             <TabsContent value="steps" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
-              <div className="px-6 py-3 border-b bg-white flex items-center justify-between shrink-0">
-                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ablauffolge</h3>
+              <div className="px-6 py-3 border-b bg-white flex items-center justify-start shrink-0">
                 <div className="flex gap-1.5">
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-primary/5 hover:text-primary" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-amber-50 hover:text-amber-600" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
-                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-emerald-50 hover:text-emerald-600" onClick={() => handleQuickAdd('subprocess')}>+ Link</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-emerald-50 hover:text-emerald-600" onClick={() => handleQuickAdd('subprocess')}>+ Prozess</Button>
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-red-50 hover:text-red-600" onClick={() => handleQuickAdd('end')}>+ Ende</Button>
                 </div>
               </div>
@@ -654,7 +652,7 @@ export default function ProcessDesignerPage() {
             <ScrollArea className="flex-1 bg-slate-50/50">
               <div className="p-5 space-y-6 pb-10">
                 {chatHistory.length === 0 && (
-                  <div className="text-center py-20 opacity-30 flex flex-col items-center gap-4">
+                  <div className="text-center py-16 opacity-30 flex flex-col items-center gap-4">
                     <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center shadow-inner"><BrainCircuit className="w-8 h-8 text-emerald-600" /></div>
                     <p className="text-[10px] font-bold max-w-[200px] leading-relaxed uppercase tracking-tight italic text-emerald-900">Beschreiben Sie Ihren Prozess für einen KI-Entwurf</p>
                   </div>
@@ -701,7 +699,7 @@ export default function ProcessDesignerPage() {
                 ))}
                 {isAiLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-white border border-emerald-100 p-3 rounded-2xl flex items-center gap-3 shadow-sm">
+                    <div className="bg-white border border-emerald-100 p-3 rounded-2xl flex items-center gap-3 shadow-sm border-emerald-200">
                       <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">KI analysiert Kontext...</span>
                     </div>
@@ -784,7 +782,7 @@ export default function ProcessDesignerPage() {
                   </div>
                   {(localNodeEdits.type === 'end' || localNodeEdits.type === 'subprocess') && (
                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
-                      <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Zielprozess (Handover/Link)</Label>
+                      <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Zielprozess (Handover/Referenz)</Label>
                       <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, targetProcessId: val})}>
                         <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs">
                           <SelectValue placeholder="Prozess wählen..." />

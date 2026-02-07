@@ -39,7 +39,11 @@ import {
   Share2,
   ArrowLeftCircle,
   Trash2,
-  Network
+  Network,
+  Lock,
+  Unlock,
+  PlusCircle,
+  Zap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -133,14 +137,14 @@ export default function ProcessDesignerPage() {
   const [leftWidth, setLeftWidth] = useState(360);
   const isResizingLeft = useRef(false);
 
-  // States
+  // UI States
+  const [isDiagramLocked, setIsDiagramLocked] = useState(false);
   const [isAiAdvisorOpen, setIsAiAdvisorOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
   const [isSavingMeta, setIsSavingMeta] = useState(false);
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -158,7 +162,7 @@ export default function ProcessDesignerPage() {
   const [metaStatus, setMetaStatus] = useState<any>('draft');
 
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
-  const { data: versions, refresh: refreshVersion } = usePluggableCollection<any>('process_versions');
+  const { data: versions, refresh: refreshVersion, isLoading: isVerLoading } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: comments, refresh: refreshComments } = usePluggableCollection<ProcessComment>('process_comments');
   const { data: auditEvents } = usePluggableCollection<any>('auditEvents');
@@ -252,14 +256,14 @@ export default function ProcessDesignerPage() {
   useEffect(() => { setMounted(true); }, []);
 
   const syncDiagramToModel = useCallback(() => {
-    if (!iframeRef.current || !currentVersion) return;
+    if (!iframeRef.current || !currentVersion || isDiagramLocked) return;
     const xml = generateMxGraphXml(currentVersion.model_json, currentVersion.layout_json);
     iframeRef.current.contentWindow?.postMessage(JSON.stringify({ action: 'load', xml: xml, autosave: 1 }), '*');
     setTimeout(() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*'), 300);
-  }, [currentVersion]);
+  }, [currentVersion, isDiagramLocked]);
 
   useEffect(() => {
-    if (!mounted || !iframeRef.current) return;
+    if (!mounted || !iframeRef.current || !currentVersion?.model_json?.nodes?.length) return;
     
     const handleMessage = (evt: MessageEvent) => {
       if (!evt.data || typeof evt.data !== 'string') return;
@@ -335,44 +339,24 @@ export default function ProcessDesignerPage() {
   };
 
   const handleDeleteNode = async () => {
-    console.log("Delete triggered for node:", selectedNodeId);
-    if (!selectedNodeId || !currentVersion || !user) {
-      console.warn("Delete aborted: missing core data", { selectedNodeId, hasVersion: !!currentVersion, hasUser: !!user });
-      return;
-    }
-    
+    if (!selectedNodeId || !currentVersion || !user) return;
     const confirmed = window.confirm('Möchten Sie diesen Prozessschritt wirklich unwiderruflich löschen? Alle Verknüpfungen werden ebenfalls entfernt.');
     if (!confirmed) return;
     
     setIsDeleting(true);
     try {
-      console.log("Applying REMOVE_NODE operation via applyProcessOpsAction...");
       const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
-      const res = await applyProcessOpsAction(
-        currentVersion.process_id, 
-        currentVersion.version, 
-        ops, 
-        currentVersion.revision, 
-        user.id, 
-        dataSource
-      );
-      
+      const res = await applyProcessOpsAction(currentVersion.process_id, currentVersion.version, ops, currentVersion.revision, user.id, dataSource);
       if (res.success) {
-        console.log("Node deleted successfully on server.");
         toast({ title: "Schritt entfernt" });
         setIsStepDialogOpen(false);
         setSelectedNodeId(null);
         refreshVersion();
         refreshProc();
-      } else {
-        console.error("Server returned success:false for node deletion");
-        toast({ variant: "destructive", title: "Fehler beim Löschen", description: "Die Server-Operation war nicht erfolgreich." });
       }
     } catch (e: any) {
-      console.error("Exception during node deletion:", e);
-      toast({ variant: "destructive", title: "Fehler beim Löschen", description: e.message || "Unbekannter Fehler." });
+      toast({ variant: "destructive", title: "Fehler beim Löschen", description: e.message });
     } finally {
-      console.log("Cleaning up deletion state.");
       setIsDeleting(false);
     }
   };
@@ -388,7 +372,6 @@ export default function ProcessDesignerPage() {
     };
     
     const nodes = currentVersion.model_json.nodes || [];
-    // Auto-Connect logic: use currently selected or last node as predecessor
     const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : nodes[nodes.length - 1];
     
     const ops: ProcessOperation[] = [
@@ -483,29 +466,35 @@ export default function ProcessDesignerPage() {
     }
   };
 
-  const onGoBack = useCallback(() => { router.push('/processhub'); }, [router]);
-
   if (!mounted) return null;
+
+  const hasNodes = (currentVersion?.model_json?.nodes?.length || 0) > 0;
 
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body relative">
       <header className="glass-header h-14 flex items-center justify-between px-6 shrink-0 z-20 border-b border-slate-200">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={onGoBack} className="h-9 w-9 text-slate-400 hover:bg-slate-100 rounded-md transition-all"><ChevronLeft className="w-5 h-5" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-9 w-9 text-slate-400 hover:bg-slate-100 rounded-md transition-all"><ChevronLeft className="w-5 h-5" /></Button>
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <h2 className="font-headline font-bold text-sm md:text-base tracking-tight text-slate-900 truncate max-w-[200px] md:max-w-md">{currentProcess?.title}</h2>
-              <Badge className="bg-primary/10 text-primary border-none rounded-full text-[9px] font-bold px-2 h-4 hidden md:flex">Rev. {currentVersion?.revision}</Badge>
+              <Badge className="bg-primary/10 text-primary border-none rounded-full text-[9px] font-bold px-2 h-4 hidden md:flex">Designer</Badge>
             </div>
-            <p className="text-[9px] text-slate-400 font-bold">Status: {currentProcess?.status} • V{currentVersion?.version}.0</p>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">V{currentVersion?.version}.0 • Rev. {currentVersion?.revision}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="rounded-md h-8 text-[10px] font-bold border-slate-200 px-4 gap-2 hidden md:flex hover:bg-emerald-50 transition-all" onClick={() => publishToBookStackAction(currentProcess?.id || '', currentVersion?.version || 1, "", dataSource).then(() => toast({ title: "Export erfolgreich" }))} disabled={isPublishing}>
-            <BookOpen className="w-3.5 h-3.5" /> Export
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className={cn("h-8 rounded-md text-[10px] font-bold border-slate-200 gap-2 transition-all", isDiagramLocked ? "bg-slate-100 text-slate-400" : "hover:bg-amber-50 text-amber-600")}
+            onClick={() => setIsDiagramLocked(!isDiagramLocked)}
+          >
+            {isDiagramLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+            {isDiagramLocked ? 'Layout gesperrt' : 'Layout frei'}
           </Button>
-          <Button size="sm" className="rounded-md h-8 text-[10px] font-bold bg-primary hover:bg-primary/90 text-white px-6 shadow-sm transition-all active:scale-[0.95]" onClick={() => syncDiagramToModel()}>
-            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Aktualisieren
+          <Button size="sm" className="rounded-md h-8 text-[10px] font-bold bg-primary hover:bg-primary/90 text-white px-6 shadow-sm transition-all active:scale-[0.95]" onClick={() => syncDiagramToModel()} disabled={isDiagramLocked}>
+            <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", isVerLoading && "animate-spin")} /> Aktualisieren
           </Button>
         </div>
       </header>
@@ -597,22 +586,10 @@ export default function ProcessDesignerPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-6 pt-8 border-t border-slate-100">
-                    <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-600" /><h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">ISO 9001 Compliance</h3></div>
-                    {[{ id: 'inputs', label: 'Eingaben' }, { id: 'outputs', label: 'Ausgaben' }, { id: 'risks', label: 'Risiken & Chancen' }, { id: 'evidence', label: 'Nachweise' }].map(f => (
-                      <div key={f.id} className="space-y-2">
-                        <Label className="text-[10px] font-bold flex items-center gap-2 text-slate-600">{f.label}</Label>
-                        <Textarea 
-                          defaultValue={currentVersion?.model_json?.isoFields?.[f.id] || ''} 
-                          className="text-[11px] rounded-lg min-h-[80px] border-slate-200 bg-white focus:bg-white transition-all" 
-                        />
-                      </div>
-                    ))}
-                  </div>
                   <div className="pt-8 border-t border-slate-100">
                     <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full rounded-xl h-11 font-bold text-xs gap-2 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/10 transition-all active:scale-95">
                       {isSavingMeta ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 
-                      Änderungen speichern
+                      Stammdaten speichern
                     </Button>
                   </div>
                 </div>
@@ -711,21 +688,44 @@ export default function ProcessDesignerPage() {
         </aside>
 
         <main className={cn("flex-1 relative bg-slate-100 flex flex-col overflow-hidden")}>
-          <div className="absolute top-4 right-4 z-10 bg-white/95 backdrop-blur-md shadow-lg rounded-xl border border-slate-200 p-1.5 flex flex-col gap-1.5">
-            <TooltipProvider>
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={syncDiagramToModel} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-all"><RefreshCw className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[9px] font-bold">Sync</TooltipContent></Tooltip>
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*')} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-all"><Maximize2 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[9px] font-bold">Zentrieren</TooltipContent></Tooltip>
-            </TooltipProvider>
-          </div>
-          <div className="flex-1 bg-white relative overflow-hidden">
-            <iframe ref={iframeRef} src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json" className="absolute inset-0 w-full h-full border-none" />
-          </div>
+          {!hasNodes ? (
+            <div className="h-full flex flex-col items-center justify-center bg-white p-10 text-center animate-in fade-in duration-700">
+              <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6 border border-dashed border-primary/20">
+                <Workflow className="w-10 h-10 text-primary opacity-20" />
+              </div>
+              <h2 className="text-xl font-headline font-bold text-slate-900">Starten Sie die Modellierung</h2>
+              <p className="text-sm text-slate-500 max-w-md mt-2 leading-relaxed">
+                Fügen Sie den ersten Prozessschritt über das Menü oben links hinzu oder nutzen Sie den KI-Assistenten unten rechts für einen Entwurf.
+              </p>
+              <div className="flex gap-3 mt-8">
+                <Button className="rounded-xl h-11 px-8 font-bold text-xs shadow-lg" onClick={() => handleQuickAdd('step')}>
+                  <PlusCircle className="w-4 h-4 mr-2" /> Ersten Schritt anlegen
+                </Button>
+                <Button variant="outline" className="rounded-xl h-11 px-8 font-bold text-xs" onClick={() => setIsAiAdvisorOpen(true)}>
+                  <BrainCircuit className="w-4 h-4 mr-2" /> KI-Entwurf starten
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="absolute top-4 right-4 z-10 bg-white/95 backdrop-blur-md shadow-lg rounded-xl border border-slate-200 p-1.5 flex flex-col gap-1.5">
+                <TooltipProvider>
+                  <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={syncDiagramToModel} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-all"><RefreshCw className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[9px] font-bold">Sync</TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*')} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-all"><Maximize2 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[9px] font-bold">Zentrieren</TooltipContent></Tooltip>
+                </TooltipProvider>
+              </div>
+              <div className="flex-1 bg-white relative overflow-hidden">
+                <iframe ref={iframeRef} src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json" className="absolute inset-0 w-full h-full border-none" />
+              </div>
+            </>
+          )}
         </main>
       </div>
 
-      <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-4 pointer-events-none">
+      {/* AI Assistant FAB */}
+      <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-4 pointer-events-auto">
         {isAiAdvisorOpen && (
-          <Card className="w-[calc(100vw-2rem)] sm:w-[400px] h-[600px] rounded-3xl shadow-2xl border-none flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300 bg-white pointer-events-auto">
+          <Card className="w-[calc(100vw-2rem)] sm:w-[400px] h-[600px] rounded-3xl shadow-2xl border-none flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300 bg-white">
             <header className="p-4 bg-emerald-600 text-white flex items-center justify-between shrink-0 border-b border-white/10 shadow-lg">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-white shadow-lg border border-white/10">
@@ -733,7 +733,7 @@ export default function ProcessDesignerPage() {
                 </div>
                 <div>
                   <h3 className="text-[10px] font-black uppercase tracking-[0.2em]">KI Advisor</h3>
-                  <p className="text-[8px] text-emerald-100 font-bold uppercase">Prozess-Optimierung aktiv</p>
+                  <p className="text-[8px] text-emerald-100 font-bold uppercase">Prozess-Modellierung</p>
                 </div>
               </div>
               <button onClick={() => setIsAiAdvisorOpen(false)} className="text-white/50 hover:text-white transition-colors">
@@ -744,7 +744,7 @@ export default function ProcessDesignerPage() {
               <div className="p-5 space-y-6 pb-10">
                 {chatHistory.length === 0 && (
                   <div className="text-center py-16 opacity-30 flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center shadow-inner"><BrainCircuit className="w-8 h-8 text-emerald-600" /></div>
+                    <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center shadow-inner"><Zap className="w-8 h-8 text-emerald-600" /></div>
                     <p className="text-[10px] font-bold max-w-[200px] leading-relaxed uppercase tracking-tight italic text-emerald-900">Beschreiben Sie Ihren Prozess für einen KI-Entwurf</p>
                   </div>
                 )}
@@ -756,16 +756,6 @@ export default function ProcessDesignerPage() {
                         : "bg-white text-slate-600 border-slate-100 rounded-2xl rounded-tl-none")}>
                       {msg.text}
                     </div>
-                    {msg.role === 'ai' && msg.questions && msg.questions.length > 0 && (
-                      <div className="space-y-2 w-full pl-2">
-                        {msg.questions.map((q: string, qIdx: number) => (
-                          <div key={qIdx} className="p-3 bg-emerald-50/50 border border-emerald-100 text-[11px] font-bold text-emerald-900 italic rounded-xl shadow-sm flex items-start gap-2 animate-in slide-in-from-left-2">
-                            <HelpCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                            {q}
-                          </div>
-                        ))}
-                      </div>
-                    )}
                     {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
                       <div className="mt-3 w-full bg-blue-50 border-2 border-blue-100 p-4 rounded-2xl space-y-4 shadow-sm animate-in zoom-in-95">
                         <div className="flex items-center gap-2 text-primary">
@@ -776,12 +766,12 @@ export default function ProcessDesignerPage() {
                           {msg.suggestions.map((op: any, opIdx: number) => (
                             <div key={opIdx} className="text-[9px] p-2 bg-white/80 border border-blue-100 rounded-lg flex items-center gap-3">
                               <Badge variant="outline" className="text-[8px] font-bold bg-white border-blue-200 text-primary h-4 px-1">NEU</Badge>
-                              <span className="truncate font-bold text-slate-700">{op.payload?.node?.title || op.payload?.field || 'Modell-Update'}</span>
+                              <span className="truncate font-bold text-slate-700">{op.payload?.node?.title || 'Strukturelles Update'}</span>
                             </div>
                           ))}
                         </div>
                         <div className="flex gap-2 pt-1">
-                          <Button onClick={() => { handleApplyOps(msg.suggestions); msg.suggestions = []; }} disabled={isApplying} className="flex-1 h-9 bg-primary hover:bg-primary/90 text-white text-[10px] font-bold rounded-lg shadow-md transition-all active:scale-95">Bestätigen</Button>
+                          <Button onClick={() => handleApplyOps(msg.suggestions)} disabled={isApplying} className="flex-1 h-9 bg-primary hover:bg-primary/90 text-white text-[10px] font-bold rounded-lg shadow-md transition-all active:scale-95">Bestätigen</Button>
                           <Button variant="ghost" onClick={() => msg.suggestions = []} className="flex-1 h-9 text-[10px] font-bold border border-slate-200 rounded-lg bg-white">Ignorieren</Button>
                         </div>
                       </div>
@@ -792,16 +782,16 @@ export default function ProcessDesignerPage() {
                   <div className="flex justify-start">
                     <div className="bg-white border border-emerald-100 p-3 rounded-2xl flex items-center gap-3 shadow-sm border-emerald-200">
                       <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">KI analysiert Kontext...</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">KI entwirft Modell...</span>
                     </div>
                   </div>
                 )}
               </div>
             </ScrollArea>
-            <div className="p-4 border-t bg-white shrink-0 shadow-[0_-4px_15px_rgba(0,0,0,0.02)]">
-              <div className="relative group">
-                <Input placeholder="Anweisung oder Frage..." value={chatMessage} onChange={e => setChatMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiChat()} className="h-11 rounded-xl border border-slate-200 bg-slate-50/50 pr-12 focus:bg-white transition-all text-xs font-medium shadow-inner" disabled={isAiLoading} />
-                <Button size="icon" className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-md active:scale-95 transition-transform" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
+            <div className="p-4 border-t bg-white shrink-0">
+              <div className="relative">
+                <Input placeholder="Prozess beschreiben..." value={chatMessage} onChange={e => setChatMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiChat()} className="h-11 rounded-xl border border-slate-200 bg-slate-50/50 pr-12 text-xs font-medium" disabled={isAiLoading} />
+                <Button size="icon" className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-md active:scale-95" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
                   <Send className="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -811,9 +801,9 @@ export default function ProcessDesignerPage() {
         {!isAiAdvisorOpen && (
           <Button 
             onClick={() => setIsAiAdvisorOpen(true)}
-            className="w-14 h-14 rounded-full shadow-2xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center p-0 transition-all active:scale-90 pointer-events-auto border-4 border-white dark:border-slate-800 animate-in zoom-in duration-300 group"
+            className="w-14 h-14 rounded-full shadow-2xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center p-0 transition-all active:scale-90 border-4 border-white"
           >
-            <BrainCircuit className="w-7 h-7 text-white transition-transform group-hover:scale-110" />
+            <BrainCircuit className="w-7 h-7" />
           </Button>
         )}
       </div>
@@ -833,9 +823,9 @@ export default function ProcessDesignerPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">
-                  {localNodeEdits.title || 'Modul bearbeiten'}
+                  {localNodeEdits.title || 'Schritt bearbeiten'}
                 </DialogTitle>
-                <DialogDescription className="text-[10px] text-slate-400 font-bold mt-0.5 tracking-wider">
+                <DialogDescription className="text-[10px] text-slate-400 font-bold mt-0.5 tracking-wider uppercase">
                   Modul: {localNodeEdits.type} • ID: {selectedNodeId}
                 </DialogDescription>
               </div>
@@ -854,7 +844,7 @@ export default function ProcessDesignerPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Bezeichnung</Label>
-                      <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 text-sm font-bold rounded-xl border-slate-200 bg-white shadow-sm" />
+                      <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 text-sm font-bold rounded-xl border-slate-200 bg-white" />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Verantwortliche Stelle</Label>
@@ -887,20 +877,19 @@ export default function ProcessDesignerPage() {
                                 <Link2 className="w-3.5 h-3.5 text-slate-300" />
                                 <span className="text-xs font-medium text-slate-500">{sourceNode?.title || edge.source}</span>
                               </div>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => handleRemoveEdge(edge.id)}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => handleRemoveEdge(edge.id)}>
                                 <X className="w-3.5 h-3.5" />
                               </Button>
                             </div>
                           );
                         })}
-                        {incomingEdges.length === 0 && <p className="text-[10px] text-slate-400 italic px-2">Kein direkter Vorgänger definiert</p>}
                         <div className="pt-2">
                           <Select onValueChange={(val) => handleAddEdge(val, 'backward')}>
                             <SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white">
                               <SelectValue placeholder="Vorgänger hinzufügen..." />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl">
-                              {currentVersion?.model_json?.nodes?.filter((n: any) => String(n.id) !== String(selectedNodeId) && !incomingEdges.some((e: any) => String(e.source) === String(n.id))).map((n: any) => (
+                              {currentVersion?.model_json?.nodes?.filter((n: any) => String(n.id) !== String(selectedNodeId)).map((n: any) => (
                                 <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
                               ))}
                             </SelectContent>
@@ -924,20 +913,19 @@ export default function ProcessDesignerPage() {
                                 <Link2 className="w-3.5 h-3.5 text-slate-400" />
                                 <span className="text-xs font-bold text-slate-700">{targetNode?.title || edge.target}</span>
                               </div>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => handleRemoveEdge(edge.id)}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => handleRemoveEdge(edge.id)}>
                                 <X className="w-3.5 h-3.5" />
                               </Button>
                             </div>
                           );
                         })}
-                        {outgoingEdges.length === 0 && <p className="text-[10px] text-slate-400 italic px-2">Kein direkter Nachfolger definiert</p>}
                         <div className="pt-2">
                           <Select onValueChange={(val) => handleAddEdge(val, 'forward')}>
                             <SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white">
                               <SelectValue placeholder="Nachfolger hinzufügen..." />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl">
-                              {currentVersion?.model_json?.nodes?.filter((n: any) => String(n.id) !== String(selectedNodeId) && !outgoingEdges.some((e: any) => String(e.target) === String(n.id))).map((n: any) => (
+                              {currentVersion?.model_json?.nodes?.filter((n: any) => String(n.id) !== String(selectedNodeId)).map((n: any) => (
                                 <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
                               ))}
                             </SelectContent>
@@ -946,28 +934,28 @@ export default function ProcessDesignerPage() {
                       </div>
                     </div>
 
-                    <Separator className="bg-slate-100" />
-
                     {(localNodeEdits.type === 'end' || localNodeEdits.type === 'subprocess') && (
-                      <div className="space-y-4">
-                        <h4 className="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-2 ml-1">
-                          <ExternalLink className="w-4 h-4" /> Zielprozess (External Reference)
-                        </h4>
-                        <div className="space-y-1.5 p-4 rounded-xl bg-blue-50/30 border border-blue-100">
-                          <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Folgeprozess auswählen</Label>
-                          <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, targetProcessId: val})}>
-                            <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs shadow-sm">
-                              <SelectValue placeholder="Prozess wählen..." />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                              <SelectItem value="none" className="text-xs">Kein Folgeprozess</SelectItem>
-                              {processes?.filter(p => p.id !== id).map(p => (
-                                <SelectItem key={p.id} value={p.id} className="text-xs">{p.title}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                      <>
+                        <Separator className="bg-slate-100" />
+                        <div className="space-y-4">
+                          <h4 className="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-2 ml-1">
+                            <ExternalLink className="w-4 h-4" /> Zielprozess
+                          </h4>
+                          <div className="p-4 rounded-xl bg-blue-50/30 border border-blue-100">
+                            <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, targetProcessId: val})}>
+                              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs shadow-sm">
+                                <SelectValue placeholder="Folgeprozess wählen..." />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-xl">
+                                <SelectItem value="none" className="text-xs">Kein Folgeprozess</SelectItem>
+                                {processes?.filter(p => p.id !== id).map(p => (
+                                  <SelectItem key={p.id} value={p.id} className="text-xs">{p.title}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                      </div>
+                      </>
                     )}
                   </div>
                 </TabsContent>
@@ -975,15 +963,13 @@ export default function ProcessDesignerPage() {
                   <div className="space-y-8">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Tätigkeitsbeschreibung</Label>
-                      <div className="p-1 rounded-2xl border border-slate-100 bg-slate-50/30">
-                        <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} className="text-xs min-h-[120px] rounded-xl border-none bg-transparent leading-relaxed p-4 shadow-none focus:ring-0" placeholder="Beschreiben Sie hier die auszuführende Aktion..." />
-                      </div>
+                      <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} className="text-xs min-h-[120px] rounded-xl border-slate-200 p-4 leading-relaxed" placeholder="Was genau wird hier getan?" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-2 tracking-widest uppercase">
                         <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Prüfschritte / Checkliste
                       </Label>
-                      <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} className="text-[11px] min-h-[100px] bg-slate-50 text-slate-900 border border-slate-200 rounded-xl p-4 leading-relaxed shadow-inner focus:bg-white transition-colors" placeholder="Einen Punkt pro Zeile eingeben..." />
+                      <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} className="text-[11px] min-h-[100px] bg-slate-50 text-slate-900 border border-slate-200 rounded-xl p-4 leading-relaxed shadow-inner" placeholder="Ein Punkt pro Zeile..." />
                     </div>
                   </div>
                 </TabsContent>
@@ -996,16 +982,14 @@ export default function ProcessDesignerPage() {
               size="sm" 
               onClick={handleDeleteNode} 
               disabled={isDeleting}
-              className="rounded-xl h-10 px-6 font-bold text-xs text-red-600 border-red-100 hover:bg-red-50 hover:border-red-200 transition-all gap-2"
+              className="rounded-xl h-10 px-6 font-bold text-xs text-red-600 border-red-100 hover:bg-red-50 transition-all gap-2"
             >
               {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-              Schritt löschen
+              Modul löschen
             </Button>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs" disabled={isApplying || isDeleting}>
-                Abbrechen
-              </Button>
-              <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-[0.95]" disabled={isApplying || isDeleting}>
+              <Button variant="ghost" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs" disabled={isApplying || isDeleting}>Abbrechen</Button>
+              <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary text-white shadow-lg transition-all active:scale-[0.95]" disabled={isApplying || isDeleting}>
                 {isApplying ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Save className="w-3.5 h-3.5 mr-2" />} 
                 Änderungen speichern
               </Button>

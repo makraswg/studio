@@ -24,7 +24,9 @@ import {
   AlertTriangle,
   Network,
   Filter,
-  Layers
+  Layers,
+  Eye,
+  FileEdit
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -67,12 +69,6 @@ export default function ProcessHubOverview() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  const onNavigateToDesigner = useCallback((processId: string) => {
-    // Safe navigation to avoid regexp parsing issues with template literals
-    const target = `/processhub/${processId}`;
-    router.push(target);
-  }, [router]);
-
   const handleCreate = async () => {
     if (!user || activeTenantId === 'all') {
       toast({ variant: "destructive", title: "Fehler", description: "Bitte wählen Sie einen spezifischen Mandanten aus." });
@@ -83,7 +79,7 @@ export default function ProcessHubOverview() {
       const res = await createProcessAction(activeTenantId, "Neuer Prozess", user.id, dataSource);
       if (res.success) {
         toast({ title: "Prozess angelegt" });
-        onNavigateToDesigner(res.processId);
+        router.push(`/processhub/${res.processId}`);
       }
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
@@ -120,101 +116,8 @@ export default function ProcessHubOverview() {
 
   if (!mounted) return null;
 
-  // Extracted render logic to keep JSX structure clean and robust
-  const renderContent = () => {
-    if (isLoading) {
-      return (
-        <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
-          <p className="text-[11px] font-bold text-slate-400">Lade Prozesskatalog...</p>
-        </div>
-      );
-    }
-
-    if (filtered.length === 0) {
-      return (
-        <div className="py-20 text-center space-y-4">
-          <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto border border-dashed border-slate-200 opacity-50">
-            <Layers className="w-8 h-8 text-slate-300" />
-          </div>
-          <p className="text-xs font-bold text-slate-400">Keine Prozesse gefunden</p>
-        </div>
-      );
-    }
-
-    return (
-      <Table>
-        <TableHeader className="bg-slate-50/50">
-          <TableRow className="hover:bg-transparent border-b">
-            <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Bezeichnung</TableHead>
-            <TableHead className="font-bold text-[11px] text-slate-400">Status</TableHead>
-            <TableHead className="font-bold text-[11px] text-slate-400 text-center">Version</TableHead>
-            <TableHead className="font-bold text-[11px] text-slate-400">Geändert</TableHead>
-            <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filtered.map(p => (
-            <TableRow key={p.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => onNavigateToDesigner(p.id)}>
-              <TableCell className="py-4 px-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 shadow-inner border border-slate-200">
-                    <Workflow className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{p.title}</div>
-                    <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1.5 mt-0.5">
-                      <Tag className="w-2.5 h-2.5" /> {p.tags || 'Standard'}
-                    </div>
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline" className={cn(
-                  "rounded-full text-[10px] font-bold px-2.5 h-5 border-none shadow-sm",
-                  p.status === 'published' ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
-                )}>
-                  {p.status}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-center">
-                <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border">V{p.currentVersion || 1}.0</span>
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
-                  <Clock className="w-3.5 h-3.5 opacity-50" /> 
-                  {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '---'}
-                </div>
-              </TableCell>
-              <TableCell className="text-right px-6">
-                <div className="flex justify-end gap-1.5">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-all">
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-slate-100 transition-all" onClick={e => e.stopPropagation()}><MoreVertical className="w-4 h-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56 rounded-xl p-1 shadow-xl border">
-                      <DropdownMenuItem className="rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => onNavigateToDesigner(p.id)}><Workflow className="w-3.5 h-3.5 text-primary" /> Designer öffnen</DropdownMenuItem>
-                      <DropdownMenuSeparator className="my-1" />
-                      <DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => setProcessToDelete(p.id)}>
-                        <Trash2 className="w-3.5 h-3.5" /> Löschen
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    );
-  };
-
   return (
     <div className="space-y-6 pb-10">
-      {/* Unified Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
@@ -237,7 +140,6 @@ export default function ProcessHubOverview() {
         </div>
       </div>
 
-      {/* Compact Filtering Row */}
       <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
         <div className="relative flex-1 group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
@@ -254,12 +156,90 @@ export default function ProcessHubOverview() {
         </div>
       </div>
 
-      {/* Main Table Card */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
-        {renderContent()}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
+            <p className="text-[11px] font-bold text-slate-400">Lade Prozesskatalog...</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="py-20 text-center space-y-4">
+            <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto border border-dashed border-slate-200 opacity-50">
+              <Layers className="w-8 h-8 text-slate-300" />
+            </div>
+            <p className="text-xs font-bold text-slate-400">Keine Prozesse gefunden</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader className="bg-slate-50/50">
+              <TableRow className="hover:bg-transparent border-b">
+                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Bezeichnung</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Status</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 text-center">Version</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Geändert</TableHead>
+                <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map(p => (
+                <TableRow key={p.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/processhub/view/${p.id}`)}>
+                  <TableCell className="py-4 px-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 shadow-inner border border-slate-200">
+                        <Workflow className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{p.title}</div>
+                        <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1.5 mt-0.5">
+                          <Tag className="w-2.5 h-2.5" /> {p.tags || 'Standard'}
+                        </div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={cn(
+                      "rounded-full text-[10px] font-bold px-2.5 h-5 border-none shadow-sm",
+                      p.status === 'published' ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+                    )}>
+                      {p.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border">V{p.currentVersion || 1}.0</span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
+                      <Clock className="w-3.5 h-3.5 opacity-50" /> 
+                      {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '---'}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right px-6">
+                    <div className="flex justify-end gap-1.5">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-all" onClick={(e) => { e.stopPropagation(); router.push(`/processhub/view/${p.id}`); }}>
+                        <Eye className="w-4 h-4 text-slate-400" />
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-slate-100 transition-all" onClick={e => e.stopPropagation()}><MoreVertical className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56 rounded-xl p-1 shadow-xl border">
+                          <DropdownMenuItem className="rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => router.push(`/processhub/view/${p.id}`)}><Eye className="w-3.5 h-3.5 text-emerald-600" /> Prozess ansehen</DropdownMenuItem>
+                          <DropdownMenuItem className="rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => router.push(`/processhub/${p.id}`)}><FileEdit className="w-3.5 h-3.5 text-primary" /> Designer öffnen</DropdownMenuItem>
+                          <DropdownMenuSeparator className="my-1" />
+                          <DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => setProcessToDelete(p.id)}>
+                            <Trash2 className="w-3.5 h-3.5" /> Löschen
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
-      {/* Delete Confirmation */}
       <AlertDialog open={!!processToDelete} onOpenChange={val => !val && setProcessToDelete(null)}>
         <AlertDialogContent className="rounded-2xl border-none shadow-2xl p-8">
           <AlertDialogHeader>

@@ -87,61 +87,51 @@ export default function RiskReportsPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-10 pb-20 animate-in fade-in duration-700">
+    <div className="space-y-6 pb-10">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-8">
-        <div className="flex items-center gap-6">
-          <div className="w-16 h-16 bg-primary/10 text-primary flex items-center justify-center rounded-2xl border-2 border-primary/20 shadow-xl shadow-primary/5">
-            <PieChartIcon className="w-9 h-9" />
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-primary/10 text-primary flex items-center justify-center rounded-lg border shadow-sm">
+            <PieChartIcon className="w-6 h-6" />
           </div>
           <div>
-            <Badge className="mb-2 rounded-full px-3 py-0 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border-none">Analysis & Reporting</Badge>
-            <h1 className="text-4xl font-headline font-bold tracking-tight text-slate-900 dark:text-white">Risk Intelligence</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Aggregierte Auswertung der Bedrohungslage.</p>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-black uppercase tracking-wider">Analysis & Reporting</Badge>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase">Risk Intelligence</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Aggregierte Auswertung der Bedrohungslage.</p>
           </div>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all active:scale-95" onClick={() => refreshRisks()}>
-            <RefreshCw className="w-4 h-4 mr-2" /> Daten-Sync
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold uppercase text-[9px] tracking-wider px-4 border-slate-200" onClick={() => refreshRisks()}>
+            <RefreshCw className="w-3.5 h-3.5 mr-2" /> Sync
           </Button>
-          <Button className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-8 bg-slate-900 text-white shadow-xl hover:bg-black transition-all active:scale-95">
-            <Download className="w-4 h-4 mr-2" /> PDF Export
+          <Button size="sm" className="h-9 rounded-md font-bold uppercase text-[10px] tracking-wider px-6 bg-slate-900 text-white shadow-sm">
+            <Download className="w-3.5 h-3.5 mr-2" /> PDF Export
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Heatmap Matrix */}
-        <Card className="lg:col-span-2 border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden">
-          <CardHeader className="border-b border-slate-100 dark:border-slate-800 py-6 px-8 flex flex-row items-center justify-between bg-slate-50/50 dark:bg-slate-950/50">
+        <Card className="lg:col-span-2 border shadow-sm bg-white dark:bg-slate-900 rounded-xl overflow-hidden">
+          <CardHeader className="border-b py-4 px-6 flex flex-row items-center justify-between bg-slate-50/50">
             <div>
-              <CardTitle className="text-lg font-headline font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Interaktive Risiko-Matrix</CardTitle>
-              <CardDescription className="text-[10px] font-bold uppercase tracking-widest mt-0.5">Klicken zum Filtern der Details</CardDescription>
+              <CardTitle className="text-sm font-headline font-bold text-slate-800 uppercase tracking-tight">Risiko-Matrix</CardTitle>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {selectedCell && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-7 text-[9px] font-black uppercase text-primary hover:bg-primary/10 rounded-full"
-                  onClick={() => setSelectedCell(null)}
-                >
-                  <X className="w-3 h-3 mr-1" /> Filter aufheben
-                </Button>
+                <Button variant="ghost" size="sm" className="h-6 text-[8px] font-black uppercase text-primary hover:bg-primary/5 rounded-sm" onClick={() => setSelectedCell(null)}>Reset</Button>
               )}
-              <Badge variant="outline" className="rounded-full bg-white dark:bg-slate-800 text-slate-500 border-none font-black text-[10px] h-6 px-3">{stats.total} Risiken</Badge>
+              <Badge variant="outline" className="rounded-full bg-white text-slate-500 border-none font-black text-[9px] h-5 px-2">{stats.total} Items</Badge>
             </div>
           </CardHeader>
-          <CardContent className="p-8 md:p-12">
-            <div className="grid grid-cols-[40px_repeat(5,1fr)] gap-3 aspect-[4/3] max-w-2xl mx-auto">
-              {/* Y-Axis Label */}
-              <div className="row-span-5 flex flex-col justify-between text-[9px] font-black text-slate-400 uppercase py-6 pr-3 text-right">
-                <span className="text-red-500">Hoher Impact</span>
-                <span>Mittel</span>
-                <span className="text-emerald-500">Gering</span>
+          <CardContent className="p-6 md:p-10">
+            <div className="grid grid-cols-[30px_repeat(5,1fr)] gap-2 aspect-[4/3] max-w-xl mx-auto">
+              <div className="row-span-5 flex flex-col justify-between text-[8px] font-black text-slate-400 uppercase py-4 pr-2 text-right">
+                <span className="text-red-500">Impact</span>
+                <span></span>
+                <span className="text-emerald-500">Low</span>
               </div>
-              {/* Matrix Grid */}
-              <div className="col-span-5 grid grid-cols-5 grid-rows-5 gap-3">
+              <div className="col-span-5 grid grid-cols-5 grid-rows-5 gap-2">
                 {Array.from({ length: 25 }).map((_, i) => {
                   const x = (i % 5) + 1;
                   const y = 5 - Math.floor(i / 5);
@@ -154,31 +144,25 @@ export default function RiskReportsPage() {
                       key={i} 
                       onClick={() => cellRisks.length > 0 && setSelectedCell({ impact: y, probability: x })}
                       className={cn(
-                        "flex items-center justify-center border-2 rounded-2xl transition-all relative group cursor-pointer active:scale-95",
-                        score >= 15 ? "bg-red-50/50 border-red-100 dark:bg-red-900/10 dark:border-red-900/30" : score >= 8 ? "bg-orange-50/50 border-orange-100 dark:bg-orange-900/10 dark:border-orange-900/30" : "bg-emerald-50/50 border-emerald-100 dark:bg-emerald-900/10 dark:border-emerald-900/30",
-                        cellRisks.length > 0 ? "shadow-md scale-[1.02] border-white dark:border-slate-800 hover:border-primary/50" : "opacity-20 grayscale cursor-default",
-                        isSelected && "ring-4 ring-primary ring-offset-4 dark:ring-offset-slate-900 scale-110 z-10 border-primary"
+                        "flex items-center justify-center border rounded-lg transition-all relative group cursor-pointer active:scale-95",
+                        score >= 15 ? "bg-red-50/50 border-red-100" : score >= 8 ? "bg-orange-50/50 border-orange-100" : "bg-emerald-50/50 border-emerald-100",
+                        cellRisks.length > 0 ? "shadow-sm border-white" : "opacity-20 grayscale cursor-default",
+                        isSelected && "ring-2 ring-primary ring-offset-2 z-10 border-primary"
                       )}
                     >
                       {cellRisks.length > 0 && (
                         <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center text-xs font-black shadow-lg animate-in zoom-in",
+                          "w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-black shadow-sm",
                           score >= 15 ? "bg-red-600 text-white" : score >= 8 ? "bg-accent text-white" : "bg-emerald-600 text-white"
                         )}>
                           {cellRisks.length}
-                        </div>
-                      )}
-                      {isSelected && (
-                        <div className="absolute -top-3 -right-3 w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white dark:border-slate-900 animate-in bounce-in">
-                          <Check className="w-3 h-3" />
                         </div>
                       )}
                     </div>
                   );
                 })}
               </div>
-              {/* X-Axis Label */}
-              <div className="col-start-2 col-span-5 flex justify-between text-[9px] font-black text-slate-400 uppercase px-6 pt-4">
+              <div className="col-start-2 col-span-5 flex justify-between text-[8px] font-black text-slate-400 uppercase px-4 pt-2">
                 <span>Selten</span>
                 <span>Wahrscheinlichkeit</span>
                 <span>Häufig</span>
@@ -188,45 +172,33 @@ export default function RiskReportsPage() {
         </Card>
 
         {/* Charts Sidebar */}
-        <div className="space-y-8">
-          <Card className="border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden">
-            <CardHeader className="border-b border-slate-100 dark:border-slate-800 py-5 px-8 bg-slate-50/50 dark:bg-slate-950/50">
-              <CardTitle className="text-sm font-headline font-bold uppercase tracking-widest">Risikoklassen</CardTitle>
+        <div className="space-y-6">
+          <Card className="border shadow-sm bg-white dark:bg-slate-900 rounded-xl overflow-hidden">
+            <CardHeader className="border-b py-3 px-6 bg-slate-50/50">
+              <CardTitle className="text-[10px] font-headline font-bold uppercase tracking-widest">Risikoklassen</CardTitle>
             </CardHeader>
-            <CardContent className="p-8 h-[280px]">
+            <CardContent className="p-6 h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie 
-                    data={riskPieData} 
-                    innerRadius={65} 
-                    outerRadius={90} 
-                    paddingAngle={8} 
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {riskPieData.map((entry, index) => <Cell key={index} fill={entry.color} cornerRadius={8} />)}
+                  <Pie data={riskPieData} innerRadius={45} outerRadius={65} paddingAngle={5} dataKey="value" stroke="none">
+                    {riskPieData.map((entry, index) => <Cell key={index} fill={entry.color} cornerRadius={4} />)}
                   </Pie>
-                  <RechartsTooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }} />
-                  <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'black', textTransform: 'uppercase', paddingTop: '20px' }} />
+                  <RechartsTooltip contentStyle={{ borderRadius: '0.5rem', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '9px', fontWeight: 'bold' }} />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
-          <Card className="border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden">
-            <CardHeader className="border-b border-slate-100 dark:border-slate-800 py-5 px-8 bg-slate-50/50 dark:bg-slate-950/50">
-              <CardTitle className="text-sm font-headline font-bold uppercase tracking-widest text-primary">Top Kategorien</CardTitle>
+          <Card className="border shadow-sm bg-white dark:bg-slate-900 rounded-xl overflow-hidden">
+            <CardHeader className="border-b py-3 px-6 bg-slate-50/50">
+              <CardTitle className="text-[10px] font-headline font-bold uppercase tracking-widest">Kategorien</CardTitle>
             </CardHeader>
-            <CardContent className="p-8 h-[280px]">
+            <CardContent className="p-6 h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.catData} layout="vertical" margin={{ left: -10, right: 30 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                <BarChart data={stats.catData} layout="vertical" margin={{ left: -20, right: 20 }}>
                   <XAxis type="number" hide />
-                  <YAxis dataKey="name" type="category" width={90} style={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase' }} tickLine={false} axisLine={false} />
-                  <RechartsTooltip 
-                    contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 'bold' }}
-                  />
-                  <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 10, 10, 0]} barSize={20} />
+                  <YAxis dataKey="name" type="category" style={{ fontSize: '8px', fontWeight: 'bold', textTransform: 'uppercase' }} tickLine={false} axisLine={false} />
+                  <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={12} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -234,103 +206,66 @@ export default function RiskReportsPage() {
         </div>
       </div>
 
-      {/* Detail Analysis List with Drill-down Support */}
-      <div id="drill-down-results" className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-hidden transition-all">
-        <div className="bg-slate-900 text-white p-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-lg shadow-black/20">
-              <MousePointer2 className="w-6 h-6" />
+      {/* Drill-down List */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
+        <div className="bg-slate-900 text-white p-5 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-primary/20 rounded-md flex items-center justify-center text-primary shadow-sm">
+              <MousePointer2 className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-headline font-bold text-lg uppercase tracking-widest">Detail-Analyse</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                {selectedCell 
-                  ? `Filter aktiv: Impact ${selectedCell.impact} / Wahrsch. ${selectedCell.probability}` 
-                  : 'Gesamte Liste wird angezeigt'}
+              <h3 className="font-headline font-bold text-sm uppercase tracking-wider">Detail-Analyse</h3>
+              <p className="text-[8px] font-bold text-slate-400 uppercase">
+                {selectedCell ? `Filter: Impact ${selectedCell.impact} / Prob ${selectedCell.probability}` : 'Gesamtliste'}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500" /><span className="text-[10px] font-black uppercase text-slate-400">High Risk</span></div>
-            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-accent" /><span className="text-[10px] font-black uppercase text-slate-400">Medium Risk</span></div>
-            {selectedCell && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-10 rounded-xl bg-white/10 border-white/20 hover:bg-white/20 text-white text-[10px] font-black uppercase px-6 ml-4"
-                onClick={() => setSelectedCell(null)}
-              >
-                Filter entfernen
-              </Button>
-            )}
-          </div>
+          {selectedCell && (
+            <Button variant="outline" size="sm" className="h-8 rounded-md bg-white/10 border-white/20 hover:bg-white/20 text-white text-[9px] font-black uppercase px-4" onClick={() => setSelectedCell(null)}>Filter entfernen</Button>
+          )}
         </div>
         
-        {displayRisks.length === 0 ? (
-          <div className="py-32 text-center space-y-6 bg-slate-50 dark:bg-slate-950/50">
-            <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-[2rem] flex items-center justify-center mx-auto opacity-50">
-              <Filter className="w-10 h-10 text-slate-400" />
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-black uppercase text-slate-400 tracking-[0.2em]">Keine Treffer</p>
-              <p className="text-xs text-slate-400 font-bold uppercase">Für die gewählte Kombination liegen keine Risiken vor.</p>
-            </div>
-            <Button variant="ghost" className="text-primary text-[10px] font-black uppercase" onClick={() => setSelectedCell(null)}>Zurück zur Gesamtübersicht</Button>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50/50 dark:bg-slate-950/50 border-b border-slate-100 dark:border-slate-800">
-                  <th className="p-6 px-10 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Risiko-Szenario</th>
-                  <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">Score</th>
-                  <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Kategorie</th>
-                  <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Eigentümer</th>
-                  <th className="p-6 px-10 text-right text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayRisks.sort((a, b) => (b.impact * b.probability) - (a.impact * a.probability)).map(r => {
-                  const score = r.impact * r.probability;
-                  return (
-                    <tr key={r.id} className="border-b border-slate-50 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group animate-in slide-in-from-left-2 duration-300">
-                      <td className="p-6 px-10">
-                        <div className="font-bold text-slate-800 dark:text-slate-100 text-sm group-hover:text-primary transition-colors">{r.title}</div>
-                        <div className="text-[9px] font-black text-slate-400 uppercase mt-1 tracking-wider flex items-center gap-2">
-                          <History className="w-3 h-3" /> Revision: {r.lastReviewDate ? new Date(r.lastReviewDate).toLocaleDateString() : 'Ausstehend'}
-                        </div>
-                      </td>
-                      <td className="p-6 text-center">
-                        <Badge className={cn(
-                          "rounded-xl h-8 w-10 font-black text-xs border-none shadow-sm transition-transform group-hover:scale-110",
-                          score >= 15 ? "bg-red-50 text-red-600" : score >= 8 ? "bg-orange-50 text-orange-600" : "bg-emerald-50 text-emerald-600"
-                        )}>
-                          {score}
-                        </Badge>
-                      </td>
-                      <td className="p-6">
-                        <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">{r.category}</span>
-                      </td>
-                      <td className="p-6 font-bold text-xs uppercase text-slate-600 dark:text-slate-400">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[8px] font-black text-slate-400 border border-slate-200 dark:border-slate-700">
-                            {r.owner?.charAt(0) || '?'}
-                          </div>
-                          {r.owner || 'N/A'}
-                        </div>
-                      </td>
-                      <td className="p-6 px-10 text-right">
-                        <Badge variant="outline" className="rounded-full uppercase text-[9px] font-black border-slate-200 dark:border-slate-800 h-6 px-3">
-                          {r.status}
-                        </Badge>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/50 border-b">
+                <th className="p-4 px-6 text-[9px] font-black uppercase tracking-wider text-slate-400">Risiko-Szenario</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-wider text-slate-400 text-center">Score</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-wider text-slate-400">Kategorie</th>
+                <th className="p-4 px-6 text-right text-[9px] font-black uppercase tracking-wider text-slate-400">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayRisks.map(r => {
+                const score = r.impact * r.probability;
+                return (
+                  <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors group">
+                    <td className="p-4 px-6">
+                      <div className="font-bold text-xs text-slate-800">{r.title}</div>
+                      <div className="text-[8px] font-black text-slate-400 uppercase mt-0.5">Ref: {r.id}</div>
+                    </td>
+                    <td className="p-4 text-center">
+                      <Badge className={cn(
+                        "rounded-md h-6 w-8 font-black text-[10px] border-none shadow-sm",
+                        score >= 15 ? "bg-red-50 text-red-600" : score >= 8 ? "bg-orange-50 text-orange-600" : "bg-emerald-50 text-emerald-600"
+                      )}>
+                        {score}
+                      </Badge>
+                    </td>
+                    <td className="p-4">
+                      <span className="text-[9px] font-black uppercase text-slate-500">{r.category}</span>
+                    </td>
+                    <td className="p-4 px-6 text-right">
+                      <Badge variant="outline" className="rounded-full uppercase text-[8px] font-black border-slate-200 h-5 px-2">
+                        {r.status}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

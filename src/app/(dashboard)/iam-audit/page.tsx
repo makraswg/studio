@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -84,55 +83,55 @@ export default function IamAuditPage() {
   const sodConflicts = auditResult?.findings?.filter((f: any) => f.isSodConflict) || [];
 
   return (
-    <div className="space-y-10 pb-20">
-      {/* Header Area with Gradient */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-8 bg-gradient-to-r from-transparent via-slate-50/50 to-transparent">
-        <div className="flex items-center gap-6">
-          <div className="w-16 h-16 bg-indigo-500/10 text-indigo-600 flex items-center justify-center rounded-2xl border-2 border-indigo-500/20 shadow-xl shadow-indigo-500/5 transition-transform hover:scale-105 duration-500">
-            <BrainCircuit className="w-9 h-9" />
+    <div className="space-y-6 pb-10">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-indigo-500/10 text-indigo-600 flex items-center justify-center rounded-lg border shadow-sm transition-transform hover:scale-105">
+            <BrainCircuit className="w-6 h-6" />
           </div>
           <div>
-            <Badge className="mb-2 rounded-full px-3 py-0 bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-widest border-none">AI Governance</Badge>
-            <h1 className="text-4xl font-headline font-bold tracking-tight text-slate-900 dark:text-white uppercase">KI Identity Audit</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Automatisierte Analyse der Berechtigungs-Integrität & SoD Checks.</p>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-indigo-100 text-indigo-700 text-[9px] font-black uppercase tracking-wider">AI Governance</Badge>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase">KI Identity Audit</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Automatisierte Analyse der Berechtigungs-Integrität & SoD Checks.</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Button variant="outline" className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all active:scale-95" onClick={() => router.push('/settings/ai/audit-criteria')}>
-            <Settings2 className="w-4 h-4 mr-2 text-primary" /> Audit-Regeln
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold uppercase text-[9px] tracking-wider px-4 border-slate-200 hover:bg-slate-50" onClick={() => router.push('/settings/ai/audit-criteria')}>
+            <Settings2 className="w-3.5 h-3.5 mr-2 text-primary" /> Audit-Regeln
           </Button>
-          <Button onClick={handleStartAudit} disabled={isAuditing || !users} className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-8 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 dark:shadow-none transition-all gap-2 active:scale-95">
-            {isAuditing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 fill-current" />}
-            Audit jetzt starten
+          <Button size="sm" onClick={handleStartAudit} disabled={isAuditing || !users} className="h-9 rounded-md font-bold uppercase text-[10px] tracking-wider px-6 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm gap-2">
+            {isAuditing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5 fill-current" />}
+            Audit starten
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Context Sidebar */}
-        <div className="lg:col-span-1 space-y-6">
-          <Card className="rounded-[2.5rem] border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-slate-900 text-white overflow-hidden">
-            <CardHeader className="border-b border-white/10 py-6 px-8 bg-slate-950/50">
-              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Prüf-Kontext</CardTitle>
+        <div className="lg:col-span-1 space-y-4">
+          <Card className="rounded-lg border shadow-sm bg-slate-900 text-white overflow-hidden">
+            <CardHeader className="border-b border-white/10 py-4 px-6 bg-slate-950/50">
+              <CardTitle className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Prüf-Kontext</CardTitle>
             </CardHeader>
-            <CardContent className="p-8 space-y-8">
-              <div className="space-y-1">
-                <p className="text-[9px] font-black uppercase text-slate-500 tracking-tighter">Analysierte Nutzer</p>
-                <p className="text-4xl font-headline font-bold">{users?.length || 0}</p>
+            <CardContent className="p-6 space-y-6">
+              <div className="space-y-0.5">
+                <p className="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Analysierte Nutzer</p>
+                <p className="text-3xl font-headline font-bold">{users?.length || 0}</p>
               </div>
-              <div className="space-y-1">
-                <p className="text-[9px] font-black uppercase text-slate-500 tracking-tighter">Aktive Zuweisungen</p>
-                <p className="text-4xl font-headline font-bold">{assignments?.filter((a: any) => a.status === 'active').length || 0}</p>
+              <div className="space-y-0.5">
+                <p className="text-[8px] font-black uppercase text-slate-500 tracking-tighter">Aktive Zuweisungen</p>
+                <p className="text-3xl font-headline font-bold">{assignments?.filter((a: any) => a.status === 'active').length || 0}</p>
               </div>
               <Separator className="bg-white/5" />
-              <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 shadow-inner">
-                    <ShieldCheck className="w-5 h-5" />
+              <div className="p-3 rounded-lg bg-indigo-500/5 border border-indigo-500/10 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-md bg-indigo-500/20 flex items-center justify-center text-indigo-400 shadow-inner">
+                    <ShieldCheck className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-bold uppercase text-slate-300">Methodik</p>
-                    <p className="text-[9px] text-slate-500 italic uppercase">Enterprise SoD Analysis</p>
+                    <p className="text-[9px] font-bold uppercase text-slate-300">Methodik</p>
+                    <p className="text-[8px] text-slate-500 italic uppercase">SoD Matrix Analysis</p>
                   </div>
                 </div>
               </div>
@@ -140,28 +139,28 @@ export default function IamAuditPage() {
           </Card>
 
           {auditResult && sodConflicts.length > 0 && (
-            <Card className="rounded-[2rem] border-none bg-red-600 text-white shadow-xl animate-in zoom-in-95">
-              <CardContent className="p-6 space-y-4 text-center">
-                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mx-auto">
-                  <Split className="w-6 h-6" />
+            <Card className="rounded-lg border-none bg-red-600 text-white shadow-sm animate-in zoom-in-95">
+              <CardContent className="p-5 space-y-3 text-center">
+                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center mx-auto">
+                  <Split className="w-5 h-5" />
                 </div>
-                <div className="space-y-1">
-                  <p className="text-2xl font-black font-headline">{sodConflicts.length}</p>
-                  <p className="text-[10px] font-black uppercase tracking-widest opacity-80">SoD Konflikte erkannt</p>
+                <div className="space-y-0.5">
+                  <p className="text-xl font-black font-headline">{sodConflicts.length}</p>
+                  <p className="text-[9px] font-black uppercase tracking-widest opacity-80">SoD Konflikte</p>
                 </div>
-                <p className="text-[10px] leading-relaxed italic opacity-70">
-                  Unzulässige Kombinationen von Berechtigungen wurden im aktuellen Dataset identifiziert.
+                <p className="text-[9px] leading-relaxed italic opacity-70">
+                  Unzulässige Rollen-Kombinationen identifiziert.
                 </p>
               </CardContent>
             </Card>
           )}
 
-          <div className="p-6 rounded-[2rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
-            <p className="text-[10px] text-indigo-700 dark:text-indigo-400 font-bold uppercase tracking-widest flex items-center gap-2 mb-3">
-              <Info className="w-4 h-4" /> Analyse-Tipp
+          <div className="p-4 rounded-lg bg-white border shadow-sm">
+            <p className="text-[9px] text-indigo-700 font-bold uppercase tracking-widest flex items-center gap-1.5 mb-2">
+              <Info className="w-3.5 h-3.5" /> Analyse-Tipp
             </p>
-            <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed italic">
-              Die KI erkennt nun auch **indirekte** SoD-Verstöße, die über verschiedene IT-Systeme hinweg bestehen.
+            <p className="text-[10px] text-slate-600 leading-relaxed italic">
+              Die KI erkennt nun auch indirekte SoD-Verstöße über Systemgrenzen hinweg.
             </p>
           </div>
         </div>
@@ -169,63 +168,63 @@ export default function IamAuditPage() {
         {/* Results Area */}
         <div className="lg:col-span-3">
           {!auditResult && !isAuditing && (
-            <div className="py-48 text-center border-4 border-dashed rounded-[3rem] bg-slate-50/50 dark:bg-slate-900/20 space-y-6 animate-in fade-in duration-1000">
-              <div className="w-24 h-24 bg-white dark:bg-slate-800 rounded-3xl flex items-center justify-center mx-auto shadow-xl border border-slate-100 dark:border-slate-700">
-                <ShieldCheck className="w-12 h-12 text-slate-200 dark:text-slate-600" />
+            <div className="py-32 text-center border-2 border-dashed rounded-xl bg-slate-50/50 space-y-4 animate-in fade-in duration-700">
+              <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center mx-auto shadow-sm border">
+                <ShieldCheck className="w-8 h-8 text-slate-200" />
               </div>
-              <div className="space-y-2">
-                <p className="text-sm font-black uppercase text-slate-400 tracking-widest">Audit Engine Bereit</p>
-                <p className="text-xs text-slate-400 uppercase font-bold max-w-xs mx-auto">Starten Sie den Enterprise-Scan für Identitäts-Risiken.</p>
+              <div className="space-y-1">
+                <p className="text-xs font-black uppercase text-slate-400 tracking-widest">Audit Engine Bereit</p>
+                <p className="text-[10px] text-slate-400 uppercase font-bold max-w-[200px] mx-auto">Starten Sie den Enterprise-Scan für Identitäts-Risiken.</p>
               </div>
             </div>
           )}
 
           {isAuditing && (
-            <div className="py-48 text-center space-y-8 animate-in fade-in zoom-in-95">
-              <div className="relative w-24 h-24 mx-auto">
-                <Loader2 className="w-24 h-24 animate-spin text-indigo-600 opacity-20" />
-                <Zap className="absolute inset-0 m-auto w-10 h-10 text-indigo-600 animate-pulse fill-current" />
+            <div className="py-32 text-center space-y-6 animate-in fade-in zoom-in-95">
+              <div className="relative w-16 h-16 mx-auto">
+                <Loader2 className="w-16 h-16 animate-spin text-indigo-600 opacity-20" />
+                <Zap className="absolute inset-0 m-auto w-7 h-7 text-indigo-600 animate-pulse fill-current" />
               </div>
-              <div className="space-y-3">
-                <p className="text-lg font-headline font-bold text-indigo-600 uppercase tracking-widest">KI Tiefenanalyse läuft...</p>
-                <div className="max-w-xs mx-auto space-y-2">
-                  <Progress value={65} className="h-2 rounded-full bg-slate-100 dark:bg-slate-800" />
-                  <p className="text-[9px] text-slate-400 uppercase font-black">Prüfe Funktionstrennung (SoD Matrix)</p>
+              <div className="space-y-2">
+                <p className="text-base font-headline font-bold text-indigo-600 uppercase tracking-widest">KI Analyse läuft...</p>
+                <div className="max-w-[200px] mx-auto space-y-1.5">
+                  <Progress value={65} className="h-1.5 rounded-full bg-slate-100" />
+                  <p className="text-[8px] text-slate-400 uppercase font-black">Prüfe Funktionstrennung (SoD)</p>
                 </div>
               </div>
             </div>
           )}
 
           {auditResult && (
-            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <Card className="rounded-[3rem] border-none shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-hidden bg-white dark:bg-slate-900">
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <Card className="rounded-xl border shadow-sm overflow-hidden bg-white">
                 <CardHeader className={cn(
-                  "py-12 text-white px-12 flex flex-col sm:flex-row sm:items-center justify-between gap-8 transition-colors duration-1000",
+                  "py-8 text-white px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 transition-colors duration-700",
                   auditResult.score > 85 ? "bg-emerald-600" : auditResult.score > 60 ? "bg-primary" : "bg-red-600"
                 )}>
                   <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <Trophy className="w-6 h-6 opacity-50" />
-                      <CardTitle className="text-2xl font-headline font-bold uppercase tracking-widest drop-shadow-md">Audit Health Score</CardTitle>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Trophy className="w-5 h-5 opacity-50" />
+                      <CardTitle className="text-xl font-headline font-bold uppercase tracking-widest">Audit Health Score</CardTitle>
                     </div>
-                    <p className="text-[10px] uppercase font-black opacity-80 tracking-widest">Governance Status • {activeTenantId === 'all' ? 'Global' : activeTenantId}</p>
+                    <p className="text-[9px] uppercase font-black opacity-80 tracking-widest">Status • {activeTenantId === 'all' ? 'Global' : activeTenantId}</p>
                   </div>
-                  <div className="flex items-center gap-6">
-                    <div className="h-20 w-px bg-white/20 hidden sm:block" />
-                    <div className="text-8xl font-headline font-black drop-shadow-2xl">{auditResult.score}%</div>
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-px bg-white/20 hidden sm:block" />
+                    <div className="text-6xl font-headline font-black">{auditResult.score}%</div>
                   </div>
                 </CardHeader>
-                <CardContent className="p-12">
-                  <div className="space-y-10">
-                    <div className="p-8 rounded-[2rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 relative overflow-hidden group">
-                      <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500 transition-all group-hover:w-3" />
-                      <p className="text-lg font-medium italic text-slate-700 dark:text-slate-300 leading-relaxed pl-4">
+                <CardContent className="p-8">
+                  <div className="space-y-6">
+                    <div className="p-5 rounded-lg bg-slate-50 border relative overflow-hidden group">
+                      <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500" />
+                      <p className="text-sm font-medium italic text-slate-700 leading-relaxed pl-2">
                         "{auditResult.summary}"
                       </p>
                     </div>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between text-xs font-black uppercase tracking-widest text-slate-400">
-                        <span>Sicherheits-Level</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        <span>Compliance-Level</span>
                         <span className={cn(
                           "font-black",
                           auditResult.score > 85 ? "text-emerald-600" : auditResult.score > 60 ? "text-primary" : "text-red-600"
@@ -233,77 +232,72 @@ export default function IamAuditPage() {
                           {auditResult.score > 85 ? 'KONFORM' : auditResult.score > 60 ? 'OPTIMIERBAR' : 'HOCHRISIKO'}
                         </span>
                       </div>
-                      <Progress value={auditResult.score} className="h-4 rounded-full bg-slate-100 dark:bg-slate-800" />
+                      <Progress value={auditResult.score} className="h-2.5 rounded-full bg-slate-100" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <div className="space-y-8">
-                <div className="flex items-center justify-between px-2">
-                  <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-slate-500">
-                    <AlertTriangle className="w-4 h-4 text-accent" /> Audit Feststellungen ({auditResult.findings?.length || 0})
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 gap-6">
+              <div className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-slate-500 ml-1">
+                  <AlertTriangle className="w-3.5 h-3.5 text-accent" /> Audit Feststellungen ({auditResult.findings?.length || 0})
+                </h3>
+                <div className="grid grid-cols-1 gap-3">
                   {auditResult.findings?.map((f: any, i: number) => (
                     <div key={i} className={cn(
-                      "p-8 rounded-[2.5rem] shadow-xl border flex flex-col md:flex-row gap-8 transition-all group active:scale-[0.99]",
+                      "p-5 rounded-lg shadow-sm border flex flex-col md:flex-row gap-5 transition-all group active:scale-[0.99]",
                       f.isSodConflict 
-                        ? "bg-red-50/30 border-red-100 dark:bg-red-900/5 dark:border-red-900/30" 
-                        : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800"
+                        ? "bg-red-50/30 border-red-100" 
+                        : "bg-white border-slate-100"
                     )}>
-                      <div className="shrink-0 flex flex-col items-center gap-4">
+                      <div className="shrink-0 flex flex-col items-center gap-3">
                         <Badge className={cn(
-                          "rounded-full text-[10px] font-black h-7 px-4 border-none shadow-md",
+                          "rounded-full text-[8px] font-black h-5 px-3 border-none",
                           f.severity === 'critical' ? "bg-red-600" : f.severity === 'high' ? "bg-accent" : "bg-indigo-600"
                         )}>
                           {f.severity.toUpperCase()}
                         </Badge>
                         <div className={cn(
-                          "w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner group-hover:rotate-6 transition-transform duration-500 border",
-                          f.isSodConflict ? "bg-red-100 border-red-200" : "bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700"
+                          "w-12 h-12 rounded-lg flex items-center justify-center shadow-inner border",
+                          f.isSodConflict ? "bg-red-100 border-red-200" : "bg-slate-50 border-slate-100"
                         )}>
                           {f.isSodConflict ? (
-                            <Split className="w-8 h-8 text-red-600" />
+                            <Split className="w-6 h-6 text-red-600" />
                           ) : (
-                            <ShieldAlert className={cn("w-8 h-8", f.severity === 'critical' ? "text-red-600" : "text-slate-400")} />
+                            <ShieldAlert className={cn("w-6 h-6", f.severity === 'critical' ? "text-red-600" : "text-slate-400")} />
                           )}
                         </div>
                       </div>
-                      <div className="flex-1 space-y-5">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-4 border-slate-50 dark:border-slate-800">
-                          <div className="flex items-center gap-3">
-                            <h4 className="font-headline font-bold text-xl text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{f.finding}</h4>
-                            {f.isSodConflict && <Badge className="bg-red-600 text-white rounded-none text-[8px] font-black uppercase h-4 px-1.5">SoD Conflict</Badge>}
+                      <div className="flex-1 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2 border-slate-50">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-headline font-bold text-base text-slate-900 group-hover:text-indigo-600 transition-colors">{f.finding}</h4>
+                            {f.isSodConflict && <Badge className="bg-red-600 text-white rounded-none text-[7px] font-black uppercase h-3.5 px-1">SoD Conflict</Badge>}
                           </div>
-                          <span className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded">ID: {f.entityId}</span>
+                          <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider bg-slate-50 px-1.5 py-0.5 rounded">ID: {f.entityId}</span>
                         </div>
-                        <div className="flex items-center gap-3 text-xs font-bold text-slate-500 uppercase tracking-tight">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-primary font-black">
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                          <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-primary font-black text-[8px]">
                             {f.entityName?.charAt(0)}
                           </div>
-                          <span>Betroffene Identität: <span className="text-slate-900 dark:text-slate-100">{f.entityName}</span></span>
+                          <span>Betroffen: <span className="text-slate-900">{f.entityName}</span></span>
                         </div>
                         <div className={cn(
-                          "p-6 rounded-3xl border relative overflow-hidden",
-                          f.isSodConflict 
-                            ? "bg-red-100/50 border-red-200" 
-                            : "bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-100/50 dark:border-indigo-800/50"
+                          "p-4 rounded-md border relative overflow-hidden",
+                          f.isSodConflict ? "bg-red-100/50 border-red-200" : "bg-indigo-50/50 border-indigo-100/50"
                         )}>
-                          <div className={cn("absolute top-0 left-0 w-1 h-full", f.isSodConflict ? "bg-red-600" : "bg-indigo-400")} />
                           <p className={cn(
-                            "text-[10px] font-black uppercase flex items-center gap-2 mb-3 tracking-widest",
-                            f.isSodConflict ? "text-red-700" : "text-indigo-700 dark:text-indigo-400"
+                            "text-[9px] font-black uppercase flex items-center gap-1.5 mb-1.5 tracking-widest",
+                            f.isSodConflict ? "text-red-700" : "text-indigo-700"
                           )}>
-                            <Zap className="w-3.5 h-3.5 fill-current" /> Empfehlung der Governance Engine
+                            <Zap className="w-3 h-3 fill-current" /> KI Empfehlung
                           </p>
-                          <p className="text-sm text-slate-800 dark:text-slate-200 font-medium leading-relaxed italic">{f.recommendation}</p>
+                          <p className="text-xs text-slate-800 font-medium leading-relaxed italic">{f.recommendation}</p>
                         </div>
                       </div>
                       <div className="shrink-0 flex items-center justify-center">
-                        <Button variant="outline" size="icon" className="w-14 h-14 rounded-3xl hover:bg-indigo-600 hover:text-white transition-all shadow-md active:scale-90" onClick={() => router.push(`/users?search=${f.entityName}`)}>
-                          <ArrowRight className="w-6 h-6" />
+                        <Button variant="outline" size="icon" className="w-10 h-10 rounded-md hover:bg-indigo-600 hover:text-white transition-all shadow-sm" onClick={() => router.push(`/users?search=${f.entityName}`)}>
+                          <ArrowRight className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>

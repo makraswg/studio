@@ -116,109 +116,103 @@ export default function ProcessHubOverview() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-10 pb-20">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-8">
-        <div className="flex items-center gap-6">
-          <div className="w-16 h-16 bg-primary/10 text-primary flex items-center justify-center rounded-2xl border-2 border-primary/20 shadow-xl shadow-primary/5">
-            <Workflow className="w-9 h-9" />
+    <div className="space-y-6 pb-10">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-primary/10 text-primary flex items-center justify-center rounded-lg border shadow-sm">
+            <Workflow className="w-6 h-6" />
           </div>
           <div>
-            <Badge className="mb-2 rounded-full px-3 py-0 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border-none">Workflow Engine</Badge>
-            <h1 className="text-4xl font-headline font-bold tracking-tight text-slate-900 dark:text-white uppercase">ProcessHub</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Strukturierte Geschäftsprozesse & ISO 9001 Dokumentation.</p>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-black uppercase tracking-wider">Workflow Engine</Badge>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase">ProcessHub</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Strukturierte Geschäftsprozesse & ISO 9001 Dokumentation.</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Button variant="outline" className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-blue-200 text-blue-700 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800 transition-all" onClick={() => router.push('/processhub/map')}>
-            <Network className="w-4 h-4 mr-2" /> Prozesslandkarte
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold uppercase text-[9px] tracking-wider px-4 border-blue-200 text-blue-700 bg-blue-50 transition-all" onClick={() => router.push('/processhub/map')}>
+            <Network className="w-3.5 h-3.5 mr-2" /> Prozesslandkarte
           </Button>
-          <Button onClick={handleCreate} disabled={isCreating} className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-8 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all">
-            {isCreating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+          <Button size="sm" onClick={handleCreate} disabled={isCreating} className="h-9 rounded-md font-bold uppercase text-[10px] tracking-wider px-6 bg-primary hover:bg-primary/90 text-white shadow-sm transition-all">
+            {isCreating ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Plus className="w-3.5 h-3.5 mr-2" />}
             Prozess anlegen
           </Button>
         </div>
       </div>
 
       <div className="relative group">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
         <Input 
           placeholder="Nach Prozessen suchen..." 
-          className="pl-11 h-14 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 focus:bg-white transition-all shadow-xl shadow-slate-200/20 dark:shadow-none"
+          className="pl-9 h-12 rounded-xl border-slate-200 bg-white shadow-sm"
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-40 gap-4">
-            <Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" />
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Initialisiere Katalog...</p>
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Katalog wird geladen...</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="py-40 text-center space-y-6">
-            <div className="w-24 h-24 bg-slate-50 dark:bg-slate-800 rounded-[2.5rem] flex items-center justify-center mx-auto opacity-50 border-2 border-dashed border-slate-200 dark:border-slate-700">
-              <Layers className="w-10 h-10 text-slate-400" />
+          <div className="py-20 text-center space-y-4">
+            <div className="w-16 h-16 bg-slate-50 rounded-xl flex items-center justify-center mx-auto opacity-50 border border-dashed border-slate-200">
+              <Layers className="w-8 h-8 text-slate-400" />
             </div>
-            <div className="space-y-2">
-              <p className="text-sm font-black uppercase text-slate-400 tracking-[0.2em]">Keine Prozesse</p>
-              <p className="text-xs text-slate-400 font-bold uppercase max-w-xs mx-auto">Für diesen Mandanten wurden noch keine Prozesse modelliert. Beginnen Sie mit der Modellierung über den Button oben rechts.</p>
-            </div>
-            <Button variant="ghost" className="text-primary text-[10px] font-black uppercase gap-2" onClick={handleCreate}>
-              <Plus className="w-3.5 h-3.5" /> Ersten Prozess erstellen
-            </Button>
+            <p className="text-xs font-bold uppercase text-slate-400">Keine Prozesse gefunden.</p>
           </div>
         ) : (
           <Table>
-            <TableHeader className="bg-slate-50/50 dark:bg-slate-950/50">
-              <TableRow className="hover:bg-transparent border-slate-100 dark:border-slate-800">
-                <TableHead className="py-6 px-10 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 dark:text-slate-500">Bezeichnung</TableHead>
-                <TableHead className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 dark:text-slate-500">Status</TableHead>
-                <TableHead className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 dark:text-slate-500">Version</TableHead>
-                <TableHead className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 dark:text-slate-500">Letzte Änderung</TableHead>
-                <TableHead className="text-right px-10 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 dark:text-slate-500">Aktionen</TableHead>
+            <TableHeader className="bg-slate-50/50">
+              <TableRow className="hover:bg-transparent border-b">
+                <TableHead className="py-4 px-6 font-bold uppercase tracking-widest text-[9px] text-slate-400">Bezeichnung</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[9px] text-slate-400">Status</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[9px] text-slate-400">Version</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[9px] text-slate-400">Änderung</TableHead>
+                <TableHead className="text-right px-6 font-bold uppercase tracking-widest text-[9px] text-slate-400">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map(p => (
-                <TableRow key={p.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 border-slate-100 dark:border-slate-800 transition-colors cursor-pointer" onClick={() => router.push(`/processhub/${p.id}`)}>
-                  <TableCell className="py-5 px-10">
+                <TableRow key={p.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/processhub/${p.id}`)}>
+                  <TableCell className="py-4 px-6">
                     <div>
-                      <div className="font-bold text-sm text-slate-800 dark:text-slate-100 group-hover:text-primary transition-colors">{p.title}</div>
-                      <div className="text-[9px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest flex items-center gap-2 mt-1">
-                        <Tag className="w-3 h-3" /> {p.tags || 'Keine Tags'}
+                      <div className="font-bold text-xs text-slate-800 group-hover:text-primary transition-colors">{p.title}</div>
+                      <div className="text-[8px] text-slate-400 font-black uppercase tracking-widest flex items-center gap-1.5 mt-0.5">
+                        <Tag className="w-2.5 h-2.5" /> {p.tags || 'Keine Tags'}
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={cn(
-                      "rounded-full text-[9px] font-black uppercase px-3 h-6 border-none",
-                      p.status === 'published' ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400" : "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                      "rounded-full text-[8px] font-black uppercase px-2 h-5 border-none",
+                      p.status === 'published' ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"
                     )}>
                       {p.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-xs font-black text-slate-700 dark:text-slate-300">V{p.currentVersion}.0</TableCell>
+                  <TableCell className="text-[10px] font-black text-slate-700">V{p.currentVersion}.0</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                      <Clock className="w-3.5 h-3.5 opacity-50" /> 
+                    <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-500">
+                      <Clock className="w-3 h-3 opacity-50" /> 
                       {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '—'}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right px-10">
-                    <div className="flex justify-end gap-2" onClick={e => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white dark:hover:bg-slate-700 shadow-sm opacity-0 group-hover:opacity-100 transition-all" onClick={() => router.push(`/processhub/${p.id}`)}>
-                        <ChevronRight className="w-5 h-5 text-slate-400" />
+                  <TableCell className="text-right px-6">
+                    <div className="flex justify-end gap-1.5" onClick={e => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-all" onClick={() => router.push(`/processhub/${p.id}`)}>
+                        <ChevronRight className="w-4 h-4 text-slate-400" />
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"><MoreVertical className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all"><MoreVertical className="w-4 h-4" /></Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl border-slate-100 dark:border-slate-800">
-                          <DropdownMenuItem className="rounded-xl py-2.5 gap-3" onSelect={() => router.push(`/processhub/${p.id}`)}><Workflow className="w-4 h-4" /> Designer öffnen</DropdownMenuItem>
-                          <DropdownMenuSeparator className="my-2" />
-                          <DropdownMenuItem className="text-red-600 dark:text-red-400 rounded-xl py-2.5 gap-3" onSelect={() => setProcessToDelete(p.id)}>
-                            <Trash2 className="w-4 h-4" /> Prozess löschen
+                        <DropdownMenuContent align="end" className="w-56 rounded-lg p-1 shadow-xl border">
+                          <DropdownMenuItem className="rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => router.push(`/processhub/${p.id}`)}><Workflow className="w-3.5 h-3.5" /> Designer</DropdownMenuItem>
+                          <DropdownMenuSeparator className="my-1" />
+                          <DropdownMenuItem className="text-red-600 rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => setProcessToDelete(p.id)}>
+                            <Trash2 className="w-3.5 h-3.5" /> Löschen
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -232,20 +226,20 @@ export default function ProcessHubOverview() {
       </div>
 
       <AlertDialog open={!!processToDelete} onOpenChange={val => !val && setProcessToDelete(null)}>
-        <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl p-10">
+        <AlertDialogContent className="rounded-xl border-none shadow-2xl p-8">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-2xl font-headline font-bold text-red-600 uppercase tracking-tight flex items-center gap-3">
-              <AlertTriangle className="w-7 h-7" /> Prozess löschen?
+            <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 uppercase tracking-tight flex items-center gap-2">
+              <AlertTriangle className="w-6 h-6" /> Prozess löschen?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2">
-              Diese Aktion löscht den gesamten Prozess inklusive aller grafischen Diagramm-Daten und Revisionen permanent. Dies kann nicht rückgängig gemacht werden.
+            <AlertDialogDescription className="text-xs text-slate-500 font-medium leading-relaxed pt-1">
+              Dies löscht den Prozess und alle Revisionen permanent.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="pt-6">
-            <AlertDialogCancel className="rounded-xl font-bold uppercase text-[10px] tracking-widest h-12 px-8 active:scale-95 transition-transform">Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 rounded-xl font-black uppercase text-[10px] tracking-widest h-12 px-10 active:scale-95 transition-transform" disabled={isDeleting}>
-              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Prozess permanent löschen
+          <AlertDialogFooter className="pt-4">
+            <AlertDialogCancel className="rounded-md font-bold uppercase text-[9px] h-10 px-6">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 rounded-md font-black uppercase text-[9px] h-10 px-8" disabled={isDeleting}>
+              {isDeleting ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : null}
+              Löschen
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

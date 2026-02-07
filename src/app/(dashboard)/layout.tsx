@@ -53,11 +53,12 @@ function HeaderContent() {
     return current ? current.name : 'Unbekannter Mandant';
   };
 
-  const getPageContextHelp = () => {
-    if (pathname.includes('/processhub')) return 'Prozessmanagement';
-    if (pathname.includes('/risks')) return 'Risikomanagement';
-    if (pathname.includes('/users')) return 'Identitäten';
-    if (pathname.includes('/gdpr')) return 'Datenschutz';
+  // Hilfsfunktion zur Vermeidung von Regex-Parser-Problemen
+  const getContextString = (path: string) => {
+    if (path.indexOf('processhub') !== -1) return 'Prozessmanagement';
+    if (path.indexOf('risks') !== -1) return 'Risikomanagement';
+    if (path.indexOf('users') !== -1) return 'Identitäten';
+    if (path.indexOf('gdpr') !== -1) return 'Datenschutz';
     return 'Allgemein';
   };
 

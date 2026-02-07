@@ -24,7 +24,8 @@ import {
   FileJson,
   ArrowRight,
   BadgeAlert,
-  ClipboardList
+  ClipboardList,
+  Filter
 } from 'lucide-react';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import {
@@ -93,7 +94,7 @@ export default function AuditLogPage() {
       'Entität Typ': log.entityType,
       'Entität ID': log.entityId
     }));
-    exportToExcel(data, `AuditLog_${new Date().toISOString().split('T')[0]}`);
+    exportToExcel(data, "AuditLog_".concat(new Date().toISOString().split('T')[0]));
   };
 
   if (!mounted) return null;
@@ -101,10 +102,15 @@ export default function AuditLogPage() {
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
-        <div>
-          <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold">System Ledger</Badge>
-          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Audit Log</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Lückenlose Protokollierung aller Änderungen für {activeTenantId === 'all' ? 'die gesamte Plattform' : activeTenantId}.</p>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
+            <Activity className="w-6 h-6" />
+          </div>
+          <div>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none">System Ledger</Badge>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Audit Log</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Lückenlose Protokollierung aller Änderungen.</p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 hover:bg-slate-50 transition-all active:scale-95" onClick={() => refresh()}>
@@ -116,14 +122,20 @@ export default function AuditLogPage() {
         </div>
       </div>
 
-      <div className="relative group">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
-        <Input 
-          placeholder="Nach Akteur, Aktion oder Ziel suchen..." 
-          className="pl-9 h-12 rounded-xl border-slate-200 bg-white shadow-sm"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
+        <div className="relative flex-1 group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
+          <Input 
+            placeholder="Nach Akteur, Aktion oder Ziel suchen..." 
+            className="pl-9 h-9 rounded-md border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none text-xs"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2 px-3 h-9 border rounded-md bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 shrink-0">
+          <Filter className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-[10px] font-bold text-slate-500 whitespace-nowrap italic">Journal aktiv</span>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
@@ -235,7 +247,7 @@ export default function AuditLogPage() {
                   <div className="rounded-xl bg-slate-50 p-4 h-60 border border-slate-100">
                     <ScrollArea className="h-full w-full">
                       <pre className="text-[10px] font-mono text-slate-500 leading-relaxed">
-                        {selectedLog?.before ? JSON.stringify(selectedLog.before, null, 2) : "// Keine Daten"}
+                        {selectedLog?.before ? JSON.stringify(selectedLog.before, null, 2) : "--- Keine Daten ---"}
                       </pre>
                     </ScrollArea>
                   </div>
@@ -247,7 +259,7 @@ export default function AuditLogPage() {
                   <div className="rounded-xl bg-emerald-50/20 p-4 h-60 border border-emerald-100">
                     <ScrollArea className="h-full w-full">
                       <pre className="text-[10px] font-mono text-emerald-900 leading-relaxed">
-                        {selectedLog?.after ? JSON.stringify(selectedLog.after, null, 2) : "// Keine Daten"}
+                        {selectedLog?.after ? JSON.stringify(selectedLog.after, null, 2) : "--- Keine Daten ---"}
                       </pre>
                     </ScrollArea>
                   </div>

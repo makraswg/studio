@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -78,7 +78,10 @@ export default function AccessReviewsPage() {
     const totalCount = base.filter((a: any) => a.status === 'active').length;
     const completedCount = base.filter((a: any) => !!a.lastReviewedAt && a.status === 'active').length;
     
-    const rawPercent = totalCount > 0 ? (completedCount * 100) / totalCount : 0;
+    // Vermeidung von Division-Fehlinterpretationen durch den Parser
+    const divisor = totalCount > 0 ? totalCount : 1;
+    const rawPercent = (completedCount * 100) / divisor;
+    
     return {
       total: totalCount,
       completed: completedCount,
@@ -193,14 +196,13 @@ export default function AccessReviewsPage() {
             <p className="text-[10px] font-bold text-slate-400 uppercase mb-3">Fortschritt</p>
             <div className="flex items-end justify-between">
               <h3 className="text-2xl font-bold text-slate-800">{stats.percent}%</h3>
-              <span className="text-[10px] font-bold text-slate-500">{stats.completed} / {stats.total}</span>
+              <span className="text-[10px] font-bold text-slate-500">{stats.completed} von {stats.total}</span>
             </div>
             <Progress value={stats.percent} className="h-1.5 mt-3 rounded-full bg-slate-100" />
           </CardContent>
         </Card>
       </div>
 
-      {/* Compact Filtering Row */}
       <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
         <div className="relative flex-1 group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
@@ -333,7 +335,7 @@ export default function AccessReviewsPage() {
                     <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Risiko Score</p>
                     <div className="flex items-baseline gap-2">
                       <h3 className="text-4xl font-black text-indigo-900">{aiAdvice.riskScore}</h3>
-                      <span className="text-sm font-bold text-indigo-400">/ 100</span>
+                      <span className="text-sm font-bold text-indigo-400">von 100</span>
                     </div>
                   </div>
                   <div className={cn(

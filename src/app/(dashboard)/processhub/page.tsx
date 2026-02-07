@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -68,10 +68,10 @@ export default function ProcessHubOverview() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  const onNavigateToDesigner = (processId: string) => {
-    const targetPath = `/processhub/${processId}`;
-    router.push(targetPath);
-  };
+  const onNavigateToDesigner = useCallback((processId: string) => {
+    const designerPath = "/processhub/".concat(processId);
+    router.push(designerPath);
+  }, [router]);
 
   const handleCreate = async () => {
     if (!user || activeTenantId === 'all') {

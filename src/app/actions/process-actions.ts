@@ -152,7 +152,7 @@ export async function applyProcessOpsAction(
   let model = JSON.parse(JSON.stringify(currentVersion.model_json || { nodes: [], edges: [], roles: [], isoFields: {}, customFields: {} }));
   let layout = JSON.parse(JSON.stringify(currentVersion.layout_json || { positions: {} }));
 
-  // Globale Liste aller IDs im Modell
+  // Globale Liste aller IDs im Modell zur Vermeidung von Dubletten
   const usedIds = new Set([
     ...(model.nodes || []).map((n: any) => String(n.id)),
     ...(model.edges || []).map((e: any) => String(e.id))
@@ -212,10 +212,13 @@ export async function applyProcessOpsAction(
       case 'REMOVE_NODE':
         if (!op.payload?.nodeId) break;
         const targetRemId = nodeIdMap[String(op.payload.nodeId)] || String(op.payload.nodeId);
+        // Filtere den Knoten
         model.nodes = (model.nodes || []).filter((n: any) => n.id !== targetRemId);
+        // Filtere alle Verbindungen, die diesen Knoten betreffen
         if (model.edges) {
-          model.edges = model.edges.filter((e: any) => e.source !== targetRemId && e.target !== targetRemId);
+          model.edges = model.edges.filter((e: any) => String(e.source) !== targetRemId && String(e.target) !== targetRemId);
         }
+        // Entferne Position
         if (layout.positions) {
           delete layout.positions[targetRemId];
         }
@@ -230,7 +233,7 @@ export async function applyProcessOpsAction(
         edgeToAdd.target = nodeIdMap[String(edgeToAdd.target)] || String(edgeToAdd.target);
         
         // Verhindere Kanten zu "undefined"
-        if (edgeToAdd.source !== 'undefined' && edgeToAdd.target !== 'undefined') {
+        if (edgeToAdd.source !== 'undefined' && edgeToAdd.target !== 'undefined' && edgeToAdd.source !== 'null' && edgeToAdd.target !== 'null') {
           model.edges.push(edgeToAdd);
         }
         break;
@@ -239,7 +242,7 @@ export async function applyProcessOpsAction(
         if (!op.payload?.edgeId) break;
         const targetRemEId = edgeIdMap[String(op.payload.edgeId)] || String(op.payload.edgeId);
         if (model.edges) {
-          model.edges = model.edges.filter((e: any) => e.id !== targetRemEId);
+          model.edges = model.edges.filter((e: any) => String(e.id) !== targetRemEId);
         }
         break;
 
@@ -277,11 +280,11 @@ export async function applyProcessOpsAction(
           const mappedOrderedIds = orderedNodeIds.map((id: string) => nodeIdMap[String(id)] || String(id));
           const newNodes: ProcessNode[] = [];
           mappedOrderedIds.forEach((id: string) => {
-            const node = (model.nodes || []).find((n: any) => n.id === id);
+            const node = (model.nodes || []).find((n: any) => String(n.id) === id);
             if (node) newNodes.push(node);
           });
           (model.nodes || []).forEach((n: any) => {
-            if (!mappedOrderedIds.includes(n.id)) newNodes.push(n);
+            if (!mappedOrderedIds.includes(String(n.id))) newNodes.push(n);
           });
           model.nodes = newNodes;
         }
@@ -304,7 +307,7 @@ export async function applyProcessOpsAction(
   };
 
   const res = await saveCollectionRecord('process_versions', currentVersion.id, updatedVersion, dataSource);
-  if (!res.success) throw new Error("Update der Version fehlgeschlagen.");
+  if (!res.success) throw new Error("Update der Version fehlgeschlagen: " + res.error);
 
   return { success: true, revision: nextRevision };
 }

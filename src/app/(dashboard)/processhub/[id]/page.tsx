@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -342,7 +341,7 @@ export default function ProcessDesignerPage() {
   };
 
   const handleDeleteNode = async () => {
-    if (!selectedNodeId) return;
+    if (!selectedNodeId || isApplying) return;
     if (window.confirm("Möchten Sie dieses Prozessmodul und alle zugehörigen Verbindungen wirklich unwiderruflich löschen?")) {
       const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
       const success = await handleApplyOps(ops);
@@ -458,12 +457,12 @@ export default function ProcessDesignerPage() {
                     <h3 className="text-[10px] font-bold text-slate-400 border-b border-slate-100 pb-1.5 uppercase tracking-wider">Grunddaten</h3>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold text-slate-500 ml-1">Bezeichnung</Label>
-                      <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="rounded-xl font-bold h-10 border-slate-200" />
+                      <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="rounded-xl font-bold h-10 border-slate-200 bg-white" />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold text-slate-500 ml-1">Status</Label>
                       <Select value={metaStatus} onValueChange={setMetaStatus}>
-                        <SelectTrigger className="rounded-xl h-10 border-slate-200 text-xs">
+                        <SelectTrigger className="rounded-xl h-10 border-slate-200 text-xs bg-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
@@ -474,7 +473,7 @@ export default function ProcessDesignerPage() {
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold text-slate-500 ml-1">Zusammenfassung</Label>
-                      <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="rounded-xl min-h-[80px] text-xs border-slate-200 leading-relaxed" />
+                      <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="rounded-xl min-h-[80px] text-xs border-slate-200 leading-relaxed bg-white" />
                     </div>
                     <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-100 space-y-2.5 shadow-inner">
                       <Label className="text-[10px] font-bold text-emerald-600 flex items-center gap-2">
@@ -488,7 +487,7 @@ export default function ProcessDesignerPage() {
                     {[{ id: 'inputs', label: 'Eingaben' }, { id: 'outputs', label: 'Ausgaben' }, { id: 'risks', label: 'Risiken & Chancen' }, { id: 'evidence', label: 'Nachweise' }].map(f => (
                       <div key={f.id} className="space-y-2">
                         <Label className="text-[10px] font-bold flex items-center gap-2 text-slate-600">{f.label}</Label>
-                        <Textarea defaultValue={currentVersion?.model_json?.isoFields?.[f.id] || ''} className="text-[11px] rounded-lg min-h-[80px] border-slate-200 bg-slate-50/50 focus:bg-white transition-all" onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: f.id, value: e.target.value } }])} />
+                        <Textarea defaultValue={currentVersion?.model_json?.isoFields?.[f.id] || ''} className="text-[11px] rounded-lg min-h-[80px] border-slate-200 bg-white focus:bg-white transition-all" onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: f.id, value: e.target.value } }])} />
                       </div>
                     ))}
                   </div>
@@ -795,7 +794,7 @@ export default function ProcessDesignerPage() {
                         })}
                         <div className="flex items-center gap-2 pt-2">
                           <Select onValueChange={(val) => handleAddEdge(val, 'forward')}>
-                            <SelectTrigger className="h-10 text-xs rounded-xl border-dashed">
+                            <SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white">
                               <SelectValue placeholder="Neuen Nachfolger verknüpfen..." />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl">
@@ -832,7 +831,7 @@ export default function ProcessDesignerPage() {
                         })}
                         <div className="flex items-center gap-2 pt-2">
                           <Select onValueChange={(val) => handleAddEdge(val, 'backward')}>
-                            <SelectTrigger className="h-10 text-xs rounded-xl border-dashed">
+                            <SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white">
                               <SelectValue placeholder="Neuen Vorgänger verknüpfen..." />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl">
@@ -880,10 +879,11 @@ export default function ProcessDesignerPage() {
               variant="ghost" 
               className="text-red-600 rounded-xl h-10 px-6 hover:bg-red-50 font-bold text-[10px] gap-2 transition-colors w-full sm:w-auto" 
               onClick={handleDeleteNode}
+              disabled={isApplying}
             >
-              <Trash2 className="w-3.5 h-3.5" /> Modul löschen
+              {isApplying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Modul löschen
             </Button>
-            <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-[0.95] w-full sm:w-auto">
+            <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-[0.95] w-full sm:w-auto" disabled={isApplying}>
               Schließen
             </Button>
           </DialogFooter>

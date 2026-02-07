@@ -32,7 +32,10 @@ import {
   ArrowDown,
   GitBranch,
   ArrowRight,
-  Shield
+  Shield,
+  History,
+  Clock,
+  User as UserIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -49,7 +52,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { exportDetailedProcessPdf } from '@/lib/export-utils';
 
 /**
- * Erzeugt MX-XML für draw.io Integration (Read-Only Modus).
+ * Erzeugt BPMN 2.0 MX-XML für draw.io Integration (Read-Only Modus).
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -65,22 +68,23 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     
     switch (node.type) {
       case 'start': 
-        style = 'ellipse;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;'; 
-        w = 60; h = 60; 
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;'; 
+        w = 50; h = 50; 
         break;
       case 'end': 
         const hasLink = !!node.targetProcessId && node.targetProcessId !== 'none';
         style = hasLink 
-          ? 'ellipse;fillColor=#e1f5fe;strokeColor=#0288d1;strokeWidth=3;shadow=1;' 
-          : 'ellipse;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;shadow=1;'; 
-        w = 60; h = 60; 
+          ? 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e1f5fe;strokeColor=#0288d1;strokeWidth=3;shadow=1;' 
+          : 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=4;shadow=1;'; 
+        w = 50; h = 50; 
         break;
       case 'decision': 
-        style = 'rhombus;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;'; 
-        w = 100; h = 100; 
+        style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;'; 
+        w = 80; h = 80; 
         break;
       default: 
-        style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;shadow=1;';
+        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;shadow=1;';
+        w = 160; h = 80;
     }
     xml += `<mxCell id="${nodeSafeId}" value="${node.title}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
   });
@@ -89,7 +93,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     const sourceId = String(edge.source);
     const targetId = String(edge.target);
     if (nodes.some(n => String(n.id) === sourceId) && nodes.some(n => String(n.id) === targetId)) {
-      xml += `<mxCell id="edge-${idx}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="edge-${idx}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
   xml += `</root></mxGraphModel>`;
@@ -108,10 +112,17 @@ export default function ProcessDetailViewPage() {
   const { data: versions } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
+  const { data: auditLogs } = usePluggableCollection<any>('auditEvents');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
   const currentTenant = useMemo(() => tenants?.find(t => t.id === currentProcess?.tenantId), [tenants, currentProcess]);
+  
+  const processAudit = useMemo(() => 
+    auditLogs?.filter((e: any) => e.entityId === id && e.entityType === 'process')
+      .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) || [],
+    [auditLogs, id]
+  );
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -228,7 +239,7 @@ export default function ProcessDetailViewPage() {
               <section className="space-y-4">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Verantwortlichkeiten</h3>
                 <div className="space-y-2">
-                  {currentVersion?.model_json?.nodes?.filter((n: ProcessNode) => n.roleId && n.roleId !== 'none' && n.roleId !== 'undefined').map((n: ProcessNode, i: number) => {
+                  {currentVersion?.model_json?.nodes?.filter((n: ProcessNode) => n.roleId && n.roleId !== 'none').map((n: ProcessNode, i: number) => {
                     const role = jobTitles?.find(j => j.id === n.roleId);
                     if (!role) return null;
                     return (
@@ -247,16 +258,22 @@ export default function ProcessDetailViewPage() {
               </section>
 
               <section className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Meta-Informationen</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-center">
-                    <p className="text-[8px] font-bold text-slate-400 uppercase">Version</p>
-                    <p className="text-xs font-bold text-slate-700">{currentVersion?.version || 1}.0</p>
-                  </div>
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-center">
-                    <p className="text-[8px] font-bold text-slate-400 uppercase">Letzte Änderung</p>
-                    <p className="text-[10px] font-bold text-slate-700">{currentProcess?.updatedAt ? new Date(currentProcess.updatedAt).toLocaleDateString() : '---'}</p>
-                  </div>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Audit Log & Historie</h3>
+                <div className="space-y-3">
+                  {processAudit.length === 0 ? (
+                    <div className="p-4 border border-dashed rounded-xl text-center">
+                      <History className="w-6 h-6 text-slate-200 mx-auto mb-2" />
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">Keine Historie vorhanden</p>
+                    </div>
+                  ) : processAudit.slice(0, 5).map((log: any) => (
+                    <div key={log.id} className="p-3 bg-slate-50 border rounded-xl space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-black text-slate-900 flex items-center gap-1.5"><UserIcon className="w-2.5 h-2.5" /> {log.actorUid}</span>
+                        <span className="text-[8px] font-bold text-slate-400 uppercase">{new Date(log.timestamp).toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-600 leading-tight italic">{log.action}</p>
+                    </div>
+                  ))}
                 </div>
               </section>
             </div>
@@ -270,7 +287,7 @@ export default function ProcessDetailViewPage() {
                 <div className="bg-white/90 backdrop-blur-md border border-slate-200 px-4 py-2 rounded-2xl shadow-xl flex items-center gap-3">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">Live Visualisierung</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">BPMN 2.0 Live</span>
                   </div>
                   <Separator orientation="vertical" className="h-4" />
                   <div className="flex items-center gap-1.5 text-slate-400">
@@ -452,7 +469,7 @@ export default function ProcessDetailViewPage() {
                 <span className="text-[9px] font-black uppercase tracking-widest opacity-80">Entscheidung</span>
               </div>
             </div>
-            <p className="text-[9px] font-bold text-slate-500 italic uppercase tracking-tighter">ComplianceHub Process Viewer v2.4</p>
+            <p className="text-[9px] font-bold text-slate-500 italic uppercase tracking-tighter">ComplianceHub Process Viewer v2.5 (BPMN 2.0)</p>
           </div>
         </main>
       </div>

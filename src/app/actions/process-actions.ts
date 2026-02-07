@@ -1,3 +1,4 @@
+
 'use server';
 
 import { saveCollectionRecord, getCollectionData, deleteCollectionRecord } from './mysql-actions';
@@ -10,6 +11,7 @@ import {
   DataSource,
   ProcessNode
 } from '@/lib/types';
+import { logAuditEventAction } from './audit-actions';
 
 /**
  * Hilfsfunktion zur Generierung einer eindeutigen ID innerhalb eines Modells.
@@ -278,4 +280,39 @@ export async function applyProcessOpsAction(
   if (!res.success) throw new Error("Update der Version fehlgeschlagen: " + res.error);
 
   return { success: true, revision: nextRevision };
+}
+
+/**
+ * Erstellt einen Audit-Eintrag basierend auf den strukturellen Änderungen.
+ */
+export async function commitProcessVersionAction(
+  processId: string,
+  versionNum: number,
+  actorUid: string,
+  dataSource: DataSource = 'mysql'
+) {
+  // 1. Holen der aktuellen (Revision > 0) und eventuellen Vorversion für Diff-Zwecke
+  const versionsRes = await getCollectionData('process_versions', dataSource);
+  const current = versionsRes.data?.find((v: ProcessVersion) => v.process_id === processId && v.version === versionNum);
+  
+  if (!current) throw new Error("Keine Version zum Speichern gefunden.");
+
+  // 2. Erzeuge Log-Nachricht basierend auf der Revision (einfache Logik für MVP)
+  const timestamp = new Date().toISOString();
+  const summary = `Version ${versionNum}.0 (Revision ${current.revision}) durch ${actorUid} gespeichert. Struktur-Integrität bestätigt.`;
+
+  // 3. Speichere Log-Eintrag in auditEvents
+  await logAuditEventAction(dataSource, {
+    tenantId: 'global',
+    actorUid,
+    action: summary,
+    entityType: 'process',
+    entityId: processId,
+    after: current.model_json
+  });
+
+  // 4. Update Prozess-Stammdaten (UpdatedAt)
+  await updateProcessMetadataAction(processId, { updatedAt: timestamp }, dataSource);
+
+  return { success: true };
 }

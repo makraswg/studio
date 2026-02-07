@@ -44,7 +44,9 @@ import {
   Unlock,
   PlusCircle,
   Zap,
-  Shield
+  Shield,
+  History,
+  ClipboardCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,7 +59,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
-import { applyProcessOpsAction, updateProcessMetadataAction } from '@/app/actions/process-actions';
+import { applyProcessOpsAction, updateProcessMetadataAction, commitProcessVersionAction } from '@/app/actions/process-actions';
 import { getProcessSuggestions } from '@/ai/flows/process-designer-flow';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
@@ -70,7 +72,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 
 /**
- * Erzeugt MX-XML für draw.io Integration mit orthogonalem Layout.
+ * Erzeugt BPMN 2.0 MX-XML für draw.io Integration.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -86,22 +88,27 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     
     switch (node.type) {
       case 'start': 
-        style = 'ellipse;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;'; 
-        w = 60; h = 60; 
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;'; 
+        w = 50; h = 50; 
         break;
       case 'end': 
         const hasLink = !!node.targetProcessId && node.targetProcessId !== 'none';
         style = hasLink 
-          ? 'ellipse;fillColor=#e1f5fe;strokeColor=#0288d1;strokeWidth=3;shadow=1;' 
-          : 'ellipse;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;shadow=1;'; 
-        w = 60; h = 60; 
+          ? 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e1f5fe;strokeColor=#0288d1;strokeWidth=3;shadow=1;' 
+          : 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=4;shadow=1;'; 
+        w = 50; h = 50; 
         break;
       case 'decision': 
-        style = 'rhombus;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;'; 
-        w = 100; h = 100; 
+        style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;'; 
+        w = 80; h = 80; 
+        break;
+      case 'subprocess':
+        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#e1f5fe;strokeColor=#0288d1;strokeWidth=2;dashed=1;';
+        w = 160; h = 80;
         break;
       default: 
-        style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;shadow=1;';
+        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;shadow=1;';
+        w = 160; h = 80;
     }
     xml += `<mxCell id="${nodeSafeId}" value="${node.title}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
   });
@@ -112,7 +119,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     const targetId = String(edge.target);
     
     if (nodes.some(n => String(n.id) === sourceId) && nodes.some(n => String(n.id) === targetId)) {
-      xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
   xml += `</root></mxGraphModel>`;
@@ -138,6 +145,7 @@ export default function ProcessDesignerPage() {
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [isCommitting, setIsCommitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSavingMeta, setIsSavingMeta] = useState(false);
   
@@ -160,11 +168,22 @@ export default function ProcessDesignerPage() {
   const { data: versions, refresh: refreshVersion, isLoading: isVerLoading } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: comments, refresh: refreshComments } = usePluggableCollection<ProcessComment>('process_comments');
-  const { data: auditEvents } = usePluggableCollection<any>('auditEvents');
+  const { data: auditEvents, refresh: refreshAudit } = usePluggableCollection<any>('auditEvents');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
-  const processComments = useMemo(() => comments?.filter(c => c.process_id === id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) || [], [comments, id]);
+  
+  const combinedLog = useMemo(() => {
+    const procComments = comments?.filter(c => c.process_id === id) || [];
+    const procAudit = auditEvents?.filter(e => e.entityId === id && e.entityType === 'process') || [];
+    
+    const logs = [
+      ...procComments.map(c => ({ id: c.id, type: 'comment', user: c.user_name, text: c.text, date: c.created_at })),
+      ...procAudit.map(e => ({ id: e.id, type: 'audit', user: e.actorUid, text: e.action, date: e.timestamp }))
+    ];
+    
+    return logs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [comments, auditEvents, id]);
 
   const selectedNode = useMemo(() => 
     currentVersion?.model_json?.nodes?.find((n: any) => n.id === selectedNodeId), 
@@ -181,7 +200,6 @@ export default function ProcessDesignerPage() {
     [currentVersion, selectedNodeId]
   );
 
-  // Process Links for main sidebar
   const incomingProcessLinks = useMemo(() => {
     if (!processes || !versions || !id) return [];
     const links: any[] = [];
@@ -288,6 +306,23 @@ export default function ProcessDesignerPage() {
       return false;
     } finally {
       setIsApplying(false);
+    }
+  };
+
+  const handleCommitVersion = async () => {
+    if (!currentVersion || !user) return;
+    setIsCommitting(true);
+    try {
+      const res = await commitProcessVersionAction(currentVersion.process_id, currentVersion.version, user.email || user.id, dataSource);
+      if (res.success) {
+        toast({ title: "Version gespeichert", description: "Änderungen wurden im Log protokolliert." });
+        refreshAudit();
+        refreshVersion();
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Speichern fehlgeschlagen", description: e.message });
+    } finally {
+      setIsCommitting(false);
     }
   };
 
@@ -484,8 +519,12 @@ export default function ProcessDesignerPage() {
             {isDiagramLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
             {isDiagramLocked ? 'Layout gesperrt' : 'Layout frei'}
           </Button>
-          <Button size="sm" className="rounded-md h-8 text-[10px] font-bold bg-primary hover:bg-primary/90 text-white px-6 shadow-sm transition-all active:scale-[0.95]" onClick={() => syncDiagramToModel()} disabled={isDiagramLocked}>
-            <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", isVerLoading && "animate-spin")} /> Aktualisieren
+          <Button variant="outline" size="sm" className="rounded-md h-8 text-[10px] font-bold border-slate-200 px-4 transition-all" onClick={() => syncDiagramToModel()} disabled={isDiagramLocked}>
+            <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", isVerLoading && "animate-spin")} /> Diagramm-Sync
+          </Button>
+          <Button size="sm" className="rounded-md h-8 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-6 shadow-sm transition-all active:scale-[0.95] gap-2" onClick={handleCommitVersion} disabled={isCommitting}>
+            {isCommitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ClipboardCheck className="w-3.5 h-3.5" />} 
+            Änderungen speichern
           </Button>
         </div>
       </header>
@@ -496,7 +535,7 @@ export default function ProcessDesignerPage() {
             <TabsList className="h-11 bg-slate-50 border-b gap-0 p-0 w-full justify-start shrink-0 rounded-none overflow-x-auto no-scrollbar">
               <TabsTrigger value="meta" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-primary"><FilePen className="w-3.5 h-3.5" /> Stammdaten</TabsTrigger>
               <TabsTrigger value="steps" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-primary"><ClipboardList className="w-3.5 h-3.5" /> Ablauf</TabsTrigger>
-              <TabsTrigger value="diskurs" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-primary"><MessageCircle className="w-3.5 h-3.5" /> Diskurs</TabsTrigger>
+              <TabsTrigger value="log" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-primary"><History className="w-3.5 h-3.5" /> Log</TabsTrigger>
             </TabsList>
             
             <TabsContent value="meta" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
@@ -612,9 +651,9 @@ export default function ProcessDesignerPage() {
               </ScrollArea>
             </TabsContent>
 
-            <TabsContent value="diskurs" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
+            <TabsContent value="log" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
               <div className="p-4 bg-slate-50/50 border-b shrink-0">
-                <h3 className="text-[10px] font-bold text-slate-400 mb-3 uppercase tracking-wider">Diskurs & Feedback</h3>
+                <h3 className="text-[10px] font-bold text-slate-400 mb-3 uppercase tracking-wider">Audit Log & Diskurs</h3>
                 <div className="flex items-center gap-1.5">
                   {auditEvents?.filter(e => e.entityId === id).slice(0, 3).map((e: any, i: number) => (
                     <Avatar key={i} className="h-7 w-7 border-2 border-white shadow-sm">
@@ -625,18 +664,35 @@ export default function ProcessDesignerPage() {
               </div>
               <ScrollArea className="flex-1 bg-white">
                 <div className="p-5 space-y-5">
-                  {processComments.length === 0 ? <div className="py-16 text-center space-y-3 opacity-20"><MessageCircle className="w-10 h-10 mx-auto" /><p className="text-[10px] font-bold">Keine Anmerkungen dokumentiert</p></div> : processComments.map((comm) => (
-                    <div key={comm.id} className="space-y-1.5 animate-in slide-in-from-right-1">
-                      <div className="flex items-center justify-between"><span className="text-[10px] font-bold text-slate-900">{comm.user_name}</span><span className="text-[9px] font-bold text-slate-400">{new Date(comm.created_at).toLocaleDateString()}</span></div>
-                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px] leading-relaxed text-slate-600 shadow-sm">{comm.text}</div>
+                  {combinedLog.length === 0 ? (
+                    <div className="py-16 text-center space-y-3 opacity-20">
+                      <History className="w-10 h-10 mx-auto" />
+                      <p className="text-[10px] font-bold uppercase">Keine Log-Einträge vorhanden</p>
+                    </div>
+                  ) : combinedLog.map((log) => (
+                    <div key={log.id} className="space-y-1.5 animate-in slide-in-from-right-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={cn(
+                            "text-[8px] font-black uppercase px-1.5 py-0.5 rounded",
+                            log.type === 'audit' ? "bg-slate-900 text-white" : "bg-primary text-white"
+                          )}>{log.type}</span>
+                          <span className="text-[10px] font-bold text-slate-900">{log.user}</span>
+                        </div>
+                        <span className="text-[9px] font-bold text-slate-400">{new Date(log.date).toLocaleDateString()}</span>
+                      </div>
+                      <div className={cn(
+                        "p-3 rounded-xl border text-[11px] leading-relaxed shadow-sm",
+                        log.type === 'audit' ? "bg-slate-50 border-slate-100 text-slate-500 italic" : "bg-white border-slate-100 text-slate-700"
+                      )}>{log.text}</div>
                     </div>
                   ))}
                 </div>
               </ScrollArea>
               <div className="p-4 border-t bg-slate-50/50 shrink-0">
                 <div className="space-y-2.5">
-                  <Textarea placeholder="Kommentar..." value={commentText} onChange={e => setCommentText(e.target.value)} className="min-h-[70px] rounded-lg border-slate-200 focus:border-primary text-[11px] shadow-inner bg-white" />
-                  <Button onClick={handleAddComment} disabled={isCommenting || !commentText.trim()} className="w-full rounded-lg h-9 font-bold text-[10px] gap-2 bg-primary text-white shadow-md transition-all active:scale-95">{isCommenting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Senden</Button>
+                  <Textarea placeholder="Kommentar oder Anmerkung..." value={commentText} onChange={e => setCommentText(e.target.value)} className="min-h-[70px] rounded-lg border-slate-200 focus:border-primary text-[11px] shadow-inner bg-white" />
+                  <Button onClick={handleAddComment} disabled={isCommenting || !commentText.trim()} className="w-full rounded-lg h-9 font-bold text-[10px] gap-2 bg-primary text-white shadow-md transition-all active:scale-95">{isCommenting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Kommentar senden</Button>
                 </div>
               </div>
             </TabsContent>
@@ -656,8 +712,8 @@ export default function ProcessDesignerPage() {
             <>
               <div className="absolute top-4 right-4 z-10 bg-white/95 backdrop-blur-md shadow-lg rounded-xl border border-slate-200 p-1.5 flex flex-col gap-1.5">
                 <TooltipProvider>
-                  <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={syncDiagramToModel} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-all"><RefreshCw className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[9px] font-bold">Sync</TooltipContent></Tooltip>
-                  <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*')} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-all"><Maximize2 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[9px] font-bold">Zentrieren</TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={syncDiagramToModel} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-all"><RefreshCw className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[9px] font-bold uppercase">Diagramm Sync</TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*')} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-all"><Maximize2 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[9px] font-bold uppercase">Zentrieren</TooltipContent></Tooltip>
                 </TooltipProvider>
               </div>
               <div className="flex-1 bg-white relative overflow-hidden">

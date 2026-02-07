@@ -269,20 +269,20 @@ function RiskDashboardContent() {
         </div>
       </div>
 
-      {/* Filter Area */}
-      <div className="flex flex-col lg:flex-row gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border shadow-sm">
+      {/* Filter Area - Single Row */}
+      <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
         <div className="relative flex-1 group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-accent transition-colors" />
           <Input 
             placeholder="Risiken oder Verantwortliche suchen..." 
-            className="pl-9 h-10 rounded-md border-slate-200 bg-slate-50 focus:bg-white transition-all shadow-none"
+            className="pl-9 h-9 rounded-md border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none text-xs"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex bg-slate-100 p-1 rounded-md border border-slate-200">
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-md border border-slate-200 dark:border-slate-700 h-9 shrink-0">
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="border-none shadow-none h-8 rounded-sm bg-transparent text-[9px] font-black uppercase min-w-[150px]">
+            <SelectTrigger className="border-none shadow-none h-full rounded-sm bg-transparent text-[9px] font-black uppercase min-w-[150px]">
               <Filter className="w-3 h-3 mr-1.5 text-slate-400" />
               <SelectValue placeholder="Alle Kategorien" />
             </SelectTrigger>

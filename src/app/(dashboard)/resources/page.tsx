@@ -33,7 +33,8 @@ import {
   RotateCcw,
   Download,
   X,
-  AlertTriangle
+  AlertTriangle,
+  Filter
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -380,14 +381,31 @@ export default function ResourcesPage() {
         </div>
       </div>
 
-      <div className="relative group max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
-        <Input 
-          placeholder="Nach Name oder Besitzer suchen..." 
-          className="pl-9 h-10 rounded-md border-slate-200 bg-white shadow-sm"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
+        <div className="relative flex-1 group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
+          <Input 
+            placeholder="Nach Name oder Besitzer suchen..." 
+            className="pl-9 h-9 rounded-md border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none text-xs"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-md border border-slate-200 dark:border-slate-700 h-9 shrink-0">
+          <button 
+            className={cn("px-6 h-full text-[10px] font-bold rounded-sm transition-all whitespace-nowrap", !showArchived ? "bg-white dark:bg-slate-700 text-primary shadow-sm" : "text-slate-500 hover:text-slate-700")}
+            onClick={() => setShowArchived(false)}
+          >
+            Aktiv
+          </button>
+          <button 
+            className={cn("px-6 h-full text-[10px] font-bold rounded-sm transition-all whitespace-nowrap", showArchived ? "bg-white dark:bg-slate-700 text-primary shadow-sm" : "text-slate-500 hover:text-slate-700")}
+            onClick={() => setShowArchived(true)}
+          >
+            Archiv
+          </button>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
@@ -457,8 +475,8 @@ export default function ResourcesPage() {
               ))}
             </TableBody>
           </Table>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Resource Edit Dialog */}
       <Dialog open={isResourceDialogOpen} onOpenChange={setIsResourceDialogOpen}>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -325,49 +324,45 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 bg-white dark:bg-slate-900 p-3 rounded-lg border shadow-sm">
-        <div className="relative lg:col-span-6">
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
-            <Input 
-              placeholder="Name oder E-Mail suchen..." 
-              className="pl-9 h-9 rounded-md border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none text-xs"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+      <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm overflow-x-auto no-scrollbar">
+        <div className="relative min-w-[200px] flex-1 group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
+          <Input 
+            placeholder="Name oder E-Mail suchen..." 
+            className="pl-9 h-9 rounded-md border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none text-xs"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-        <div className="lg:col-span-3">
-          <div className="flex bg-slate-100 p-1 rounded-md border border-slate-200 h-9">
-            {['all', 'active', 'disabled'].map(f => (
-              <button 
-                key={f} 
-                className={cn(
-                  "flex-1 h-full text-[9px] font-bold rounded-sm transition-all",
-                  activeStatusFilter === f ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
-                )}
-                onClick={() => setActiveStatusFilter(f as any)}
-              >
-                {f === 'all' ? 'Alle' : f === 'active' ? 'Aktiv' : 'Inaktiv'}
-              </button>
-            ))}
-          </div>
+        
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-md border border-slate-200 dark:border-slate-700 h-9 shrink-0">
+          {['all', 'active', 'disabled'].map(f => (
+            <button 
+              key={f} 
+              className={cn(
+                "px-4 h-full text-[9px] font-bold rounded-sm transition-all whitespace-nowrap",
+                activeStatusFilter === f ? "bg-white dark:bg-slate-700 text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+              )}
+              onClick={() => setActiveStatusFilter(f as any)}
+            >
+              {f === 'all' ? 'Alle' : f === 'active' ? 'Aktiv' : 'Inaktiv'}
+            </button>
+          ))}
         </div>
-        <div className="lg:col-span-3">
-          <div className="flex bg-slate-100 p-1 rounded-md border border-slate-200 h-9">
-            {['all', 'ad', 'manual'].map(f => (
-              <button 
-                key={f} 
-                className={cn(
-                  "flex-1 h-full text-[9px] font-bold rounded-sm transition-all",
-                  activeSourceFilter === f ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
-                )}
-                onClick={() => setActiveSourceFilter(f as any)}
-              >
-                {f === 'all' ? 'Alle' : f === 'ad' ? 'AD' : 'Manuell'}
-              </button>
-            ))}
-          </div>
+
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-md border border-slate-200 dark:border-slate-700 h-9 shrink-0">
+          {['all', 'ad', 'manual'].map(f => (
+            <button 
+              key={f} 
+              className={cn(
+                "px-4 h-full text-[9px] font-bold rounded-sm transition-all whitespace-nowrap",
+                activeSourceFilter === f ? "bg-white dark:bg-slate-700 text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+              )}
+              onClick={() => setActiveSourceFilter(f as any)}
+            >
+              {f === 'all' ? 'Alle Quellen' : f === 'ad' ? 'LDAP/AD' : 'Manuell'}
+            </button>
+          ))}
         </div>
       </div>
 

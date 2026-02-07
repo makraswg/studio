@@ -77,15 +77,15 @@ export default function AccessReviewsPage() {
   const stats = useMemo(() => {
     if (!assignments) return { total: 0, completed: 0, overdue: 0, percent: 0 };
     const base = assignments.filter((a: any) => activeTenantId === 'all' || a.tenantId === activeTenantId);
-    const total = base.filter((a: any) => a.status === 'active').length;
-    const completed = base.filter((a: any) => !!a.lastReviewedAt && a.status === 'active').length;
-    const overdue = base.filter((a: any) => !a.lastReviewedAt && a.validUntil && new Date(a.validUntil) < new Date() && a.status === 'active').length;
+    const totalCount = base.filter((a: any) => a.status === 'active').length;
+    const completedCount = base.filter((a: any) => !!a.lastReviewedAt && a.status === 'active').length;
+    const overdueCount = base.filter((a: any) => !a.lastReviewedAt && a.validUntil && new Date(a.validUntil) < new Date() && a.status === 'active').length;
     
-    const rawPercent = total > 0 ? (completed * 100) / total : 0;
+    const rawPercent = totalCount > 0 ? (completedCount * 100) / totalCount : 0;
     return {
-      total,
-      completed,
-      overdue,
+      total: totalCount,
+      completed: completedCount,
+      overdue: overdueCount,
       percent: Math.round(rawPercent)
     };
   }, [assignments, activeTenantId]);
@@ -215,8 +215,8 @@ export default function AccessReviewsPage() {
         </Card>
       </div>
 
-      <div className="flex flex-col lg:flex-row items-center gap-3 bg-white p-2 rounded-xl border shadow-sm">
-        <div className="relative flex-1 group w-full">
+      <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
+        <div className="relative flex-1 group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
           <Input 
             placeholder="Mitarbeiter oder System suchen..." 
@@ -226,21 +226,21 @@ export default function AccessReviewsPage() {
           />
         </div>
         
-        <div className="flex bg-slate-100 p-1 rounded-md border border-slate-200 h-9 shrink-0">
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-md border border-slate-200 dark:border-slate-700 h-9 shrink-0">
           <button 
-            className={cn("px-6 h-full text-[10px] font-bold rounded-sm transition-all whitespace-nowrap", activeFilter === 'pending' ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700")}
+            className={cn("px-6 h-full text-[10px] font-bold rounded-sm transition-all whitespace-nowrap", activeFilter === 'pending' ? "bg-white dark:bg-slate-700 text-primary shadow-sm" : "text-slate-500 hover:text-slate-700")}
             onClick={() => setActiveFilter('pending')}
           >
             Ausstehend
           </button>
           <button 
-            className={cn("px-6 h-full text-[10px] font-bold rounded-sm transition-all whitespace-nowrap", activeFilter === 'completed' ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700")}
+            className={cn("px-6 h-full text-[10px] font-bold rounded-sm transition-all whitespace-nowrap", activeFilter === 'completed' ? "bg-white dark:bg-slate-700 text-primary shadow-sm" : "text-slate-500 hover:text-slate-700")}
             onClick={() => setActiveFilter('completed')}
           >
             Geprüft
           </button>
           <button 
-            className={cn("px-6 h-full text-[10px] font-bold rounded-sm transition-all whitespace-nowrap", activeFilter === 'all' ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700")}
+            className={cn("px-6 h-full text-[10px] font-bold rounded-sm transition-all whitespace-nowrap", activeFilter === 'all' ? "bg-white dark:bg-slate-700 text-primary shadow-sm" : "text-slate-500 hover:text-slate-700")}
             onClick={() => setActiveFilter('all')}
           >
             Alle
@@ -248,7 +248,7 @@ export default function AccessReviewsPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />

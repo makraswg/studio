@@ -31,8 +31,9 @@ Dieses Dokument beschreibt die visuellen und funktionalen Standards des Complian
 - **Abstände**: `pr-8` im Header, um Kollisionen mit dem Schließen-Button zu verhindern.
 - **Footer**: Abgegrenzt durch `bg-slate-50`, Primäraktion rechts, Abbrechen links.
 
-### 🔍 Filter & Suche
-- **Kompaktheit**: Filterelemente (Suche, Tabs, Toggles) sollten in einer einzigen, horizontalen Zeile zusammengefasst werden, um vertikalen Platz zu sparen.
+### 🔍 Filter & Suche (Compact Filtering)
+- **Kompaktheit**: Filterelemente (Suche, Tabs, Toggles) MÜSSEN in einer einzigen, horizontalen Zeile zusammengefasst werden. 
+- **Layout**: Flex-Container mit `gap-3` und `p-2` bis `p-4`, um vertikalen Platz zu sparen und eine moderne "Toolbar"-Optik zu erzeugen.
 
 ---
 

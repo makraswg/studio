@@ -180,7 +180,7 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
     *   *Code*: `src/app/(dashboard)/resources/page.tsx`
     *   *Status*: CRUD für Ressourcen implementiert.
     *   *Consultant Audit*: Ein Junior weiß nicht, warum ein System "kritisch" ist.
-    *   **KRITIK**: Fehlendes Dependency Mapping. 
+    *   **KRITIK**: Fehlende Dependency Mapping. 
     *   **NEUE AUFGABE**: "Usage-Explorer". Anzeige im Asset-Formular, in welchen **Prozessen (Step 4)** und welchen **VVT-Einträgen (Step 5)** diese Ressource verwendet wird.
 
 *   **Step 7.2: Schutzbedarfsfeststellung (CIA)**
@@ -199,5 +199,28 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
     *   *Consultant Audit*: Dubletten-Gefahr.
     *   **NEUE AUFGABE**: "Drift Detection". Das System meldet sich, wenn sich Daten in Jira ändern (z.B. neuer Owner), die im Hub noch alt sind.
 
+### 8. System-Konfiguration & Administration
+*Das technische Steuerpult der Plattform.*
+
+*   **Step 8.1: LDAP & Identity Sync**
+    *   *Code*: `src/app/(dashboard)/settings/sync/page.tsx`
+    *   *Consultant Audit*: LDAP-Settings sind für SMEs oft unlösbar komplex.
+    *   **NEUE AUFGABE**: "Connection Wizard". Ein Schritt-für-Schritt Dialog, der die LDAP-Verbindung testet und technische Fehlermeldungen in einfaches Deutsch übersetzt.
+
+*   **Step 8.2: Jira Gateway**
+    *   *Code*: `src/app/(dashboard)/settings/integrations/page.tsx`
+    *   *Consultant Audit*: Wenn die Jira-Verbindung bricht, merken es die Fachabteilungen zu spät.
+    *   **NEUE AUFGABE**: "Integration Health Monitoring". Proaktive Warnung im Dashboard (Step 1), wenn die Jira-API nicht mehr antwortet.
+
+*   **Step 8.3: KI-Governance Konfiguration**
+    *   *Code*: `src/app/(dashboard)/settings/ai/page.tsx`
+    *   *Consultant Audit*: Die KI-Prompts sind statisch.
+    *   **NEUE AUFGABE**: "Company Persona Editor". Ein Feld, in dem der Consultant der KI beibringen kann, wie die Firma tickt (z.B. "Wir sind eine Bank, sei extrem streng beim SoD-Check").
+
+*   **Step 8.4: Daten-Management & Setup**
+    *   *Code*: `src/app/(dashboard)/setup/page.tsx`
+    *   *Consultant Audit*: Das Setup wirkt aktuell wie ein Prototyp-Tool.
+    *   **NEUE AUFGABE**: "SME Onboarding Flow". Eine geführte Tour beim ersten Start, die sicherstellt, dass Mandanten, Abteilungen und erste Ressourcen in der richtigen Reihenfolge angelegt werden.
+
 ---
-*(Fortsetzung folgt mit Step 8: System-Konfiguration & Sicherheit...)*
+*(Ende der Master-Aufgabenliste - Audit Phase abgeschlossen)*

@@ -104,7 +104,7 @@ export default function ProcessDesignerPage() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
   const [mounted, setMounted] = useState(false);
-  const [leftWidth, setLeftWidth] = useState(340);
+  const [leftWidth, setLeftWidth] = useState(320);
   const [rightWidth, setRightWidth] = useState(360);
   const isResizingLeft = useRef(false);
   const isResizingRight = useRef(false);
@@ -338,19 +338,21 @@ export default function ProcessDesignerPage() {
     }
   };
 
+  const onGoBack = useCallback(() => { router.push('/processhub'); }, [router]);
+
   if (!mounted) return null;
 
   return (
-    <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 selection:bg-primary/20 selection:text-primary font-body">
-      <header className="h-14 border-b bg-white flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
+    <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body">
+      <header className="glass-header h-14 flex items-center justify-between px-6 shrink-0 z-20 border-b border-slate-200">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-9 w-9 text-slate-400 hover:bg-slate-100 rounded-md transition-all"><ChevronLeft className="w-5 h-5" /></Button>
+          <Button variant="ghost" size="icon" onClick={onGoBack} className="h-9 w-9 text-slate-400 hover:bg-slate-100 rounded-md transition-all"><ChevronLeft className="w-5 h-5" /></Button>
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <h2 className="font-headline font-bold text-sm md:text-base tracking-tight text-slate-900 truncate max-w-[200px] md:max-w-md">{currentProcess?.title}</h2>
               <Badge className="bg-primary/10 text-primary border-none rounded-full text-[9px] font-bold px-2 h-4 hidden md:flex">Rev. {currentVersion?.revision}</Badge>
             </div>
-            <p className="text-[9px] text-slate-400 font-bold truncate">Status: {currentProcess?.status} • Version {currentVersion?.version}.0</p>
+            <p className="text-[9px] text-slate-400 font-bold">Status: {currentProcess?.status} • V{currentVersion?.version}.0</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -385,7 +387,7 @@ export default function ProcessDesignerPage() {
               <ScrollArea className="flex-1">
                 <div className="p-6 space-y-8 pb-32">
                   <div className="space-y-5">
-                    <h3 className="text-[10px] font-bold text-slate-400 border-b border-slate-100 pb-1.5">Grunddaten</h3>
+                    <h3 className="text-[10px] font-bold text-slate-400 border-b border-slate-100 pb-1.5 uppercase tracking-wider">Grunddaten</h3>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold text-slate-500 ml-1">Bezeichnung</Label>
                       <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="rounded-md font-bold h-10 border-slate-200" />
@@ -416,7 +418,7 @@ export default function ProcessDesignerPage() {
                   </div>
                   
                   <div className="space-y-6 pt-8 border-t border-slate-100">
-                    <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-600" /><h3 className="text-[10px] font-bold text-emerald-700">ISO 9001 Compliance</h3></div>
+                    <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-600" /><h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">ISO 9001 Compliance</h3></div>
                     {[{ id: 'inputs', label: 'Eingaben' }, { id: 'outputs', label: 'Ausgaben' }, { id: 'risks', label: 'Risiken & Chancen' }, { id: 'evidence', label: 'Nachweise' }].map(f => (
                       <div key={f.id} className="space-y-2">
                         <Label className="text-[10px] font-bold flex items-center gap-2 text-slate-600">{f.label}</Label>
@@ -437,14 +439,14 @@ export default function ProcessDesignerPage() {
 
             <TabsContent value="steps" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
               <div className="px-6 py-3 border-b bg-white flex items-center justify-between shrink-0">
-                <h3 className="text-[10px] font-bold text-slate-400">Ablauffolge</h3>
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ablauffolge</h3>
                 <div className="flex gap-1.5">
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-primary/5 hover:text-primary" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-accent/5 hover:text-accent" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
                 </div>
               </div>
               <ScrollArea className="flex-1 bg-slate-50/30">
-                <div className="p-4 space-y-2.5 pb-32">
+                <div className="p-4 space-y-2 pb-32">
                   {(currentVersion?.model_json?.nodes || []).map((node: any, idx: number) => {
                     const isEndLinked = node.type === 'end' && !!node.targetProcessId && node.targetProcessId !== 'none';
                     const nodeCommentCount = comments?.filter(c => c.node_id === node.id).length || 0;
@@ -456,11 +458,11 @@ export default function ProcessDesignerPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{node.title}</p>
-                          <p className="text-[8px] text-slate-400 font-bold mt-0.5 uppercase">{node.type}</p>
+                          <p className="text-[8px] text-slate-400 font-bold mt-0.5">{node.type}</p>
                         </div>
                         <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="p-0.5 hover:text-primary transition-colors disabled:opacity-20" disabled={idx === 0} onClick={e => { e.stopPropagation(); handleMoveNode(node.id, 'up'); }}><ChevronUp className="w-3 h-3" /></button>
-                          <button className="p-0.5 hover:text-primary transition-colors disabled:opacity-20" disabled={idx === (currentVersion?.model_json?.nodes?.length || 0) - 1} onClick={e => { e.stopPropagation(); handleMoveNode(node.id, 'down'); }}><ChevronDown className="w-3 h-3" /></button>
+                          <button className="p-0.5 hover:text-primary transition-colors disabled:opacity-20" disabled={idx === 0} onClick={e => { e.stopPropagation(); handleMoveNode(node.id, 'up'); }}><ChevronUp className="w-3.5 h-3.5" /></button>
+                          <button className="p-0.5 hover:text-primary transition-colors disabled:opacity-20" disabled={idx === (currentVersion?.model_json?.nodes?.length || 0) - 1} onClick={e => { e.stopPropagation(); handleMoveNode(node.id, 'down'); }}><ChevronDown className="w-3.5 h-3.5" /></button>
                         </div>
                       </div>
                     );
@@ -520,7 +522,7 @@ export default function ProcessDesignerPage() {
                         <div className="mt-3 w-full bg-blue-50 border border-blue-200 p-4 rounded-xl space-y-4 shadow-sm animate-in zoom-in-95">
                           <div className="flex items-center gap-2 text-blue-700">
                             <Sparkles className="w-3.5 h-3.5" />
-                            <span className="text-[10px] font-bold">KI Vorschlag</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest">KI Vorschlag</span>
                           </div>
                           <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
                             {msg.suggestions.map((op: any, opIdx: number) => (
@@ -542,7 +544,7 @@ export default function ProcessDesignerPage() {
                     <div className="flex justify-start">
                       <div className="bg-white border border-indigo-100 p-3 rounded-xl flex items-center gap-3 shadow-sm">
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
-                        <span className="text-[10px] font-bold text-slate-400 animate-pulse">KI entwirft Modell...</span>
+                        <span className="text-[10px] font-bold text-slate-400 animate-pulse uppercase tracking-widest">KI entwirft Modell...</span>
                       </div>
                     </div>
                   )}
@@ -561,7 +563,7 @@ export default function ProcessDesignerPage() {
 
             <TabsContent value="collab" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
               <div className="p-4 bg-slate-50/50 border-b shrink-0">
-                <h3 className="text-[10px] font-bold text-slate-400 mb-3 uppercase">Verlauf</h3>
+                <h3 className="text-[10px] font-bold text-slate-400 mb-3 uppercase tracking-wider">Diskurs-Verlauf</h3>
                 <div className="flex items-center gap-1.5">
                   {lastEditors.length > 0 ? lastEditors.map((e, i) => (
                     <TooltipProvider key={i}>
@@ -583,7 +585,7 @@ export default function ProcessDesignerPage() {
                   {processComments.length === 0 ? (
                     <div className="py-16 text-center space-y-3 opacity-20">
                       <MessageCircle className="w-10 h-10 mx-auto" />
-                      <p className="text-[10px] font-bold">Keine Anmerkungen</p>
+                      <p className="text-[10px] font-bold">Keine Anmerkungen dokumentiert</p>
                     </div>
                   ) : processComments.map((comm) => (
                     <div key={comm.id} className="space-y-1.5 animate-in slide-in-from-right-1">
@@ -614,34 +616,43 @@ export default function ProcessDesignerPage() {
 
       {/* Node Edit Dialog */}
       <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
-        <DialogContent className="max-w-3xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[85vh]">
-          <DialogHeader className={cn("p-6 text-white shrink-0 pr-10", localNodeEdits.type === 'end' ? "bg-red-900" : "bg-slate-900")}>
+        <DialogContent className="max-w-2xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[85vh]">
+          <DialogHeader className="p-6 bg-white border-b shrink-0 pr-10">
             <div className="flex items-center gap-5">
-              <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center shrink-0 border border-white/20 shadow-lg backdrop-blur-sm">
+              <div className={cn(
+                "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm border",
+                localNodeEdits.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : 
+                localNodeEdits.type === 'end' ? "bg-red-50 text-red-600 border-red-100" : 
+                "bg-primary/10 text-primary border-primary/10"
+              )}>
                 {localNodeEdits.type === 'decision' ? <GitBranch className="w-6 h-6" /> : localNodeEdits.type === 'end' ? <CircleDot className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-xl font-headline font-bold truncate">{localNodeEdits.title || 'Schritt bearbeiten'}</DialogTitle>
-                <DialogDescription className="text-[9px] text-white/50 font-bold mt-1 tracking-widest uppercase">ID: {selectedNodeId} • {localNodeEdits.type}</DialogDescription>
+                <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">
+                  {localNodeEdits.title || (localNodeEdits.type === 'decision' ? 'Weichen-Konfiguration' : 'Prozessschritt bearbeiten')}
+                </DialogTitle>
+                <DialogDescription className="text-[10px] text-slate-400 font-bold mt-0.5 tracking-wider">
+                  Modul: {localNodeEdits.type} • ID: {selectedNodeId}
+                </DialogDescription>
               </div>
             </div>
           </DialogHeader>
           
-          <ScrollArea className="flex-1 p-0 bg-slate-50/20">
+          <ScrollArea className="flex-1 p-0">
             <div className="p-8 space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-wider">Bezeichnung</Label>
+                  <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Bezeichnung</Label>
                   <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} onBlur={() => saveNodeUpdate('title')} className="h-11 text-sm font-bold rounded-md border-slate-200 bg-white shadow-sm" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-wider">Verantwortung</Label>
+                  <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Verantwortung</Label>
                   <Select value={localNodeEdits.roleId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, roleId: val}); saveNodeUpdate('roleId', val); }}>
                     <SelectTrigger className="h-11 rounded-md border-slate-200 bg-white text-xs">
                       <SelectValue placeholder="Rolle wählen..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-md">
-                      <SelectItem value="none" className="text-xs">Keine Zuweisung</SelectItem>
+                      <SelectItem value="none" className="text-xs">Keine spezifische Zuweisung</SelectItem>
                       {jobTitles?.filter(j => j.tenantId === currentProcess?.tenantId || j.tenantId === 'global').map(j => (
                         <SelectItem key={j.id} value={j.id} className="text-xs">{j.name}</SelectItem>
                       ))}
@@ -652,33 +663,35 @@ export default function ProcessDesignerPage() {
 
               <div className="space-y-8">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-wider">Beschreibung der Tätigkeit</Label>
-                  <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-xs min-h-[120px] rounded-md border-slate-200 bg-white leading-relaxed p-4" placeholder="Schrittweise Anleitung..." />
+                  <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Beschreibung der Tätigkeit</Label>
+                  <div className="p-1 rounded-xl border border-slate-100 bg-slate-50/30">
+                    <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-xs min-h-[120px] rounded-lg border-none bg-transparent leading-relaxed p-4 shadow-none focus:ring-0" placeholder="Beschreiben Sie hier die auszuführende Aktion..." />
+                  </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-2 uppercase tracking-wider">
+                  <Label className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-2 uppercase tracking-widest">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Prüfschritte / Checkliste
                   </Label>
-                  <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[11px] min-h-[100px] bg-slate-900 text-slate-100 rounded-md font-mono p-4 leading-relaxed shadow-lg" placeholder="Punkt pro Zeile..." />
+                  <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[11px] min-h-[100px] bg-slate-900 text-slate-100 rounded-md font-mono p-4 leading-relaxed shadow-lg border-none" placeholder="Einen Punkt pro Zeile eingeben..." />
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100 flex items-start gap-3 shadow-inner">
+              <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100 flex items-start gap-3 shadow-inner transition-all hover:bg-blue-50">
                 <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
                   <p className="text-[11px] font-bold text-slate-800">Änderungskontrolle</p>
                   <p className="text-[10px] text-slate-500 italic leading-relaxed">
-                    Anpassungen an diesem Knoten werden sofort als neue Revision erfasst.
+                    Jede Anpassung an diesem Knoten wird sofort als neue Revision in der Versionshistorie erfasst.
                   </p>
                 </div>
               </div>
             </div>
           </ScrollArea>
 
-          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
-            <Button variant="ghost" className="text-red-600 rounded-md h-10 px-6 hover:bg-red-50 font-bold text-[10px] gap-2 transition-colors w-full sm:w-auto" onClick={() => { if(confirm("Schritt permanent löschen?")) { handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }]); setIsStepDialogOpen(false); } }}>
-              <Trash2 className="w-3.5 h-3.5" /> Entfernen
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
+            <Button variant="ghost" className="text-red-600 rounded-md h-10 px-6 hover:bg-red-50 font-bold text-[10px] gap-2 transition-colors w-full sm:w-auto" onClick={() => { if(confirm("Diesen Schritt unwiderruflich entfernen?")) { handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }]); setIsStepDialogOpen(false); } }}>
+              <Trash2 className="w-3.5 h-3.5" /> Schritt löschen
             </Button>
             <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-md h-10 px-12 font-bold text-xs bg-slate-900 hover:bg-black text-white shadow-md transition-all active:scale-[0.95] w-full sm:w-auto">
               Schließen

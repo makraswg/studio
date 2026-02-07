@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -25,7 +24,9 @@ import {
   GitBranch,
   UserCircle,
   FileText,
-  ChevronDown
+  ChevronDown,
+  Pencil,
+  Info
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -182,7 +183,7 @@ export default function StructureSettingsPage() {
         "flex flex-col gap-2 relative pl-8 py-2 border-l-2 border-slate-100 dark:border-slate-800 transition-all ml-4",
         isArchived && "opacity-50"
       )}>
-        <div className="absolute left-0 top-1/2 w-6 h-0.5 bg-slate-100 dark:bg-slate-800" />
+        <div className="absolute left-0 top-1/2 w-6 h-0.5 bg-slate-100 dark:border-slate-800" />
         <div className={cn(
           "p-4 rounded-2xl border bg-white dark:bg-slate-950 flex items-center justify-between group shadow-sm transition-all hover:shadow-md",
           type === 'tenant' ? "border-primary/30 ring-4 ring-primary/5" : 
@@ -406,11 +407,11 @@ export default function StructureSettingsPage() {
           <ScrollArea className="flex-1">
             <div className="p-6 md:p-10 space-y-8">
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Bezeichnung</Label>
+                <Label className="text-[9px] font-black uppercase text-slate-400 ml-1">Bezeichnung</Label>
                 <Input value={jobName} onChange={e => setJobName(e.target.value)} className="rounded-2xl h-12 md:h-14 font-bold text-lg border-slate-200" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Stellenbeschreibung (Aufgaben & Kompetenzen)</Label>
+                <Label className="text-[9px] font-black uppercase text-slate-400 ml-1">Stellenbeschreibung (Aufgaben & Kompetenzen)</Label>
                 <Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[200px] rounded-3xl p-6 text-sm leading-relaxed border-slate-200" placeholder="Beschreiben Sie hier die Hauptaufgaben der Stelle..." />
               </div>
               <div className="p-6 bg-slate-50 dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800">

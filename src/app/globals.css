@@ -1,52 +1,70 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
+    /* PRD: Vibrant Blue (#29ABE2) */
+    --primary: 198 76% 52%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* PRD: Light Gray Background (#F5F5F5) */
+    --background: 0 0% 96%;
     --foreground: 222.2 84% 4.9%;
+    
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
+    
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
+    
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
+    
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 24 94% 50%;
-    --accent-foreground: 210 40% 98%;
+    
+    /* PRD: Warm Orange (#FF9800) */
+    --accent: 36 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
+    
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221 83% 53%;
-    --radius: 0.5rem;
+    --ring: 198 76% 52%;
+    --radius: 0.75rem;
   }
 
   .dark {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
-    --card: 224 71% 4%;
-    --card-foreground: 213 31% 91%;
-    --popover: 224 71% 4%;
-    --popover-foreground: 215 20.2% 65.1%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 222.2 47.4% 11.2%;
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+    
+    --primary: 198 76% 52%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 223 47% 11%;
-    --muted-foreground: 215.4 16.3% 56.9%;
-    --accent: 216 34% 17%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 63% 31%;
+    
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    
+    --accent: 36 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 216 34% 17%;
-    --input: 216 34% 17%;
-    --ring: 216 34% 17%;
+    
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 198 76% 52%;
   }
 }
 
@@ -56,43 +74,32 @@
   }
   body {
     @apply bg-background text-foreground font-body antialiased;
+    overflow-x: hidden;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline tracking-tight;
   }
 }
 
-/* Fix for Radix UI focus/pointer-events lockup */
-body[style*="pointer-events: none"] {
-  pointer-events: auto !important;
-}
-
-/* Ensure dialogs and dropdowns work correctly even when triggered from nested layouts */
-[data-radix-popper-content-wrapper], 
-[data-radix-portal] {
-  z-index: 100 !important;
-}
-
+/* UI Optimierungen */
 .admin-card {
-  @apply bg-card border border-border shadow-sm rounded-none;
+  @apply bg-card border border-border shadow-sm rounded-xl overflow-hidden transition-all hover:shadow-md;
 }
 
-.sidebar-admin {
-  @apply bg-card border-r border-border;
+.glass-header {
+  @apply sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur-md;
 }
 
-.dark .sidebar-admin {
-  @apply bg-slate-950 border-slate-800;
+/* Entfernung verschachtelter Scrollbars */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-.active-nav-item {
-  @apply bg-primary text-primary-foreground;
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted));
-  border-radius: 0;
+/* Form-Elemente */
+input, select, textarea {
+  @apply focus:ring-2 focus:ring-primary/20 transition-all !important;
 }

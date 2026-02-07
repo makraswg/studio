@@ -75,7 +75,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     let nodeSafeId = String(node.id || `node-gen-${idx}`);
     // Finale Härtung gegen mxGraph Auto-ID Konflikte
     if (nodeSafeId === 'undefined' || nodeSafeId === 'null' || nodeSafeId === '' || nodeSafeId === '[object Object]') {
-      nodeSafeId = `node-fix-${idx}-${Math.random().toString(36).substring(2, 5)}`;
+      nodeSafeId = `node-fix-${idx}-${Math.random().toString(36).substring(2, 7)}`;
     }
     
     const pos = positions[nodeSafeId] || { x: 50 + (idx * 220), y: 150 };
@@ -99,7 +99,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   edges.forEach((edge, idx) => {
     let edgeSafeId = String(edge.id || `edge-gen-${idx}`);
     if (edgeSafeId === 'undefined' || edgeSafeId === 'null' || edgeSafeId === '' || edgeSafeId === '[object Object]') {
-      edgeSafeId = `edge-fix-${idx}-${Math.random().toString(36).substring(2, 5)}`;
+      edgeSafeId = `edge-fix-${idx}-${Math.random().toString(36).substring(2, 7)}`;
     }
 
     const sourceExists = nodes.some(n => n.id === edge.source);

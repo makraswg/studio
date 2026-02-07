@@ -73,20 +73,17 @@ function generateMapXml(processes: Process[], relations: { fromId: string; toId:
 
 export default function ProcessMapPage() {
   const router = useRouter();
-  const { activeTenantId, dataSource } = useSettings();
+  const { activeTenantId } = useSettings();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState('cards');
   const [search, setSearch] = useState('');
-  
   const [selectedProcessIds, setSelectedProcessIds] = useState<string[]>([]);
 
   const { data: processes, isLoading: isProcLoading } = usePluggableCollection<Process>('processes');
-  const { data: versions, isLoading: isVerLoading } = usePluggableCollection<ProcessVersion>('process_versions');
+  const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
 
-  useEffect(() => { 
-    setMounted(true); 
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   const allRelations = useMemo(() => {
     if (!processes || !versions) return [];
@@ -141,20 +138,16 @@ export default function ProcessMapPage() {
     }
   }, [activeTab, mounted, syncDiagram]);
 
-  useEffect(() => {
-    if (activeTab === 'diagram') syncDiagram();
-  }, [selectedProcessIds, activeTab, syncDiagram]);
-
   if (!mounted) return null;
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col -m-8 overflow-hidden bg-slate-50 font-body">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="h-[calc(100vh-120px)] flex flex-col -m-8 overflow-hidden bg-slate-50 font-body">
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl transition-all">
             <ChevronLeft className="w-6 h-6" />
           </Button>
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 border border-primary/10">
             <Network className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -163,16 +156,14 @@ export default function ProcessMapPage() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="bg-slate-100 p-1 rounded-lg border">
-          <TabsList className="bg-transparent h-9 gap-1">
-            <TabsTrigger value="cards" className="rounded-md text-[10px] font-bold uppercase data-[state=active]:bg-white data-[state=active]:shadow-sm">
-              <Layers className="w-3.5 h-3.5 mr-2" /> Kachel-Ansicht
-            </TabsTrigger>
-            <TabsTrigger value="diagram" className="rounded-md text-[10px] font-bold uppercase data-[state=active]:bg-white data-[state=active]:shadow-sm">
-              <MapIcon className="w-3.5 h-3.5 mr-2" /> Diagramm-Ansicht
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <TabsList className="bg-slate-100 p-1 h-10 rounded-xl border gap-1">
+          <TabsTrigger value="cards" className="rounded-lg text-[10px] font-bold uppercase data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">
+            <Layers className="w-3.5 h-3.5 mr-2" /> Kachel-Ansicht
+          </TabsTrigger>
+          <TabsTrigger value="diagram" className="rounded-lg text-[10px] font-bold uppercase data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">
+            <MapIcon className="w-3.5 h-3.5 mr-2" /> Diagramm-Ansicht
+          </TabsTrigger>
+        </TabsList>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
@@ -184,7 +175,7 @@ export default function ProcessMapPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
                 <Input 
                   placeholder="Prozessname..." 
-                  className="pl-9 h-10 text-xs rounded-md border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none"
+                  className="pl-9 h-10 text-xs rounded-lg border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                 />
@@ -224,7 +215,7 @@ export default function ProcessMapPage() {
           </div>
           
           <div className="mt-auto p-6 bg-slate-50 border-t">
-            <div className="p-4 bg-white border border-dashed border-slate-200 text-center space-y-2 rounded-xl">
+            <div className="p-4 bg-white border border-dashed border-slate-200 text-center space-y-2 rounded-2xl shadow-inner">
               <p className="text-[10px] font-bold uppercase text-slate-400">Netzwerk-Statistik</p>
               <div className="grid grid-cols-2 gap-4">
                 <div><p className="text-xl font-bold text-slate-900">{filteredProcesses.length}</p><p className="text-[8px] font-bold uppercase text-slate-400">Prozesse</p></div>
@@ -247,7 +238,7 @@ export default function ProcessMapPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Workflow className="w-4 h-4 text-primary" />
-                          <CardTitle className="text-xs font-bold uppercase truncate max-w-[200px]">{proc.title}</CardTitle>
+                          <CardTitle className="text-xs font-bold truncate max-w-[200px]">{proc.title}</CardTitle>
                         </div>
                         <Badge className="bg-primary text-white border-none rounded-full text-[8px] h-4 px-2">V{proc.currentVersion}</Badge>
                       </div>
@@ -306,7 +297,7 @@ export default function ProcessMapPage() {
                 className="absolute inset-0 w-full h-full border-none" 
               />
             </div>
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0 mt-4 rounded-xl">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0 mt-4 rounded-xl shadow-lg">
               <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest">
                 <div className="flex items-center gap-2"><div className="w-3 h-3 bg-emerald-500 rounded-sm" /> Freigegeben</div>
                 <div className="flex items-center gap-2"><div className="w-3 h-3 bg-white border border-slate-400 rounded-sm" /> Entwurf</div>
@@ -319,11 +310,11 @@ export default function ProcessMapPage() {
       </div>
 
       {isProcLoading && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex flex-col items-center justify-center gap-4">
           <Loader2 className="w-12 h-12 animate-spin text-primary" />
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white animate-pulse">Lade Prozess-Infrastruktur...</p>
         </div>
       )}
-    </div>
+    </Tabs>
   );
 }

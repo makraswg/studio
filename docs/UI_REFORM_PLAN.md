@@ -34,5 +34,5 @@
 - [x] **Darkmode Fine-Tuning**: Perfektionierung der Kontraste in allen Detail-Dialogen.
 
 ### 4. User Guidance
-- [ ] **Quick Tours**: Geführte Einführung für neue Administratoren.
+- [x] **Quick Tours**: Geführte Einführung für neue Administratoren.
 - [x] **Contextual Help**: Integration der Hilfe-Inhalte direkt in die Header-Leiste.

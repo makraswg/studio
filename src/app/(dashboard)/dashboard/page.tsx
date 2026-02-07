@@ -52,6 +52,7 @@ import {
   DialogDescription,
   DialogFooter
 } from '@/components/ui/dialog';
+import { QuickTour, type TourStep } from '@/components/layout/quick-tour';
 
 const riskData = [
   { name: 'Niedriges Risiko', value: 65, color: '#29ABE2' },
@@ -127,14 +128,39 @@ export default function DashboardPage() {
   if (!mounted) return null;
 
   const stats = [
-    { title: 'Benutzer', value: filteredData.users.length, icon: Users, label: 'Identitäten', color: 'text-blue-500', bg: 'bg-blue-500/10', loading: usersLoading },
-    { title: 'Systeme', value: filteredData.resources.length, icon: Layers, label: 'Katalog', color: 'text-indigo-500', bg: 'bg-indigo-500/10', loading: resourcesLoading },
-    { title: 'Zugriffe', value: filteredData.assignments.filter((a: any) => a.status === 'active').length, icon: ShieldCheck, label: 'Aktiv', color: 'text-emerald-500', bg: 'bg-emerald-500/10', loading: assignmentsLoading },
-    { title: 'Audits', value: auditLogs?.length || 0, icon: Activity, label: 'Journal', color: 'text-orange-500', bg: 'bg-orange-500/10', loading: auditLoading },
+    { id: 'stat-users', title: 'Benutzer', value: filteredData.users.length, icon: Users, label: 'Identitäten', color: 'text-blue-500', bg: 'bg-blue-500/10', loading: usersLoading },
+    { id: 'stat-resources', title: 'Systeme', value: filteredData.resources.length, icon: Layers, label: 'Katalog', color: 'text-indigo-500', bg: 'bg-indigo-500/10', loading: resourcesLoading },
+    { id: 'stat-assignments', title: 'Zugriffe', value: filteredData.assignments.filter((a: any) => a.status === 'active').length, icon: ShieldCheck, label: 'Aktiv', color: 'text-emerald-500', bg: 'bg-emerald-500/10', loading: assignmentsLoading },
+    { id: 'stat-audits', title: 'Audits', value: auditLogs?.length || 0, icon: Activity, label: 'Journal', color: 'text-orange-500', bg: 'bg-orange-500/10', loading: auditLoading },
+  ];
+
+  const dashboardTour: TourStep[] = [
+    {
+      target: '#stat-users',
+      title: 'Identitäts-Management',
+      content: 'Hier behalten Sie den Überblick über alle Mitarbeiter und deren digitalen Fingerabdruck im Unternehmen.'
+    },
+    {
+      target: '#campaign-progress',
+      title: 'Compliance Kampagnen',
+      content: 'Überwachen Sie laufende Zertifizierungs-Reviews. 68% der Identitäten wurden diesen Monat bereits geprüft.'
+    },
+    {
+      target: '#risk-profile',
+      title: 'Echtzeit Risiko-Analyse',
+      content: 'Das System bewertet automatisch die Berechtigungs-Struktur und zeigt Ihnen kritische Konzentrationen von Rechten.'
+    },
+    {
+      target: '#report-btn',
+      title: 'Audit-Bereite Berichte',
+      content: 'Exportieren Sie per Klick vollständige PDFs für Revisoren oder den Datenschutzbeauftragten.'
+    }
   ];
 
   return (
     <div className="space-y-10 pb-20 animate-in fade-in duration-700 slide-in-from-bottom-4">
+      <QuickTour tourId="dashboard-main" steps={dashboardTour} />
+
       {/* Header Section with subtle gradient */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-8">
         <div>
@@ -144,6 +170,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex gap-3">
           <Button 
+            id="report-btn"
             variant="outline" 
             className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all active:scale-95" 
             onClick={() => setIsReportDialogOpen(true)}
@@ -157,7 +184,7 @@ export default function DashboardPage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => (
-          <Card key={stat.title} className="group border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden hover:scale-[1.02] transition-all duration-300 active:scale-95">
+          <Card key={stat.title} id={stat.id} className="group border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden hover:scale-[1.02] transition-all duration-300 active:scale-95">
             <CardContent className="p-6">
               {stat.loading ? (
                 <div className="flex items-center gap-5">
@@ -189,7 +216,7 @@ export default function DashboardPage() {
       {/* Content Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         {/* Main Chart/Progress Area */}
-        <Card className="xl:col-span-2 border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden">
+        <Card id="campaign-progress" className="xl:col-span-2 border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden">
           <CardHeader className="border-b border-slate-100 dark:border-slate-800 py-6 px-8 flex flex-row items-center justify-between bg-slate-50/50 dark:bg-slate-950/50">
             <div>
               <CardTitle className="text-lg font-headline font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Zertifizierungs-Kampagne</CardTitle>
@@ -241,7 +268,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Risk Profile Card */}
-        <Card className="border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden flex flex-col">
+        <Card id="risk-profile" className="border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden flex flex-col">
           <CardHeader className="border-b border-slate-100 dark:border-slate-800 py-6 px-8 bg-slate-50/50 dark:bg-slate-950/50">
             <CardTitle className="text-lg font-headline font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Risiko-Profil</CardTitle>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Identitäts-Risiken</p>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -16,7 +15,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 function HeaderContent({ onMenuToggle }: { onMenuToggle?: () => void }) {
@@ -54,6 +53,9 @@ function HeaderContent({ onMenuToggle }: { onMenuToggle?: () => void }) {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-72">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Navigation Menü</SheetTitle>
+              </SheetHeader>
               <AppSidebar />
             </SheetContent>
           </Sheet>

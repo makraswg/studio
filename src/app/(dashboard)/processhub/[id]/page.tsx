@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -72,7 +71,12 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   const positions = layout.positions || {};
 
   nodes.forEach((node, idx) => {
-    const nodeSafeId = node.id || `node-gen-${idx}`;
+    let nodeSafeId = String(node.id || `node-gen-${idx}`);
+    // Extrem robuste ID-Bereinigung für mxGraph
+    if (nodeSafeId === 'undefined' || nodeSafeId === 'null' || nodeSafeId === '') {
+      nodeSafeId = `node-auto-${idx}-${Math.random().toString(36).substring(2, 5)}`;
+    }
+    
     const pos = positions[nodeSafeId] || { x: 50 + (idx * 220), y: 150 };
     let style = '';
     let w = 160, h = 80;
@@ -92,8 +96,18 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   });
 
   edges.forEach((edge, idx) => {
-    const edgeSafeId = edge.id || `edge-gen-${idx}`;
-    xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="${edge.source}" target="${edge.target}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+    let edgeSafeId = String(edge.id || `edge-gen-${idx}`);
+    if (edgeSafeId === 'undefined' || edgeSafeId === 'null' || edgeSafeId === '') {
+      edgeSafeId = `edge-auto-${idx}-${Math.random().toString(36).substring(2, 5)}`;
+    }
+
+    // Sicherheits-Check: Nur Edges zeichnen, deren Endpunkte existieren
+    const sourceExists = nodes.some(n => n.id === edge.source);
+    const targetExists = nodes.some(n => n.id === edge.target);
+    
+    if (sourceExists && targetExists) {
+      xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="${edge.source}" target="${edge.target}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+    }
   });
   xml += `</root></mxGraphModel>`;
   return xml;
@@ -358,7 +372,7 @@ export default function ProcessDesignerPage() {
           <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2"><ClipboardList className="w-3.5 h-3.5" /> Schritte</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="meta" className="flex-1 m-0 p-0 overflow-hidden data-[state=active]:flex flex-col outline-none mt-0">
+        <TabsContent value="meta" className="flex-1 m-0 p-0 overflow-hidden data-[state=active]:flex flex-col outline-none">
           <ScrollArea className="flex-1">
             <div className="p-6 space-y-10 pb-24">
               <div className="space-y-6">
@@ -418,7 +432,7 @@ export default function ProcessDesignerPage() {
           </ScrollArea>
         </TabsContent>
 
-        <TabsContent value="steps" className="flex-1 m-0 p-0 overflow-hidden data-[state=active]:flex flex-col outline-none mt-0">
+        <TabsContent value="steps" className="flex-1 m-0 p-0 overflow-hidden data-[state=active]:flex flex-col outline-none">
           <div className="px-5 py-3 border-b bg-slate-50 flex items-center justify-between shrink-0">
             <h3 className="text-[10px] font-bold uppercase text-slate-400">Ablauffolge</h3>
             <div className="flex gap-1">

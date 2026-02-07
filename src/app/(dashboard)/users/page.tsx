@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -134,20 +133,6 @@ export default function UsersPage() {
     return tenant ? tenant.slug : id;
   };
 
-  const filteredDepartments = useMemo(() => {
-    if (!departments || !tenantId) return [];
-    return departments.filter(d => d.tenantId === tenantId && d.status !== 'archived');
-  }, [departments, tenantId]);
-
-  const filteredJobTitles = useMemo(() => {
-    if (!jobTitles || !tenantId) return [];
-    return jobTitles.filter(j => 
-      j.tenantId === tenantId && 
-      j.status !== 'archived' && 
-      (!department || j.departmentId === departments?.find(d => d.name === department)?.id)
-    );
-  }, [jobTitles, tenantId, department, departments]);
-
   const handleSaveUser = async () => {
     if (!displayName || !email || !tenantId) {
       toast({ variant: "destructive", title: "Fehler", description: "Bitte alle Pflichtfelder ausfüllen." });
@@ -186,38 +171,6 @@ export default function UsersPage() {
     setIsAddOpen(false);
     resetForm();
     setTimeout(() => { refreshUsers(); refreshAudit(); }, 200);
-  };
-
-  const handleQuickAssign = async () => {
-    if (!selectedUser || !qaEntitlementId) return;
-    setIsSavingAssignment(true);
-    const assId = `ass-${Math.random().toString(36).substring(2, 9)}`;
-    const assData = {
-      id: assId,
-      userId: selectedUser.id,
-      entitlementId: qaEntitlementId,
-      tenantId: selectedUser.tenantId || 'global',
-      status: 'active',
-      grantedBy: authUser?.email || 'system',
-      grantedAt: new Date().toISOString(),
-      validFrom: new Date().toISOString().split('T')[0],
-      validUntil: qaValidUntil,
-      ticketRef: 'QUICK-ASSIGN',
-      notes: 'Direktzuweisung über Benutzerverzeichnis.',
-      syncSource: 'manual'
-    };
-
-    try {
-      if (dataSource === 'mysql') await saveCollectionRecord('assignments', assId, assData);
-      else setDocumentNonBlocking(doc(db, 'assignments', assId), assData);
-      toast({ title: "Berechtigung zugewiesen" });
-      setIsQuickAssignOpen(false);
-      setTimeout(() => { refreshAssignments(); refreshAudit(); }, 300);
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler", description: e.message });
-    } finally {
-      setIsSavingAssignment(false);
-    }
   };
 
   const resetForm = () => {
@@ -301,7 +254,7 @@ export default function UsersPage() {
               )}
               onClick={() => setActiveStatusFilter(f as any)}
             >
-              {f === 'all' ? 'Alle' : f === 'active' ? 'Aktiv' : 'Inaktiv'}
+              {f === 'all' ? 'Alle' : f === 'active' ? 'Aktiv' : f === 'disabled' ? 'Inaktiv' : ''}
             </button>
           ))}
         </div>
@@ -320,7 +273,7 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-lg border shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-20" /></div>
         ) : (
@@ -337,8 +290,6 @@ export default function UsersPage() {
             <TableBody>
               {filteredUsers?.map((user: any) => {
                 const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
-                const isAd = user.externalId && !user.externalId.startsWith('MANUAL_');
-                
                 return (
                   <TableRow key={user.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0">
                     <TableCell className="py-4 px-6">
@@ -376,7 +327,7 @@ export default function UsersPage() {
                           variant="ghost" 
                           size="sm" 
                           className="h-8 rounded-md text-[9px] font-bold gap-1.5 opacity-0 group-hover:opacity-100 hover:bg-emerald-50 hover:text-emerald-600 transition-all active:scale-95"
-                          onClick={() => { setSelectedUser(user); setQaResourceId(''); setQaEntitlementId(''); setIsQuickAssignOpen(true); }}
+                          onClick={() => { setSelectedUser(user); setIsQuickAssignOpen(true); }}
                         >
                           <UserPlus className="w-3.5 h-3.5" /> Zuweisen
                         </Button>
@@ -395,7 +346,7 @@ export default function UsersPage() {
             </TableBody>
           </Table>
         </div>
-      )}
+      </div>
     </div>
   );
 }

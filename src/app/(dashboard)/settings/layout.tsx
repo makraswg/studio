@@ -1,3 +1,4 @@
+
 "use client";
 
 import { usePathname } from 'next/navigation';
@@ -14,7 +15,8 @@ import {
   Briefcase,
   Settings as SettingsIcon,
   ChevronRight,
-  BookOpen
+  BookOpen,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +32,7 @@ export default function SettingsLayout({
   const navItems = [
     { id: 'general', label: 'Organisation', icon: Building2, href: '/settings/general' },
     { id: 'structure', label: 'Struktur & Stellen', icon: Briefcase, href: '/settings/structure' },
+    { id: 'ux', label: 'User Experience', icon: Sparkles, href: '/settings/ux' },
     { id: 'pusers', label: 'Administratoren', icon: Users, href: '/settings/pusers' },
     { id: 'sync', label: 'Identität & Sync', icon: Network, href: '/settings/sync' },
     { id: 'integrations', label: 'Jira Gateway', icon: RefreshCw, href: '/settings/integrations' },

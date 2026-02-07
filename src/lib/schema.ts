@@ -476,5 +476,14 @@ export const appSchema: AppSchema = {
       content: 'LONGTEXT',
       order: 'INT DEFAULT 0'
     }
+  },
+  uiConfigs: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      enableAdvancedAnimations: 'BOOLEAN DEFAULT TRUE',
+      enableQuickTours: 'BOOLEAN DEFAULT TRUE',
+      enableGlassmorphism: 'BOOLEAN DEFAULT TRUE',
+      enableConfetti: 'BOOLEAN DEFAULT TRUE',
+    }
   }
 };

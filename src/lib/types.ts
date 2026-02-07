@@ -134,14 +134,6 @@ export interface Document {
   [key: string]: any;
 }
 
-export interface JobTitle {
-  id: string;
-  tenantId: string;
-  departmentId: string;
-  name: string;
-  status: 'active' | 'archived';
-}
-
 export interface Resource {
   id: string;
   tenantId: string;
@@ -233,6 +225,14 @@ export interface RiskMeasure {
   status: 'planned' | 'active' | 'completed' | 'on_hold';
   effectiveness: number;
   notes?: string;
+  isTom?: boolean | number;
+  tomCategory?: 'Zugriffskontrolle' | 'Zutrittskontrolle' | 'Weitergabekontrolle' | 'Verschlüsselung';
+  art32Mapping?: string[];
+  gdprProtectionGoals?: string[];
+  isEffective?: boolean | number;
+  checkType?: 'Audit' | 'Test' | 'Review';
+  lastCheckDate?: string;
+  evidenceDetails?: string;
 }
 
 export interface AssignmentGroup {
@@ -260,4 +260,105 @@ export interface HelpContent {
   title: string;
   content: string;
   order: number;
+}
+
+export interface SyncJob {
+  id: string;
+  name: string;
+  lastRun?: string;
+  lastStatus?: 'running' | 'success' | 'error';
+  lastMessage?: string;
+}
+
+export interface JiraConfig {
+  id: string;
+  enabled: boolean | number;
+  url: string;
+  email: string;
+  apiToken: string;
+  projectKey: string;
+  issueTypeName: string;
+  approvedStatusName: string;
+  doneStatusName: string;
+  workspaceId?: string;
+  schemaId?: string;
+  objectTypeId?: string;
+  entitlementObjectTypeId?: string;
+  autoSyncAssets?: boolean | number;
+}
+
+export interface AiConfig {
+  id: string;
+  enabled: boolean | number;
+  provider: 'ollama' | 'google' | 'openrouter';
+  ollamaUrl?: string;
+  ollamaModel?: string;
+  geminiModel?: string;
+  openrouterApiKey?: string;
+  openrouterModel?: string;
+  systemPrompt?: string;
+}
+
+export interface SmtpConfig {
+  id: string;
+  enabled: boolean | number;
+  host: string;
+  port: string;
+  user: string;
+  fromEmail: string;
+}
+
+export interface ImportRun {
+  id: string;
+  catalogId: string;
+  timestamp: string;
+  status: 'success' | 'partial' | 'failed';
+  itemCount: number;
+  log: string;
+}
+
+export interface Hazard {
+  id: string;
+  moduleId: string;
+  code: string;
+  title: string;
+  description: string;
+  contentHash: string;
+}
+
+export interface HazardModule {
+  id: string;
+  catalogId: string;
+  code: string;
+  title: string;
+}
+
+export interface Catalog {
+  id: string;
+  name: string;
+  version: string;
+  provider: string;
+  importedAt: string;
+}
+
+export interface DataSubjectGroup {
+  id: string;
+  tenantId: string;
+  name: string;
+  status: 'active' | 'archived';
+}
+
+export interface DataCategory {
+  id: string;
+  tenantId: string;
+  name: string;
+  status: 'active' | 'archived';
+}
+
+export interface UiConfig {
+  id: string;
+  enableAdvancedAnimations: boolean | number;
+  enableQuickTours: boolean | number;
+  enableGlassmorphism: boolean | number;
+  enableConfetti: boolean | number;
 }

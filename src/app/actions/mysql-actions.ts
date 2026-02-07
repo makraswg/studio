@@ -43,7 +43,8 @@ const collectionToTableMap: { [key: string]: string } = {
   process_versions: 'process_versions',
   process_ops: 'process_ops',
   ai_sessions: 'ai_sessions',
-  ai_messages: 'ai_messages'
+  ai_messages: 'ai_messages',
+  uiConfigs: 'uiConfigs'
 };
 
 function normalizeRecord(item: any, tableName: string) {
@@ -78,7 +79,7 @@ function normalizeRecord(item: any, tableName: string) {
     'enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets',
     'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
     'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
-    'isTom', 'isArt9Relevant', 'isEffective'
+    'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti'
   ];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
@@ -156,7 +157,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       'enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets',
       'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
       'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
-      'isTom', 'isArt9Relevant', 'isEffective'
+      'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti'
     ];
     boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
     
@@ -228,7 +229,8 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       'process_versions',
       'process_ops',
       'ai_sessions',
-      'ai_messages'
+      'ai_messages',
+      'uiConfigs'
     ];
 
     for (const table of tablesToClear) {

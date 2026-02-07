@@ -27,7 +27,8 @@ import {
   Info,
   Layers,
   ArrowRight,
-  Shield
+  Shield,
+  CheckCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -163,11 +164,12 @@ export default function AccessReviewsPage() {
     const completed = base.filter((a: any) => !!a.lastReviewedAt && a.status === 'active').length;
     const overdue = base.filter((a: any) => !a.lastReviewedAt && a.validUntil && new Date(a.validUntil) < new Date() && a.status === 'active').length;
     
+    const rawPercent = total > 0 ? (completed / total) * 100 : 0;
     return {
       total,
       completed,
       overdue,
-      percent: total > 0 ? Math.round((completed / total) * 100) : 0
+      percent: Math.round(rawPercent)
     };
   }, [assignments, activeTenantId]);
 
@@ -227,18 +229,24 @@ export default function AccessReviewsPage() {
         </div>
         
         <div className="flex bg-slate-100 p-1 rounded-md border border-slate-200 h-9 shrink-0">
-          {['pending', 'completed', 'all'].map(id => (
-            <button 
-              key={id} 
-              className={cn(
-                "px-6 h-full text-[10px] font-bold rounded-sm transition-all whitespace-nowrap",
-                activeFilter === id ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
-              )}
-              onClick={() => setActiveFilter(id as any)}
-            >
-              {id === 'pending' ? 'Ausstehend' : id === 'completed' ? 'Geprüft' : 'Alle'}
-            </button>
-          ))}
+          <button 
+            className={cn("px-6 h-full text-[10px] font-bold rounded-sm transition-all whitespace-nowrap", activeFilter === 'pending' ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700")}
+            onClick={() => setActiveFilter('pending')}
+          >
+            Ausstehend
+          </button>
+          <button 
+            className={cn("px-6 h-full text-[10px] font-bold rounded-sm transition-all whitespace-nowrap", activeFilter === 'completed' ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700")}
+            onClick={() => setActiveFilter('completed')}
+          >
+            Geprüft
+          </button>
+          <button 
+            className={cn("px-6 h-full text-[10px] font-bold rounded-sm transition-all whitespace-nowrap", activeFilter === 'all' ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700")}
+            onClick={() => setActiveFilter('all')}
+          >
+            Alle
+          </button>
         </div>
       </div>
 
@@ -340,7 +348,6 @@ export default function AccessReviewsPage() {
         </div>
       )}
 
-      {/* AI Advisor Dialog */}
       <Dialog open={isAdvisorOpen} onOpenChange={setIsAdvisorOpen}>
         <DialogContent className="max-w-2xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[85vh]">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-8">
@@ -374,7 +381,7 @@ export default function AccessReviewsPage() {
                     <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Risiko Score</p>
                     <div className="flex items-baseline gap-2">
                       <h3 className="text-4xl font-black text-indigo-900">{aiAdvice.riskScore}</h3>
-                      <span className="text-sm font-bold text-indigo-400">/ 100</span>
+                      <span className="text-sm font-bold text-indigo-400">{ "/ 100" }</span>
                     </div>
                   </div>
                   <div className={cn(

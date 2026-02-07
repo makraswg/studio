@@ -133,12 +133,13 @@ export default function ProcessDesignerPage() {
   const [leftWidth, setLeftWidth] = useState(360);
   const isResizingLeft = useRef(false);
 
-  // AI State - Emerald Green
+  // States
   const [isAiAdvisorOpen, setIsAiAdvisorOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSavingMeta, setIsSavingMeta] = useState(false);
   
@@ -320,6 +321,7 @@ export default function ProcessDesignerPage() {
     };
     
     const nodes = currentVersion.model_json.nodes || [];
+    // Auto-Connect: Nimm den aktuell gewählten oder den letzten in der Liste
     const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : nodes[nodes.length - 1];
     
     const ops: ProcessOperation[] = [
@@ -354,15 +356,13 @@ export default function ProcessDesignerPage() {
   };
 
   const handleDeleteNode = async () => {
-    if (!selectedNodeId || isApplying) return;
+    if (!selectedNodeId || isDeleting) return;
     const confirmDelete = window.confirm("Möchten Sie dieses Prozessmodul wirklich unwiderruflich löschen?");
     if (!confirmDelete) return;
 
-    const nodeIdToDelete = selectedNodeId;
-    setIsApplying(true);
-    
+    setIsDeleting(true);
     try {
-      const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: nodeIdToDelete } }];
+      const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
       const res = await applyProcessOpsAction(currentVersion.process_id, currentVersion.version, ops, currentVersion.revision, user?.id || 'system', dataSource);
       
       if (res.success) {
@@ -377,7 +377,7 @@ export default function ProcessDesignerPage() {
     } catch (e: any) {
       toast({ variant: "destructive", title: "Systemfehler", description: e.message });
     } finally {
-      setIsApplying(false);
+      setIsDeleting(false);
     }
   };
 
@@ -801,6 +801,7 @@ export default function ProcessDesignerPage() {
                 </TabsContent>
                 <TabsContent value="logic" className="mt-0 space-y-10">
                   <div className="space-y-8">
+                    {/* VORGÄNGER ZUERST */}
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-2 ml-1">
                         <ArrowLeftCircle className="w-4 h-4" /> Vorhergehende Schritte (Vorgänger)
@@ -838,6 +839,7 @@ export default function ProcessDesignerPage() {
                     
                     <Separator className="bg-slate-100" />
                     
+                    {/* NACHFOLGER DANACH */}
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold uppercase text-emerald-600 flex items-center gap-2 ml-1">
                         <ArrowRightCircle className="w-4 h-4" /> Nachfolgende Schritte (Nachfolger)
@@ -907,9 +909,9 @@ export default function ProcessDesignerPage() {
               variant="ghost" 
               className="text-red-600 rounded-xl h-10 px-6 hover:bg-red-50 font-bold text-[10px] gap-2 transition-colors w-full sm:w-auto" 
               onClick={handleDeleteNode}
-              disabled={isApplying}
+              disabled={isDeleting || isApplying}
             >
-              {isApplying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Modul löschen
+              {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Modul löschen
             </Button>
             <div className="flex gap-2 w-full sm:w-auto">
               <Button variant="ghost" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs" disabled={isApplying}>

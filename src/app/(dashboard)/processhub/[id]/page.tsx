@@ -32,7 +32,8 @@ import {
   HelpCircle,
   MessageCircle,
   Info,
-  Sparkles
+  Sparkles,
+  Briefcase
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -111,7 +112,7 @@ export default function ProcessDesignerPage() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
   const [mounted, setMounted] = useState(false);
-  const [leftWidth, setLeftWidth] = useState(320);
+  const [leftWidth, setLeftWidth] = useState(340);
   const [rightWidth, setRightWidth] = useState(360);
   const isResizingLeft = useRef(false);
   const isResizingRight = useRef(false);
@@ -187,7 +188,7 @@ export default function ProcessDesignerPage() {
   }, [selectedNode?.id]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (isResizingLeft.current) setLeftWidth(Math.max(250, Math.min(600, e.clientX)));
+    if (isResizingLeft.current) setLeftWidth(Math.max(280, Math.min(600, e.clientX)));
     if (isResizingRight.current) setRightWidth(Math.max(300, Math.min(600, window.innerWidth - e.clientX)));
   }, []);
 
@@ -450,7 +451,7 @@ export default function ProcessDesignerPage() {
                 <div className="flex gap-1.5">
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-primary/5 hover:text-primary" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-accent/5 hover:text-accent" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
-                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-blue-50 hover:text-blue-600" onClick={() => handleQuickAdd('end')}>+ Endpunkt</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-blue-50 hover:text-blue-600" onClick={() => handleQuickAdd('end')}>+ Ende</Button>
                 </div>
               </div>
               <ScrollArea className="flex-1 bg-slate-50/30">
@@ -458,6 +459,9 @@ export default function ProcessDesignerPage() {
                   {(currentVersion?.model_json?.nodes || []).map((node: any, idx: number) => {
                     const isEndLinked = node.type === 'end' && !!node.targetProcessId && node.targetProcessId !== 'none';
                     const nodeCommentCount = comments?.filter(c => c.node_id === node.id).length || 0;
+                    const roleName = jobTitles?.find(j => j.id === node.roleId)?.name;
+                    const descPreview = node.description ? node.description.split(' ').slice(0, 8).join(' ') + '...' : '';
+
                     return (
                       <div key={String(node.id || idx)} className={cn("group flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer bg-white shadow-sm hover:border-primary/30", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}>
                         <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border relative", node.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : node.type === 'start' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : node.type === 'end' ? (isEndLinked ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-red-50 text-red-600 border-red-100") : "bg-slate-50 text-slate-500 border-slate-100 shadow-inner")}>
@@ -466,7 +470,16 @@ export default function ProcessDesignerPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{node.title}</p>
-                          <p className="text-[8px] text-slate-400 font-bold mt-0.5">{node.type}</p>
+                          {roleName && (
+                            <p className="text-[9px] text-primary font-bold mt-0.5 flex items-center gap-1">
+                              <Briefcase className="w-2.5 h-2.5" /> {roleName}
+                            </p>
+                          )}
+                          {descPreview && (
+                            <p className="text-[9px] text-slate-400 italic mt-0.5 truncate leading-tight">
+                              {descPreview}
+                            </p>
+                          )}
                         </div>
                         <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button className="p-0.5 hover:text-primary transition-colors disabled:opacity-20" disabled={idx === 0} onClick={e => { e.stopPropagation(); handleMoveNode(node.id, 'up'); }}><ChevronUp className="w-3.5 h-3.5" /></button>
@@ -639,7 +652,7 @@ export default function ProcessDesignerPage() {
                 <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">
                   {localNodeEdits.title || (localNodeEdits.type === 'decision' ? 'Weichen-Konfiguration' : 'Prozessschritt bearbeiten')}
                 </DialogTitle>
-                <DialogDescription className="text-[10px] text-slate-400 font-bold mt-0.5 tracking-wider">
+                <DialogDescription className="text-[10px] text-slate-400 font-bold mt-0.5 tracking-wider uppercase">
                   Modul: {localNodeEdits.type} • ID: {selectedNodeId}
                 </DialogDescription>
               </div>
@@ -650,11 +663,11 @@ export default function ProcessDesignerPage() {
             <div className="p-8 space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Bezeichnung</Label>
+                  <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest">Bezeichnung</Label>
                   <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} onBlur={() => saveNodeUpdate('title')} className="h-11 text-sm font-bold rounded-md border-slate-200 bg-white shadow-sm" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Verantwortung</Label>
+                  <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest">Verantwortung</Label>
                   <Select value={localNodeEdits.roleId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, roleId: val}); saveNodeUpdate('roleId', val); }}>
                     <SelectTrigger className="h-11 rounded-md border-slate-200 bg-white text-xs">
                       <SelectValue placeholder="Rolle wählen..." />
@@ -671,7 +684,7 @@ export default function ProcessDesignerPage() {
 
               {localNodeEdits.type === 'end' && (
                 <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Zielprozess (Handover)</Label>
+                  <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest">Zielprozess (Handover)</Label>
                   <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, targetProcessId: val}); saveNodeUpdate('targetProcessId', val); }}>
                     <SelectTrigger className="h-11 rounded-md border-slate-200 bg-white text-xs">
                       <SelectValue placeholder="Prozess wählen..." />
@@ -688,14 +701,14 @@ export default function ProcessDesignerPage() {
 
               <div className="space-y-8">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Beschreibung der Tätigkeit</Label>
+                  <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest">Beschreibung der Tätigkeit</Label>
                   <div className="p-1 rounded-xl border border-slate-100 bg-slate-50/30">
                     <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-xs min-h-[120px] rounded-lg border-none bg-transparent leading-relaxed p-4 shadow-none focus:ring-0" placeholder="Beschreiben Sie hier die auszuführende Aktion..." />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-2 uppercase tracking-widest">
+                  <Label className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-2 tracking-widest">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Prüfschritte / Checkliste
                   </Label>
                   <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[11px] min-h-[100px] bg-slate-900 text-slate-100 rounded-md font-mono p-4 leading-relaxed shadow-lg border-none" placeholder="Einen Punkt pro Zeile eingeben..." />

@@ -335,13 +335,18 @@ export default function ProcessDesignerPage() {
   };
 
   const handleDeleteNode = async () => {
-    if (!selectedNodeId || !currentVersion || !user) return;
+    console.log("Delete triggered for node:", selectedNodeId);
+    if (!selectedNodeId || !currentVersion || !user) {
+      console.warn("Delete aborted: missing core data", { selectedNodeId, hasVersion: !!currentVersion, hasUser: !!user });
+      return;
+    }
     
     const confirmed = window.confirm('Möchten Sie diesen Prozessschritt wirklich unwiderruflich löschen? Alle Verknüpfungen werden ebenfalls entfernt.');
     if (!confirmed) return;
     
     setIsDeleting(true);
     try {
+      console.log("Applying REMOVE_NODE operation via applyProcessOpsAction...");
       const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
       const res = await applyProcessOpsAction(
         currentVersion.process_id, 
@@ -353,15 +358,21 @@ export default function ProcessDesignerPage() {
       );
       
       if (res.success) {
+        console.log("Node deleted successfully on server.");
         toast({ title: "Schritt entfernt" });
         setIsStepDialogOpen(false);
         setSelectedNodeId(null);
         refreshVersion();
         refreshProc();
+      } else {
+        console.error("Server returned success:false for node deletion");
+        toast({ variant: "destructive", title: "Fehler beim Löschen", description: "Die Server-Operation war nicht erfolgreich." });
       }
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler beim Löschen", description: e.message });
+      console.error("Exception during node deletion:", e);
+      toast({ variant: "destructive", title: "Fehler beim Löschen", description: e.message || "Unbekannter Fehler." });
     } finally {
+      console.log("Cleaning up deletion state.");
       setIsDeleting(false);
     }
   };

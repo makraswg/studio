@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -146,6 +145,28 @@ export default function ProcessDetailViewPage() {
     } catch (e) { return []; }
   }, [currentProcess, regulatoryOptions]);
 
+  const incomingProcessLinks = useMemo(() => {
+    if (!processes || !versions || !id) return [];
+    const links: any[] = [];
+    versions.forEach((v: any) => {
+      if (v.process_id === id) return;
+      const hasLink = v.model_json?.nodes?.some((n: any) => n.targetProcessId === id);
+      if (hasLink) {
+        const p = processes.find(proc => proc.id === v.process_id);
+        if (p) links.push({ id: p.id, title: p.title });
+      }
+    });
+    return links;
+  }, [processes, versions, id]);
+
+  const outgoingProcessLinks = useMemo(() => {
+    if (!activeVersion || !processes) return [];
+    const targetIds = (activeVersion.model_json?.nodes || [])
+      .filter((n: any) => n.targetProcessId && n.targetProcessId !== 'none')
+      .map((n: any) => n.targetProcessId);
+    return processes.filter(p => targetIds.includes(p.id));
+  }, [activeVersion, processes]);
+
   useEffect(() => { setMounted(true); }, []);
 
   const syncDiagram = useCallback(() => {
@@ -279,14 +300,42 @@ export default function ProcessDetailViewPage() {
                       "{versionAuditLog.action}"
                     </p>
                     <div className="flex items-center gap-2 text-[9px] font-bold text-emerald-600 uppercase pt-1">
-                      <UserIcon className="w-3 h-3" /> {versionAuditLog.actorUid}
+                      <UserIcon className="w-3.3 h-3" /> {versionAuditLog.actorUid}
                     </div>
                   </div>
                 </section>
               )}
 
+              <section className="space-y-6">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Prozess-Vernetzung</h3>
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-[9px] font-black uppercase text-slate-400 mb-2 block">Vorgänger-Prozesse</Label>
+                    <div className="space-y-1.5">
+                      {incomingProcessLinks.length > 0 ? incomingProcessLinks.map(p => (
+                        <div key={p.id} className="p-2.5 rounded-xl border border-dashed bg-slate-50 flex items-center justify-between group">
+                          <span className="text-[10px] font-bold text-slate-600 truncate flex-1">{p.title}</span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => router.push(`/processhub/view/${p.id}`)}><ExternalLink className="w-3 h-3" /></Button>
+                        </div>
+                      )) : <p className="text-[10px] text-slate-300 italic px-1">Keine</p>}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-[9px] font-black uppercase text-slate-400 mb-2 block">Ziel-Prozesse (Output)</Label>
+                    <div className="space-y-1.5">
+                      {outgoingProcessLinks.length > 0 ? outgoingProcessLinks.map(p => (
+                        <div key={p.id} className="p-2.5 rounded-xl border bg-primary/5 border-primary/10 flex items-center justify-between group">
+                          <span className="text-[10px] font-bold text-primary truncate flex-1">{p.title}</span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-primary" onClick={() => router.push(`/processhub/view/${p.id}`)}><ExternalLink className="w-3 h-3" /></Button>
+                        </div>
+                      )) : <p className="text-[10px] text-slate-300 italic px-1">Keine</p>}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
               <section className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Audit Log & Historie</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Historie</h3>
                 <div className="space-y-3">
                   {processAudit.slice(0, 10).map((log: any) => (
                     <div key={log.id} className="p-3 bg-slate-50 border rounded-xl space-y-1.5 transition-all hover:bg-white hover:shadow-sm">

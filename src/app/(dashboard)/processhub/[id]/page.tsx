@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -129,7 +128,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
 export default function ProcessDesignerPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { dataSource } = useSettings();
+  const { dataSource, activeTenantId } = useSettings();
   const { user } = usePlatformAuth();
   const isMobile = useIsMobile();
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -140,7 +139,6 @@ export default function ProcessDesignerPage() {
 
   // UI States
   const [isDiagramLocked, setIsDiagramLocked] = useState(false);
-  const [chatMessage, setChatMessage] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
@@ -469,7 +467,7 @@ export default function ProcessDesignerPage() {
 
       <div className="flex-1 flex overflow-hidden h-full relative">
         <aside style={{ width: isMobile ? '100%' : `${leftWidth}px` }} className={cn("border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar h-full shadow-sm", isMobile && "hidden")}>
-          <Tabs defaultValue="steps" className="h-full flex flex-col overflow-hidden">
+          <Tabs defaultValue="meta" className="h-full flex flex-col overflow-hidden">
             <TabsList className="h-11 bg-slate-50 border-b gap-0 p-0 w-full justify-start shrink-0 rounded-none overflow-x-auto no-scrollbar">
               <TabsTrigger value="meta" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-primary"><FilePen className="w-3.5 h-3.5" /> Stammdaten</TabsTrigger>
               <TabsTrigger value="steps" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-primary"><ClipboardList className="w-3.5 h-3.5" /> Ablauf</TabsTrigger>

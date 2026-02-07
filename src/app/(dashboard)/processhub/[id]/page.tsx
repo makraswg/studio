@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -172,12 +173,12 @@ export default function ProcessDesignerPage() {
   );
 
   const incomingEdges = useMemo(() => 
-    currentVersion?.model_json?.edges?.filter((e: ProcessEdge) => e.target === selectedNodeId) || [],
+    currentVersion?.model_json?.edges?.filter((e: ProcessEdge) => String(e.target) === String(selectedNodeId)) || [],
     [currentVersion, selectedNodeId]
   );
 
   const outgoingEdges = useMemo(() => 
-    currentVersion?.model_json?.edges?.filter((e: ProcessEdge) => e.source === selectedNodeId) || [],
+    currentVersion?.model_json?.edges?.filter((e: ProcessEdge) => String(e.source) === String(selectedNodeId)) || [],
     [currentVersion, selectedNodeId]
   );
 
@@ -356,13 +357,21 @@ export default function ProcessDesignerPage() {
 
   const handleDeleteNode = async () => {
     if (!selectedNodeId || isDeleting) return;
+    
     const confirmDelete = window.confirm("Möchten Sie dieses Prozessmodul wirklich unwiderruflich löschen?");
     if (!confirmDelete) return;
 
     setIsDeleting(true);
     try {
       const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
-      const res = await applyProcessOpsAction(currentVersion.process_id, currentVersion.version, ops, currentVersion.revision, user?.id || 'system', dataSource);
+      const res = await applyProcessOpsAction(
+        currentVersion.process_id, 
+        currentVersion.version, 
+        ops, 
+        currentVersion.revision, 
+        user?.id || 'system', 
+        dataSource
+      );
       
       if (res.success) {
         setIsStepDialogOpen(false);
@@ -514,7 +523,10 @@ export default function ProcessDesignerPage() {
                     {[{ id: 'inputs', label: 'Eingaben' }, { id: 'outputs', label: 'Ausgaben' }, { id: 'risks', label: 'Risiken & Chancen' }, { id: 'evidence', label: 'Nachweise' }].map(f => (
                       <div key={f.id} className="space-y-2">
                         <Label className="text-[10px] font-bold flex items-center gap-2 text-slate-600">{f.label}</Label>
-                        <Textarea defaultValue={currentVersion?.model_json?.isoFields?.[f.id] || ''} className="text-[11px] rounded-lg min-h-[80px] border-slate-200 bg-white focus:bg-white transition-all" onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: f.id, value: e.target.value } }])} />
+                        <Textarea 
+                          defaultValue={currentVersion?.model_json?.isoFields?.[f.id] || ''} 
+                          className="text-[11px] rounded-lg min-h-[80px] border-slate-200 bg-white focus:bg-white transition-all" 
+                        />
                       </div>
                     ))}
                   </div>
@@ -659,7 +671,7 @@ export default function ProcessDesignerPage() {
                 )}
                 {chatHistory.map((msg, i) => (
                   <div key={i} className={cn("flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-1", msg.role === 'user' ? "items-end" : "items-start")}>
-                    <div className={cn("p-4 text-[11px] leading-relaxed max-w-[90%] shadow-md border transition-all", 
+                    <div className={cn("p-4 text-[11px] font-medium leading-relaxed max-w-[90%] shadow-md border transition-all", 
                       msg.role === 'user' 
                         ? "bg-emerald-950 text-white border-emerald-900 rounded-2xl rounded-tr-none" 
                         : "bg-white text-slate-600 border-slate-100 rounded-2xl rounded-tl-none")}>
@@ -798,15 +810,14 @@ export default function ProcessDesignerPage() {
                   )}
                 </TabsContent>
                 <TabsContent value="logic" className="mt-0 space-y-10">
-                  <div className="space-y-8">
-                    {/* VORGÄNGER ZUERST */}
+                  <div className="space-y-10">
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-2 ml-1">
-                        <ArrowLeftCircle className="w-4 h-4" /> Vorhergehende Schritte (Vorgänger)
+                        <ArrowLeftCircle className="w-4 h-4" /> Vorgänger (Eingehend)
                       </h4>
                       <div className="grid grid-cols-1 gap-2">
                         {incomingEdges.map((edge: ProcessEdge) => {
-                          const sourceNode = currentVersion?.model_json?.nodes?.find((n: any) => n.id === edge.source);
+                          const sourceNode = currentVersion?.model_json?.nodes?.find((n: any) => String(n.id) === String(edge.source));
                           return (
                             <div key={edge.id} className="flex items-center justify-between p-3 bg-slate-50/50 rounded-xl border border-slate-100 border-dashed">
                               <div className="flex items-center gap-3">
@@ -819,14 +830,13 @@ export default function ProcessDesignerPage() {
                             </div>
                           );
                         })}
-                        <div className="flex items-center gap-2 pt-2">
+                        <div className="pt-2">
                           <Select onValueChange={(val) => handleAddEdge(val, 'backward')}>
                             <SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white">
-                              <SelectValue placeholder="Neuen Vorgänger verknüpfen..." />
+                              <SelectValue placeholder="Vorgänger hinzufügen..." />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl">
-                              <SelectItem value="none" disabled>Schritt wählen...</SelectItem>
-                              {currentVersion?.model_json?.nodes?.filter((n: any) => n.id !== selectedNodeId && !incomingEdges.some((e: any) => e.source === n.id)).map((n: any) => (
+                              {currentVersion?.model_json?.nodes?.filter((n: any) => String(n.id) !== String(selectedNodeId) && !incomingEdges.some((e: any) => String(e.source) === String(n.id))).map((n: any) => (
                                 <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
                               ))}
                             </SelectContent>
@@ -837,14 +847,13 @@ export default function ProcessDesignerPage() {
                     
                     <Separator className="bg-slate-100" />
                     
-                    {/* NACHFOLGER DANACH */}
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold uppercase text-emerald-600 flex items-center gap-2 ml-1">
-                        <ArrowRightCircle className="w-4 h-4" /> Nachfolgende Schritte (Nachfolger)
+                        <ArrowRightCircle className="w-4 h-4" /> Nachfolger (Ausgehend)
                       </h4>
                       <div className="grid grid-cols-1 gap-2">
                         {outgoingEdges.map((edge: ProcessEdge) => {
-                          const targetNode = currentVersion?.model_json?.nodes?.find((n: any) => n.id === edge.target);
+                          const targetNode = currentVersion?.model_json?.nodes?.find((n: any) => String(n.id) === String(edge.target));
                           return (
                             <div key={edge.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
                               <div className="flex items-center gap-3">
@@ -857,14 +866,13 @@ export default function ProcessDesignerPage() {
                             </div>
                           );
                         })}
-                        <div className="flex items-center gap-2 pt-2">
+                        <div className="pt-2">
                           <Select onValueChange={(val) => handleAddEdge(val, 'forward')}>
                             <SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white">
-                              <SelectValue placeholder="Neuen Nachfolger verknüpfen..." />
+                              <SelectValue placeholder="Nachfolger hinzufügen..." />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl">
-                              <SelectItem value="none" disabled>Schritt wählen...</SelectItem>
-                              {currentVersion?.model_json?.nodes?.filter((n: any) => n.id !== selectedNodeId && !outgoingEdges.some((e: any) => e.target === n.id)).map((n: any) => (
+                              {currentVersion?.model_json?.nodes?.filter((n: any) => String(n.id) !== String(selectedNodeId) && !outgoingEdges.some((e: any) => String(e.target) === String(n.id))).map((n: any) => (
                                 <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
                               ))}
                             </SelectContent>
@@ -890,15 +898,6 @@ export default function ProcessDesignerPage() {
                     </div>
                   </div>
                 </TabsContent>
-                <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100 flex items-start gap-3 shadow-inner">
-                  <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                  <div className="space-y-0.5">
-                    <p className="text-[11px] font-bold text-slate-800">Manuelle Speicherung</p>
-                    <p className="text-[10px] text-slate-500 italic leading-relaxed">
-                      Klicken Sie auf „Änderungen speichern“, um Ihre Bearbeitung im Diagramm zu aktualisieren.
-                    </p>
-                  </div>
-                </div>
               </div>
             </ScrollArea>
           </Tabs>
@@ -912,11 +911,11 @@ export default function ProcessDesignerPage() {
               {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Modul löschen
             </Button>
             <div className="flex gap-2 w-full sm:w-auto">
-              <Button variant="ghost" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs" disabled={isApplying}>
+              <Button variant="ghost" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs" disabled={isApplying || isDeleting}>
                 Abbrechen
               </Button>
-              <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-[0.95]" disabled={isApplying}>
-                {isApplying ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Save className="w-3.5 h-3.5 mr-2" />} 
+              <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-[0.95]" disabled={isApplying || isDeleting}>
+                {isApplying ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Save className="w-3.5 h-3.5 mr-2" />} 
                 Änderungen speichern
               </Button>
             </div>

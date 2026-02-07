@@ -39,7 +39,8 @@ import {
   Link2,
   Share2,
   ArrowLeftCircle,
-  Trash2
+  Trash2,
+  Network
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,7 +58,7 @@ import { getProcessSuggestions } from '@/ai/flows/process-designer-flow';
 import { publishToBookStackAction } from '@/app/actions/bookstack-actions';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation, ProcessEdge } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation, ProcessEdge, ProcessVersion } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -182,6 +183,30 @@ export default function ProcessDesignerPage() {
     [currentVersion, selectedNodeId]
   );
 
+  // Networking logic for process-level metadata summary
+  const incomingProcessLinks = useMemo(() => {
+    if (!processes || !versions || !id) return [];
+    const links: any[] = [];
+    versions.forEach((v: ProcessVersion) => {
+      if (v.process_id === id) return;
+      const hasLink = v.model_json?.nodes?.some((n: ProcessNode) => n.targetProcessId === id);
+      if (hasLink) {
+        const p = processes.find(proc => proc.id === v.process_id);
+        if (p) links.push({ id: p.id, title: p.title });
+      }
+    });
+    return links;
+  }, [processes, versions, id]);
+
+  const outgoingProcessLinks = useMemo(() => {
+    if (!currentVersion || !processes) return [];
+    const targetIds = (currentVersion.model_json?.nodes || [])
+      .filter((n: ProcessNode) => n.targetProcessId && n.targetProcessId !== 'none')
+      .map((n: ProcessNode) => n.targetProcessId);
+    
+    return processes.filter(p => targetIds.includes(p.id));
+  }, [currentVersion, processes]);
+
   useEffect(() => {
     if (currentProcess) {
       setMetaTitle(currentProcess.title || '');
@@ -255,9 +280,7 @@ export default function ProcessDesignerPage() {
     if (!currentVersion || !user || !ops.length) return false;
     setIsApplying(true);
     try {
-      console.log("DEBUG: applyProcessOpsAction started", ops);
       const res = await applyProcessOpsAction(currentVersion.process_id, currentVersion.version, ops, currentVersion.revision, user.id, dataSource);
-      console.log("DEBUG: applyProcessOpsAction finished", res);
       if (res.success) {
         refreshVersion();
         refreshProc();
@@ -265,7 +288,6 @@ export default function ProcessDesignerPage() {
       }
       return false;
     } catch (e: any) {
-      console.error("DEBUG: handleApplyOps failed", e);
       toast({ variant: "destructive", title: "Update fehlgeschlagen", description: e.message });
       return false;
     } finally {
@@ -314,26 +336,21 @@ export default function ProcessDesignerPage() {
   };
 
   const handleDeleteNode = async () => {
-    console.log("DEBUG: handleDeleteNode triggered", selectedNodeId);
     if (!selectedNodeId) return;
-    if (!confirm('Möchten Sie diesen Prozessschritt wirklich unwiderruflich löschen? Alle Verknüpfungen werden ebenfalls entfernt.')) return;
+    const confirmed = window.confirm('Möchten Sie diesen Prozessschritt wirklich unwiderruflich löschen? Alle Verknüpfungen werden ebenfalls entfernt.');
+    if (!confirmed) return;
     
     setIsDeleting(true);
     try {
       const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
-      console.log("DEBUG: Calling handleApplyOps for removal", ops);
       const success = await handleApplyOps(ops);
-      console.log("DEBUG: handleApplyOps result", success);
       if (success) {
         toast({ title: "Schritt entfernt" });
         setIsStepDialogOpen(false);
         setSelectedNodeId(null);
       }
-    } catch (err) {
-      console.error("DEBUG: handleDeleteNode catch block", err);
     } finally {
       setIsDeleting(false);
-      console.log("DEBUG: handleDeleteNode finally reached");
     }
   };
 
@@ -348,7 +365,7 @@ export default function ProcessDesignerPage() {
     };
     
     const nodes = currentVersion.model_json.nodes || [];
-    // Auto-Connect: Nimm den aktuell gewählten oder den letzten in der Liste
+    // Auto-Connect logic: use currently selected or last node as predecessor
     const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : nodes[nodes.length - 1];
     
     const ops: ProcessOperation[] = [
@@ -511,6 +528,53 @@ export default function ProcessDesignerPage() {
                       <Textarea value={metaOpenQuestions} onChange={e => setMetaOpenQuestions(e.target.value)} placeholder="Unklarheiten dokumentieren..." className="rounded-lg min-h-[100px] text-[11px] border-emerald-200 bg-white focus:border-emerald-400" />
                     </div>
                   </div>
+
+                  {/* Networking summary in Stammdaten */}
+                  <div className="space-y-6 pt-8 border-t border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <Network className="w-4 h-4 text-primary" />
+                      <h3 className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">Prozess-Vernetzung</h3>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-[9px] font-bold text-slate-400 uppercase">Input von (Vorgänger-Prozesse)</Label>
+                        {incomingProcessLinks.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {incomingProcessLinks.map(p => (
+                              <div key={p.id} className="p-2 bg-slate-50 border rounded-lg flex items-center justify-between group">
+                                <span className="text-[10px] font-bold text-slate-700 truncate flex-1 mr-2">{p.title}</span>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => router.push(`/processhub/${p.id}`)}>
+                                  <ExternalLink className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[9px] text-slate-300 italic px-1">Keine eingehenden Verknüpfungen</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-[9px] font-bold text-slate-400 uppercase">Output nach (Ziel-Prozesse)</Label>
+                        {outgoingProcessLinks.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {outgoingProcessLinks.map(p => (
+                              <div key={p.id} className="p-2 bg-primary/5 border border-primary/10 rounded-lg flex items-center justify-between group">
+                                <span className="text-[10px] font-bold text-primary truncate flex-1 mr-2">{p.title}</span>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-primary shrink-0" onClick={() => router.push(`/processhub/${p.id}`)}>
+                                  <ExternalLink className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[9px] text-slate-300 italic px-1">Keine ausgehenden Verknüpfungen</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="space-y-6 pt-8 border-t border-slate-100">
                     <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-600" /><h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">ISO 9001 Compliance</h3></div>
                     {[{ id: 'inputs', label: 'Eingaben' }, { id: 'outputs', label: 'Ausgaben' }, { id: 'risks', label: 'Risiken & Chancen' }, { id: 'evidence', label: 'Nachweise' }].map(f => (
@@ -785,22 +849,6 @@ export default function ProcessDesignerPage() {
                       </Select>
                     </div>
                   </div>
-                  {(localNodeEdits.type === 'end' || localNodeEdits.type === 'subprocess') && (
-                    <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
-                      <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Zielprozess (Handover/Referenz)</Label>
-                      <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, targetProcessId: val})}>
-                        <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs">
-                          <SelectValue placeholder="Prozess wählen..." />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          <SelectItem value="none" className="text-xs">Kein Folgeprozess</SelectItem>
-                          {processes?.filter(p => p.id !== id).map(p => (
-                            <SelectItem key={p.id} value={p.id} className="text-xs">{p.title}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
                 </TabsContent>
                 <TabsContent value="logic" className="mt-0 space-y-10">
                   <div className="space-y-10">
@@ -875,6 +923,30 @@ export default function ProcessDesignerPage() {
                         </div>
                       </div>
                     </div>
+
+                    <Separator className="bg-slate-100" />
+
+                    {(localNodeEdits.type === 'end' || localNodeEdits.type === 'subprocess') && (
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-2 ml-1">
+                          <ExternalLink className="w-4 h-4" /> Zielprozess (External Reference)
+                        </h4>
+                        <div className="space-y-1.5 p-4 rounded-xl bg-blue-50/30 border border-blue-100">
+                          <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Folgeprozess auswählen</Label>
+                          <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, targetProcessId: val})}>
+                            <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs shadow-sm">
+                              <SelectValue placeholder="Prozess wählen..." />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="none" className="text-xs">Kein Folgeprozess</SelectItem>
+                              {processes?.filter(p => p.id !== id).map(p => (
+                                <SelectItem key={p.id} value={p.id} className="text-xs">{p.title}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
                 <TabsContent value="details" className="mt-0 space-y-8">

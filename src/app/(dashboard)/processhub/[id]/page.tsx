@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -113,7 +114,6 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     const targetExists = nodes.some(n => String(n.id) === targetId);
     
     if (sourceExists && targetExists) {
-      // OrthogonalEdgeStyle für sauberes Layout ohne Überlappungen
       xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=10;fontColor=#1e293b;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
@@ -411,7 +411,6 @@ export default function ProcessDesignerPage() {
 
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body relative">
-      {/* Designer Header */}
       <header className="glass-header h-14 flex items-center justify-between px-6 shrink-0 z-20 border-b border-slate-200">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={onGoBack} className="h-9 w-9 text-slate-400 hover:bg-slate-100 rounded-md transition-all"><ChevronLeft className="w-5 h-5" /></Button>
@@ -434,7 +433,6 @@ export default function ProcessDesignerPage() {
       </header>
 
       <div className="flex-1 flex overflow-hidden h-full relative">
-        {/* Sidebar (Links) */}
         <aside style={{ width: isMobile ? '100%' : `${leftWidth}px` }} className={cn("border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar h-full shadow-sm", isMobile && "hidden")}>
           <Tabs defaultValue="steps" className="h-full flex flex-col overflow-hidden">
             <TabsList className="h-11 bg-slate-50 border-b gap-0 p-0 w-full justify-start shrink-0 rounded-none overflow-x-auto no-scrollbar">
@@ -468,7 +466,6 @@ export default function ProcessDesignerPage() {
                       <Label className="text-[10px] font-bold text-slate-500 ml-1">Zusammenfassung</Label>
                       <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="rounded-xl min-h-[80px] text-xs border-slate-200 leading-relaxed" />
                     </div>
-                    
                     <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-100 space-y-2.5 shadow-inner">
                       <Label className="text-[10px] font-bold text-emerald-600 flex items-center gap-2">
                         <HelpCircle className="w-3.5 h-3.5" /> Offene Fragen für KI
@@ -476,7 +473,6 @@ export default function ProcessDesignerPage() {
                       <Textarea value={metaOpenQuestions} onChange={e => setMetaOpenQuestions(e.target.value)} placeholder="Unklarheiten dokumentieren..." className="rounded-lg min-h-[100px] text-[11px] border-emerald-200 bg-white focus:border-emerald-400" />
                     </div>
                   </div>
-                  
                   <div className="space-y-6 pt-8 border-t border-slate-100">
                     <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-600" /><h3 className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">ISO 9001 Compliance</h3></div>
                     {[{ id: 'inputs', label: 'Eingaben' }, { id: 'outputs', label: 'Ausgaben' }, { id: 'risks', label: 'Risiken & Chancen' }, { id: 'evidence', label: 'Nachweise' }].map(f => (
@@ -486,7 +482,6 @@ export default function ProcessDesignerPage() {
                       </div>
                     ))}
                   </div>
-
                   <div className="pt-8 border-t border-slate-100">
                     <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full rounded-xl h-11 font-bold text-xs gap-2 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/10 transition-all active:scale-95">
                       {isSavingMeta ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 
@@ -556,7 +551,6 @@ export default function ProcessDesignerPage() {
                   ))}
                 </div>
               </div>
-
               <ScrollArea className="flex-1 bg-white">
                 <div className="p-5 space-y-5">
                   {processComments.length === 0 ? (
@@ -577,7 +571,6 @@ export default function ProcessDesignerPage() {
                   ))}
                 </div>
               </ScrollArea>
-
               <div className="p-4 border-t bg-slate-50/50 shrink-0">
                 <div className="space-y-2.5">
                   <Textarea placeholder="Kommentar..." value={commentText} onChange={e => setCommentText(e.target.value)} className="min-h-[70px] rounded-lg border-slate-200 focus:border-primary text-[11px] shadow-inner bg-white" />
@@ -591,7 +584,6 @@ export default function ProcessDesignerPage() {
           {!isMobile && <div onMouseDown={startResizeLeft} className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/30 z-30 transition-all opacity-0 group-hover/sidebar:opacity-100" />}
         </aside>
 
-        {/* Main Canvas Area */}
         <main className={cn("flex-1 relative bg-slate-100 flex flex-col overflow-hidden")}>
           <div className="absolute top-4 right-4 z-10 bg-white/95 backdrop-blur-md shadow-lg rounded-xl border border-slate-200 p-1.5 flex flex-col gap-1.5">
             <TooltipProvider>
@@ -605,7 +597,6 @@ export default function ProcessDesignerPage() {
         </main>
       </div>
 
-      {/* Floating AI Advisor - Emerald Branding */}
       <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-4 pointer-events-none">
         {isAiAdvisorOpen && (
           <Card className="w-[calc(100vw-2rem)] sm:w-[400px] h-[600px] rounded-3xl shadow-2xl border-none flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300 bg-white pointer-events-auto">
@@ -623,7 +614,6 @@ export default function ProcessDesignerPage() {
                 <Minus className="w-4 h-4" />
               </button>
             </header>
-
             <ScrollArea className="flex-1 bg-slate-50/50">
               <div className="p-5 space-y-6 pb-10">
                 {chatHistory.length === 0 && (
@@ -682,7 +672,6 @@ export default function ProcessDesignerPage() {
                 )}
               </div>
             </ScrollArea>
-            
             <div className="p-4 border-t bg-white shrink-0 shadow-[0_-4px_15px_rgba(0,0,0,0.02)]">
               <div className="relative group">
                 <Input placeholder="Anweisung oder Frage..." value={chatMessage} onChange={e => setChatMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiChat()} className="h-11 rounded-xl border border-slate-200 bg-slate-50/50 pr-12 focus:bg-white transition-all text-xs font-medium shadow-inner" disabled={isAiLoading} />
@@ -693,7 +682,6 @@ export default function ProcessDesignerPage() {
             </div>
           </Card>
         )}
-
         {!isAiAdvisorOpen && (
           <Button 
             onClick={() => setIsAiAdvisorOpen(true)}
@@ -704,7 +692,6 @@ export default function ProcessDesignerPage() {
         )}
       </div>
 
-      {/* Node Edit Dialog - Enterprise Standard Icon-Tile Header */}
       <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
         <DialogContent className="max-w-3xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[90vh]">
           <DialogHeader className="p-6 bg-white border-b shrink-0 pr-10">
@@ -735,7 +722,6 @@ export default function ProcessDesignerPage() {
               <TabsTrigger value="logic" className="text-[10px] font-bold uppercase gap-2"><Share2 className="w-3.5 h-3.5" /> Prozess-Logik</TabsTrigger>
               <TabsTrigger value="details" className="text-[10px] font-bold uppercase gap-2"><ClipboardList className="w-3.5 h-3.5" /> Ausführung</TabsTrigger>
             </TabsList>
-
             <ScrollArea className="flex-1 p-0">
               <div className="p-8 space-y-10">
                 <TabsContent value="base" className="mt-0 space-y-8">
@@ -759,7 +745,6 @@ export default function ProcessDesignerPage() {
                       </Select>
                     </div>
                   </div>
-
                   {(localNodeEdits.type === 'end' || localNodeEdits.type === 'subprocess') && (
                     <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
                       <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Zielprozess (Handover/Link)</Label>
@@ -777,7 +762,6 @@ export default function ProcessDesignerPage() {
                     </div>
                   )}
                 </TabsContent>
-
                 <TabsContent value="logic" className="mt-0 space-y-8">
                   <div className="space-y-6">
                     <div className="space-y-4">
@@ -814,9 +798,7 @@ export default function ProcessDesignerPage() {
                         </div>
                       </div>
                     </div>
-
                     <Separator className="bg-slate-100" />
-
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-2">
                         <ArrowRightCircle className="w-4 h-4 rotate-180" /> Vorhergehende Schritte
@@ -829,13 +811,13 @@ export default function ProcessDesignerPage() {
                               <Link2 className="w-3.5 h-3.5 text-slate-300" />
                               <span className="text-xs font-medium text-slate-500">{sourceNode?.title || edge.source}</span>
                             </div>
-                          ))}
+                          );
+                        })}
                         {incomingEdges.length === 0 && <p className="text-[10px] text-slate-400 italic px-2">Kein direkter Vorgänger definiert</p>}
                       </div>
                     </div>
                   </div>
                 </TabsContent>
-
                 <TabsContent value="details" className="mt-0 space-y-8">
                   <div className="space-y-8">
                     <div className="space-y-2">
@@ -844,7 +826,6 @@ export default function ProcessDesignerPage() {
                         <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-xs min-h-[120px] rounded-xl border-none bg-transparent leading-relaxed p-4 shadow-none focus:ring-0" placeholder="Beschreiben Sie hier die auszuführende Aktion..." />
                       </div>
                     </div>
-                    
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-2 tracking-widest uppercase">
                         <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Prüfschritte / Checkliste
@@ -853,7 +834,6 @@ export default function ProcessDesignerPage() {
                     </div>
                   </div>
                 </TabsContent>
-
                 <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-100 flex items-start gap-3 shadow-inner">
                   <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
@@ -866,7 +846,6 @@ export default function ProcessDesignerPage() {
               </div>
             </ScrollArea>
           </Tabs>
-
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
             <Button 
               variant="ghost" 

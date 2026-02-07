@@ -55,10 +55,22 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
 *Gefahren erkennen, bewerten und bändigen.*
 
 *   **Step 3.1: Risiko-Inventar & Szenario-Analyse**
-    *   *Status*: Implementiert.
+    *   *Status*: In Prüfung (Audit Phase) 🔍
     *   **NEUE AUFGABE**: Risiken müssen mit Prozessschritten aus Step 4 verknüpft werden. "Was passiert im Prozess, wenn dieses Risiko eintritt?"
+    *   **NEUE AUFGABE**: KI-Szenario-Übersetzer implementieren. Score "15" -> "Kritischer Betriebsstopp".
 *   **Step 3.2: Maßnahmenplan (TOM) & Wirksamkeit**
-    *   *Status*: Implementiert.
+    *   *Status*: In Prüfung (Audit Phase) 🔍
     *   **NEUE AUFGABE**: Einführung einer "Nachweispflicht" (Upload oder Link) für erledigte Maßnahmen für den Wirtschaftsprüfer.
+    *   **NEUE AUFGABE**: "Audit-Ready" Review-Zyklus. Maßnahmen müssen alle X Monate bestätigt werden.
+
+### 4. ProcessHub & Workflow-Modellierung
+*Das Gehirn der Firma. Wie arbeiten wir wirklich?*
+
+*   **Step 4.1: BPMN Designer mit KI-Assistenz**
+    *   *Status*: Implementiert.
+    *   **NEUE AUFGABE**: Strikte Rollen-Validierung gegen den Stellenplan (Step 6). Kein Freitext bei Verantwortlichkeiten.
+*   **Step 4.2: Prozess-Landkarte (Enterprise Map)**
+    *   *Status*: Implementiert.
+    *   **NEUE AUFGABE**: "Health-Overlay". Landkarte zeigt farblich, wo Compliance-Lücken oder hohe Risiken lauern.
 
 *(Fortsetzung der Audits folgt in den nächsten Schritten...)*

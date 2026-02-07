@@ -9,7 +9,7 @@
     --primary-foreground: 0 0% 100%;
     
     /* PRD: Light Gray Background (#F5F5F5) */
-    --background: 0 0% 96%;
+    --background: 0 0% 98%;
     --foreground: 222.2 84% 4.9%;
     
     --card: 0 0% 100%;
@@ -34,26 +34,26 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 198 76% 52%;
-    --radius: 0.75rem;
+    --radius: 0.5rem;
   }
 
   .dark {
-    --background: 222 47% 11%;
+    --background: 222 47% 6%;
     --foreground: 210 40% 98%;
     
-    --card: 222 47% 11%;
+    --card: 222 47% 8%;
     --card-foreground: 210 40% 98%;
     
-    --popover: 222 47% 11%;
+    --popover: 222 47% 8%;
     --popover-foreground: 210 40% 98%;
     
     --primary: 198 76% 52%;
     --primary-foreground: 0 0% 100%;
     
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 217.2 32.6% 12%;
     --secondary-foreground: 210 40% 98%;
     
-    --muted: 217.2 32.6% 17.5%;
+    --muted: 217.2 32.6% 12%;
     --muted-foreground: 215 20.2% 65.1%;
     
     --accent: 36 100% 50%;
@@ -62,8 +62,8 @@
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
     
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --border: 217.2 32.6% 15%;
+    --input: 217.2 32.6% 15%;
     --ring: 198 76% 52%;
   }
 }
@@ -83,11 +83,11 @@
 
 /* UI Optimierungen */
 .admin-card {
-  @apply bg-card border border-border shadow-sm rounded-xl overflow-hidden transition-all hover:shadow-md;
+  @apply bg-card border border-border shadow-sm rounded-lg overflow-hidden transition-all hover:shadow-md;
 }
 
 .glass-header {
-  @apply sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur-md;
+  @apply sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur-md;
 }
 
 /* Entfernung verschachtelter Scrollbars */
@@ -101,5 +101,5 @@
 
 /* Form-Elemente */
 input, select, textarea {
-  @apply focus:ring-2 focus:ring-primary/20 transition-all !important;
+  @apply focus:ring-1 focus:ring-primary/30 transition-all !important;
 }

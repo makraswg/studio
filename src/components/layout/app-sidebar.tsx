@@ -25,9 +25,7 @@ import {
   FileCheck,
   BrainCircuit,
   Network,
-  Map as MapIcon,
-  ChevronRight,
-  UserCircle
+  ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -116,21 +114,13 @@ export function AppSidebar() {
       toast({ variant: "destructive", title: "Fehler", description: "Passwörter stimmen nicht überein." });
       return;
     }
-    if (newPassword.length < 6) {
-      toast({ variant: "destructive", title: "Fehler", description: "Passwort muss mind. 6 Zeichen lang sein." });
-      return;
-    }
     setIsUpdatingPassword(true);
     try {
       const res = await updatePlatformUserPasswordAction(platformUser?.email || '', newPassword);
       if (res.success) {
         toast({ title: "Passwort aktualisiert" });
         setIsPasswordDialogOpen(false);
-        setNewPassword('');
-        setConfirmPassword('');
-      } else throw new Error(res.error || "Fehler");
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler", description: e.message });
+      }
     } finally {
       setIsUpdatingPassword(false);
     }
@@ -140,10 +130,8 @@ export function AppSidebar() {
 
   const NavLink = ({ item, activeColor = "bg-primary" }: { item: any, activeColor?: string }) => {
     const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href) && !pathname.startsWith('/processhub/map') && item.href !== '/processhub/map');
-    // Special handling for Process Map vs Overview
     const isMapActive = item.href === '/processhub/map' && pathname === '/processhub/map';
     const isProcActive = item.href === '/processhub' && pathname.startsWith('/processhub') && !pathname.startsWith('/processhub/map');
-    
     const active = item.href === '/processhub/map' ? isMapActive : item.href === '/processhub' ? isProcActive : isActive;
 
     return (
@@ -151,15 +139,15 @@ export function AppSidebar() {
         key={item.name} 
         href={item.href} 
         className={cn(
-          "flex items-center justify-between px-4 py-2.5 rounded-xl transition-all group",
+          "flex items-center justify-between px-3 py-2 rounded-md transition-all group",
           active 
-            ? `${activeColor} text-white shadow-lg shadow-black/10` 
-            : "text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+            ? `${activeColor} text-white shadow-sm` 
+            : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
         )}
       >
-        <div className="flex items-center gap-3">
-          <item.icon className={cn("w-4 h-4 transition-transform group-hover:scale-110", active ? "text-white" : "text-slate-400")} />
-          <span className="text-[11px] font-black uppercase tracking-wider">{item.name}</span>
+        <div className="flex items-center gap-2.5">
+          <item.icon className={cn("w-4 h-4 transition-transform", active ? "text-white" : "text-slate-400")} />
+          <span className="text-[10.5px] font-bold uppercase tracking-tight">{item.name}</span>
         </div>
         {active && <ChevronRight className="w-3 h-3 opacity-50" />}
       </Link>
@@ -167,119 +155,94 @@ export function AppSidebar() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-slate-950 border-r border-slate-100 dark:border-slate-900">
-      {/* Branding */}
-      <div className="p-8 pb-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center shadow-xl shadow-primary/20 rotate-3 group hover:rotate-0 transition-transform duration-500">
-            <ShieldCheck className="w-7 h-7 text-white" />
+    <div className="flex flex-col h-full bg-white dark:bg-slate-950 border-r border-slate-100">
+      <div className="p-6 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/20">
+            <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           <div>
-            <span className="font-headline font-black text-xl tracking-tight block text-slate-900 dark:text-white uppercase leading-none">AccessHub</span>
-            <span className="text-[9px] text-primary font-black tracking-[0.3em] uppercase block mt-1">Enterprise GRC</span>
+            <span className="font-headline font-black text-base tracking-tight block text-slate-900 dark:text-white uppercase leading-none">AccessHub</span>
+            <span className="text-[8px] text-primary font-black tracking-[0.2em] uppercase block mt-1">Enterprise GRC</span>
           </div>
         </div>
       </div>
 
-      <Separator className="mx-8 bg-slate-50 dark:bg-slate-900 my-4" />
+      <Separator className="mx-6 bg-slate-50 my-2" />
 
-      {/* Navigation */}
-      <ScrollArea className="flex-1 px-4">
-        <div className="space-y-10 py-4">
-          {/* IAM Operations */}
-          <div className="space-y-2">
-            <p className="px-4 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Platform Core</p>
-            <nav className="space-y-1">
-              {navItems.map((item) => <NavLink key={item.name} item={item} />)}
-            </nav>
+      <ScrollArea className="flex-1 px-3">
+        <div className="space-y-8 py-4">
+          <div className="space-y-1">
+            <p className="px-3 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Platform Core</p>
+            {navItems.map((item) => <NavLink key={item.name} item={item} />)}
           </div>
 
-          {/* Process Management */}
-          <div className="space-y-2">
-            <p className="px-4 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-              <Workflow className="w-3.5 h-3.5 text-primary" /> ProcessHub
-            </p>
-            <nav className="space-y-1">
-              {processItems.map((item) => <NavLink key={item.name} item={item} />)}
-            </nav>
+          <div className="space-y-1">
+            <p className="px-3 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">ProcessHub</p>
+            {processItems.map((item) => <NavLink key={item.name} item={item} />)}
           </div>
 
-          {/* Compliance & Data Protection */}
-          <div className="space-y-2">
-            <p className="px-4 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-              <FileCheck className="w-3.5 h-3.5 text-emerald-600" /> Compliance
-            </p>
-            <nav className="space-y-1">
-              {complianceItems.map((item) => <NavLink key={item.name} item={item} activeColor="bg-emerald-600" />)}
-            </nav>
+          <div className="space-y-1">
+            <p className="px-3 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Compliance</p>
+            {complianceItems.map((item) => <NavLink key={item.name} item={item} activeColor="bg-emerald-600" />)}
           </div>
 
-          {/* Risk Management */}
-          <div className="space-y-2">
-            <p className="px-4 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-              <AlertTriangle className="w-3.5 h-3.5 text-accent" /> Risk Engine
-            </p>
-            <nav className="space-y-1">
-              {riskItems.map((item) => <NavLink key={item.name} item={item} activeColor="bg-accent" />)}
-            </nav>
+          <div className="space-y-1">
+            <p className="px-3 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Risk Engine</p>
+            {riskItems.map((item) => <NavLink key={item.name} item={item} activeColor="bg-accent" />)}
           </div>
 
-          {/* Configuration */}
-          <div className="space-y-2">
-            <p className="px-4 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Configuration</p>
-            <nav className="space-y-1">
-              <NavLink item={{ name: 'Setup & Data', href: '/setup', icon: Settings2 }} />
-              <NavLink item={{ name: 'Settings', href: '/settings', icon: Settings }} />
-            </nav>
+          <div className="space-y-1">
+            <p className="px-3 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Config</p>
+            <NavLink item={{ name: 'Setup', href: '/setup', icon: Settings2 }} />
+            <NavLink item={{ name: 'Settings', href: '/settings', icon: Settings }} />
           </div>
         </div>
       </ScrollArea>
 
-      {/* User Footer */}
-      <div className="p-4 border-t border-slate-50 dark:border-slate-900 bg-slate-50/50 dark:bg-slate-950/50">
+      <div className="p-3 border-t bg-slate-50/50">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="w-full h-auto p-3 justify-start items-center gap-4 rounded-2xl hover:bg-white dark:hover:bg-slate-900 transition-all border border-transparent hover:border-slate-100 dark:hover:border-slate-800 shadow-none">
-              <Avatar className="h-10 w-10 rounded-xl border-2 border-primary/10 shadow-inner">
-                <AvatarFallback className="bg-primary text-white font-black text-xs uppercase">{platformUser?.displayName?.charAt(0) || 'A'}</AvatarFallback>
+            <Button variant="ghost" className="w-full h-auto p-2 justify-start items-center gap-3 rounded-lg hover:bg-white border border-transparent hover:border-slate-200">
+              <Avatar className="h-8 w-8 rounded-md border shadow-inner">
+                <AvatarFallback className="bg-primary text-white font-black text-[10px] uppercase">{platformUser?.displayName?.charAt(0) || 'A'}</AvatarFallback>
               </Avatar>
               <div className="flex-1 overflow-hidden text-left">
-                <p className="text-xs font-bold text-slate-900 dark:text-white truncate leading-tight">{platformUser?.displayName || 'Administrator'}</p>
-                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{platformUser?.role || 'User'}</p>
+                <p className="text-[11px] font-bold text-slate-900 truncate leading-tight">{platformUser?.displayName || 'Administrator'}</p>
+                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-tight mt-0.5">{platformUser?.role || 'User'}</p>
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="right" align="end" className="w-64 rounded-[1.5rem] p-2 shadow-2xl border-slate-100 dark:border-slate-800">
-            <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-3 py-2">System Account</DropdownMenuLabel>
-            <DropdownMenuItem onSelect={() => setIsPasswordDialogOpen(true)} className="rounded-xl gap-3 py-2.5 font-bold text-xs"><Lock className="w-4 h-4 text-slate-400" /> Passwort ändern</DropdownMenuItem>
-            <DropdownMenuSeparator className="my-2 bg-slate-50 dark:bg-slate-800" />
-            <DropdownMenuItem onSelect={handleLogout} className="rounded-xl gap-3 py-2.5 font-bold text-xs text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"><LogOut className="w-4 h-4" /> Abmelden</DropdownMenuItem>
+          <DropdownMenuContent side="right" align="end" className="w-56 rounded-lg p-1 shadow-2xl">
+            <DropdownMenuLabel className="text-[9px] font-black uppercase text-slate-400 px-2 py-1.5">System</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => setIsPasswordDialogOpen(true)} className="rounded-md gap-2 py-2 text-xs font-bold"><Lock className="w-3.5 h-3.5" /> Passwort ändern</DropdownMenuItem>
+            <DropdownMenuSeparator className="my-1" />
+            <DropdownMenuItem onSelect={handleLogout} className="rounded-md gap-2 py-2 text-xs font-bold text-red-600"><LogOut className="w-3.5 h-3.5" /> Abmelden</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      {/* Password Dialog */}
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-        <DialogContent className="rounded-[2.5rem] max-w-sm border-none shadow-2xl p-0 overflow-hidden bg-white dark:bg-slate-950">
-          <DialogHeader className="p-8 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center gap-4">
-              <Lock className="w-8 h-8 text-primary" />
-              <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Passwort ändern</DialogTitle>
+        <DialogContent className="rounded-xl max-w-sm border-none shadow-2xl p-0 overflow-hidden bg-white">
+          <DialogHeader className="p-6 bg-slate-900 text-white">
+            <div className="flex items-center gap-3">
+              <Lock className="w-6 h-6 text-primary" />
+              <DialogTitle className="text-base font-bold uppercase">Passwort ändern</DialogTitle>
             </div>
           </DialogHeader>
-          <div className="p-8 space-y-6">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Neues Passwort</Label>
-              <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800" />
+          <div className="p-6 space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Neues Passwort</Label>
+              <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="rounded-md h-10 border-slate-200" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Bestätigen</Label>
-              <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800" />
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Bestätigen</Label>
+              <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="rounded-md h-10 border-slate-200" />
             </div>
           </div>
-          <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-900/50 border-t shrink-0">
-            <Button onClick={handleUpdatePassword} disabled={isUpdatingPassword} className="rounded-xl font-black uppercase text-[10px] tracking-widest h-12 w-full shadow-lg shadow-primary/20 transition-all active:scale-95">
-              {isUpdatingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Passwort aktualisieren'}
+          <DialogFooter className="p-4 bg-slate-50 border-t">
+            <Button onClick={handleUpdatePassword} disabled={isUpdatingPassword} className="rounded-md font-bold uppercase text-[10px] h-10 w-full shadow-lg">
+              Passwort aktualisieren
             </Button>
           </DialogFooter>
         </DialogContent>

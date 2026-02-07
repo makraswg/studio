@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -14,18 +13,9 @@ import {
   RotateCcw,
   Search,
   ChevronRight,
-  Filter,
   Layers,
-  ArrowRight,
-  BadgeAlert,
   Loader2,
   Trash2,
-  Settings2,
-  Network,
-  GitBranch,
-  UserCircle,
-  FileText,
-  ChevronDown,
   Pencil,
   Info,
   Save,
@@ -35,28 +25,22 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
+import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
 import { Tenant, Department, JobTitle } from '@/lib/types';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 export default function StructureSettingsPage() {
   const { dataSource } = useSettings();
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState('');
   
-  // Create State
   const [activeAddParent, setActiveAddParent] = useState<{ id: string, type: 'tenant' | 'dept' } | null>(null);
   const [newName, setNewName] = useState('');
 
-  // Job Editor Dialog
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<JobTitle | null>(null);
   const [jobName, setJobName] = useState('');
@@ -99,46 +83,29 @@ export default function StructureSettingsPage() {
 
   const handleCreate = async () => {
     if (!newName || !activeAddParent) return;
-    
     const id = `${activeAddParent.type === 'tenant' ? 'd' : 'j'}-${Math.random().toString(36).substring(2, 7)}`;
-    
     if (activeAddParent.type === 'tenant') {
-      const data: Department = {
-        id,
-        tenantId: activeAddParent.id,
-        name: newName,
-        status: 'active'
-      };
-      await saveCollectionRecord('departments', id, data, dataSource);
+      await saveCollectionRecord('departments', id, { id, tenantId: activeAddParent.id, name: newName, status: 'active' }, dataSource);
       refreshDepts();
-      toast({ title: "Abteilung angelegt" });
     } else {
       const dept = departments?.find(d => d.id === activeAddParent.id);
       if (!dept) return;
-      const data: JobTitle = {
-        id,
-        tenantId: dept.tenantId,
-        departmentId: activeAddParent.id,
-        name: newName,
-        status: 'active'
-      };
-      await saveCollectionRecord('jobTitles', id, data, dataSource);
+      await saveCollectionRecord('jobTitles', id, { id, tenantId: dept.tenantId, departmentId: activeAddParent.id, name: newName, status: 'active' }, dataSource);
       refreshJobs();
-      toast({ title: "Stelle angelegt" });
     }
-    
     setNewName('');
     setActiveAddParent(null);
+    toast({ title: "Eintrag erstellt" });
   };
 
   const handleStatusChange = async (coll: string, item: any, newStatus: 'active' | 'archived') => {
     const updated = { ...item, status: newStatus };
     const res = await saveCollectionRecord(coll, item.id, updated, dataSource);
     if (res.success) {
-      toast({ title: newStatus === 'archived' ? "Archiviert" : "Reaktiviert" });
       if (coll === 'tenants') refreshTenants();
       if (coll === 'departments') refreshDepts();
       if (coll === 'jobTitles') refreshJobs();
+      toast({ title: "Status aktualisiert" });
     }
   };
 
@@ -152,13 +119,12 @@ export default function StructureSettingsPage() {
   const saveJobEdits = async () => {
     if (!editingJob) return;
     setIsSavingJob(true);
-    const updated = { ...editingJob, name: jobName, description: jobDesc };
     try {
-      const res = await saveCollectionRecord('jobTitles', editingJob.id, updated, dataSource);
+      const res = await saveCollectionRecord('jobTitles', editingJob.id, { ...editingJob, name: jobName, description: jobDesc }, dataSource);
       if (res.success) {
-        toast({ title: "Stelle aktualisiert" });
         setIsEditorOpen(false);
         refreshJobs();
+        toast({ title: "Stelle gespeichert" });
       }
     } finally {
       setIsSavingJob(false);
@@ -166,183 +132,125 @@ export default function StructureSettingsPage() {
   };
 
   return (
-    <div className="space-y-10 pb-20">
-      {/* Dynamic Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-8 bg-gradient-to-r from-transparent via-slate-50/50 to-transparent">
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
-          <Badge className="mb-2 rounded-full px-3 py-0 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border-none">Org Structure</Badge>
-          <h1 className="text-4xl font-headline font-bold tracking-tight text-slate-900 dark:text-white uppercase">Konzern-Struktur</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Stellenplan & hierarchische Definition der Organisationseinheiten.</p>
+          <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-black uppercase tracking-wider">Org Structure</Badge>
+          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase">Struktur & Stellen</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Hierarchischer Stellenplan der Organisationseinheiten.</p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Button 
-            variant="outline" 
-            className={cn(
-              "h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 transition-all",
-              showArchived ? "text-orange-600 bg-orange-50 border-orange-200" : "hover:bg-slate-50 dark:hover:bg-slate-900"
-            )} 
-            onClick={() => setShowArchived(!showArchived)}
-          >
-            {showArchived ? <RotateCcw className="w-4 h-4 mr-2" /> : <Archive className="w-4 h-4 mr-2" />}
-            {showArchived ? 'Archiv verlassen' : 'Archiv einblenden'}
-          </Button>
-        </div>
+        <Button 
+          variant="outline" 
+          size="sm"
+          className={cn(
+            "h-9 rounded-md font-bold uppercase text-[9px] tracking-wider",
+            showArchived && "text-orange-600 bg-orange-50"
+          )} 
+          onClick={() => setShowArchived(!showArchived)}
+        >
+          {showArchived ? <RotateCcw className="w-3.5 h-3.5 mr-2" /> : <Archive className="w-3.5 h-3.5 mr-2" />}
+          {showArchived ? 'Aktive Ansicht' : 'Archiv'}
+        </Button>
       </div>
 
-      {/* Global Search */}
-      <div className="relative group">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+      <div className="relative group max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
         <Input 
-          placeholder="Nach Mandant, Abteilung oder Stelle suchen..." 
-          className="pl-11 h-14 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 focus:bg-white transition-all shadow-xl shadow-slate-200/20 dark:shadow-none"
+          placeholder="Suche..." 
+          className="pl-9 h-10 rounded-md border-slate-200 bg-white"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      {/* Unified Hierarchical Explorer */}
-      <div className="space-y-6">
+      <div className="space-y-4">
         {(tenantsLoading || deptsLoading || jobsLoading) ? (
-          <div className="flex flex-col items-center justify-center py-40 gap-4">
-            <Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" />
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Analysiere Hierarchie...</p>
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
+            <p className="text-[9px] font-black uppercase text-slate-400">Lade Struktur...</p>
           </div>
         ) : filteredData.length === 0 ? (
-          <div className="py-40 text-center space-y-6 bg-white dark:bg-slate-900 rounded-[3rem] border-2 border-dashed border-slate-100 dark:border-slate-800">
-            <div className="w-24 h-24 bg-slate-50 dark:bg-slate-800 rounded-[2.5rem] flex items-center justify-center mx-auto opacity-50 border-2 border-slate-200 dark:border-slate-700">
-              <Network className="w-10 h-10 text-slate-400" />
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-black uppercase text-slate-400 tracking-[0.2em]">Keine Einträge gefunden</p>
-              <p className="text-xs text-slate-400 font-bold uppercase">Passen Sie Ihre Suche oder die Archiv-Filter an.</p>
-            </div>
+          <div className="py-20 text-center border-2 border-dashed rounded-xl bg-white/50">
+            <p className="text-xs font-bold uppercase text-slate-400">Keine Daten gefunden</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 gap-4">
             {filteredData.map(tenant => (
-              <Card key={tenant.id} className="rounded-[2.5rem] border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-slate-900 text-white p-8 flex flex-row items-center justify-between shrink-0">
-                  <div className="flex items-center gap-6">
-                    <div className="w-14 h-14 bg-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-xl shadow-black/20">
-                      <Building2 className="w-7 h-7" />
+              <Card key={tenant.id} className="border-none shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+                <CardHeader className="bg-slate-900 text-white p-4 px-6 flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center text-primary shadow-inner">
+                      <Building2 className="w-5 h-5" />
                     </div>
                     <div>
-                      <CardTitle className="text-xl font-headline font-bold uppercase tracking-tight">{tenant.name}</CardTitle>
-                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">Konzern-Mandant • {tenant.slug}</p>
+                      <CardTitle className="text-base font-bold uppercase">{tenant.name}</CardTitle>
+                      <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">{tenant.slug}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Button 
-                      size="sm" 
-                      className="rounded-xl h-9 text-[10px] font-black uppercase px-4 bg-white/10 hover:bg-white/20 text-white border border-white/10 gap-2"
-                      onClick={() => setActiveAddParent({ id: tenant.id, type: 'tenant' })}
-                    >
-                      <PlusCircle className="w-3.5 h-3.5" /> Abteilung
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="ghost" className="h-8 text-[9px] text-white hover:bg-white/10 gap-1.5" onClick={() => setActiveAddParent({ id: tenant.id, type: 'tenant' })}>
+                      <PlusCircle className="w-3.5 h-3.5" /> Abt.
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-red-500" onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}>
-                      {tenant.status === 'active' ? <Archive className="w-4 h-4" /> : <RotateCcw className="w-4 h-4" />}
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-500" onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}>
+                      <Archive className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </CardHeader>
                 
                 <CardContent className="p-0">
-                  {/* Departments within Tenant */}
-                  <div className="divide-y divide-slate-50 dark:divide-slate-800">
+                  <div className="divide-y divide-slate-100">
                     {tenant.departments.map(dept => (
                       <div key={dept.id} className="group/dept">
-                        <div className="flex items-center justify-between p-6 px-10 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-inner">
-                              <Layers className="w-5 h-5" />
+                        <div className="flex items-center justify-between p-4 px-8 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                              <Layers className="w-4 h-4" />
                             </div>
-                            <div className="min-w-0">
-                              <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">{dept.name}</h4>
-                              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{dept.jobs.length} Stellen definiert</p>
-                            </div>
+                            <h4 className="text-xs font-bold text-slate-800 uppercase">{dept.name}</h4>
                           </div>
-                          
-                          <div className="flex items-center gap-2 opacity-0 group-hover/dept:opacity-100 transition-opacity">
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 text-[9px] font-black uppercase text-emerald-600 hover:bg-emerald-50 rounded-lg gap-1.5"
-                              onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}
-                            >
+                          <div className="flex items-center gap-2 opacity-0 group-hover/dept:opacity-100">
+                            <Button variant="ghost" size="sm" className="h-7 text-[8px] font-black uppercase text-emerald-600 hover:bg-emerald-50 gap-1" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}>
                               <Plus className="w-3 h-3" /> Stelle
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-red-500 rounded-lg" onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}>
-                              <Archive className="w-3.5 h-3.5" />
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300" onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}>
+                              <Archive className="w-3 h-3" />
                             </Button>
                           </div>
                         </div>
 
-                        {/* Jobs within Department */}
-                        <div className="bg-slate-50/30 dark:bg-slate-950/30 px-10 pb-6 space-y-2">
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div className="bg-slate-50/50 px-8 pb-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pl-10 border-l-2 border-slate-100 ml-4">
                             {dept.jobs.map(job => (
-                              <div key={job.id} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm group/job hover:border-primary/30 transition-all hover:shadow-md cursor-pointer" onClick={() => openJobEditor(job)}>
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <div className="w-8 h-8 rounded-lg bg-slate-50 text-slate-400 flex items-center justify-center shrink-0">
-                                    <Briefcase className="w-4 h-4" />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{job.name}</p>
-                                    {job.description && <p className="text-[8px] text-slate-400 uppercase font-bold truncate tracking-widest mt-0.5 italic">Doku bereit</p>}
-                                  </div>
+                              <div key={job.id} className="flex items-center justify-between p-2.5 bg-white rounded-lg border shadow-sm group/job hover:border-primary/30 transition-all cursor-pointer" onClick={() => openJobEditor(job)}>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Briefcase className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                  <p className="text-[11px] font-bold text-slate-700 truncate">{job.name}</p>
                                 </div>
-                                <div className="flex gap-1 opacity-0 group-hover/job:opacity-100 transition-opacity">
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md" onClick={(e) => { e.stopPropagation(); openJobEditor(job); }}><Pencil className="w-3 h-3" /></Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-red-400 hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleStatusChange('jobTitles', job, job.status === 'active' ? 'archived' : 'active'); }}><Archive className="w-3 h-3" /></Button>
+                                <div className="flex gap-1 opacity-0 group-hover/job:opacity-100">
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openJobEditor(job); }}><Pencil className="w-3 h-3" /></Button>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400" onClick={(e) => { e.stopPropagation(); handleStatusChange('jobTitles', job, job.status === 'active' ? 'archived' : 'active'); }}><Archive className="w-3 h-3" /></Button>
                                 </div>
                               </div>
                             ))}
-                            
-                            {/* Inline Add Button for Job if parent is this Dept */}
-                            {activeAddParent?.id === dept.id && activeAddParent.type === 'dept' ? (
-                              <div className="col-span-full mt-2 animate-in slide-in-from-top-2">
-                                <div className="flex gap-2 p-3 bg-white dark:bg-slate-900 rounded-2xl border-2 border-primary shadow-lg">
-                                  <Input 
-                                    autoFocus
-                                    placeholder="Bezeichnung der neuen Stelle..." 
-                                    value={newName} 
-                                    onChange={e => setNewName(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleCreate()}
-                                    className="h-10 border-none shadow-none text-xs font-bold"
-                                  />
-                                  <Button size="sm" className="h-10 px-6 rounded-xl font-black uppercase text-[10px]" onClick={handleCreate}>Erstellen</Button>
-                                  <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setActiveAddParent(null)}><X className="w-4 h-4" /></Button>
+                            {activeAddParent?.id === dept.id && activeAddParent.type === 'dept' && (
+                              <div className="col-span-full pt-2">
+                                <div className="flex gap-2 p-2 bg-white rounded-lg border-2 border-primary shadow-sm">
+                                  <Input autoFocus placeholder="Name der Stelle..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreate()} className="h-8 border-none shadow-none text-[11px] font-bold" />
+                                  <Button size="sm" className="h-8 px-4 rounded-md font-black uppercase text-[9px]" onClick={handleCreate}>Add</Button>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setActiveAddParent(null)}><X className="w-3.5 h-3.5" /></Button>
                                 </div>
                               </div>
-                            ) : (
-                              dept.jobs.length === 0 && (
-                                <p className="text-[10px] text-slate-300 font-black uppercase italic tracking-widest py-2 px-2">Keine Stellen definiert</p>
-                              )
                             )}
                           </div>
                         </div>
                       </div>
                     ))}
-
-                    {/* Inline Add for Department if parent is this Tenant */}
                     {activeAddParent?.id === tenant.id && activeAddParent.type === 'tenant' && (
-                      <div className="p-6 px-10 bg-primary/5 animate-in slide-in-from-top-2 border-y-2 border-primary/20">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg"><Layers className="w-5 h-5" /></div>
-                          <div className="flex-1">
-                            <Label className="text-[9px] font-black uppercase text-primary ml-1 mb-1.5 block tracking-widest">Neue Abteilung für {tenant.name}</Label>
-                            <div className="flex gap-2">
-                              <Input 
-                                autoFocus
-                                placeholder="Abteilungsname (z.B. Logistik, Vertrieb...)" 
-                                value={newName} 
-                                onChange={e => setNewName(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleCreate()}
-                                className="h-12 border-slate-200 dark:border-slate-800 rounded-xl bg-white text-sm font-bold"
-                              />
-                              <Button className="h-12 px-8 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20" onClick={handleCreate}>Anlegen</Button>
-                              <Button variant="ghost" size="icon" className="h-12 w-12 rounded-xl text-slate-400" onClick={() => setActiveAddParent(null)}><X className="w-5 h-5" /></Button>
-                            </div>
-                          </div>
+                      <div className="p-4 px-8 bg-primary/5 border-y border-primary/10">
+                        <div className="flex items-center gap-3">
+                          <Input autoFocus placeholder="Abteilungsname..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreate()} className="h-10 border-slate-200 rounded-md bg-white text-xs font-bold" />
+                          <Button size="sm" className="h-10 px-6 rounded-md font-black uppercase text-[10px]" onClick={handleCreate}>Erstellen</Button>
+                          <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-400" onClick={() => setActiveAddParent(null)}><X className="w-4 h-4" /></Button>
                         </div>
                       </div>
                     )}
@@ -354,42 +262,34 @@ export default function StructureSettingsPage() {
         )}
       </div>
 
-      {/* Job Editor Dialog */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-        <DialogContent className="max-w-2xl w-[95vw] rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white dark:bg-slate-950 h-[90vh] md:h-auto">
-          <DialogHeader className="p-6 md:p-10 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center gap-6">
-              <div className="w-12 h-12 md:w-16 md:h-16 bg-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-xl">
-                <Briefcase className="w-6 h-6 md:w-8 md:h-8" />
-              </div>
-              <div>
-                <DialogTitle className="text-xl md:text-2xl font-headline font-bold uppercase tracking-tight">Stelle bearbeiten</DialogTitle>
-                <p className="text-[10px] text-slate-400 font-bold uppercase mt-1.5 tracking-widest">Detail-Dokumentation für Audit-Zwecke</p>
-              </div>
+        <DialogContent className="max-w-lg w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-4">
+              <Briefcase className="w-6 h-6 text-primary" />
+              <DialogTitle className="text-lg font-bold uppercase tracking-tight">Stelle bearbeiten</DialogTitle>
             </div>
           </DialogHeader>
-          <ScrollArea className="flex-1">
-            <div className="p-6 md:p-10 space-y-8">
+          <ScrollArea className="max-h-[60vh]">
+            <div className="p-6 space-y-6">
               <div className="space-y-2">
-                <Label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung</Label>
-                <Input value={jobName} onChange={e => setJobName(e.target.value)} className="rounded-2xl h-12 md:h-14 font-bold text-lg border-slate-200" />
+                <Label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Bezeichnung</Label>
+                <Input value={jobName} onChange={e => setJobName(e.target.value)} className="rounded-md h-11 font-bold text-sm" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Stellenbeschreibung (Aufgaben & Kompetenzen)</Label>
-                <Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[200px] rounded-3xl p-6 text-sm leading-relaxed border-slate-200" placeholder="Beschreiben Sie hier die Hauptaufgaben der Stelle..." />
+                <Label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Stellenbeschreibung</Label>
+                <Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[150px] rounded-lg p-4 text-xs leading-relaxed border-slate-200" placeholder="Aufgaben & Kompetenzen..." />
               </div>
-              <div className="p-6 bg-slate-50 dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800">
-                <p className="text-[10px] text-slate-500 italic leading-relaxed">
-                  <Info className="w-3.5 h-3.5 inline mr-1 text-primary" /> 
-                  Diese Beschreibung dient der KI als Basis zur Bewertung, ob zugewiesene Berechtigungen (IAM) zur fachlichen Aufgabe passen (Least Privilege Check).
-                </p>
+              <div className="p-4 bg-slate-50 rounded-lg flex items-start gap-3">
+                <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <p className="text-[10px] text-slate-500 italic leading-relaxed">Diese Info nutzt die KI für Least-Privilege Checks.</p>
               </div>
             </div>
           </ScrollArea>
-          <DialogFooter className="p-6 md:p-8 bg-slate-50 dark:bg-slate-900/50 border-t shrink-0 flex flex-col sm:flex-row gap-3">
-            <Button variant="ghost" onClick={() => setIsEditorOpen(false)} className="rounded-xl h-12 font-black uppercase text-[10px]">Abbrechen</Button>
-            <Button onClick={saveJobEdits} disabled={isSavingJob} className="rounded-2xl h-12 md:h-14 px-12 bg-slate-900 text-white font-black uppercase text-[10px] tracking-widest shadow-xl">
-              {isSavingJob ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Änderungen Speichern
+          <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2">
+            <Button variant="ghost" onClick={() => setIsEditorOpen(false)} className="rounded-md h-10 px-6 font-bold uppercase text-[10px]">Abbrechen</Button>
+            <Button onClick={saveJobEdits} disabled={isSavingJob} className="rounded-md h-10 px-8 bg-slate-900 text-white font-bold uppercase text-[10px] gap-2">
+              {isSavingJob ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Speichern
             </Button>
           </DialogFooter>
         </DialogContent>

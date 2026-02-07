@@ -24,6 +24,7 @@ export interface Department {
   tenantId: string;
   name: string;
   status: 'active' | 'archived';
+  description?: string;
 }
 
 export interface JobTitle {
@@ -31,6 +32,7 @@ export interface JobTitle {
   tenantId: string;
   departmentId: string;
   name: string;
+  description?: string; // NEU: Stellenbeschreibung für Audit-Zwecke
   status: 'active' | 'archived';
 }
 

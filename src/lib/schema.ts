@@ -18,7 +18,7 @@ export const appSchema: AppSchema = {
       createdAt: 'VARCHAR(50) NOT NULL',
       status: 'VARCHAR(20) DEFAULT "active"',
       region: 'VARCHAR(100) DEFAULT "EU-DSGVO"',
-      companyDescription: 'TEXT', // NEU
+      companyDescription: 'TEXT',
       ldapEnabled: 'BOOLEAN DEFAULT FALSE',
       ldapUrl: 'TEXT',
       ldapPort: 'VARCHAR(10)',
@@ -33,6 +33,7 @@ export const appSchema: AppSchema = {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
       status: 'VARCHAR(20) DEFAULT "active"',
     }
   },
@@ -42,6 +43,7 @@ export const appSchema: AppSchema = {
       tenantId: 'VARCHAR(255) NOT NULL',
       departmentId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT', // NEU
       status: 'VARCHAR(20) DEFAULT "active"',
     }
   },

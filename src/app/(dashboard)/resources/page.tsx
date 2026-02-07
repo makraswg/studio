@@ -264,6 +264,13 @@ export default function ResourcesPage() {
     toast({ title: "KI-Vorschläge übernommen" });
   };
 
+  const applyAiSuggestionsEnt = (s: any) => {
+    if (s.name) setEntName(s.name);
+    if (s.description) setEntDesc(s.description);
+    if (s.riskLevel) setEntRisk(s.riskLevel as any);
+    toast({ title: "KI-Vorschläge übernommen" });
+  };
+
   const filteredResources = useMemo(() => {
     if (!resources) return [];
     return resources.filter(res => {

@@ -134,12 +134,14 @@ function RiskDashboardContent() {
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge className={cn("rounded-md font-bold text-[10px] h-6 w-8 justify-center shadow-sm border-none", score >= 15 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600")}>{score}</Badge>
-                    </TableCell>
-                    <TableCell className="text-[10px] font-bold text-slate-500">{risk.category}</TableCell>
-                    <TableCell className="text-right px-6">
+                    </td>
+                    <td className="p-4">
+                      <span className="text-[10px] font-bold text-slate-500">{risk.category}</span>
+                    </td>
+                    <td className="p-4 px-6 text-right">
                       <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-sm"><MoreVertical className="w-4 h-4 text-slate-400" /></Button>
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 );
               })}
             </TableBody>

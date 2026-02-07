@@ -60,6 +60,10 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+/**
+ * Erzeugt MX-XML für draw.io Integration.
+ * Optimiert für klare Linien und Enterprise-Design.
+ */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
   const nodes = model.nodes || [];
@@ -73,22 +77,23 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     let w = 160, h = 80;
     switch (node.type) {
       case 'start': 
-        style = 'ellipse;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;'; 
+        style = 'ellipse;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;'; 
         w = 60; h = 60; 
         break;
       case 'end': 
         const hasLink = !!node.targetProcessId && node.targetProcessId !== 'none';
         style = hasLink 
-          ? 'ellipse;fillColor=#e1f5fe;strokeColor=#0288d1;strokeWidth=3;' 
-          : 'ellipse;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;'; 
+          ? 'ellipse;fillColor=#e1f5fe;strokeColor=#0288d1;strokeWidth=3;shadow=1;' 
+          : 'ellipse;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;shadow=1;'; 
         w = 60; h = 60; 
         break;
       case 'decision': 
-        style = 'rhombus;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;'; 
+        style = 'rhombus;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;'; 
         w = 100; h = 100; 
         break;
       default: 
-        style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=1.5;shadow=1;';
+        // Standard-Schritt: Kräftigere Linien und Schatten
+        style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;shadow=1;';
     }
     xml += `<mxCell id="${nodeSafeId}" value="${node.title}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
   });
@@ -204,18 +209,24 @@ export default function ProcessDesignerPage() {
     if (!iframeRef.current || !currentVersion) return;
     const xml = generateMxGraphXml(currentVersion.model_json, currentVersion.layout_json);
     iframeRef.current.contentWindow?.postMessage(JSON.stringify({ action: 'load', xml: xml, autosave: 1 }), '*');
-    setTimeout(() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*'), 500);
+    // Automatischer Zoom-Fit nach kurzer Verzögerung
+    setTimeout(() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*'), 300);
   }, [currentVersion]);
 
+  // Iframe Handshake Fix: Sicherstellen, dass das Diagramm geladen wird sobald der Editor bereit ist
   useEffect(() => {
-    if (!mounted || !iframeRef.current || !currentVersion) return;
+    if (!mounted || !iframeRef.current) return;
+    
     const handleMessage = (evt: MessageEvent) => {
       if (!evt.data || typeof evt.data !== 'string') return;
       try {
         const msg = JSON.parse(evt.data);
-        if (msg.event === 'init') syncDiagramToModel();
+        if (msg.event === 'init') {
+          syncDiagramToModel();
+        }
       } catch (e) {}
     };
+    
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [mounted, currentVersion?.id, syncDiagramToModel]);
@@ -360,8 +371,8 @@ export default function ProcessDesignerPage() {
       </header>
 
       <div className="flex-1 flex overflow-hidden h-full relative">
-        {/* Main Sidebar (Left) */}
-        <aside style={{ width: isMobile ? '100%' : `${leftWidth}px` }} className={cn("border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar h-full", isMobile && "hidden")}>
+        {/* Sidebar (Links) */}
+        <aside style={{ width: isMobile ? '100%' : `${leftWidth}px` }} className={cn("border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar h-full shadow-sm", isMobile && "hidden")}>
           <Tabs defaultValue="steps" className="h-full flex flex-col overflow-hidden">
             <TabsList className="h-11 bg-slate-50 border-b gap-0 p-0 w-full justify-start shrink-0 rounded-none overflow-x-auto no-scrollbar">
               <TabsTrigger value="meta" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-primary"><FilePen className="w-3.5 h-3.5" /> Stammdaten</TabsTrigger>
@@ -472,7 +483,7 @@ export default function ProcessDesignerPage() {
 
             <TabsContent value="diskurs" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
               <div className="p-4 bg-slate-50/50 border-b shrink-0">
-                <h3 className="text-[10px] font-bold text-slate-400 mb-3 uppercase tracking-wider">Kollaboration & Feedback</h3>
+                <h3 className="text-[10px] font-bold text-slate-400 mb-3 uppercase tracking-wider">Diskurs & Feedback</h3>
                 <div className="flex items-center gap-1.5">
                   {auditEvents?.filter(e => e.entityId === id).slice(0, 3).map((e: any, i: number) => (
                     <Avatar key={i} className="h-7 w-7 border-2 border-white shadow-sm">
@@ -516,7 +527,7 @@ export default function ProcessDesignerPage() {
           {!isMobile && <div onMouseDown={startResizeLeft} className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/30 z-30 transition-all opacity-0 group-hover/sidebar:opacity-100" />}
         </aside>
 
-        {/* Designer Main Area */}
+        {/* Main Canvas Area */}
         <main className={cn("flex-1 relative bg-slate-100 flex flex-col overflow-hidden")}>
           <div className="absolute top-4 right-4 z-10 bg-white/95 backdrop-blur-md shadow-lg rounded-xl border border-slate-200 p-1.5 flex flex-col gap-1.5">
             <TooltipProvider>
@@ -534,17 +545,17 @@ export default function ProcessDesignerPage() {
       <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-4 pointer-events-none">
         {isAiAdvisorOpen && (
           <Card className="w-[calc(100vw-2rem)] sm:w-[400px] h-[600px] rounded-3xl shadow-2xl border-none flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300 bg-white pointer-events-auto">
-            <header className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+            <header className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0 border-b border-white/10 shadow-lg">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center text-primary shadow-lg border border-white/10">
                   <BrainCircuit className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-widest">KI Advisor</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em]">KI Advisor</h3>
                   <p className="text-[8px] text-slate-400 font-bold uppercase">Prozess-Optimierung aktiv</p>
                 </div>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={() => setIsAiAdvisorOpen(false)}>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10 rounded-full" onClick={() => setIsAiAdvisorOpen(false)}>
                 <Minus className="w-4 h-4" />
               </Button>
             </header>
@@ -559,13 +570,16 @@ export default function ProcessDesignerPage() {
                 )}
                 {chatHistory.map((msg, i) => (
                   <div key={i} className={cn("flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-1", msg.role === 'user' ? "items-end" : "items-start")}>
-                    <div className={cn("p-4 text-[11px] leading-relaxed max-w-[90%] shadow-sm border", msg.role === 'user' ? "bg-slate-800 text-white border-slate-800 rounded-2xl rounded-tr-none" : "bg-white text-slate-600 border-slate-100 rounded-2xl rounded-tl-none")}>
+                    <div className={cn("p-4 text-[11px] leading-relaxed max-w-[90%] shadow-md border transition-all", 
+                      msg.role === 'user' 
+                        ? "bg-slate-800 text-white border-slate-700 rounded-2xl rounded-tr-none" 
+                        : "bg-white text-slate-600 border-slate-100 rounded-2xl rounded-tl-none")}>
                       {msg.text}
                     </div>
                     {msg.role === 'ai' && msg.questions && msg.questions.length > 0 && (
                       <div className="space-y-2 w-full pl-2">
                         {msg.questions.map((q: string, qIdx: number) => (
-                          <div key={qIdx} className="p-3 bg-indigo-50/50 border border-indigo-100 text-[11px] font-bold text-indigo-900 italic rounded-xl shadow-sm flex items-start gap-2">
+                          <div key={qIdx} className="p-3 bg-indigo-50/50 border border-indigo-100 text-[11px] font-bold text-indigo-900 italic rounded-xl shadow-sm flex items-start gap-2 animate-in slide-in-from-left-2">
                             <HelpCircle className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5" />
                             {q}
                           </div>
@@ -573,15 +587,15 @@ export default function ProcessDesignerPage() {
                       </div>
                     )}
                     {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
-                      <div className="mt-3 w-full bg-blue-50 border border-blue-200 p-4 rounded-2xl space-y-4 shadow-sm animate-in zoom-in-95">
+                      <div className="mt-3 w-full bg-blue-50 border-2 border-blue-100 p-4 rounded-2xl space-y-4 shadow-sm animate-in zoom-in-95">
                         <div className="flex items-center gap-2 text-blue-700">
                           <BrainCircuit className="w-3.5 h-3.5" />
-                          <span className="text-[10px] font-bold uppercase tracking-widest">Vorschlag anwenden</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">KI Vorschlag anwenden</span>
                         </div>
                         <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
                           {msg.suggestions.map((op: any, opIdx: number) => (
                             <div key={opIdx} className="text-[9px] p-2 bg-white/80 border border-blue-100 rounded-lg flex items-center gap-3">
-                              <Badge variant="outline" className="text-[8px] font-bold bg-white border-blue-200 text-blue-600 h-4 px-1">NEW</Badge>
+                              <Badge variant="outline" className="text-[8px] font-bold bg-white border-blue-200 text-blue-600 h-4 px-1">NEU</Badge>
                               <span className="truncate font-bold text-slate-700">{op.payload?.node?.title || op.payload?.field || 'Modell-Update'}</span>
                             </div>
                           ))}
@@ -605,7 +619,7 @@ export default function ProcessDesignerPage() {
               </div>
             </ScrollArea>
             
-            <div className="p-4 border-t bg-white shrink-0">
+            <div className="p-4 border-t bg-white shrink-0 shadow-[0_-4px_15px_rgba(0,0,0,0.02)]">
               <div className="relative group">
                 <Input placeholder="Anweisung oder Frage..." value={chatMessage} onChange={e => setChatMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiChat()} className="h-11 rounded-xl border border-slate-200 bg-slate-50/50 pr-12 focus:bg-white transition-all text-xs font-medium shadow-inner" disabled={isAiLoading} />
                 <Button size="icon" className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 bg-slate-900 hover:bg-black text-white rounded-lg shadow-md active:scale-95 transition-transform" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
@@ -619,9 +633,9 @@ export default function ProcessDesignerPage() {
         {!isAiAdvisorOpen && (
           <Button 
             onClick={() => setIsAiAdvisorOpen(true)}
-            className="w-14 h-14 rounded-full shadow-2xl bg-slate-900 hover:bg-black text-white flex items-center justify-center p-0 transition-all active:scale-90 pointer-events-auto border-4 border-white dark:border-slate-800 animate-in zoom-in duration-300"
+            className="w-14 h-14 rounded-full shadow-2xl bg-slate-900 hover:bg-black text-white flex items-center justify-center p-0 transition-all active:scale-90 pointer-events-auto border-4 border-white dark:border-slate-800 animate-in zoom-in duration-300 group"
           >
-            <BrainCircuit className="w-7 h-7 text-primary" />
+            <BrainCircuit className="w-7 h-7 text-primary transition-transform group-hover:scale-110" />
           </Button>
         )}
       </div>

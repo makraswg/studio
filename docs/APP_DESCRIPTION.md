@@ -28,23 +28,37 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
 *Das Nervenzentrum. Hier wird entschieden, was heute wichtig ist.*
 
 *   **Step 1.1: Unified Metrics & Trends**
-    *   *Status*: Implementiert.
-    *   *Optimierung*: Einführung von Trend-Indikatoren (+/- %) und "Was bedeutet das?" Erklärungen für Azubis.
-    *   **NEUE AUFGABE**: Metriken müssen Kontext bieten. "10 neue Nutzer seit gestern" ist eine Information, "100 Nutzer gesamt" nur eine Zahl.
-
+    *   *Status*: Optimiert ✅
+    *   *Änderung*: Einführung von Trend-Indikatoren (+/- %) und "Was bedeutet das?" Erklärungen für Azubis.
 *   **Step 1.2: Action Center (Der Workflow-Einstieg)**
-    *   *Status*: Implementiert.
-    *   *Logik*: Ersetzt statische Progress-Bars durch eine konkrete To-Do Liste ("Next Best Action").
-    *   **OPTIMIERUNG**: Ein Klick auf eine Aufgabe im Dashboard muss den Nutzer direkt in den entsprechenden Dialog im Zielmodul werfen.
-
+    *   *Status*: Implementiert ✅
+    *   *Logik*: Ersetzt statische Progress-Bars durch eine konkrete To-Do Liste ("Next Best Action"). Klicks führen direkt in die Ziel-Dialoge.
 *   **Step 1.3: Risiko-Profil mit Intelligentem Drill-Down**
-    *   *Status*: Implementiert.
-    *   *Consultant Audit*: Klick auf "Hohes Risiko" filtert nun sofort die Risikoliste (Modulübergreifend).
-    *   **NEUE AUFGABE**: Verknüpfung der Diagramme mit URL-Parametern für tiefere Navigation.
+    *   *Status*: Implementiert ✅
+    *   *Consultant Audit*: Klick auf Diagramm-Segmente filtert nun sofort die Listen in den Modulen.
 
-*   **Step 1.4: Smart Governance Insights & Dashboard Export**
-    *   *Status*: Implementiert.
-    *   *Audit-Ready*: Dashboard Snapshot Button für den Monatsbericht hinzugefügt.
+### 2. Identity & Access Management (IAM)
+*Wer ist wer und was darf er? Fokus auf Risikobewusstsein.*
 
----
-*(Fortsetzung der anderen Steps folgt in den nächsten Audits...)*
+*   **Step 2.1: Identitätsverzeichnis & Risk-Awareness**
+    *   *Status*: Optimiert ✅
+    *   *Änderung*: Benutzerliste zeigt nun "Critical Roles Count". Ein Azubi sieht sofort, wer "gefährliche" Rechte hat.
+    *   *Code*: `src/app/(dashboard)/users/page.tsx`
+*   **Step 2.2: Geführtes Quick-Assign**
+    *   *Status*: Optimiert ✅
+    *   *Logik*: Warnung im Dialog bei Auswahl von Admin-Rollen. Strikte Trennung von Standard- und Privilegierten Rechten.
+*   **Step 2.3: Revisionssichere Historie**
+    *   *Status*: Implementiert ✅
+    *   *Audit-Ready*: Vollständiger Lebenslauf der Berechtigungen im Benutzerdetail.
+
+### 3. Risikomanagement & GRC
+*Gefahren erkennen, bewerten und bändigen.*
+
+*   **Step 3.1: Risiko-Inventar & Szenario-Analyse**
+    *   *Status*: Implementiert.
+    *   **NEUE AUFGABE**: Risiken müssen mit Prozessschritten aus Step 4 verknüpft werden. "Was passiert im Prozess, wenn dieses Risiko eintritt?"
+*   **Step 3.2: Maßnahmenplan (TOM) & Wirksamkeit**
+    *   *Status*: Implementiert.
+    *   **NEUE AUFGABE**: Einführung einer "Nachweispflicht" (Upload oder Link) für erledigte Maßnahmen für den Wirtschaftsprüfer.
+
+*(Fortsetzung der Audits folgt in den nächsten Schritten...)*

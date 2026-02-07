@@ -32,7 +32,10 @@ import {
   Download,
   MoreVertical,
   Building2,
-  Mail
+  Mail,
+  ArrowRight,
+  Activity,
+  UserCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -181,7 +184,7 @@ export default function UsersPage() {
       entitlementId: qaEntitlementId,
       tenantId: selectedUser.tenantId || 'global',
       status: 'active',
-      grantedBy: authUser?.uid || 'system',
+      grantedBy: authUser?.email || 'system',
       grantedAt: new Date().toISOString(),
       validFrom: new Date().toISOString().split('T')[0],
       validUntil: qaValidUntil,
@@ -604,21 +607,21 @@ export default function UsersPage() {
           <div className="p-8 space-y-6">
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Anzeigename</Label>
-              <Input value={displayName} onChange={e => setDisplayName(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950" placeholder="Max Mustermann" />
+              <Input value={displayName} onChange={e => setDisplayName(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950" placeholder="Max Mustermann" />
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">E-Mail Adresse</Label>
-              <Input value={email} onChange={e => setEmail(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950" placeholder="name@firma.de" />
+              <Input value={email} onChange={e => setEmail(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950" placeholder="name@firma.de" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Abteilung</Label>
-                <Input value={department} onChange={e => setDepartment(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950" placeholder="IT" />
+                <Input value={department} onChange={e => setDepartment(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950" placeholder="IT" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Mandant</Label>
                 <Select value={tenantId} onValueChange={setTenantId}>
-                  <SelectTrigger className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+                  <SelectTrigger className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950">
                     <SelectValue placeholder="Wählen..." />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800">

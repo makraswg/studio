@@ -4,21 +4,18 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   Workflow, 
-  MessageSquare, 
   ChevronLeft, 
   Loader2, 
   Send, 
   Check, 
   X, 
   BrainCircuit, 
-  Plus, 
   BookOpen,
   ShieldCheck,
   Save, 
   Trash2, 
   Activity, 
   RefreshCw, 
-  Sparkles, 
   GitBranch, 
   AlertTriangle,
   ChevronUp,
@@ -26,7 +23,6 @@ import {
   ClipboardList,
   FileCode,
   FilePen,
-  ArrowRightCircle,
   ArrowRight,
   CheckCircle,
   Link as LinkIcon,
@@ -34,12 +30,6 @@ import {
   CircleDot,
   ExternalLink,
   HelpCircle,
-  Tags,
-  PlusCircle,
-  Layout,
-  LayoutGrid,
-  UserCircle,
-  History,
   MessageCircle,
   Info
 } from 'lucide-react';
@@ -59,9 +49,8 @@ import { getProcessSuggestions } from '@/ai/flows/process-designer-flow';
 import { publishToBookStackAction } from '@/app/actions/bookstack-actions';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, ProcessNode, Process, JobTitle, ProcessComment } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -118,9 +107,6 @@ export default function ProcessDesignerPage() {
   const [rightWidth, setRightWidth] = useState(380);
   const isResizingLeft = useRef(false);
   const isResizingRight = useRef(false);
-
-  const [mobileView, setMobileView] = useState<'steps' | 'diagram' | 'ai'>('steps');
-  const [rightActiveTab, setRightActiveTab] = useState<'ai' | 'collab'>('ai');
 
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<any[]>([]);
@@ -353,310 +339,6 @@ export default function ProcessDesignerPage() {
 
   if (!mounted) return null;
 
-  const SidebarLeft = (
-    <aside 
-      style={{ width: isMobile ? '100%' : `${leftWidth}px` }} 
-      className={cn(
-        "border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar h-full", 
-        isMobile && mobileView !== 'steps' && "hidden"
-      )}
-    >
-      <Tabs defaultValue="steps" className="h-full flex flex-col overflow-hidden">
-        <TabsList className="h-12 bg-slate-50 border-b gap-4 p-0 w-full justify-start px-6 shrink-0 rounded-none">
-          <TabsTrigger value="meta" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2"><FilePen className="w-4 h-4" /> Stammdaten</TabsTrigger>
-          <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2"><ClipboardList className="w-4 h-4" /> Ablauf</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="meta" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
-          <ScrollArea className="flex-1">
-            <div className="p-8 space-y-10 pb-32">
-              <div className="space-y-6">
-                <h3 className="text-[10px] font-bold uppercase text-slate-400 border-b border-slate-100 pb-2 tracking-[0.2em]">Grunddaten</h3>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-500 ml-1">Prozessbezeichnung</Label>
-                  <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="rounded-xl font-bold h-12 border-slate-200" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-500 ml-1">Status</Label>
-                  <Select value={metaStatus} onValueChange={setMetaStatus}>
-                    <SelectTrigger className="rounded-xl h-12 border-slate-200">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      <SelectItem value="draft">Entwurf</SelectItem>
-                      <SelectItem value="published">Veröffentlicht</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-500 ml-1">Zusammenfassung</Label>
-                  <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="rounded-xl min-h-[100px] text-xs border-slate-200 leading-relaxed" />
-                </div>
-                
-                <div className="p-6 rounded-2xl bg-indigo-50 border border-indigo-100 space-y-3 shadow-inner">
-                  <Label className="text-[10px] font-bold uppercase text-indigo-600 flex items-center gap-2 tracking-widest">
-                    <HelpCircle className="w-4 h-4" /> Offene Fragen für KI
-                  </Label>
-                  <Textarea 
-                    value={metaOpenQuestions} 
-                    onChange={e => setMetaOpenQuestions(e.target.value)} 
-                    placeholder="Dokumentieren Sie hier Unklarheiten..."
-                    className="rounded-xl min-h-[120px] text-xs border-indigo-200 bg-white focus:border-indigo-400" 
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-8 pt-10 border-t border-slate-100">
-                <div className="flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-emerald-600" /><h3 className="text-[10px] font-bold uppercase text-emerald-700 tracking-[0.2em]">ISO 9001 Compliance</h3></div>
-                {[{ id: 'inputs', label: 'Eingaben', icon: ArrowRight }, { id: 'outputs', label: 'Ausgaben', icon: Check }, { id: 'risks', label: 'Risiken & Chancen', icon: AlertTriangle }, { id: 'evidence', label: 'Nachweise', icon: FileCode }].map(f => (
-                  <div key={f.id} className="space-y-3">
-                    <Label className="text-[10px] font-bold uppercase flex items-center gap-2 text-slate-600"><f.icon className="w-3.5 h-3.5 text-emerald-600" /> {f.label}</Label>
-                    <Textarea 
-                      defaultValue={currentVersion?.model_json?.isoFields?.[f.id] || ''} 
-                      className="text-xs rounded-xl min-h-[100px] border-slate-200 bg-slate-50 focus:bg-white transition-all" 
-                      onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: f.id, value: e.target.value } }])} 
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="pt-10 border-t border-slate-100">
-                <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full rounded-2xl h-14 font-bold uppercase text-xs gap-3 tracking-[0.2em] bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 transition-all active:scale-95">
-                  {isSavingMeta ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />} 
-                  Stammdaten speichern
-                </Button>
-              </div>
-            </div>
-          </ScrollArea>
-        </TabsContent>
-
-        <TabsContent value="steps" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
-          <div className="px-6 py-3 border-b bg-white flex items-center justify-between shrink-0">
-            <h3 className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Ablauffolge</h3>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase rounded-lg border-slate-200 hover:bg-primary/5 hover:text-primary transition-all" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
-              <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase rounded-lg border-slate-200 hover:bg-accent/5 hover:text-accent transition-all" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
-            </div>
-          </div>
-          <ScrollArea className="flex-1 bg-slate-50/30">
-            <div className="p-6 space-y-3 pb-32">
-              {(currentVersion?.model_json?.nodes || []).map((node: any, idx: number) => {
-                const isEndLinked = node.type === 'end' && !!node.targetProcessId && node.targetProcessId !== 'none';
-                const linkedProc = isEndLinked ? processes?.find(p => p.id === node.targetProcessId) : null;
-                const nodeCommentCount = comments?.filter(c => c.node_id === node.id).length || 0;
-                
-                return (
-                  <div 
-                    key={String(node.id || idx)} 
-                    className={cn(
-                      "group flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer bg-white shadow-sm hover:shadow-md hover:border-primary/20", 
-                      selectedNodeId === node.id ? "border-primary ring-4 ring-primary/5" : "border-slate-100"
-                    )} 
-                    onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}
-                  >
-                    <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-inner relative", 
-                      node.type === 'decision' ? "bg-accent/10 text-accent border-accent/20" : 
-                      node.type === 'start' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : 
-                      node.type === 'end' ? (isEndLinked ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-red-50 text-red-600 border-red-100") :
-                      "bg-slate-50 text-slate-600 border-slate-100"
-                    )}>
-                      {node.type === 'decision' ? <GitBranch className="w-5 h-5" /> : 
-                       node.type === 'end' ? (isEndLinked ? <LinkIcon className="w-5 h-5" /> : <CircleDot className="w-5 h-5" />) :
-                       <Activity className="w-5 h-5" />}
-                      {nodeCommentCount > 0 && (
-                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-primary text-white rounded-full flex items-center justify-center text-[8px] font-bold border-2 border-white shadow-sm">{nodeCommentCount}</div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-800 truncate leading-tight">{node.title}</p>
-                      {isEndLinked ? (
-                        <p className="text-[9px] text-blue-600 font-bold flex items-center gap-1.5 mt-1.5"><ExternalLink className="w-3 h-3" /> Verknüpft: {linkedProc?.title}</p>
-                      ) : (
-                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 tracking-wider">{node.type}</p>
-                      )}
-                    </div>
-                    {!isMobile && (
-                      <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button className="p-1 hover:text-primary transition-colors disabled:opacity-20" disabled={idx === 0} onClick={e => { e.stopPropagation(); handleMoveNode(node.id, 'up'); }}><ChevronUp className="w-4 h-4" /></button>
-                        <button className="p-1 hover:text-primary transition-colors disabled:opacity-20" disabled={idx === (currentVersion?.model_json?.nodes?.length || 0) - 1} onClick={e => { e.stopPropagation(); handleMoveNode(node.id, 'down'); }}><ChevronDown className="w-4 h-4" /></button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </ScrollArea>
-        </TabsContent>
-      </Tabs>
-      {!isMobile && <div onMouseDown={startResizeLeft} className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/30 z-30 transition-all opacity-0 group-hover/sidebar:opacity-100" />}
-    </aside>
-  );
-
-  const SidebarRight = (
-    <aside 
-      style={{ width: isMobile ? '100%' : `${rightWidth}px` }} 
-      className={cn(
-        "border-l flex flex-col bg-white shrink-0 overflow-hidden relative group/right h-full", 
-        isMobile && mobileView !== 'ai' && "hidden"
-      )}
-    >
-      {!isMobile && <div onMouseDown={startResizeRight} className="absolute top-0 left-0 w-1 h-full cursor-col-resize hover:bg-primary/30 z-30 transition-all opacity-0 group-hover/right:opacity-100" />}
-      
-      <Tabs value={rightActiveTab} onValueChange={(v: any) => setRightActiveTab(v)} className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="h-12 bg-slate-900 border-b border-white/10 gap-0 p-0 w-full justify-start rounded-none shrink-0">
-          <TabsTrigger value="ai" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/10 h-full text-[10px] font-bold uppercase tracking-widest text-white/50 data-[state=active]:text-primary flex items-center gap-2 transition-all"><BrainCircuit className="w-4 h-4" /> KI Advisor</TabsTrigger>
-          <TabsTrigger value="collab" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/10 h-full text-[10px] font-bold uppercase tracking-widest text-white/50 data-[state=active]:text-primary flex items-center gap-2 transition-all"><MessageCircle className="w-4 h-4" /> Diskurs</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="ai" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
-          <ScrollArea className="flex-1 bg-slate-50/50">
-            <div className="p-6 space-y-8 pb-32">
-              {chatHistory.length === 0 && (
-                <div className="text-center py-20 opacity-30 flex flex-col items-center gap-4">
-                  <MessageSquare className="w-12 h-12" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest max-w-[180px]">Beschreiben Sie den Ablauf für einen KI-Entwurf</p>
-                </div>
-              )}
-              {chatHistory.map((msg, i) => (
-                <div key={i} className={cn("flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2", msg.role === 'user' ? "items-end" : "items-start")}>
-                  <div className={cn(
-                    "p-5 text-xs leading-relaxed max-w-[92%] shadow-sm rounded-2xl", 
-                    msg.role === 'user' ? "bg-slate-900 text-white" : "bg-white text-slate-700 border border-slate-100"
-                  )}>
-                    {msg.text}
-                  </div>
-                  {msg.role === 'ai' && msg.questions && msg.questions.length > 0 && (
-                    <div className="space-y-3 w-full pl-2">
-                      {msg.questions.map((q: string, qIdx: number) => (
-                        <div key={qIdx} className="p-4 bg-indigo-50 border border-indigo-100 text-xs font-bold text-indigo-900 italic rounded-xl shadow-sm relative overflow-hidden group">
-                          <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
-                          <HelpCircle className="w-4 h-4 absolute top-2 right-2 opacity-10" />
-                          {q}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
-                    <div className="mt-4 w-full bg-white border-2 border-primary p-6 rounded-3xl space-y-5 shadow-2xl animate-in zoom-in-95">
-                      <div className="flex items-center gap-2 text-primary">
-                        <BrainCircuit className="w-5 h-5" />
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em]">KI-Vorschlag</span>
-                      </div>
-                      <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
-                        {msg.suggestions.map((op: any, opIdx: number) => (
-                          <div key={opIdx} className="text-[10px] p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center gap-4">
-                            <Badge variant="outline" className="text-[8px] font-bold bg-white shrink-0 border-slate-200 uppercase">{String(op.type).split('_')[0]}</Badge>
-                            <span className="truncate font-bold text-slate-700">{op.payload?.node?.title || op.payload?.field || 'Modell-Änderung'}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex gap-3 pt-2">
-                        <Button onClick={() => { handleApplyOps(msg.suggestions); msg.suggestions = []; }} disabled={isApplying} className="flex-1 h-12 bg-primary text-white text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-primary/20 rounded-xl transition-all active:scale-95">Anwenden</Button>
-                        <Button variant="ghost" onClick={() => msg.suggestions = []} className="flex-1 h-12 text-[10px] font-bold uppercase border border-slate-200 rounded-xl">Ablehnen</Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {isAiLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-white border border-slate-100 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
-                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">KI entwirft Modell...</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-          
-          <div className="p-6 border-t bg-white shrink-0 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
-            <div className="relative group">
-              <Input 
-                placeholder="Prozess beschreiben oder fragen..." 
-                value={chatMessage} 
-                onChange={e => setChatMessage(e.target.value)} 
-                onKeyDown={e => e.key === 'Enter' && handleAiChat()} 
-                className="h-16 rounded-2xl border-2 border-slate-100 bg-slate-50 pr-16 focus:bg-white focus:border-primary transition-all text-sm font-medium" 
-                disabled={isAiLoading} 
-              />
-              <Button size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-12 w-12 bg-slate-900 hover:bg-black text-white rounded-xl shadow-xl active:scale-[0.95] transition-transform" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
-                {isAiLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-              </Button>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="collab" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
-          <div className="p-6 bg-slate-50 border-b shrink-0">
-            <h3 className="text-[10px] font-bold uppercase text-slate-400 tracking-[0.2em] mb-4">Verlauf</h3>
-            <div className="flex items-center gap-2">
-              {lastEditors.length > 0 ? lastEditors.map((e, i) => (
-                <TooltipProvider key={i}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Avatar className="h-8 w-8 border-2 border-white ring-2 ring-primary/5">
-                        <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">{String(e.actorUid).charAt(0).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                    </TooltipTrigger>
-                    <TooltipContent className="text-[9px] font-bold uppercase">{e.actorUid}</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )) : <p className="text-[9px] text-slate-400 font-bold italic uppercase tracking-widest">Keine Editoren</p>}
-            </div>
-          </div>
-
-          <ScrollArea className="flex-1 bg-white">
-            <div className="p-6 space-y-6">
-              {processComments.length === 0 ? (
-                <div className="py-20 text-center space-y-4 opacity-20">
-                  <MessageCircle className="w-12 h-12 mx-auto" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest">Keine Anmerkungen</p>
-                </div>
-              ) : processComments.map((comm) => (
-                <div key={comm.id} className="space-y-2 group animate-in slide-in-from-right-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold uppercase text-slate-900">{comm.user_name}</span>
-                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{new Date(comm.created_at).toLocaleDateString()}</span>
-                    </div>
-                    {comm.node_id && (
-                      <Badge variant="outline" className="text-[7px] h-4 rounded-none font-bold uppercase border-primary/20 text-primary bg-primary/5">Schritt: {String(comm.node_id).substring(0, 8)}</Badge>
-                    )}
-                  </div>
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs leading-relaxed text-slate-600 shadow-sm">
-                    {comm.text}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-
-          <div className="p-6 border-t bg-slate-50 shrink-0">
-            <div className="space-y-3">
-              <Label className="text-[9px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Kommentar verfassen</Label>
-              {selectedNodeId && (
-                <div className="flex items-center justify-between bg-primary/5 p-2 px-3 rounded-xl border border-primary/10 mb-2 shadow-inner">
-                  <span className="text-[9px] font-bold text-primary uppercase flex items-center gap-2"><Activity className="w-3 h-3" /> Bezug: {selectedNode?.title}</span>
-                  <button onClick={() => setSelectedNodeId(null)} className="text-primary hover:text-primary/80"><X className="w-3 h-3" /></button>
-                </div>
-              )}
-              <Textarea 
-                placeholder="Ihre Anmerkung..." 
-                value={commentText} 
-                onChange={e => setChatMessageCollab(e.target.value)}
-                className="min-h-[80px] rounded-2xl border-slate-200 focus:border-primary text-xs shadow-sm" 
-              />
-              <Button onClick={handleAddComment} disabled={isCommenting || !commentText.trim()} className="w-full rounded-xl h-10 font-bold uppercase text-[10px] gap-2 tracking-widest bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-[0.95]">
-                {isCommenting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Senden
-              </Button>
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
-    </aside>
-  );
-
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 selection:bg-primary/20 selection:text-primary font-body">
       <header className="h-16 border-b bg-white flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
@@ -665,36 +347,133 @@ export default function ProcessDesignerPage() {
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <h2 className="font-headline font-bold text-base md:text-lg tracking-tight text-slate-900 truncate max-w-[200px] md:max-w-md">{currentProcess?.title}</h2>
-              <Badge className="bg-primary/10 text-primary border-none rounded-full text-[9px] font-bold uppercase px-3 h-5 hidden md:flex">Revision {currentVersion?.revision}</Badge>
+              <Badge className="bg-primary/10 text-primary border-none rounded-full text-[10px] font-bold px-3 h-5 hidden md:flex">Revision {currentVersion?.revision}</Badge>
             </div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-widest truncate">{currentProcess?.status} • Version {currentVersion?.version}.0</p>
+            <p className="text-[10px] text-slate-400 font-bold mt-0.5 truncate">{currentProcess?.status} • Version {currentVersion?.version}.0</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="hidden lg:flex items-center gap-2 mr-4 border-r pr-6 border-slate-100">
-            <span className="text-[9px] font-bold uppercase text-slate-400 tracking-widest">Status:</span>
+            <span className="text-[10px] font-bold text-slate-400">Editoren:</span>
             <div className="flex -space-x-2">
               <Avatar className="h-7 w-7 border-2 border-white shadow-sm">
-                <AvatarFallback className="bg-indigo-100 text-indigo-600 text-[8px] font-bold">AI</AvatarFallback>
+                <AvatarFallback className="bg-indigo-100 text-indigo-600 text-[10px] font-bold">AI</AvatarFallback>
               </Avatar>
               <Avatar className="h-7 w-7 border-2 border-white shadow-sm">
-                <AvatarFallback className="bg-primary/10 text-primary text-[8px] font-bold">{String(user?.displayName).charAt(0)}</AvatarFallback>
+                <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">{String(user?.displayName).charAt(0)}</AvatarFallback>
               </Avatar>
             </div>
           </div>
-          <Button variant="outline" size="sm" className="rounded-xl h-10 text-[10px] font-bold uppercase border-slate-200 px-6 gap-2 hidden md:flex hover:bg-indigo-50 hover:text-indigo-600 transition-all" onClick={() => publishToBookStackAction(currentProcess?.id || '', currentVersion?.version || 1, "", dataSource).then(() => toast({ title: "Export erfolgreich" }))} disabled={isPublishing}>
+          <Button variant="outline" size="sm" className="rounded-xl h-10 text-[11px] font-bold border-slate-200 px-6 gap-2 hidden md:flex hover:bg-indigo-50 hover:text-indigo-600 transition-all" onClick={() => publishToBookStackAction(currentProcess?.id || '', currentVersion?.version || 1, "", dataSource).then(() => toast({ title: "Export erfolgreich" }))} disabled={isPublishing}>
             {isPublishing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BookOpen className="w-4 h-4" />} Export
           </Button>
-          <Button size="sm" className="rounded-xl h-10 text-[10px] font-bold uppercase bg-primary hover:bg-primary/90 text-white px-8 shadow-lg shadow-primary/20 transition-all active:scale-[0.95]" onClick={() => syncDiagramToModel()}>
+          <Button size="sm" className="rounded-xl h-10 text-[11px] font-bold bg-primary hover:bg-primary/90 text-white px-8 shadow-lg shadow-primary/20 transition-all active:scale-[0.95]" onClick={() => syncDiagramToModel()}>
             <RefreshCw className="w-4 h-4 mr-2" /> <span className="hidden sm:inline">Aktualisieren</span>
           </Button>
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden h-full relative">
-        {SidebarLeft}
-        <main className={cn("flex-1 relative bg-slate-100 flex flex-col overflow-hidden", isMobile && mobileView !== 'diagram' && "hidden")}>
-          <div className="absolute top-6 right-6 md:top-10 md:right-10 z-10 bg-white/95 backdrop-blur-md shadow-2xl rounded-2xl border border-slate-200 p-2 flex flex-col gap-2">
+        <aside style={{ width: isMobile ? '100%' : `${leftWidth}px` }} className={cn("border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar h-full", isMobile && "hidden")}>
+          <Tabs defaultValue="steps" className="h-full flex flex-col overflow-hidden">
+            <TabsList className="h-12 bg-slate-50 border-b gap-4 p-0 w-full justify-start px-6 shrink-0 rounded-none">
+              <TabsTrigger value="meta" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[11px] font-bold flex items-center gap-2"><FilePen className="w-4 h-4" /> Stammdaten</TabsTrigger>
+              <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[11px] font-bold flex items-center gap-2"><ClipboardList className="w-4 h-4" /> Ablauf</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="meta" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
+              <ScrollArea className="flex-1">
+                <div className="p-8 space-y-10 pb-32">
+                  <div className="space-y-6">
+                    <h3 className="text-[11px] font-bold text-slate-400 border-b border-slate-100 pb-2">Grunddaten</h3>
+                    <div className="space-y-2">
+                      <Label className="text-[11px] font-bold text-slate-500 ml-1">Prozessbezeichnung</Label>
+                      <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="rounded-xl font-bold h-12 border-slate-200" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[11px] font-bold text-slate-500 ml-1">Status</Label>
+                      <Select value={metaStatus} onValueChange={setMetaStatus}>
+                        <SelectTrigger className="rounded-xl h-12 border-slate-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="draft">Entwurf</SelectItem>
+                          <SelectItem value="published">Veröffentlicht</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[11px] font-bold text-slate-500 ml-1">Zusammenfassung</Label>
+                      <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="rounded-xl min-h-[100px] text-xs border-slate-200 leading-relaxed" />
+                    </div>
+                    
+                    <div className="p-6 rounded-2xl bg-indigo-50 border border-indigo-100 space-y-3 shadow-inner">
+                      <Label className="text-[11px] font-bold text-indigo-600 flex items-center gap-2">
+                        <HelpCircle className="w-4 h-4" /> Offene Fragen für KI
+                      </Label>
+                      <Textarea value={metaOpenQuestions} onChange={e => setMetaOpenQuestions(e.target.value)} placeholder="Dokumentieren Sie hier Unklarheiten..." className="rounded-xl min-h-[120px] text-xs border-indigo-200 bg-white focus:border-indigo-400" />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-8 pt-10 border-t border-slate-100">
+                    <div className="flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-emerald-600" /><h3 className="text-[11px] font-bold text-emerald-700">ISO 9001 Compliance</h3></div>
+                    {[{ id: 'inputs', label: 'Eingaben' }, { id: 'outputs', label: 'Ausgaben' }, { id: 'risks', label: 'Risiken & Chancen' }, { id: 'evidence', label: 'Nachweise' }].map(f => (
+                      <div key={f.id} className="space-y-3">
+                        <Label className="text-[11px] font-bold flex items-center gap-2 text-slate-600">{f.label}</Label>
+                        <Textarea defaultValue={currentVersion?.model_json?.isoFields?.[f.id] || ''} className="text-xs rounded-xl min-h-[100px] border-slate-200 bg-slate-50 focus:bg-white transition-all" onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: f.id, value: e.target.value } }])} />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-10 border-t border-slate-100">
+                    <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full rounded-2xl h-14 font-bold text-sm gap-3 bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 transition-all active:scale-95">
+                      {isSavingMeta ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />} 
+                      Stammdaten speichern
+                    </Button>
+                  </div>
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="steps" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
+              <div className="px-6 py-3 border-b bg-white flex items-center justify-between shrink-0">
+                <h3 className="text-[11px] font-bold text-slate-400 uppercase">Ablauffolge</h3>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="h-8 text-[10px] font-bold rounded-lg border-slate-200 hover:bg-primary/5 hover:text-primary transition-all" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
+                  <Button variant="outline" size="sm" className="h-8 text-[10px] font-bold rounded-lg border-slate-200 hover:bg-accent/5 hover:text-accent transition-all" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
+                </div>
+              </div>
+              <ScrollArea className="flex-1 bg-slate-50/30">
+                <div className="p-6 space-y-3 pb-32">
+                  {(currentVersion?.model_json?.nodes || []).map((node: any, idx: number) => {
+                    const isEndLinked = node.type === 'end' && !!node.targetProcessId && node.targetProcessId !== 'none';
+                    const nodeCommentCount = comments?.filter(c => c.node_id === node.id).length || 0;
+                    return (
+                      <div key={String(node.id || idx)} className={cn("group flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer bg-white shadow-sm hover:shadow-md hover:border-primary/20", selectedNodeId === node.id ? "border-primary ring-4 ring-primary/5" : "border-slate-100")} onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}>
+                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-inner relative", node.type === 'decision' ? "bg-accent/10 text-accent border-accent/20" : node.type === 'start' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : node.type === 'end' ? (isEndLinked ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-red-50 text-red-600 border-red-100") : "bg-slate-50 text-slate-600 border-slate-100")}>
+                          {node.type === 'decision' ? <GitBranch className="w-5 h-5" /> : node.type === 'end' ? (isEndLinked ? <LinkIcon className="w-5 h-5" /> : <CircleDot className="w-5 h-5" />) : <Activity className="w-5 h-5" />}
+                          {nodeCommentCount > 0 && <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-primary text-white rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-white shadow-sm">{nodeCommentCount}</div>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-slate-800 truncate leading-tight">{node.title}</p>
+                          <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">{node.type}</p>
+                        </div>
+                        <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button className="p-1 hover:text-primary transition-colors disabled:opacity-20" disabled={idx === 0} onClick={e => { e.stopPropagation(); handleMoveNode(node.id, 'up'); }}><ChevronUp className="w-4 h-4" /></button>
+                          <button className="p-1 hover:text-primary transition-colors disabled:opacity-20" disabled={idx === (currentVersion?.model_json?.nodes?.length || 0) - 1} onClick={e => { e.stopPropagation(); handleMoveNode(node.id, 'down'); }}><ChevronDown className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+          {!isMobile && <div onMouseDown={startResizeLeft} className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/30 z-30 transition-all opacity-0 group-hover/sidebar:opacity-100" />}
+        </aside>
+
+        <main className={cn("flex-1 relative bg-slate-100 flex flex-col overflow-hidden")}>
+          <div className="absolute top-6 right-6 z-10 bg-white/95 backdrop-blur-md shadow-2xl rounded-2xl border border-slate-200 p-2 flex flex-col gap-2">
             <TooltipProvider>
               <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={syncDiagramToModel} className="h-10 w-10 rounded-xl hover:bg-primary/10 hover:text-primary transition-all"><RefreshCw className="w-5 h-5" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[10px] font-bold uppercase">Sync</TooltipContent></Tooltip>
               <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*')} className="h-10 w-10 rounded-xl hover:bg-primary/10 hover:text-primary transition-all"><Maximize2 className="w-5 h-5" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[10px] font-bold uppercase">Zentrieren</TooltipContent></Tooltip>
@@ -704,36 +483,164 @@ export default function ProcessDesignerPage() {
             <iframe ref={iframeRef} src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json" className="absolute inset-0 w-full h-full border-none" />
           </div>
         </main>
-        {SidebarRight}
+
+        <aside style={{ width: isMobile ? '100%' : `${rightWidth}px` }} className={cn("border-l flex flex-col bg-white shrink-0 overflow-hidden relative group/right h-full", isMobile && "hidden")}>
+          {!isMobile && <div onMouseDown={startResizeRight} className="absolute top-0 left-0 w-1 h-full cursor-col-resize hover:bg-primary/30 z-30 transition-all opacity-0 group-hover/right:opacity-100" />}
+          <Tabs defaultValue="ai" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="h-12 bg-slate-900 border-b border-white/10 gap-0 p-0 w-full justify-start rounded-none shrink-0">
+              <TabsTrigger value="ai" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/10 h-full text-[11px] font-bold text-white/50 data-[state=active]:text-primary flex items-center gap-2 transition-all"><BrainCircuit className="w-4 h-4" /> KI Advisor</TabsTrigger>
+              <TabsTrigger value="collab" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/10 h-full text-[11px] font-bold text-white/50 data-[state=active]:text-primary flex items-center gap-2 transition-all"><MessageCircle className="w-4 h-4" /> Diskurs</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="ai" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
+              <ScrollArea className="flex-1 bg-slate-50/50">
+                <div className="p-6 space-y-8 pb-32">
+                  {chatHistory.length === 0 && (
+                    <div className="text-center py-20 opacity-30 flex flex-col items-center gap-4">
+                      <BrainCircuit className="w-12 h-12" />
+                      <p className="text-[11px] font-bold uppercase tracking-widest max-w-[180px]">Beschreiben Sie den Ablauf für einen KI-Entwurf</p>
+                    </div>
+                  )}
+                  {chatHistory.map((msg, i) => (
+                    <div key={i} className={cn("flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2", msg.role === 'user' ? "items-end" : "items-start")}>
+                      <div className={cn("p-5 text-xs leading-relaxed max-w-[92%] shadow-sm rounded-2xl", msg.role === 'user' ? "bg-slate-900 text-white" : "bg-white text-slate-700 border border-slate-100")}>
+                        {msg.text}
+                      </div>
+                      {msg.role === 'ai' && msg.questions && msg.questions.length > 0 && (
+                        <div className="space-y-3 w-full pl-2">
+                          {msg.questions.map((q: string, qIdx: number) => (
+                            <div key={qIdx} className="p-4 bg-indigo-50 border border-indigo-100 text-xs font-bold text-indigo-900 italic rounded-xl shadow-sm relative overflow-hidden group">
+                              <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+                              <HelpCircle className="w-4 h-4 absolute top-2 right-2 opacity-10" />
+                              {q}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
+                        <div className="mt-4 w-full bg-white border-2 border-primary p-6 rounded-3xl space-y-5 shadow-2xl animate-in zoom-in-95">
+                          <div className="flex items-center gap-2 text-primary">
+                            <BrainCircuit className="w-5 h-5" />
+                            <span className="text-[11px] font-bold uppercase">KI-Vorschlag</span>
+                          </div>
+                          <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+                            {msg.suggestions.map((op: any, opIdx: number) => (
+                              <div key={opIdx} className="text-[10px] p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center gap-4">
+                                <Badge variant="outline" className="text-[9px] font-bold bg-white shrink-0 border-slate-200 uppercase">{String(op.type).split('_')[0]}</Badge>
+                                <span className="truncate font-bold text-slate-700">{op.payload?.node?.title || op.payload?.field || 'Modell-Änderung'}</span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex gap-3 pt-2">
+                            <Button onClick={() => { handleApplyOps(msg.suggestions); msg.suggestions = []; }} disabled={isApplying} className="flex-1 h-12 bg-primary text-white text-[11px] font-bold uppercase tracking-widest shadow-lg shadow-primary/20 rounded-xl transition-all active:scale-95">Anwenden</Button>
+                            <Button variant="ghost" onClick={() => msg.suggestions = []} className="flex-1 h-12 text-[11px] font-bold uppercase border border-slate-200 rounded-xl">Ablehnen</Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {isAiLoading && (
+                    <div className="flex justify-start">
+                      <div className="bg-white border border-slate-100 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        <span className="text-[11px] font-bold text-slate-400 uppercase animate-pulse">KI entwirft Modell...</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+              
+              <div className="p-6 border-t bg-white shrink-0 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
+                <div className="relative group">
+                  <Input placeholder="Prozess beschreiben oder fragen..." value={chatMessage} onChange={e => setChatMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiChat()} className="h-16 rounded-2xl border-2 border-slate-100 bg-slate-50 pr-16 focus:bg-white focus:border-primary transition-all text-sm font-medium" disabled={isAiLoading} />
+                  <Button size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-12 w-12 bg-slate-900 hover:bg-black text-white rounded-xl shadow-xl active:scale-[0.95] transition-transform" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
+                    {isAiLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="collab" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
+              <div className="p-6 bg-slate-50 border-b shrink-0">
+                <h3 className="text-[11px] font-bold text-slate-400 uppercase mb-4">Verlauf</h3>
+                <div className="flex items-center gap-2">
+                  {lastEditors.length > 0 ? lastEditors.map((e, i) => (
+                    <TooltipProvider key={i}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Avatar className="h-8 w-8 border-2 border-white ring-2 ring-primary/5">
+                            <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">{String(e.actorUid).charAt(0).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-[10px] font-bold uppercase">{e.actorUid}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )) : <p className="text-[10px] text-slate-400 font-bold italic uppercase">Keine Editoren</p>}
+                </div>
+              </div>
+
+              <ScrollArea className="flex-1 bg-white">
+                <div className="p-6 space-y-6">
+                  {processComments.length === 0 ? (
+                    <div className="py-20 text-center space-y-4 opacity-20">
+                      <MessageCircle className="w-12 h-12 mx-auto" />
+                      <p className="text-[11px] font-bold uppercase">Keine Anmerkungen</p>
+                    </div>
+                  ) : processComments.map((comm) => (
+                    <div key={comm.id} className="space-y-2 group animate-in slide-in-from-right-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-bold text-slate-900">{comm.user_name}</span>
+                          <span className="text-[10px] font-bold text-slate-400">{new Date(comm.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs leading-relaxed text-slate-600 shadow-sm">
+                        {comm.text}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+
+              <div className="p-6 border-t bg-slate-50 shrink-0">
+                <div className="space-y-3">
+                  <Label className="text-[11px] font-bold text-slate-400 ml-1">Kommentar verfassen</Label>
+                  <Textarea placeholder="Ihre Anmerkung..." value={commentText} onChange={e => setChatMessageCollab(e.target.value)} className="min-h-[80px] rounded-2xl border-slate-200 focus:border-primary text-xs shadow-sm" />
+                  <Button onClick={handleAddComment} disabled={isCommenting || !commentText.trim()} className="w-full rounded-xl h-10 font-bold text-[11px] gap-2 bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-[0.95]">
+                    {isCommenting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Senden
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </aside>
       </div>
 
       <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] rounded-[2rem] md:rounded-[2.5rem] p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[90vh]">
-          <DialogHeader className={cn("p-6 md:p-10 text-white shrink-0 pr-8", localNodeEdits.type === 'end' ? "bg-red-950" : "bg-slate-900")}>
-            <div className="flex items-center gap-4 md:gap-6">
-              <div className="w-12 h-12 md:w-16 md:h-16 bg-white/10 rounded-2xl flex items-center justify-center shrink-0 border border-white/20 shadow-xl">
-                {localNodeEdits.type === 'decision' ? <GitBranch className="w-6 h-6 md:w-8 md:h-8" /> : 
-                 localNodeEdits.type === 'end' ? <CircleDot className="w-6 h-6 md:w-8 md:h-8" /> :
-                 <Activity className="w-6 h-6 md:w-8 md:h-8" />}
+        <DialogContent className="max-w-4xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[90vh]">
+          <DialogHeader className={cn("p-10 text-white shrink-0 pr-12", localNodeEdits.type === 'end' ? "bg-red-950" : "bg-slate-900")}>
+            <div className="flex items-center gap-6">
+              <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center shrink-0 border border-white/20 shadow-xl">
+                {localNodeEdits.type === 'decision' ? <GitBranch className="w-8 h-8" /> : localNodeEdits.type === 'end' ? <CircleDot className="w-8 h-8" /> : <Activity className="w-8 h-8" />}
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-xl md:text-2xl font-headline font-bold tracking-tight truncate">{localNodeEdits.title || 'Schritt konfigurieren'}</DialogTitle>
-                <DialogDescription className="text-[9px] md:text-[10px] text-white/50 uppercase font-bold tracking-[0.2em] mt-1 md:mt-1.5">Knoten-ID: {selectedNodeId} | Typ: {localNodeEdits.type}</DialogDescription>
+                <DialogTitle className="text-2xl font-headline font-bold tracking-tight truncate">{localNodeEdits.title || 'Schritt konfigurieren'}</DialogTitle>
+                <DialogDescription className="text-[11px] text-white/50 font-bold mt-1.5 uppercase">Knoten-ID: {selectedNodeId} | Typ: {localNodeEdits.type}</DialogDescription>
               </div>
             </div>
           </DialogHeader>
           
           <ScrollArea className="flex-1 p-0 bg-slate-50/20">
-            <div className="p-6 md:p-12 space-y-8 md:space-y-12">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+            <div className="p-12 space-y-12">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
-                  <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung</Label>
-                  <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} onBlur={() => saveNodeUpdate('title')} className="h-12 md:h-14 text-base font-bold rounded-2xl border-slate-200 focus:border-primary focus:ring-4 ring-primary/5 bg-white" />
+                  <Label className="text-[11px] font-bold text-slate-400 ml-1">Bezeichnung</Label>
+                  <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} onBlur={() => saveNodeUpdate('title')} className="h-14 text-base font-bold rounded-2xl border-slate-200 focus:border-primary focus:ring-4 ring-primary/5 bg-white" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortung</Label>
+                  <Label className="text-[11px] font-bold text-slate-400 ml-1">Verantwortung</Label>
                   <Select value={localNodeEdits.roleId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, roleId: val}); saveNodeUpdate('roleId', val); }}>
-                    <SelectTrigger className="h-12 md:h-14 rounded-2xl border-slate-200 bg-white">
+                    <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-white">
                       <SelectValue placeholder="Rolle wählen..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl">
@@ -746,17 +653,17 @@ export default function ProcessDesignerPage() {
                 </div>
               </div>
 
-              <div className="space-y-6 md:space-y-8">
+              <div className="space-y-8">
                 <div className="space-y-3">
-                  <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Anweisung</Label>
-                  <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-sm min-h-[120px] md:min-h-[150px] rounded-2xl border-slate-200 bg-white focus:border-primary transition-all leading-relaxed p-4 md:p-5" placeholder="Beschreiben Sie die Tätigkeit..." />
+                  <Label className="text-[11px] font-bold text-slate-400 ml-1 uppercase">Anweisung</Label>
+                  <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-sm min-h-[150px] rounded-2xl border-slate-200 bg-white focus:border-primary transition-all leading-relaxed p-5" placeholder="Beschreiben Sie die Tätigkeit..." />
                 </div>
                 
                 <div className="space-y-3">
-                  <Label className="text-[9px] md:text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest flex items-center gap-2">
+                  <Label className="text-[11px] font-bold text-slate-400 ml-1 flex items-center gap-2 uppercase">
                     <CheckCircle className="w-4 h-4 text-emerald-600" /> Checkliste
                   </Label>
-                  <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[10px] md:text-xs min-h-[100px] md:min-h-[120px] bg-slate-900 text-slate-100 rounded-2xl font-mono p-4 md:p-5 leading-relaxed shadow-inner" placeholder="Punkt pro Zeile..." />
+                  <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-xs min-h-[120px] bg-slate-900 text-slate-100 rounded-2xl font-mono p-5 leading-relaxed shadow-inner" placeholder="Punkt pro Zeile..." />
                 </div>
               </div>
 
@@ -766,7 +673,7 @@ export default function ProcessDesignerPage() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-bold text-slate-800">Änderungskontrolle</p>
-                  <p className="text-[10px] text-slate-500 italic leading-relaxed">
+                  <p className="text-[11px] text-slate-500 italic leading-relaxed">
                     Alle Anpassungen an diesem Knoten werden sofort als neue Revision erfasst.
                   </p>
                 </div>
@@ -774,11 +681,11 @@ export default function ProcessDesignerPage() {
             </div>
           </ScrollArea>
 
-          <DialogFooter className="p-6 md:p-10 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
-            <Button variant="ghost" className="text-red-600 rounded-xl h-12 md:h-14 px-8 hover:bg-red-50 font-bold uppercase text-[10px] gap-3 transition-colors w-full sm:w-auto" onClick={() => { if(confirm("Schritt permanent löschen?")) { handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }]); setIsStepDialogOpen(false); } }}>
+          <DialogFooter className="p-10 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
+            <Button variant="ghost" className="text-red-600 rounded-xl h-14 px-8 hover:bg-red-50 font-bold text-[11px] gap-3 transition-colors w-full sm:w-auto" onClick={() => { if(confirm("Schritt permanent löschen?")) { handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }]); setIsStepDialogOpen(false); } }}>
               <Trash2 className="w-5 h-5" /> Entfernen
             </Button>
-            <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-2xl h-12 md:h-14 px-16 font-bold uppercase text-[10px] md:text-xs tracking-[0.2em] bg-slate-900 hover:bg-black text-white shadow-2xl transition-all active:scale-[0.95] w-full sm:w-auto">
+            <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-2xl h-14 px-16 font-bold text-sm bg-slate-900 hover:bg-black text-white shadow-2xl transition-all active:scale-[0.95] w-full sm:w-auto">
               Schließen
             </Button>
           </DialogFooter>

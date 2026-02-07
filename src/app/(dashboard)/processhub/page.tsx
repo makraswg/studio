@@ -118,26 +118,28 @@ export default function ProcessHubOverview() {
 
   if (!mounted) return null;
 
-  // Render logic variables to avoid deep JSX ternary build errors
-  let content;
-  if (isLoading) {
-    content = (
-      <div className="flex flex-col items-center justify-center py-20 gap-3">
-        <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
-        <p className="text-xs font-bold text-slate-400">Lade Katalog...</p>
-      </div>
-    );
-  } else if (filtered.length === 0) {
-    content = (
-      <div className="py-20 text-center space-y-4">
-        <div className="w-16 h-16 bg-slate-50 rounded-xl flex items-center justify-center mx-auto border border-dashed border-slate-200 opacity-50">
-          <Layers className="w-8 h-8 text-slate-300" />
+  const renderTable = () => {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
+          <p className="text-[11px] font-bold text-slate-400 uppercase">Lade Katalog...</p>
         </div>
-        <p className="text-xs font-bold text-slate-400">Keine Prozesse gefunden.</p>
-      </div>
-    );
-  } else {
-    content = (
+      );
+    }
+
+    if (filtered.length === 0) {
+      return (
+        <div className="py-20 text-center space-y-4">
+          <div className="w-16 h-16 bg-slate-50 rounded-xl flex items-center justify-center mx-auto border border-dashed border-slate-200 opacity-50">
+            <Layers className="w-8 h-8 text-slate-300" />
+          </div>
+          <p className="text-[11px] font-bold text-slate-400 uppercase">Keine Prozesse gefunden</p>
+        </div>
+      );
+    }
+
+    return (
       <Table>
         <TableHeader className="bg-slate-50/50">
           <TableRow className="hover:bg-transparent border-b">
@@ -158,7 +160,7 @@ export default function ProcessHubOverview() {
                   </div>
                   <div>
                     <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{p.title}</div>
-                    <div className="text-[9px] text-slate-400 font-bold flex items-center gap-1.5 mt-0.5">
+                    <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1.5 mt-0.5">
                       <Tag className="w-2.5 h-2.5" /> {p.tags || 'Keine Tags'}
                     </div>
                   </div>
@@ -166,7 +168,7 @@ export default function ProcessHubOverview() {
               </TableCell>
               <TableCell>
                 <Badge variant="outline" className={cn(
-                  "rounded-full text-[9px] font-bold px-2.5 h-5 border-none shadow-sm",
+                  "rounded-full text-[10px] font-bold px-2.5 h-5 border-none shadow-sm",
                   p.status === 'published' ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
                 )}>
                   {p.status}
@@ -205,7 +207,7 @@ export default function ProcessHubOverview() {
         </TableBody>
       </Table>
     );
-  }
+  };
 
   return (
     <div className="space-y-6 pb-10">
@@ -215,16 +217,16 @@ export default function ProcessHubOverview() {
             <Workflow className="w-6 h-6" />
           </div>
           <div>
-            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none">ProcessHub</Badge>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[10px] font-bold border-none">ProcessHub</Badge>
             <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Workflow Engine</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Strukturierte Geschäftsprozesse und ISO 9001 Dokumentation.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 hover:bg-blue-50 text-blue-600 transition-all active:scale-95" onClick={() => router.push('/processhub/map')}>
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-[11px] px-4 border-slate-200 hover:bg-blue-50 text-blue-600 transition-all active:scale-95" onClick={() => router.push('/processhub/map')}>
             <Network className="w-3.5 h-3.5 mr-2" /> Prozesslandkarte
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95" onClick={handleCreate} disabled={isCreating}>
+          <Button size="sm" className="h-9 rounded-md font-bold text-[11px] px-6 bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95" onClick={handleCreate} disabled={isCreating}>
             {isCreating ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Plus className="w-3.5 h-3.5 mr-2" />}
             Prozess anlegen
           </Button>
@@ -243,12 +245,12 @@ export default function ProcessHubOverview() {
         </div>
         <div className="flex items-center gap-2 px-3 h-9 border rounded-md bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 shrink-0">
           <Filter className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-[10px] font-bold text-slate-500 whitespace-nowrap italic">Katalog aktiv</span>
+          <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap italic uppercase">Katalog aktiv</span>
         </div>
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
-        {content}
+        {renderTable()}
       </div>
 
       <AlertDialog open={!!processToDelete} onOpenChange={val => !val && setProcessToDelete(null)}>

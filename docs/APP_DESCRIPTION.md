@@ -13,8 +13,8 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
 ---
 
 ## 📜 Master-Anweisungen (Audit-Kriterien)
-1. **Ganzheitlichkeit**: Module dürfen keine Datensilos sein. Daten aus dem Risikomanagement müssen im IAM sichtbar sein und umgekehrt.
-2. **KI-First**: Jedes Formular braucht eine KI-Assistenz für Ausfüllhilfen und Plausibilitätschecks.
+1. **Ganzheitlichkeit**: Module dürfen keine Datensilos sein. Daten aus dem Risikomanagement müssen im IAM sichtbar sein und umgekehrt. Jedes Modul muss seine "Nachbarn" kennen.
+2. **KI-First & Kontext-Aware**: Jede KI-Funktion MUSS die Unternehmensbeschreibung (Branche, Ziele) und den Organisationsaufbau (Stellenplan) als Kontext nutzen. Die KI agiert als "Inhouse-Consultant".
 3. **Workflow-Zwang**: Aktionen (wie Löschen oder Zuweisen) sind als geführte Prozesse zu verstehen, nicht nur als Tabelleneinträge.
 4. **Export-Pflicht**: Jede Ansicht muss einen "Audit-Export" (PDF/Excel) besitzen, der Zeitstempel und Akteure enthält.
 5. **Bedien-Einheitlichkeit**: Formulare, Dialoge und Buttons folgen einem strengen Design-System.
@@ -27,100 +27,68 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
 ### 1. Zentrale Steuerung & Analytik (Dashboard)
 *Das Nervenzentrum. Hier wird entschieden, was heute wichtig ist.*
 
-*   **Step 1.1: Unified Metrics & Trends**
-    *   *Status*: Optimiert ✅
-    *   *Consultant Audit*: Trends (+/- %) wurden eingeführt. Info-Tooltips für Azubis erklären die Bedeutung der Werte.
-*   **Step 1.2: Action Center (Der Workflow-Einstieg)**
-    *   *Status*: Implementiert ✅
-    *   *Logik*: Konkrete To-Do Liste ("Next Best Action") führt direkt in die Ziel-Dialoge.
-*   **Step 1.3: Risiko-Profil mit Intelligentem Drill-Down**
-    *   *Status*: Implementiert ✅
-    *   *Consultant Audit*: Klick auf Diagramm-Segmente filtert nun sofort die Listen in den Modulen (Silo-Beseitigung).
+*   **Step 1.1: Unified Metrics & Trends** (Optimiert ✅)
+*   **Step 1.2: Action Center (Der Workflow-Einstieg)** (Implementiert ✅)
+*   **Step 1.3: Risiko-Profil mit Intelligentem Drill-Down** (Implementiert ✅)
+*   **NEUE AUFGABE**: Global Health-Check Widget implementieren. Zeige den Status aller API-Verbindungen (Jira, KI, LDAP) für den schnellen Check am Morgen.
 
 ### 2. Identity & Access Management (IAM)
 *Wer ist wer und was darf er? Fokus auf Risikobewusstsein.*
 
-*   **Step 2.1: Identitätsverzeichnis & Risk-Awareness**
-    *   *Status*: Optimiert ✅
-    *   *Consultant Audit*: Benutzerliste zeigt nun "Critical Roles Count". Ein Azubi sieht sofort, wer "gefährliche" Rechte hat.
-*   **Step 2.2: Geführtes Quick-Assign**
-    *   *Status*: Optimiert ✅
-    *   *Logik*: Warnung im Dialog bei Auswahl von Admin-Rollen. Strikte Trennung von Standard- und Privilegierten Rechten.
-*   **Step 2.3: Revisionssichere Historie**
-    *   *Status*: Implementiert ✅
-    *   *Audit-Ready*: Vollständiger Lebenslauf der Berechtigungen im Benutzerdetail.
+*   **Step 2.1: Identitätsverzeichnis & Risk-Awareness** (Optimiert ✅)
+*   **Step 2.2: Geführtes Quick-Assign** (Optimiert ✅)
+*   **Step 2.3: Revisionssichere Historie** (Implementiert ✅)
+*   **NEUE AUFGABE**: **Interaktive Zuweisungslandkarte**. Ein grafisches Diagramm (Graph-View), das Nutzer und ihre Ressourcen visualisiert. Inklusive Absprung (Drill-down) zur Einzelzuweisung bei Klick auf eine Verbindung.
+*   **NEUE AUFGABE**: Privileg-Anomalie-Erkennung. Markiere Nutzer in der Karte, die Rechte besitzen, die absolut untypisch für ihre Abteilung (Stellenplan) sind.
 
 ### 3. Risikomanagement & GRC
 *Gefahren erkennen, bewerten und bändigen.*
 
-*   **Step 3.1: Risiko-Inventar & Szenario-Analyse**
-    *   *Status*: In Prüfung (Audit Phase) 🔍
-    *   *Consultant Audit*: Ein Risiko-Score von "15" ist für Azubis zu abstrakt.
-    *   **NEUE AUFGABE**: KI-Szenario-Übersetzer implementieren. Score "15" -> "Kritischer Betriebsstopp für 48h".
-    *   **NEUE AUFGABE**: Risiken müssen mit Prozessschritten aus Step 4 verknüpft werden.
-*   **Step 3.2: Maßnahmenplan (TOM) & Wirksamkeit**
-    *   *Status*: In Prüfung (Audit Phase) 🔍
-    *   *Consultant Audit*: Maßnahmen ohne Beweis sind im Audit wertlos.
-    *   **NEUE AUFGABE**: Einführung einer "Nachweispflicht" (Dokument-Link/Upload) für erledigte Maßnahmen.
-    *   **NEUE AUFGABE**: "Audit-Ready" Review-Zyklus. Maßnahmen müssen periodisch bestätigt werden.
+*   **Step 3.1: Risiko-Inventar & Szenario-Analyse** (In Prüfung 🔍)
+    *   **AUFGABE**: KI-Szenario-Übersetzer implementieren. Score "15" -> "Kritischer Betriebsstopp für 48h".
+    *   **AUFGABE**: Risiken MÜSSEN mit Prozessschritten aus Step 4 verknüpft werden.
+*   **Step 3.2: Maßnahmenplan (TOM) & Wirksamkeit** (In Prüfung 🔍)
+    *   **AUFGABE**: Einführung einer "Nachweispflicht" (Dokument-Link/Upload) für erledigte Maßnahmen. "Audit-Ready" bedeutet: Kein Haken ohne Beweis.
 
 ### 4. ProcessHub & Workflow-Modellierung
 *Das Gehirn der Firma. Wie arbeiten wir wirklich?*
 
-*   **Step 4.1: BPMN Designer mit KI-Assistenz**
-    *   *Status*: In Prüfung (Audit Phase) 🔍
-    *   *Consultant Audit*: Rollen im Designer sind aktuell oft Freitext (Silo-Gefahr).
-    *   **NEUE AUFGABE**: Strikte Rollen-Validierung gegen den Stellenplan (Step 6). Kein Freitext bei Verantwortlichkeiten!
-    *   **NEUE AUFGABE**: "Schritt als Kontrollpunkt markieren" -> Verknüpfung zu Risiken (Step 3).
-*   **Step 4.2: Prozess-Landkarte (Enterprise Map)**
-    *   *Status*: In Prüfung (Audit Phase) 🔍
-    *   *Consultant Audit*: Die Karte zeigt keine Compliance-Probleme.
-    *   **NEUE AUFGABE**: "Health-Overlay". Landkarte zeigt farblich, wo Compliance-Lücken (offene Risiken) lauern.
-    *   **NEUE AUFGABE**: Automatischer Export eines "Prozesshandbuchs" als PDF für Auditoren.
+*   **Step 4.1: BPMN Designer mit KI-Assistenz** (In Prüfung 🔍)
+    *   **AUFGABE**: Strikte Rollen-Validierung gegen den Stellenplan (Step 6). Kein Freitext bei Verantwortlichkeiten!
+    *   **AUFGABE**: "Schritt als Kontrollpunkt markieren" -> Verknüpfung zu Risiken (Step 3).
+*   **Step 4.2: Prozess-Landkarte (Enterprise Map)** (In Prüfung 🔍)
+    *   **AUFGABE**: "Health-Overlay". Landkarte zeigt farblich, wo Compliance-Lücken (offene Risiken) lauern.
 
 ### 5. Datenschutz & VVT (Art. 30 DSGVO)
 *Rechtssicherheit im Umgang mit Daten.*
 
-*   **Step 5.1: Verarbeitungsverzeichnis**
-    *   *Status*: In Prüfung (Audit Phase) 🔍
-    *   *Consultant Audit*: Aktuell ein Datensilo. Es fehlt die Kopplung zur IT-Infrastruktur.
-    *   **NEUE AUFGABE**: System-Abhängigkeit zwingend machen (Pflichtfeld Link zu Step 7). Keine Dokumentation ohne Asset!
-    *   **NEUE AUFGABE**: KI-Legal-Translator für Rechtsgrundlagen (Azubi-Modus erklärt Zwecke statt Paragraphen).
-    *   **NEUE AUFGABE**: Automatischer Trigger für Risikoanalyse (Step 3) bei Erfassung sensibler Daten (Art. 9).
-    *   **NEUE AUFGABE**: Revisionssichere Versionierung (V1.0 -> V1.1) bei jeder Änderung am Zweck oder Umfang.
+*   **Step 5.1: Verarbeitungsverzeichnis** (In Prüfung 🔍)
+    *   **AUFGABE**: System-Abhängigkeit zwingend machen (Link zu Step 7). Keine Dokumentation ohne technisches Asset!
+    *   **AUFGABE**: KI-Legal-Translator nutzt Firmenkontext, um Zwecke der Verarbeitung vorzuschlagen.
 
 ### 6. Organisations-Struktur & Stellenplan
 *Das Fundament der Verantwortlichkeit.*
 
-*   **Step 6.1: Stellenplan & Rollen-Blueprints**
-    *   *Status*: In Prüfung (Audit Phase) 🔍
-    *   *Consultant Audit*: Der Stellenplan ist aktuell ein "totes Telefonbuch". Er muss das Fundament für RBAC werden.
-    *   **NEUE AUFGABE**: RBAC-Blueprint: Stellen direkt mit Standard-Rechten verknüpfen für Auto-Onboarding.
-    *   **NEUE AUFGABE**: Visualisierung als grafisches Org-Chart (Baumstruktur für Azubis).
-    *   **NEUE AUFGABE**: Stellenbeschreibungen für Auditoren (Feld für Aufgabenbeschreibung hinzufügen).
-    *   **NEUE AUFGABE**: Impact-Check bei Löschung (Prüfe Verknüpfung zu Prozessen und VVT).
+*   **Step 6.1: Stellenplan & Rollen-Blueprints** (In Prüfung 🔍)
+    *   **AUFGABE**: RBAC-Blueprint: Stellen direkt mit Standard-Rechten verknüpfen für Auto-Onboarding.
+    *   **AUFGABE**: Visualisierung als grafisches Org-Chart (Baumstruktur).
 
 ### 7. Ressourcenkatalog & Asset-Inventar
 *Die technische Basis.*
 
-*   **Step 7.1: IT-Asset Management**
-    *   *Status*: In Prüfung (Audit Phase) 🔍
-    *   *Consultant Audit*: IT-Assets brauchen Kontext zum Business.
-    *   **NEUE AUFGABE**: CIA-Wizard: KI-geführte Schutzbedarfsfeststellung für Azubis.
-    *   **NEUE AUFGABE**: Usage-Explorer: Zeige alle Prozesse und VVT-Einträge, die dieses System nutzen.
-    *   **NEUE AUFGABE**: Drift-Detection: Warnung, wenn Assets in Jira existieren, aber nicht im Hub (Step 8.2).
-    *   **NEUE AUFGABE**: EOL-Monitor: Warnung bei veralteten Software-Ständen (Security-Risiko Link zu Step 3).
+*   **Step 7.1: IT-Asset Management** (In Prüfung 🔍)
+    *   **AUFGABE**: CIA-Wizard: KI-geführte Schutzbedarfsfeststellung basierend auf dem Firmenprofil.
+    *   **AUFGABE**: Usage-Explorer: Zeige alle Prozesse und VVT-Einträge, die dieses System nutzen (**Vernetzzungs-Check**).
+    *   **AUFGABE**: Drift-Detection: Warnung, wenn Assets in Jira existieren, aber nicht im Hub.
 
 ### 8. System-Konfiguration & Administration
 *Technisches Setup.*
 
-*   **Step 8.1: Setup-Wizard**
-    *   *Status*: In Prüfung (Audit Phase) 🔍
-    *   *Consultant Audit*: Das Setup ist zu komplex für Nicht-IT-Spezialisten.
-    *   **NEUE AUFGABE**: Geführter Onboarding-Wizard für neue Administratoren.
-    *   **NEUE AUFGABE**: KI-Config-Assistent übersetzt technische Fehlermeldungen (LDAP/Jira) in einfaches Deutsch.
-    *   **NEUE AUFGABE**: Globaler Health-Check: Dashboard-Widget für den Status aller API-Verbindungen.
-    *   **NEUE AUFGABE**: Dry-Run Preview: Zeige vor jedem Sync (LDAP/Jira) eine Vorschau der betroffenen Nutzer/Rechte.
+*   **Step 8.1: Setup-Wizard & KI-Kontext** (In Prüfung 🔍)
+    *   **AUFGABE**: KI-Zentralkonfiguration: Ein Feld für die "Unternehmensbeschreibung", das als System-Prompt für ALLE KI-Funktionen dient.
+    *   **AUFGABE**: KI-Config-Assistent übersetzt technische Fehlermeldungen in einfaches Deutsch.
+*   **Step 8.2: Dry-Run Preview** (In Prüfung 🔍)
+    *   **AUFGABE**: Zeige vor jedem Sync (LDAP/Jira) eine Vorschau der betroffenen Nutzer/Rechte ("Was-wäre-wenn").
 
 ---
-*Ende der Master-Liste (Stand: Final Strategic Audit - V2.0)*
+*Ende der Master-Liste (Stand: Final Strategic Audit incl. Contextual AI & Visual Mapping - V2.1)*

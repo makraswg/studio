@@ -168,5 +168,31 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
     *   *Consultant Audit*: Ein Prüfer will die Historie sehen.
     *   **NEUE AUFGABE**: "Point-in-Time Recovery". Visualisierung, wie das VVT zu einem bestimmten Datum in der Vergangenheit aussah (Revisionierung).
 
+### 6. Konzernstruktur & Stellenplan
+*Das organisatorische Fundament der Governance.*
+
+*   **Step 6.1: Mandanten & Abteilungen**
+    *   *Code*: `src/app/(dashboard)/settings/structure/page.tsx`
+    *   *Status*: Hierarchische Tabellen implementiert.
+    *   *Consultant Audit*: Zu trocken. Ein Azubi sieht den Wald vor lauter Bäumen nicht.
+    *   **KRITIK**: Fehlende visuelle Hierarchie. Wer gehört zu wem?
+    *   **NEUE AUFGABE**: "Visual Org-Chart". Eine Baum-Ansicht der Organisation zur schnellen Navigation.
+
+*   **Step 6.2: Stellenprofile (Job Titles)**
+    *   *Status*: CRUD für Stellen.
+    *   *Consultant Audit*: Stellen sind aktuell nur Namen ohne Pflichten.
+    *   **KRITIK**: Ein Auditor will die "Rollen-Definition" sehen, um SoD-Verstöße auf der Ebene der Stellenbeschreibung zu prüfen.
+    *   **NEUE AUFGABE**: "Role Blueprint". Verknüpfung von Stellen mit Standard-Berechtigungen (RBAC-Vorbereitung).
+
+*   **Step 6.3: Branchen-Vorlagen (KI)**
+    *   *Status*: Manuelle Anlage.
+    *   *Consultant Audit*: SME wissen oft nicht, wie sie ihre Struktur aufbauen sollen.
+    *   **NEUE AUFGABE**: "Industry Template AI". Die KI schlägt basierend auf der Branche (z.B. "Handel") typische Abteilungen und Rollen vor.
+
+*   **Step 6.4: Struktur-Impact Analyse**
+    *   *Status*: Keine.
+    *   *Consultant Audit*: Riskant für die Datenintegrität.
+    *   **NEUE AUFGABE**: "Impact-Check". Warnung, wenn das Löschen einer Abteilung aktive Nutzer oder laufende Prozesse verwaist.
+
 ---
-*(Fortsetzung folgt mit Step 6: Konzernstruktur & Stellenplan...)*
+*(Fortsetzung folgt mit Step 7: Ressourcenkatalog & Asset-Inventar...)*

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -105,7 +104,6 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
 
   edges.forEach((edge, idx) => {
     let edgeSafeId = String(edge.id || `edge-${idx}`);
-    // Sicherstellen, dass die IDs als Strings vorliegen
     const sourceId = String(edge.source);
     const targetId = String(edge.target);
     

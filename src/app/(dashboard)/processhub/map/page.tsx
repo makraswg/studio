@@ -91,7 +91,8 @@ export default function ProcessMapPage() {
     
     versions.forEach(ver => {
       const nodes = ver.model_json?.nodes || [];
-      nodes.filter(n => n.type === 'end' && !!n.targetProcessId && n.targetProcessId !== 'none').forEach(node => {
+      // Endpunkte UND Subprozess-Links erfassen
+      nodes.filter(n => (n.type === 'end' || n.type === 'subprocess') && !!n.targetProcessId && n.targetProcessId !== 'none').forEach(node => {
         relations.push({
           fromId: ver.process_id,
           toId: node.targetProcessId!,

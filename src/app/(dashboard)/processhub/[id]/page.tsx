@@ -38,7 +38,8 @@ import {
   ArrowRightCircle,
   Link2,
   Share2,
-  ArrowLeftCircle
+  ArrowLeftCircle,
+  Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -138,6 +139,7 @@ export default function ProcessDesignerPage() {
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSavingMeta, setIsSavingMeta] = useState(false);
   
@@ -305,6 +307,24 @@ export default function ProcessDesignerPage() {
     if (success) {
       toast({ title: "Schritt gespeichert" });
       setIsStepDialogOpen(false);
+    }
+  };
+
+  const handleDeleteNode = async () => {
+    if (!selectedNodeId) return;
+    if (!confirm('Möchten Sie diesen Prozessschritt wirklich unwiderruflich löschen? Alle Verknüpfungen werden ebenfalls entfernt.')) return;
+    
+    setIsDeleting(true);
+    try {
+      const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
+      const success = await handleApplyOps(ops);
+      if (success) {
+        toast({ title: "Schritt entfernt" });
+        setIsStepDialogOpen(false);
+        setSelectedNodeId(null);
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -794,6 +814,7 @@ export default function ProcessDesignerPage() {
                             </div>
                           );
                         })}
+                        {incomingEdges.length === 0 && <p className="text-[10px] text-slate-400 italic px-2">Kein direkter Vorgänger definiert</p>}
                         <div className="pt-2">
                           <Select onValueChange={(val) => handleAddEdge(val, 'backward')}>
                             <SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white">
@@ -830,6 +851,7 @@ export default function ProcessDesignerPage() {
                             </div>
                           );
                         })}
+                        {outgoingEdges.length === 0 && <p className="text-[10px] text-slate-400 italic px-2">Kein direkter Nachfolger definiert</p>}
                         <div className="pt-2">
                           <Select onValueChange={(val) => handleAddEdge(val, 'forward')}>
                             <SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white">
@@ -865,14 +887,26 @@ export default function ProcessDesignerPage() {
               </div>
             </ScrollArea>
           </Tabs>
-          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs" disabled={isApplying}>
-              Abbrechen
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex items-center justify-between gap-4">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleDeleteNode} 
+              disabled={isDeleting || isApplying}
+              className="rounded-xl h-10 px-6 font-bold text-xs text-red-600 border-red-100 hover:bg-red-50 hover:border-red-200 transition-all gap-2"
+            >
+              {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+              Schritt löschen
             </Button>
-            <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-[0.95]" disabled={isApplying}>
-              {isApplying ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Save className="w-3.5 h-3.5 mr-2" />} 
-              Änderungen speichern
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs" disabled={isApplying || isDeleting}>
+                Abbrechen
+              </Button>
+              <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-[0.95]" disabled={isApplying || isDeleting}>
+                {isApplying ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Save className="w-3.5 h-3.5 mr-2" />} 
+                Änderungen speichern
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

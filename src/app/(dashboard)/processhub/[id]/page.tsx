@@ -229,10 +229,10 @@ export default function ProcessDesignerPage() {
 
   // Sync diagram when switching views on mobile
   useEffect(() => {
-    if (mobileView === 'diagram' && mounted) {
+    if (isMobile && mobileView === 'diagram' && mounted) {
       setTimeout(syncDiagramToModel, 100);
     }
-  }, [mobileView, mounted, syncDiagramToModel]);
+  }, [mobileView, mounted, syncDiagramToModel, isMobile]);
 
   const handleApplyOps = async (ops: any[]) => {
     if (!currentVersion || !user || !ops.length) return;
@@ -345,8 +345,14 @@ export default function ProcessDesignerPage() {
   if (!mounted) return null;
 
   const SidebarLeft = (
-    <aside style={{ width: isMobile ? '100%' : `${leftWidth}px` }} className={cn("border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar", isMobile && mobileView !== 'steps' && "hidden")}>
-      <Tabs defaultValue="steps" className="flex-1 flex flex-col">
+    <aside 
+      style={{ width: isMobile ? '100%' : `${leftWidth}px` }} 
+      className={cn(
+        "border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar", 
+        isMobile && mobileView !== 'steps' && "hidden"
+      )}
+    >
+      <Tabs defaultValue="steps" className="flex-1 flex flex-col overflow-hidden">
         <TabsList className="h-12 bg-slate-50 border-b gap-2 p-0 w-full justify-start px-4 shrink-0 rounded-none">
           <TabsTrigger value="meta" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2"><FilePen className="w-3.5 h-3.5" /> Stammblatt</TabsTrigger>
           <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2"><ClipboardList className="w-3.5 h-3.5" /> Schritte</TabsTrigger>
@@ -462,21 +468,27 @@ export default function ProcessDesignerPage() {
   );
 
   const DiagramArea = (
-    <main className={cn("flex-1 relative bg-slate-100 flex flex-col p-4 md:p-6 overflow-hidden", isMobile && mobileView !== 'diagram' && "hidden")}>
+    <main className={cn("flex-1 relative bg-slate-100 flex flex-col overflow-hidden", isMobile && mobileView !== 'diagram' && "hidden")}>
       <div className="absolute top-6 right-6 md:top-10 md:right-10 z-10 bg-white/95 backdrop-blur shadow-2xl border p-1.5 flex flex-col gap-1.5">
         <TooltipProvider>
           <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={syncDiagramToModel} className="h-9 w-9"><RefreshCw className="w-4 h-4 text-slate-600" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[10px] font-bold uppercase">Sync</TooltipContent></Tooltip>
           <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*')} className="h-9 w-9"><Maximize2 className="w-4 h-4 text-slate-600" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[10px] font-bold uppercase">Zentrieren</TooltipContent></Tooltip>
         </TooltipProvider>
       </div>
-      <div className="flex-1 bg-white shadow-inner border-2 relative overflow-hidden">
+      <div className="flex-1 bg-white relative overflow-hidden">
         <iframe ref={iframeRef} src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json" className="absolute inset-0 w-full h-full border-none" />
       </div>
     </main>
   );
 
   const SidebarRight = (
-    <aside style={{ width: isMobile ? '100%' : `${rightWidth}px` }} className={cn("border-l flex flex-col bg-white shrink-0 overflow-hidden relative group/right", isMobile && mobileView !== 'ai' && "hidden")}>
+    <aside 
+      style={{ width: isMobile ? '100%' : `${rightWidth}px` }} 
+      className={cn(
+        "border-l flex flex-col bg-white shrink-0 overflow-hidden relative group/right", 
+        isMobile && mobileView !== 'ai' && "hidden"
+      )}
+    >
       {!isMobile && <div onMouseDown={startResizeRight} className="absolute top-0 left-0 w-1 h-full cursor-col-resize hover:bg-primary/30 z-30 transition-all opacity-0 group-hover/right:opacity-100" />}
       <div className="p-5 border-b bg-slate-900 text-white flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-9 h-9 bg-primary flex items-center justify-center shadow-lg"><Zap className="w-5 h-5 text-white fill-current" /></div><div className="flex flex-col"><span className="text-[10px] font-black uppercase text-blue-400">KI Advisor</span><span className="text-[8px] font-bold text-slate-400 uppercase">Active Assistant</span></div></div></div>
       <ScrollArea className="flex-1 p-5 bg-slate-50/50 select-auto">
@@ -518,7 +530,7 @@ export default function ProcessDesignerPage() {
   );
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col -m-8 overflow-hidden bg-slate-50 font-body select-none">
+    <div className="h-full flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body select-none">
       <header className="h-16 border-b bg-white flex items-center justify-between px-4 md:px-6 shrink-0 z-20 shadow-sm">
         <div className="flex items-center gap-2 md:gap-6">
           <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-9 w-9 text-slate-400 hover:bg-slate-100 rounded-none"><ChevronLeft className="w-6 h-6" /></Button>
@@ -535,7 +547,7 @@ export default function ProcessDesignerPage() {
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden h-full relative">
         {SidebarLeft}
         {DiagramArea}
         {SidebarRight}
@@ -560,7 +572,7 @@ export default function ProcessDesignerPage() {
       )}
 
       <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-2xl bg-white">
+        <DialogContent className="max-w-4xl w-[95vw] rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-2xl bg-white max-h-[90vh]">
           <DialogHeader className={cn("p-6 text-white shrink-0", localNodeEdits.type === 'end' ? "bg-red-900" : "bg-slate-900")}>
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-white/10 rounded-none flex items-center justify-center shrink-0 border border-white/20">
@@ -575,7 +587,7 @@ export default function ProcessDesignerPage() {
             </div>
           </DialogHeader>
           
-          <ScrollArea className="max-h-[75vh] p-0">
+          <ScrollArea className="flex-1 p-0">
             <div className="p-4 md:p-8 space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">

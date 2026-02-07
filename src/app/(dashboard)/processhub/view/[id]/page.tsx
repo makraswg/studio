@@ -39,7 +39,9 @@ import {
   ChevronDown,
   ArrowUpRight,
   Split,
-  FileText
+  FileText,
+  FileEdit,
+  ArrowRightCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -98,7 +100,7 @@ export default function ProcessDetailViewPage() {
   const router = useRouter();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mounted, setMounted] = useState(false);
-  const [viewMode, setViewMode] = useState<'diagram' | 'guide'>('diagram');
+  const [viewMode, setViewMode] = useState<'diagram' | 'guide'>('guide');
   const [isExporting, setIsExporting] = useState(false);
   
   // Versions Management
@@ -252,7 +254,24 @@ export default function ProcessDetailViewPage() {
             <Button variant={viewMode === 'diagram' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('diagram')}><Network className="w-3.5 h-3.5 mr-1.5" /> Visuell</Button>
             <Button variant={viewMode === 'guide' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('guide')}><ListChecks className="w-3.5 h-3.5 mr-1.5" /> Leitfaden</Button>
           </div>
-          <Button variant="outline" className="rounded-xl h-10 px-6 font-bold text-xs border-slate-200" onClick={handlePdfExport} disabled={isExporting}>{isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}</Button>
+
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              className="rounded-xl h-10 px-6 font-bold text-xs border-slate-200 gap-2 hover:bg-primary hover:text-white transition-all shadow-sm"
+              onClick={() => router.push(`/processhub/${id}`)}
+            >
+              <FileEdit className="w-4 h-4" /> Designer
+            </Button>
+            <Button 
+              variant="outline" 
+              className="rounded-xl h-10 px-4 font-bold text-xs border-slate-200" 
+              onClick={handlePdfExport} 
+              disabled={isExporting}
+            >
+              {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -300,7 +319,7 @@ export default function ProcessDetailViewPage() {
                       "{versionAuditLog.action}"
                     </p>
                     <div className="flex items-center gap-2 text-[9px] font-bold text-emerald-600 uppercase pt-1">
-                      <UserIcon className="w-3.3 h-3" /> {versionAuditLog.actorUid}
+                      <UserIcon className="w-3 h-3" /> {versionAuditLog.actorUid}
                     </div>
                   </div>
                 </section>

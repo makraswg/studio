@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -35,7 +34,11 @@ import {
   ChevronRight,
   UserCircle,
   Building2,
-  X
+  X,
+  UserCircle2,
+  ArrowRight,
+  CalendarDays,
+  MoreVertical
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -72,6 +75,7 @@ import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { createJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Card, CardContent } from '@/components/ui/card';
 
 function AssignmentsPageContent() {
   const db = useFirestore();
@@ -162,11 +166,7 @@ function AssignmentsPageContent() {
 
       setIsCreateOpen(false);
       toast({ title: "Zuweisung erstellt" });
-      setSelectedUserId('');
-      setSelectedResourceId('');
-      setSelectedEntitlementId('');
-      setValidUntil('');
-      
+      resetCreateForm();
       setTimeout(() => { refreshAssignments(); refreshAudit(); }, 300);
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler beim Speichern", description: e.message });
@@ -175,9 +175,16 @@ function AssignmentsPageContent() {
     }
   };
 
+  const resetCreateForm = () => {
+    setSelectedUserId('');
+    setSelectedResourceId('');
+    setSelectedEntitlementId('');
+    setValidUntil('');
+  };
+
   const handleRevokeAssignment = (assignment: Assignment) => {
     if (assignment.originGroupId || assignment.syncSource === 'group') {
-      toast({ variant: "destructive", title: "Aktion verweigert", description: "Gruppenbasierte Zuweisungen können nur über die Zuweisungsgruppe verwaltet werden." });
+      toast({ variant: "destructive", title: "Aktion verweigert", description: "Gruppenbasierte Zuweisungen werden über Gruppen gesteuert." });
       return;
     }
     setAssignmentToRevoke(assignment);
@@ -209,7 +216,7 @@ function AssignmentsPageContent() {
       await logAuditEventAction(dataSource, {
         tenantId: assignmentToRevoke.tenantId || 'global',
         actorUid: authUser?.email || 'system',
-        action: `Zugriff entzogen (bis: ${revokeValidUntil}): ${user?.displayName} -> ${resResource?.name}/${ent?.name}`,
+        action: `Zugriff entzogen: ${user?.displayName} -> ${resResource?.name}/${ent?.name}`,
         entityType: 'assignment',
         entityId: assignmentToRevoke.id,
         after: { ...assignmentToRevoke, ...updateData }
@@ -229,26 +236,25 @@ function AssignmentsPageContent() {
   const handleBulkExpiredJira = async () => {
     const expired = assignments?.filter(a => a.status === 'active' && a.validUntil && new Date(a.validUntil) < new Date() && !a.jiraIssueKey) || [];
     if (expired.length === 0) {
-      toast({ title: "Keine fälligen Posten", description: "Alle abgelaufenen Zuweisungen haben bereits ein Ticket oder es gibt keine." });
+      toast({ title: "Keine fälligen Posten" });
       return;
     }
 
     setIsJiraActionLoading(true);
     try {
       const configs = await getJiraConfigs(dataSource);
-      if (configs.length === 0 || !configs[0].enabled) throw new Error("Jira Integration nicht aktiv oder nicht gefunden.");
+      if (configs.length === 0 || !configs[0].enabled) throw new Error("Jira nicht konfiguriert.");
 
       for (const a of expired) {
         const user = users?.find(u => u.id === a.userId);
-        const summary = `ABLAUF: Berechtigung für ${user?.displayName || a.userId}`;
-        const res = await createJiraTicket(configs[0].id, summary, `Zuweisung abgelaufen am ${a.validUntil}. Bitte Entzug prüfen.`, dataSource);
+        const res = await createJiraTicket(configs[0].id, `ABLAUF: ${user?.displayName || a.userId}`, `Zuweisung abgelaufen am ${a.validUntil}.`, dataSource);
         if (res.success) {
           const update = { jiraIssueKey: res.key };
           if (dataSource === 'mysql') await saveCollectionRecord('assignments', a.id, { ...a, ...update });
           else updateDocumentNonBlocking(doc(db, 'assignments', a.id), update);
         }
       }
-      toast({ title: "Tickets erstellt", description: `${expired.length} Jira Tickets wurden generiert.` });
+      toast({ title: "Audit-Ready", description: "Jira Tickets wurden erstellt." });
       refreshAssignments();
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
@@ -269,344 +275,305 @@ function AssignmentsPageContent() {
       const matchTab = activeTab === 'all' || a.status === activeTab;
       if (!matchTab) return false;
       const isAdmin = !!(ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1");
-      const matchAdmin = !adminOnly || isAdmin;
-      return matchAdmin;
+      return !adminOnly || isAdmin;
     });
   }, [assignments, users, entitlements, resources, search, activeTab, adminOnly, activeTenantId]);
 
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between border-b pb-6">
+    <div className="space-y-10 pb-20">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-8">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Einzelzuweisungen</h1>
-          <p className="text-sm text-muted-foreground">Aktive und ausstehende Berechtigungen im Überblick für {activeTenantId === 'all' ? 'alle Standorte' : getTenantSlug(activeTenantId)}.</p>
+          <Badge className="mb-2 rounded-full px-3 py-0 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border-none">Assignments</Badge>
+          <h1 className="text-4xl font-headline font-bold tracking-tight text-slate-900 dark:text-white">Einzelzuweisungen</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Überblick für {activeTenantId === 'all' ? 'alle Standorte' : getTenantSlug(activeTenantId)}.
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none border-amber-200 text-amber-700 bg-amber-50" onClick={handleBulkExpiredJira} disabled={isJiraActionLoading}>
-            {isJiraActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Ticket className="w-3.5 h-3.5 mr-2" />} Ablauf-Tickets erstellen
+        <div className="flex flex-wrap gap-3">
+          <Button variant="outline" className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-amber-50 dark:hover:bg-amber-900/20 text-amber-600 transition-all" onClick={handleBulkExpiredJira} disabled={isJiraActionLoading}>
+            {isJiraActionLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Ticket className="w-4 h-4 mr-2" />} Ablauf-Tickets
           </Button>
-          <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsCreateOpen(true)}>
-            <Plus className="w-3.5 h-3.5 mr-2" /> Zuweisung erstellen
+          <Button className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-8 shadow-lg shadow-primary/20" onClick={() => setIsCreateOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" /> Zuweisung erstellen
           </Button>
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      {/* Filter Section */}
+      <div className="flex flex-col lg:flex-row gap-6 bg-white dark:bg-slate-900/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none">
+        <div className="relative flex-1 group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
           <Input 
             placeholder="Mitarbeiter oder System suchen..." 
-            className="w-full pl-10 h-10 border border-input bg-white px-3 text-sm focus:outline-none rounded-none"
+            className="pl-11 h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:bg-white transition-all shadow-none"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2 px-4 border bg-white h-10">
-          <ShieldAlert className={cn("w-4 h-4", adminOnly ? "text-red-600" : "text-muted-foreground")} />
-          <Label htmlFor="admin-filter" className="text-[10px] font-bold uppercase cursor-pointer">Nur Admin-Rollen</Label>
+        <div className="flex items-center gap-3 px-5 py-2 border rounded-xl bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+          <ShieldAlert className={cn("w-4 h-4", adminOnly ? "text-red-600" : "text-slate-400")} />
+          <Label htmlFor="admin-filter" className="text-[10px] font-black uppercase tracking-widest cursor-pointer text-slate-500">Privilegierte Rollen</Label>
           <Switch id="admin-filter" checked={adminOnly} onCheckedChange={setAdminOnly} />
         </div>
-        <div className="flex border rounded-none p-1 bg-muted/20">
+        <div className="flex bg-slate-100 dark:bg-slate-950 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800">
           {['all', 'active', 'requested', 'removed'].map(id => (
-            <Button key={id} variant={activeTab === id ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab(id as any)} className="h-8 text-[9px] font-bold uppercase px-4 rounded-none">
+            <button 
+              key={id} 
+              className={cn(
+                "px-4 h-9 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all",
+                activeTab === id ? "bg-white dark:bg-slate-800 text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+              )}
+              onClick={() => setActiveTab(id as any)}
+            >
               {id === 'all' ? 'Alle' : id === 'active' ? 'Aktiv' : id === 'requested' ? 'Pending' : 'Historie'}
-            </Button>
+            </button>
           ))}
         </div>
       </div>
 
-      <div className="admin-card overflow-hidden">
-        <Table>
-          <TableHeader className="bg-muted/30">
-            <TableRow>
-              <TableHead className="py-4 font-bold uppercase text-[10px]">Mitarbeiter</TableHead>
-              <TableHead className="font-bold uppercase text-[10px]">System / Rolle</TableHead>
-              <TableHead className="font-bold uppercase text-[10px]">Status / Herkunft</TableHead>
-              <TableHead className="font-bold uppercase text-[10px]">Gültigkeit</TableHead>
-              <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-            ) : filteredAssignments.map((a) => {
+      {/* Main Content Area */}
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-40 gap-4">
+          <Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" />
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Lade Zuweisungen...</p>
+        </div>
+      ) : (
+        <>
+          {/* Mobile Card View */}
+          <div className="grid grid-cols-1 gap-4 md:hidden">
+            {filteredAssignments.map((a) => {
               const user = users?.find(u => u.id === a.userId);
               const ent = entitlements?.find(e => e.id === a.entitlementId);
-              const resResource = resources?.find(r => r.id === ent?.resourceId);
+              const res = resources?.find(r => r.id === ent?.resourceId);
               const isAdmin = !!(ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1");
               const isExpired = a.validUntil && new Date(a.validUntil) < new Date() && a.status === 'active';
-              const isGroupManaged = !!a.originGroupId || a.syncSource === 'group';
-
+              
               return (
-                <TableRow key={a.id} className="hover:bg-muted/5 border-b">
-                  <TableCell className="py-4">
-                    <div className="font-bold text-sm">{user?.displayName || a.userId}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase font-bold">{getTenantSlug(a.tenantId)}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {isAdmin && <ShieldAlert className="w-3.5 h-3.5 text-red-600" />}
-                      <div>
-                        <div className="font-bold text-sm">{resResource?.name}</div>
-                        <div className="text-xs text-muted-foreground">{ent?.name}</div>
+                <Card key={a.id} className="border-none shadow-lg rounded-3xl overflow-hidden bg-white dark:bg-slate-900">
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                          <UserCircle2 className="w-6 h-6 text-slate-400" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-slate-900 dark:text-white leading-tight">{user?.displayName || a.userId}</h3>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{getTenantSlug(a.tenantId)}</p>
+                        </div>
+                      </div>
+                      <Badge className={cn(
+                        "rounded-full border-none px-3 text-[9px] font-black uppercase",
+                        a.status === 'active' ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"
+                      )}>{a.status}</Badge>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl space-y-3 mb-6">
+                      <div className="flex items-center gap-3">
+                        <Layers className={cn("w-4 h-4", isAdmin ? "text-red-600" : "text-primary")} />
+                        <div className="min-w-0">
+                          <p className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">{res?.name}</p>
+                          <p className="text-[10px] font-bold text-slate-500 truncate uppercase">{ent?.name}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                        <span className="flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5" /> bis {a.validUntil ? new Date(a.validUntil).toLocaleDateString() : '∞'}</span>
+                        {isExpired && <span className="text-red-600 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Abgelaufen</span>}
                       </div>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <Badge variant="outline" className={cn(
-                        "rounded-none font-bold uppercase text-[9px] border-none px-2 w-fit",
-                        a.status === 'active' ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-                      )}>{a.status}</Badge>
-                      {isGroupManaged && (
-                        <Badge variant="outline" className="rounded-none bg-indigo-50 text-indigo-700 border-none px-2 w-fit text-[8px] font-bold uppercase flex items-center gap-1">
-                          <Workflow className="w-2.5 h-2.5" /> Gruppe
-                        </Badge>
-                      )}
-                      {a.jiraIssueKey && <Badge variant="outline" className="rounded-none bg-blue-50 text-blue-700 text-[8px] border-none px-2 w-fit">Jira: {a.jiraIssueKey}</Badge>}
+
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="flex-1 h-10 rounded-xl font-bold uppercase text-[10px] tracking-widest border-slate-200 dark:border-slate-800" onClick={() => { setSelectedAssignment(a); setIsDetailsOpen(true); }}>
+                        Details
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="w-10 h-10 p-0 rounded-xl border-slate-200 dark:border-slate-800"><MoreVertical className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-2xl p-2 w-56 shadow-2xl">
+                          <DropdownMenuItem className="rounded-xl py-2.5 gap-3" onSelect={() => { setSelectedAssignment(a); setIsDetailsOpen(true); }}><Info className="w-4 h-4" /> Details anzeigen</DropdownMenuItem>
+                          {a.status === 'active' && (
+                            <DropdownMenuItem className="text-red-600 rounded-xl py-2.5 gap-3" onSelect={() => handleRevokeAssignment(a)}>
+                              <Trash2 className="w-4 h-4" /> Zugriff widerrufen
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    <div className={cn(isExpired && "text-red-600 font-bold flex items-center gap-1")}>
-                      {isExpired && <AlertTriangle className="w-3 h-3" />}
-                      {a.validUntil ? new Date(a.validUntil).toLocaleDateString() : 'Unbefristet'}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-5 h-5" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="rounded-none w-48">
-                        <DropdownMenuItem onSelect={() => { setSelectedAssignment(a); setIsDetailsOpen(true); }}>
-                          <Info className="w-3.5 h-3.5 mr-2" /> Details einsehen
-                        </DropdownMenuItem>
-                        {a.status !== 'removed' && !isGroupManaged && (
-                          <DropdownMenuItem className="text-red-600" onSelect={() => handleRevokeAssignment(a)}>
-                            <Trash2 className="w-3.5 h-3.5 mr-2" /> Zugriff widerrufen
-                          </DropdownMenuItem>
-                        )}
-                        {isGroupManaged && (
-                          <DropdownMenuItem disabled className="text-muted-foreground italic">
-                            <Lock className="w-3.5 h-3.5 mr-2" /> Gruppenverwaltet
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
+                  </CardContent>
+                </Card>
               );
             })}
-          </TableBody>
-        </Table>
-      </div>
+          </div>
 
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="rounded-none max-w-md">
-          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Zuweisung erstellen</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">1. Benutzer auswählen</Label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger className="rounded-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                <SelectContent className="rounded-none">
-                  <ScrollArea className="h-48">
-                    {users?.filter(u => activeTenantId === 'all' || u.tenantId === activeTenantId).map(u => 
-                      <SelectItem key={u.id} value={u.id}>{u.displayName} ({getTenantSlug(u.tenantId)})</SelectItem>
-                    )}
-                  </ScrollArea>
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Desktop Table View */}
+          <div className="hidden md:block bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-2xl shadow-slate-200/50 overflow-hidden">
+            <Table>
+              <TableHeader className="bg-slate-50/50 dark:bg-slate-950/50">
+                <TableRow className="hover:bg-transparent border-slate-100 dark:border-slate-800">
+                  <TableHead className="py-6 px-8 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400">Mitarbeiter</TableHead>
+                  <TableHead className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-400">System / Rolle</TableHead>
+                  <TableHead className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-400">Status</TableHead>
+                  <TableHead className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-400">Gültigkeit</TableHead>
+                  <TableHead className="text-right px-8 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400">Aktionen</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredAssignments.map((a) => {
+                  const user = users?.find(u => u.id === a.userId);
+                  const ent = entitlements?.find(e => e.id === a.entitlementId);
+                  const res = resources?.find(r => r.id === ent?.resourceId);
+                  const isAdmin = !!(ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1");
+                  const isExpired = a.validUntil && new Date(a.validUntil) < new Date() && a.status === 'active';
+                  const isGroupManaged = !!a.originGroupId || a.syncSource === 'group';
 
-            {selectedUserId && (
-              <div className="space-y-2 animate-in fade-in">
-                <Label className="text-[10px] font-bold uppercase">2. System auswählen</Label>
-                <Select value={selectedResourceId} onValueChange={(val) => { setSelectedResourceId(val); setSelectedEntitlementId(''); }}>
-                  <SelectTrigger className="rounded-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    <ScrollArea className="h-48">
-                      {resources?.filter(r => {
-                        const user = users?.find(u => u.id === selectedUserId);
-                        return r.tenantId === 'global' || r.tenantId === user?.tenantId;
-                      }).map(r => 
-                        <SelectItem key={r.id} value={r.id}>
-                          <div className="flex items-center gap-2"><Layers className="w-3 h-3 text-muted-foreground" /> {r.name}</div>
-                        </SelectItem>
-                      )}
-                    </ScrollArea>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {selectedResourceId && (
-              <div className="space-y-2 animate-in fade-in">
-                <Label className="text-[10px] font-bold uppercase">3. Rolle wählen</Label>
-                <Select value={selectedEntitlementId} onValueChange={setSelectedEntitlementId}>
-                  <SelectTrigger className="rounded-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    <ScrollArea className="h-48">
-                      {entitlements?.filter(e => e.resourceId === selectedResourceId).map(e => 
-                        <SelectItem key={e.id} value={e.id}>
-                          <div className="flex items-center gap-2">
-                            {!!(e.isAdmin === true || e.isAdmin === 1 || e.isAdmin === "1") && <ShieldAlert className="w-3 h-3 text-red-600" />}
-                            {e.name}
+                  return (
+                    <TableRow key={a.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 border-slate-100 dark:border-slate-800 transition-colors">
+                      <TableCell className="py-5 px-8">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                            <UserIcon className="w-5 h-5 text-slate-400" />
                           </div>
-                        </SelectItem>
-                      )}
-                    </ScrollArea>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Befristet bis (Optional)</Label>
-              <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="rounded-none" />
-            </div>
+                          <div>
+                            <div className="font-bold text-sm text-slate-800 dark:text-slate-100">{user?.displayName || a.userId}</div>
+                            <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{getTenantSlug(a.tenantId)}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className={cn("p-2 rounded-xl", isAdmin ? "bg-red-50 text-red-600" : "bg-primary/10 text-primary")}>
+                            {isAdmin ? <ShieldAlert className="w-4 h-4" /> : <Layers className="w-4 h-4" />}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">{res?.name}</div>
+                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">{ent?.name}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1.5">
+                          <Badge className={cn(
+                            "rounded-full border-none px-3 h-6 text-[9px] font-black uppercase w-fit",
+                            a.status === 'active' ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20" : "bg-slate-100 text-slate-500"
+                          )}>{a.status}</Badge>
+                          {isGroupManaged && (
+                            <Badge className="bg-indigo-50 text-indigo-600 border-none rounded-full text-[8px] font-black uppercase px-2 h-5 w-fit">
+                              <Workflow className="w-2.5 h-2.5 mr-1" /> Gruppe
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className={cn("text-xs font-bold flex items-center gap-2", isExpired ? "text-red-600" : "text-slate-600 dark:text-slate-400")}>
+                          <CalendarDays className="w-3.5 h-3.5 opacity-50" />
+                          {a.validUntil ? new Date(a.validUntil).toLocaleDateString() : 'Unbefristet'}
+                          {isExpired && <AlertTriangle className="w-3.5 h-3.5" />}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right px-8">
+                        <div className="flex justify-end gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-9 rounded-xl text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-all"
+                            onClick={() => { setSelectedAssignment(a); setIsDetailsOpen(true); }}
+                          >
+                            Details
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"><MoreHorizontal className="w-5 h-5" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl">
+                              <DropdownMenuItem onSelect={() => { setSelectedAssignment(a); setIsDetailsOpen(true); }} className="rounded-xl py-2.5 gap-3"><Info className="w-4 h-4 text-primary" /> Vollständige Details</DropdownMenuItem>
+                              {a.status !== 'removed' && !isGroupManaged && (
+                                <DropdownMenuItem className="text-red-600 rounded-xl py-2.5 gap-3" onSelect={() => handleRevokeAssignment(a)}>
+                                  <Trash2 className="w-4 h-4" /> Zugriff widerrufen
+                                </DropdownMenuItem>
+                              )}
+                              {isGroupManaged && (
+                                <DropdownMenuItem disabled className="text-slate-400 italic rounded-xl py-2.5 gap-3">
+                                  <Lock className="w-4 h-4" /> Gruppenverwaltet
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)} className="rounded-none">Abbrechen</Button>
-            <Button onClick={handleCreateAssignment} disabled={!selectedEntitlementId || isSaving} className="rounded-none font-bold uppercase text-[10px] gap-2">
-              {isSaving && <Loader2 className="w-3 h-3 animate-spin" />}
-              Zuweisen
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </>
+      )}
 
-      <Dialog open={isRevokeOpen} onOpenChange={setIsRevokeOpen}>
-        <DialogContent className="max-w-sm rounded-none border-2">
-          <DialogHeader>
-            <DialogTitle className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 text-red-600">
-              <AlertTriangle className="w-4 h-4" />
-              Zugriff Widerrufen
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Legen Sie fest, bis zu welchem Datum der Zugriff noch gültig sein soll. Für sofortigen Entzug wählen Sie das heutige Datum.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="p-3 bg-muted/20 border rounded-none">
-              <p className="text-[10px] font-bold uppercase text-muted-foreground mb-1">Mitarbeiter</p>
-              <p className="text-xs font-bold">{users?.find(u => u.id === assignmentToRevoke?.userId)?.displayName}</p>
-              <p className="text-[10px] font-bold uppercase text-muted-foreground mt-2 mb-1">System / Rolle</p>
-              {(() => {
-                const ent = entitlements?.find(e => e.id === assignmentToRevoke?.entitlementId);
-                const res = resources?.find(r => r.id === ent?.resourceId);
-                return <p className="text-xs font-bold">{res?.name} / {ent?.name}</p>;
-              })()}
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[9px] font-bold uppercase">Gültig bis</Label>
-              <Input 
-                type="date" 
-                value={revokeValidUntil} 
-                onChange={e => setRevokeValidUntil(e.target.value)} 
-                className="rounded-none h-9" 
-              />
-            </div>
-          </div>
-          <DialogFooter className="flex gap-2">
-            <Button variant="ghost" onClick={() => setIsRevokeOpen(false)} className="rounded-none h-9 flex-1 text-[10px] font-bold uppercase">Abbrechen</Button>
-            <Button onClick={confirmRevokeAssignment} disabled={isSaving} className="rounded-none h-9 flex-1 text-[10px] font-bold uppercase gap-2 bg-red-600 hover:bg-red-700 text-white">
-              {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
-              Entzug Bestätigen
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
+      {/* Details Dialog optimized for readability */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] h-[90vh] rounded-none p-0 overflow-hidden flex flex-col border shadow-2xl">
-          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-primary/20 flex items-center justify-center rounded-sm shrink-0">
-                <ShieldCheck className="w-6 h-6 text-primary" />
+        <DialogContent className="max-w-3xl w-[95vw] h-[85vh] rounded-[3rem] p-0 overflow-hidden bg-white dark:bg-slate-950 border-none shadow-2xl">
+          <DialogHeader className="p-10 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-6">
+              <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center text-primary font-black text-2xl shadow-xl shadow-black/20">
+                <ShieldCheck className="w-8 h-8" />
               </div>
-              <div className="min-w-0">
-                <DialogTitle className="text-lg font-bold uppercase tracking-tight leading-none mb-1">Zuweisung Details</DialogTitle>
-                <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase">
-                  <UserCircle className="w-3 h-3" /> 
-                  <span className="truncate">Inhaber: {users?.find(u => u.id === selectedAssignment?.userId)?.displayName || 'Unbekannt'}</span>
-                </div>
+              <div className="flex-1 min-w-0">
+                <DialogTitle className="text-2xl font-headline font-bold tracking-tight uppercase">Zuweisung Details</DialogTitle>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 flex items-center gap-2">
+                  <UserCircle className="w-3.5 h-3.5" /> {users?.find(u => u.id === selectedAssignment?.userId)?.displayName || 'Unbekannt'}
+                </p>
               </div>
             </div>
           </DialogHeader>
           
-          <div className="flex-1 overflow-y-auto min-h-0 bg-white">
-            <div className="p-6 space-y-6 pb-12">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-3 border bg-slate-50/50">
-                  <Label className="text-[9px] font-bold uppercase text-muted-foreground mb-1.5 block tracking-widest">Status</Label>
-                  <Badge variant="outline" className={cn(
-                    "rounded-none font-bold uppercase text-[10px] px-3 py-0.5",
-                    selectedAssignment?.status === 'active' ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"
-                  )}>
-                    {selectedAssignment?.status}
-                  </Badge>
+          <ScrollArea className="flex-1">
+            <div className="p-10 space-y-10">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Status</Label>
+                  <Badge className={cn("rounded-full px-4 h-7 text-[10px] font-black uppercase border-none", selectedAssignment?.status === 'active' ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{selectedAssignment?.status}</Badge>
                 </div>
-                <div className="p-3 border bg-slate-50/50">
-                  <Label className="text-[9px] font-bold uppercase text-muted-foreground mb-1.5 block tracking-widest">Mandant</Label>
-                  <div className="flex items-center gap-2 font-bold text-xs text-primary uppercase">
-                    <Building2 className="w-3.5 h-3.5" />
-                    {getTenantSlug(selectedAssignment?.tenantId)}
+                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Mandant</Label>
+                  <div className="flex items-center gap-2 font-black text-xs text-primary uppercase">
+                    <Building2 className="w-4 h-4" /> {getTenantSlug(selectedAssignment?.tenantId)}
                   </div>
                 </div>
-                <div className="p-3 border bg-slate-50/50">
-                  <Label className="text-[9px] font-bold uppercase text-muted-foreground mb-1.5 block tracking-widest">Quelle</Label>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-[10px] uppercase">{selectedAssignment?.syncSource || 'Manuell'}</span>
-                    {selectedAssignment?.originGroupId && (
-                      <Badge className="bg-indigo-600 text-white rounded-none text-[8px] h-4">GROUP</Badge>
-                    )}
-                  </div>
+                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Quelle</Label>
+                  <Badge variant="outline" className="rounded-full text-[10px] font-black uppercase border-slate-200 dark:border-slate-800 px-4 h-7">{selectedAssignment?.syncSource || 'Manuell'}</Badge>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Separator className="flex-1" />
-                  <span className="text-[9px] font-black uppercase text-muted-foreground tracking-[0.2em]">Identität & Berechtigung</span>
-                  <Separator className="flex-1" />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[9px] font-bold uppercase text-slate-500">Benutzer</Label>
-                      <span className="text-[8px] font-mono text-muted-foreground opacity-50">UID: {selectedAssignment?.userId}</span>
-                    </div>
-                    <div className="p-3 border bg-white flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                        <UserIcon className="w-4 h-4 text-slate-400" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-xs truncate">{users?.find(u => u.id === selectedAssignment?.userId)?.displayName || 'Unbekannter Nutzer'}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">{users?.find(u => u.id === selectedAssignment?.userId)?.email}</p>
+              <div className="space-y-4">
+                <Separator />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Identität</Label>
+                    <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center"><UserIcon className="w-5 h-5 text-slate-400" /></div>
+                      <div>
+                        <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{users?.find(u => u.id === selectedAssignment?.userId)?.displayName}</p>
+                        <p className="text-[10px] text-slate-400 font-bold tracking-wider">{users?.find(u => u.id === selectedAssignment?.userId)?.email}</p>
                       </div>
                     </div>
                   </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[9px] font-bold uppercase text-slate-500">Rolle & System</Label>
-                      <span className="text-[8px] font-mono text-muted-foreground opacity-50">EID: {selectedAssignment?.entitlementId}</span>
-                    </div>
-                    <div className="p-3 border bg-white flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-sm bg-primary/5 flex items-center justify-center shrink-0">
-                        <Layers className="w-4 h-4 text-primary" />
-                      </div>
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Rolle & System</Label>
+                    <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center"><Layers className="w-5 h-5 text-primary" /></div>
                       {(() => {
                         const ent = entitlements?.find(e => e.id === selectedAssignment?.entitlementId);
-                        const resResource = resources?.find(r => r.id === ent?.resourceId);
+                        const res = resources?.find(r => r.id === ent?.resourceId);
                         return (
-                          <div className="min-w-0">
-                            <p className="font-bold text-xs truncate">{resResource?.name || 'Unbekannt'}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <p className="text-[10px] text-muted-foreground truncate">{ent?.name}</p>
-                              {ent?.isAdmin && <Badge className="bg-red-100 text-red-700 border-none rounded-none text-[8px] h-3.5 px-1">ADMIN</Badge>}
+                          <div>
+                            <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{res?.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">{ent?.name}</p>
+                              {ent?.isAdmin && <Badge className="bg-red-50 text-red-600 border-none rounded-full text-[8px] h-4 font-black px-2">ADMIN</Badge>}
                             </div>
                           </div>
                         );
@@ -616,83 +583,43 @@ function AssignmentsPageContent() {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Separator className="flex-1" />
-                  <span className="text-[9px] font-black uppercase text-muted-foreground tracking-[0.2em]">Zeitraum & Governance</span>
-                  <Separator className="flex-1" />
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="space-y-1">
-                    <p className="text-[8px] font-bold uppercase text-muted-foreground">Gültig ab</p>
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold">
-                      <Calendar className="w-3 h-3 text-slate-400" />
-                      {selectedAssignment?.validFrom || 'Sofort'}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[8px] font-bold uppercase text-muted-foreground">Gültig bis</p>
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold">
-                      <Clock className="w-3 h-3 text-slate-400" />
-                      {selectedAssignment?.validUntil || 'Unbefristet'}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[8px] font-bold uppercase text-muted-foreground">Zertifiziert</p>
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold">
-                      <ShieldCheck className={cn("w-3 h-3", selectedAssignment?.lastReviewedAt ? "text-emerald-500" : "text-slate-300")} />
-                      {selectedAssignment?.lastReviewedAt ? new Date(selectedAssignment.lastReviewedAt).toLocaleDateString() : 'Ausstehend'}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[8px] font-bold uppercase text-muted-foreground">Prüfer</p>
-                    <div className="text-[10px] font-mono truncate text-muted-foreground">
-                      {selectedAssignment?.reviewedBy || 'N/A'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Separator className="flex-1" />
-                  <span className="text-[9px] font-black uppercase text-muted-foreground tracking-[0.2em]">Prozess & Notizen</span>
-                  <Separator className="flex-1" />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between p-2.5 border border-blue-100 bg-blue-50/30">
-                      <div className="min-w-0">
-                        <p className="text-[8px] font-bold uppercase text-blue-600">Ticket-Referenz</p>
-                        <p className="font-bold text-[10px] mt-0.5 truncate">{selectedAssignment?.ticketRef || selectedAssignment?.jiraIssueKey || 'KEINE'}</p>
-                      </div>
-                      <Ticket className="w-4 h-4 text-blue-400 shrink-0" />
-                    </div>
-                    <div className="p-2.5 border bg-white">
-                      <p className="text-[8px] font-bold uppercase text-muted-foreground">Erteilt von</p>
-                      <p className="text-[10px] font-bold mt-0.5">{selectedAssignment?.grantedBy || 'System'}</p>
-                      <p className="text-[8px] text-muted-foreground mt-0.5">am {selectedAssignment?.grantedAt ? new Date(selectedAssignment.grantedAt).toLocaleString() : 'Unbekannt'}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-1.5">
-                    <Label className="text-[9px] font-bold uppercase text-slate-500 flex items-center gap-1">
-                      <Info className="w-2.5 h-2.5" /> Anmerkungen
-                    </Label>
-                    <div className="p-3 bg-amber-50/30 border border-amber-100 min-h-[60px] max-h-[120px] overflow-y-auto text-[10px] italic leading-relaxed text-slate-600">
-                      {selectedAssignment?.notes || 'Keine zusätzlichen Anmerkungen vorhanden.'}
-                    </div>
-                  </div>
-                </div>
+              <div className="p-6 rounded-[2rem] bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div><p className="text-[9px] font-black uppercase text-slate-400 mb-1">Gültig ab</p><p className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedAssignment?.validFrom || 'Sofort'}</p></div>
+                <div><p className="text-[9px] font-black uppercase text-slate-400 mb-1">Gültig bis</p><p className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedAssignment?.validUntil || '∞'}</p></div>
+                <div><p className="text-[9px] font-black uppercase text-slate-400 mb-1">Zertifiziert</p><p className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedAssignment?.lastReviewedAt ? new Date(selectedAssignment.lastReviewedAt).toLocaleDateString() : 'Ausstehend'}</p></div>
+                <div><p className="text-[9px] font-black uppercase text-slate-400 mb-1">Ticket</p><p className="text-xs font-bold text-primary font-mono">{selectedAssignment?.ticketRef || selectedAssignment?.jiraIssueKey || 'N/A'}</p></div>
               </div>
             </div>
-          </div>
+          </ScrollArea>
           
-          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
-            <Button onClick={() => setIsDetailsOpen(false)} className="rounded-none h-9 px-8 font-bold uppercase text-[10px] tracking-widest bg-slate-900 hover:bg-slate-800 text-white">
-              Fenster Schließen
+          <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 shrink-0">
+            <Button onClick={() => setIsDetailsOpen(false)} className="rounded-xl h-12 px-12 font-black uppercase text-[10px] tracking-widest shadow-xl">Schließen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revoke Dialog remains logic-identical but styled */}
+      <Dialog open={isRevokeOpen} onOpenChange={setIsRevokeOpen}>
+        <DialogContent className="max-w-sm rounded-[2.5rem] p-0 overflow-hidden bg-white dark:bg-slate-950 border-none shadow-2xl">
+          <DialogHeader className="p-8 bg-red-50 dark:bg-red-900/20 border-b border-red-100 dark:border-red-900/30">
+            <DialogTitle className="text-xl font-headline font-bold text-red-600 uppercase flex items-center gap-3">
+              <AlertTriangle className="w-6 h-6" /> Zugriff entziehen
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-8 space-y-6">
+            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+              <p className="text-[9px] font-black uppercase text-slate-400 mb-1 tracking-widest">Mitarbeiter</p>
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{users?.find(u => u.id === assignmentToRevoke?.userId)?.displayName}</p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Entzug wirksam bis</Label>
+              <Input type="date" value={revokeValidUntil} onChange={e => setRevokeValidUntil(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800" />
+            </div>
+          </div>
+          <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-900/50 border-t flex gap-3">
+            <Button variant="ghost" onClick={() => setIsRevokeOpen(false)} className="flex-1 rounded-xl text-[10px] font-black uppercase">Abbrechen</Button>
+            <Button onClick={confirmRevokeAssignment} disabled={isSaving} className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest h-12 gap-2 shadow-lg shadow-red-200 dark:shadow-none">
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />} Bestätigen
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -703,7 +630,7 @@ function AssignmentsPageContent() {
 
 export default function AssignmentsPage() {
   return (
-    <Suspense fallback={<div className="flex flex-col items-center justify-center py-20 gap-4"><Loader2 className="w-8 h-8 animate-spin text-primary" /><p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Lade Einzelzuweisungen...</p></div>}>
+    <Suspense fallback={<div className="flex flex-col items-center justify-center py-40 gap-4"><Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" /><p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Lade Daten...</p></div>}>
       <AssignmentsPageContent />
     </Suspense>
   );

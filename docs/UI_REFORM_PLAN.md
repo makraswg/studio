@@ -13,19 +13,20 @@
 - [x] AI Proactive Governance.
 - [x] Deep Ecosystem Integration (Jira).
 
-## Phase 4: Visual Governance & Resilience (GEPLANT 🚀)
+## Phase 4: Visual Governance & Resilience (IN UMSETZUNG 🚀)
 
 ### 1. Visual Identity Mapping
-- [ ] **Interactive Assignment Graph**: Eine d3.js oder vis.js basierte Landkarte, die Nutzer und Ressourcen als Knoten darstellt.
-- [ ] **Drill-Down Links**: Klick auf Kanten öffnet die Zuweisungsdetails, Klick auf Knoten öffnet das Nutzer/Asset-Profil.
+- [x] **Unified AI Branding**: Konsistentes BrainCircuit-Icon systemweit.
+- [ ] **Interactive Assignment Graph**: Eine d3.js oder vis.js basierte Landkarte (Geplant).
 
 ### 2. AI Forecasting & Context
-- [ ] **Context-Aware Prompts**: Integration der Firmenbeschreibung in alle `ai.generate` Calls.
-- [ ] **Predictive Trends**: Vorhersage von Risiko-Entwicklungen.
+- [x] **Context-Aware Prompts**: Integration der Firmenbeschreibung in alle `ai.generate` Calls.
+- [x] **AI Form Assistant**: Unterstützung in Ressourcen, Rollen und Risiken.
 
 ### 3. Operational Mastery
-- [ ] **Setup Wizard**: Ein mehrstufiger Onboarding-Prozess für die Plattform-Initialisierung.
-- [ ] **Drift-Detection UI**: Ein spezielles Dashboard-Widget zum Abgleich von Realität (Jira) vs. Dokumentation (Hub).
+- [x] **Enterprise Dialogs**: Überarbeitung aller Popups (Padding, Icons, Rounding).
+- [x] **Super Admin Privileges**: Permanente Löschfunktion für kritische Daten.
+- [x] **Compact Filtering**: Einzeilige Filter-Layouts für IAM und Zuweisungen.
 
-### 4. Cross-Module Navigation
-- [ ] **"Breadcrumb of Responsibility"**: In jedem Detail-Dialog (Nutzer, Risk, Asset) direkte Links zu allen verknüpften Objekten in anderen Modulen.
+### 4. Documentation
+- [x] **Design Guide**: Zentrale Dokumentation des UI-Standards in `docs/DESIGN_GUIDE.md`.

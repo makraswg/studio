@@ -26,7 +26,8 @@ import {
   ChevronRight,
   Info,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Shield
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -174,7 +175,6 @@ export default function AccessReviewsPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
@@ -191,7 +191,6 @@ export default function AccessReviewsPage() {
         </Button>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border shadow-sm rounded-xl overflow-hidden bg-white">
           <CardContent className="p-5">
@@ -216,7 +215,6 @@ export default function AccessReviewsPage() {
         </Card>
       </div>
 
-      {/* Filter & Search Bar */}
       <div className="flex flex-col lg:flex-row items-center gap-3 bg-white p-2 rounded-xl border shadow-sm">
         <div className="relative flex-1 group w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
@@ -244,7 +242,6 @@ export default function AccessReviewsPage() {
         </div>
       </div>
 
-      {/* Data Table */}
       <div className="bg-white dark:bg-slate-900 rounded-lg border shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -343,7 +340,6 @@ export default function AccessReviewsPage() {
         </div>
       )}
 
-      {/* AI Advisor Dialog */}
       <Dialog open={isAdvisorOpen} onOpenChange={setIsAdvisorOpen}>
         <DialogContent className="max-w-2xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[80vh]">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-8">

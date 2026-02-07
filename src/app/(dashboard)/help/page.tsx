@@ -280,7 +280,7 @@ export default function HelpPage() {
 
       {/* Help Editor Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl rounded-none border-2 shadow-2xl p-0 overflow-hidden flex flex-col bg-card">
+        <DialogContent className="max-w-2xl w-[95vw] md:w-full h-[90vh] md:h-auto rounded-[1.5rem] md:rounded-none border-2 shadow-2xl p-0 overflow-hidden flex flex-col bg-card">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center gap-3">
               <Settings2 className="w-5 h-5 text-primary" />
@@ -290,52 +290,54 @@ export default function HelpPage() {
             </div>
           </DialogHeader>
           
-          <div className="p-6 space-y-6">
-            <div className="grid grid-cols-2 gap-4">
+          <ScrollArea className="flex-1">
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Bereich (Sektion)</Label>
+                  <Input 
+                    value={section} 
+                    onChange={e => setSection(e.target.value)} 
+                    placeholder="z.B. Workflows" 
+                    className="rounded-none h-10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Sortierung (Reihenfolge)</Label>
+                  <Input 
+                    type="number" 
+                    value={order} 
+                    onChange={e => setOrder(e.target.value)} 
+                    className="rounded-none h-10"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Bereich (Sektion)</Label>
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Überschrift / Thema</Label>
                 <Input 
-                  value={section} 
-                  onChange={e => setSection(e.target.value)} 
-                  placeholder="z.B. Workflows" 
+                  value={title} 
+                  onChange={e => setTitle(e.target.value)} 
+                  placeholder="Was wird erklärt?" 
                   className="rounded-none h-10"
                 />
               </div>
+
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Sortierung (Reihenfolge)</Label>
-                <Input 
-                  type="number" 
-                  value={order} 
-                  onChange={e => setOrder(e.target.value)} 
-                  className="rounded-none h-10"
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Erklärungstext (Inhalt)</Label>
+                <Textarea 
+                  value={content} 
+                  onChange={e => setContent(e.target.value)} 
+                  placeholder="Detaillierte Beschreibung..." 
+                  className="rounded-none min-h-[200px] leading-relaxed"
                 />
               </div>
             </div>
+          </ScrollArea>
 
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Überschrift / Thema</Label>
-              <Input 
-                value={title} 
-                onChange={e => setTitle(e.target.value)} 
-                placeholder="Was wird erklärt?" 
-                className="rounded-none h-10"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Erklärungstext (Inhalt)</Label>
-              <Textarea 
-                value={content} 
-                onChange={e => setContent(e.target.value)} 
-                placeholder="Detaillierte Beschreibung..." 
-                className="rounded-none min-h-[200px] leading-relaxed"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="p-6 bg-muted/30 border-t shrink-0">
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
-            <Button onClick={handleSaveHelp} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] px-10 gap-2">
+          <DialogFooter className="p-6 bg-muted/30 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
+            <Button onClick={handleSaveHelp} disabled={isSaving} className="w-full sm:w-auto rounded-none font-bold uppercase text-[10px] px-10 h-10 gap-2 bg-slate-900 text-white">
               {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               In Datenbank speichern
             </Button>

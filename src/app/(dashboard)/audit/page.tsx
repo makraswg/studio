@@ -190,15 +190,15 @@ export default function AuditLogPage() {
       </div>
 
       <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
-        <DialogContent className="max-w-4xl rounded-[3rem] border-none shadow-2xl p-0 overflow-hidden bg-white dark:bg-slate-950 h-[85vh] flex flex-col">
-          <DialogHeader className="p-10 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center gap-6">
-              <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-xl">
-                <BadgeAlert className="w-8 h-8" />
+        <DialogContent className="max-w-4xl w-[95vw] md:w-full rounded-[2rem] md:rounded-[3rem] border-none shadow-2xl p-0 overflow-hidden bg-white dark:bg-slate-950 h-[90vh] md:h-[85vh] flex flex-col">
+          <DialogHeader className="p-6 md:p-10 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-4 md:gap-6">
+              <div className="w-12 h-12 md:w-16 md:h-16 bg-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-xl">
+                <BadgeAlert className="w-6 h-6 md:w-8 md:h-8" />
               </div>
               <div className="min-w-0 flex-1">
-                <DialogTitle className="text-2xl font-headline font-bold uppercase tracking-tight">Audit Ereignis Details</DialogTitle>
-                <DialogDescription className="text-slate-400 text-[10px] uppercase font-black tracking-[0.2em] mt-1.5 truncate">
+                <DialogTitle className="text-xl md:text-2xl font-headline font-bold uppercase tracking-tight">Audit Ereignis Details</DialogTitle>
+                <DialogDescription className="text-slate-400 text-[9px] md:text-[10px] uppercase font-black tracking-[0.2em] mt-1.5 truncate">
                   {selectedLog?.action}
                 </DialogDescription>
               </div>
@@ -206,42 +206,42 @@ export default function AuditLogPage() {
           </DialogHeader>
 
           <ScrollArea className="flex-1">
-            <div className="p-10 space-y-10">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                <div className="p-6 rounded-[2rem] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-                  <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Akteur</p>
-                  <p className="text-sm font-bold truncate">{selectedLog?.actorUid}</p>
+            <div className="p-6 md:p-10 space-y-8 md:space-y-10">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+                <div className="p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                  <p className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Akteur</p>
+                  <p className="text-xs md:text-sm font-bold truncate">{selectedLog?.actorUid}</p>
                 </div>
-                <div className="p-6 rounded-[2rem] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-                  <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Mandant</p>
-                  <p className="text-sm font-bold uppercase text-primary">{selectedLog?.tenantId || 'global'}</p>
+                <div className="p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                  <p className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Mandant</p>
+                  <p className="text-xs md:text-sm font-bold uppercase text-primary">{selectedLog?.tenantId || 'global'}</p>
                 </div>
-                <div className="p-6 rounded-[2rem] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-                  <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Zeitpunkt</p>
-                  <p className="text-sm font-bold">{selectedLog?.timestamp && new Date(selectedLog.timestamp).toLocaleString()}</p>
+                <div className="p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                  <p className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Zeitpunkt</p>
+                  <p className="text-xs md:text-sm font-bold">{selectedLog?.timestamp && new Date(selectedLog.timestamp).toLocaleString()}</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 ml-2">
-                    <FileJson className="w-4 h-4 text-slate-300" /> Vorheriger Zustand
+                  <h4 className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 ml-2">
+                    <FileJson className="w-3.5 md:w-4 h-3.5 md:h-4 text-slate-300" /> Vorheriger Zustand
                   </h4>
-                  <div className="rounded-[2.5rem] bg-slate-50 dark:bg-slate-900/50 p-8 h-80 border border-slate-100 dark:border-slate-800">
+                  <div className="rounded-[1.5rem] md:rounded-[2.5rem] bg-slate-50 dark:bg-slate-900/50 p-4 md:p-8 h-60 md:h-80 border border-slate-100 dark:border-slate-800">
                     <ScrollArea className="h-full w-full">
-                      <pre className="text-[11px] font-mono text-slate-500 leading-relaxed">
+                      <pre className="text-[10px] md:text-[11px] font-mono text-slate-500 leading-relaxed">
                         {selectedLog?.before ? JSON.stringify(selectedLog.before, null, 2) : "// Keine Daten verfügbar"}
                       </pre>
                     </ScrollArea>
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase text-emerald-600 tracking-widest flex items-center gap-2 ml-2">
-                    <ArrowRight className="w-4 h-4" /> Neuer Zustand
+                  <h4 className="text-[9px] md:text-[10px] font-black uppercase text-emerald-600 tracking-widest flex items-center gap-2 ml-2">
+                    <ArrowRight className="w-3.5 md:w-4 h-3.5 md:h-4" /> Neuer Zustand
                   </h4>
-                  <div className="rounded-[2.5rem] bg-emerald-50/20 dark:bg-emerald-900/10 p-8 h-80 border border-emerald-100 dark:border-emerald-900/20">
+                  <div className="rounded-[1.5rem] md:rounded-[2.5rem] bg-emerald-50/20 dark:bg-emerald-900/10 p-4 md:p-8 h-60 md:h-80 border border-emerald-100 dark:border-emerald-900/20">
                     <ScrollArea className="h-full w-full">
-                      <pre className="text-[11px] font-mono text-emerald-900 dark:text-emerald-400 leading-relaxed">
+                      <pre className="text-[10px] md:text-[11px] font-mono text-emerald-900 dark:text-emerald-400 leading-relaxed">
                         {selectedLog?.after ? JSON.stringify(selectedLog.after, null, 2) : "// Keine Daten verfügbar"}
                       </pre>
                     </ScrollArea>
@@ -251,8 +251,8 @@ export default function AuditLogPage() {
             </div>
           </ScrollArea>
 
-          <div className="p-8 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex justify-end shrink-0">
-            <Button onClick={() => setSelectedLog(null)} className="rounded-xl h-12 px-12 font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95">Schließen</Button>
+          <div className="p-6 md:p-8 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex justify-end shrink-0">
+            <Button onClick={() => setSelectedLog(null)} className="w-full md:w-auto rounded-xl h-12 px-12 font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95">Schließen</Button>
           </div>
         </DialogContent>
       </Dialog>

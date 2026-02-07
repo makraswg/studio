@@ -334,16 +334,16 @@ export default function GdprPage() {
 
       {/* GDPR Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-[3rem] p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white dark:bg-slate-950">
-          <DialogHeader className="p-10 bg-slate-900 text-white shrink-0">
+        <DialogContent className="max-w-5xl w-[95vw] h-[95vh] md:h-[90vh] rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white dark:bg-slate-950">
+          <DialogHeader className="p-6 md:p-10 bg-slate-900 text-white shrink-0">
             <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-6">
-                <div className="w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-500 shadow-xl">
-                  <ShieldCheck className="w-8 h-8" />
+              <div className="flex items-center gap-4 md:gap-6">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-500 shadow-xl">
+                  <ShieldCheck className="w-6 h-6 md:w-8 md:h-8" />
                 </div>
                 <div className="min-w-0">
-                  <DialogTitle className="text-2xl font-headline font-bold uppercase tracking-tight truncate">Verarbeitungstätigkeit bearbeiten</DialogTitle>
-                  <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1.5">Art. 30 DSGVO Dokumentation</DialogDescription>
+                  <DialogTitle className="text-xl md:text-2xl font-headline font-bold uppercase tracking-tight truncate">Verarbeitungstätigkeit bearbeiten</DialogTitle>
+                  <DialogDescription className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1 md:mt-1.5">Art. 30 DSGVO Dokumentation</DialogDescription>
                 </div>
               </div>
               <AiFormAssistant 
@@ -354,32 +354,32 @@ export default function GdprPage() {
             </div>
           </DialogHeader>
           <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
-            <div className="px-10 border-b border-slate-100 dark:border-slate-800 shrink-0">
-              <TabsList className="h-14 bg-transparent gap-8 p-0">
-                <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-0 gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600">
-                  <FileText className="w-4 h-4" /> Stammdaten
+            <div className="px-6 md:px-10 border-b border-slate-100 dark:border-slate-800 shrink-0">
+              <TabsList className="h-12 md:h-14 bg-transparent gap-4 md:gap-8 p-0">
+                <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-0 gap-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600">
+                  <FileText className="w-3.5 md:w-4 h-3.5 md:h-4" /> Stammdaten
                 </TabsTrigger>
-                <TabsTrigger value="systems" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-0 gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600">
-                  <Layers className="w-4 h-4" /> IT-Systeme & Infrastruktur
+                <TabsTrigger value="systems" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-0 gap-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600">
+                  <Layers className="w-3.5 md:w-4 h-3.5 md:h-4" /> IT-Systeme
                 </TabsTrigger>
               </TabsList>
             </div>
             <ScrollArea className="flex-1">
-              <div className="p-10">
-                <TabsContent value="base" className="mt-0 space-y-10">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="p-6 md:p-10">
+                <TabsContent value="base" className="mt-0 space-y-8 md:space-y-10">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                     <div className="space-y-2 md:col-span-2">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung der Tätigkeit</Label>
-                      <Input value={name} onChange={e => setName(e.target.value)} className="rounded-2xl h-14 text-lg font-bold border-slate-200" />
+                      <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung der Tätigkeit</Label>
+                      <Input value={name} onChange={e => setName(e.target.value)} className="rounded-2xl h-12 md:h-14 text-base md:text-lg font-bold border-slate-200" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Verantwortliche Abteilung</Label>
-                      <Input value={responsibleDepartment} onChange={e => setResponsibleDepartment(e.target.value)} className="rounded-2xl h-14 border-slate-200" />
+                      <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Verantwortliche Abteilung</Label>
+                      <Input value={responsibleDepartment} onChange={e => setResponsibleDepartment(e.target.value)} className="rounded-2xl h-12 md:h-14 border-slate-200" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Rechtsgrundlage</Label>
+                      <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Rechtsgrundlage</Label>
                       <Select value={legalBasis} onValueChange={setLegalBasis}>
-                        <SelectTrigger className="rounded-2xl h-14 border-slate-200"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="rounded-2xl h-12 md:h-14 border-slate-200"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-2xl">
                           <SelectItem value="Art. 6 Abs. 1 lit. a (Einwilligung)">Einwilligung</SelectItem>
                           <SelectItem value="Art. 6 Abs. 1 lit. b (Vertrag)">Vertragserfüllung</SelectItem>
@@ -388,18 +388,18 @@ export default function GdprPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Löschfrist / Aufbewahrung</Label>
-                      <Input value={retentionPeriod} onChange={e => setRetentionPeriod(e.target.value)} className="rounded-2xl h-14 border-slate-200" />
+                      <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Löschfrist / Aufbewahrung</Label>
+                      <Input value={retentionPeriod} onChange={e => setRetentionPeriod(e.target.value)} className="rounded-2xl h-12 md:h-14 border-slate-200" />
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Zweck & Beschreibung</Label>
-                    <Textarea value={description} onChange={e => setDescription(e.target.value)} className="rounded-[2rem] min-h-[150px] p-6 border-slate-200 leading-relaxed" />
+                    <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Zweck & Beschreibung</Label>
+                    <Textarea value={description} onChange={e => setDescription(e.target.value)} className="rounded-[1.5rem] md:rounded-[2rem] min-h-[120px] md:min-h-[150px] p-4 md:p-6 border-slate-200 leading-relaxed" />
                   </div>
                 </TabsContent>
                 <TabsContent value="systems" className="mt-0">
-                  <div className="p-8 bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
-                    <Label className="text-[10px] font-black uppercase text-emerald-700 tracking-widest mb-6 block ml-2">Involvierte IT-Assets</Label>
+                  <div className="p-6 md:p-8 bg-slate-50 dark:bg-slate-900 rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
+                    <Label className="text-[9px] md:text-[10px] font-black uppercase text-emerald-700 tracking-widest mb-4 md:mb-6 block ml-2">Involvierte IT-Assets</Label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {resources?.map(res => (
                         <div 
@@ -423,9 +423,9 @@ export default function GdprPage() {
               </div>
             </ScrollArea>
           </Tabs>
-          <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-900/50 border-t shrink-0">
-            <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-black uppercase text-[10px] px-8 h-12">Abbrechen</Button>
-            <Button onClick={() => handleSave(false)} disabled={isSaving || !name} className="rounded-2xl font-black uppercase text-[10px] tracking-widest px-12 h-14 bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xl shadow-emerald-200 dark:shadow-none transition-all gap-3">
+          <DialogFooter className="p-6 md:p-8 bg-slate-50 dark:bg-slate-900/50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-black uppercase text-[10px] px-8 h-12">Abbrechen</Button>
+            <Button onClick={() => handleSave(false)} disabled={isSaving || !name} className="w-full sm:w-auto rounded-2xl font-black uppercase text-[10px] tracking-widest px-12 h-12 md:h-14 bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xl shadow-emerald-200 dark:shadow-none transition-all gap-3">
               {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />} Dokumentation Speichern
             </Button>
           </DialogFooter>

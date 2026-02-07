@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -111,10 +110,6 @@ function RiskDashboardContent() {
   const [revResProbability, setRevResProbability] = useState('2');
   const [revBruttoReason, setRevBruttoReason] = useState('');
   const [revNettoReason, setRevNettoReason] = useState('');
-
-  // Linked Measures State
-  const [isMeasuresViewOpen, setIsMeasuresViewOpen] = useState(false);
-  const [viewMeasuresRisk, setViewMeasuresRisk] = useState<Risk | null>(null);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -597,7 +592,7 @@ function RiskDashboardContent() {
                               {!risk.parentId && <DropdownMenuItem onSelect={() => openCreateSubRisk(risk)} className="rounded-xl py-2.5 gap-3"><Plus className="w-4 h-4" /> Sub-Risiko erstellen</DropdownMenuItem>}
                               <DropdownMenuItem onSelect={() => openEdit(risk)} className="rounded-xl py-2.5 gap-3"><Pencil className="w-4 h-4 text-slate-400" /> Bearbeiten</DropdownMenuItem>
                               <DropdownMenuSeparator className="my-2" />
-                              <DropdownMenuItem className="text-red-600 rounded-xl py-2.5 gap-3" onSelect={() => { if(confirm("Risiko permanent löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}>
+                              <DropdownMenuItem className="text-red-600 dark:text-red-400 rounded-xl py-2.5 gap-3" onSelect={() => { if(confirm("Risiko permanent löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}>
                                 <Trash2 className="w-4 h-4" /> Löschen
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -615,16 +610,16 @@ function RiskDashboardContent() {
 
       {/* Risk Dialog */}
       <Dialog open={isRiskDialogOpen} onOpenChange={(val) => { if(!val) { setIsRiskDialogOpen(false); setSelectedRisk(null); } }}>
-        <DialogContent className="max-w-4xl w-[95vw] h-[85vh] rounded-[3rem] p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white dark:bg-slate-950">
-          <DialogHeader className="p-10 bg-slate-900 text-white shrink-0">
+        <DialogContent className="max-w-4xl w-[95vw] h-[95vh] md:h-[85vh] rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white dark:bg-slate-950">
+          <DialogHeader className="p-6 md:p-10 bg-slate-900 text-white shrink-0">
             <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-6">
-                <div className="w-16 h-16 bg-accent/20 rounded-2xl flex items-center justify-center text-accent shadow-xl">
-                  <ShieldAlert className="w-8 h-8" />
+              <div className="flex items-center gap-4 md:gap-6">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-accent/20 rounded-2xl flex items-center justify-center text-accent shadow-xl">
+                  <ShieldAlert className="w-6 h-6 md:w-8 md:h-8" />
                 </div>
                 <div className="min-w-0">
-                  <DialogTitle className="text-2xl font-headline font-bold uppercase tracking-tight truncate">Risiko-Erfassung</DialogTitle>
-                  <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1.5">Analyse & Szenario Definition</DialogDescription>
+                  <DialogTitle className="text-xl md:text-2xl font-headline font-bold uppercase tracking-tight truncate">Risiko-Erfassung</DialogTitle>
+                  <DialogDescription className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1 md:mt-1.5">Analyse & Szenario Definition</DialogDescription>
                 </div>
               </div>
               <AiFormAssistant 
@@ -636,16 +631,16 @@ function RiskDashboardContent() {
           </DialogHeader>
           
           <ScrollArea className="flex-1">
-            <div className="p-10 space-y-12">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="p-6 md:p-10 space-y-8 md:space-y-12">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                 <div className="space-y-2 col-span-1 md:col-span-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Risiko-Bezeichnung</Label>
-                  <Input value={title} onChange={e => setTitle(e.target.value)} className="rounded-2xl h-14 text-lg font-bold border-slate-200 focus:border-accent" />
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Risiko-Bezeichnung</Label>
+                  <Input value={title} onChange={e => setTitle(e.target.value)} className="rounded-2xl h-12 md:h-14 text-base md:text-lg font-bold border-slate-200 focus:border-accent" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Kategorie</Label>
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Kategorie</Label>
                   <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger className="rounded-2xl h-14 border-slate-200"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="rounded-2xl h-12 md:h-14 border-slate-200"><SelectValue /></SelectTrigger>
                     <SelectContent className="rounded-2xl">
                       <SelectItem value="IT-Sicherheit">IT-Sicherheit</SelectItem>
                       <SelectItem value="Datenschutz">Datenschutz</SelectItem>
@@ -655,9 +650,9 @@ function RiskDashboardContent() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Bezug (Asset)</Label>
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Bezug (Asset)</Label>
                   <Select value={assetId} onValueChange={setAssetId}>
-                    <SelectTrigger className="rounded-2xl h-14 border-slate-200"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="rounded-2xl h-12 md:h-14 border-slate-200"><SelectValue /></SelectTrigger>
                     <SelectContent className="rounded-2xl">
                       <SelectItem value="none">Organisationsweites Risiko</SelectItem>
                       {resources?.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
@@ -666,27 +661,27 @@ function RiskDashboardContent() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                <div className="p-8 bg-red-50 dark:bg-red-950/20 rounded-[2rem] border border-red-100 dark:border-red-900/30 space-y-6">
-                  <h3 className="text-xs font-black uppercase text-red-600 tracking-[0.2em] flex items-center gap-2"><Scale className="w-4 h-4" /> Brutto-Risiko (Ohne Kontrollen)</h3>
-                  <div className="space-y-6">
-                    <div className="space-y-3">
-                      <Label className="text-[10px] font-bold uppercase text-slate-500">Eintrittswahrscheinlichkeit (1-5)</Label>
-                      <div className="flex gap-2">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10">
+                <div className="p-6 md:p-8 bg-red-50 dark:bg-red-950/20 rounded-[1.5rem] md:rounded-[2rem] border border-red-100 dark:border-red-900/30 space-y-4 md:space-y-6">
+                  <h3 className="text-[10px] md:text-xs font-black uppercase text-red-600 tracking-[0.2em] flex items-center gap-2"><Scale className="w-3.5 md:w-4 h-3.5 md:h-4" /> Brutto-Risiko</h3>
+                  <div className="space-y-4 md:space-y-6">
+                    <div className="space-y-2 md:space-y-3">
+                      <Label className="text-[8px] md:text-[10px] font-bold uppercase text-slate-500">Wahrscheinlichkeit (1-5)</Label>
+                      <div className="flex gap-1 md:gap-2">
                         {['1','2','3','4','5'].map(v => (
                           <button key={v} onClick={() => setProbability(v)} className={cn(
-                            "flex-1 h-12 rounded-xl border-2 font-black transition-all",
+                            "flex-1 h-10 md:h-12 rounded-xl border-2 font-black text-xs md:text-sm transition-all",
                             probability === v ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-200" : "bg-white border-slate-100 text-slate-400 hover:border-red-200"
                           )}>{v}</button>
                         ))}
                       </div>
                     </div>
-                    <div className="space-y-3">
-                      <Label className="text-[10px] font-bold uppercase text-slate-500">Schadenshöhe (1-5)</Label>
-                      <div className="flex gap-2">
+                    <div className="space-y-2 md:space-y-3">
+                      <Label className="text-[8px] md:text-[10px] font-bold uppercase text-slate-500">Schadenshöhe (1-5)</Label>
+                      <div className="flex gap-1 md:gap-2">
                         {['1','2','3','4','5'].map(v => (
                           <button key={v} onClick={() => setImpact(v)} className={cn(
-                            "flex-1 h-12 rounded-xl border-2 font-black transition-all",
+                            "flex-1 h-10 md:h-12 rounded-xl border-2 font-black text-xs md:text-sm transition-all",
                             impact === v ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-200" : "bg-white border-slate-100 text-slate-400 hover:border-red-200"
                           )}>{v}</button>
                         ))}
@@ -695,26 +690,26 @@ function RiskDashboardContent() {
                   </div>
                 </div>
 
-                <div className="p-8 bg-emerald-50 dark:bg-emerald-950/20 rounded-[2rem] border border-emerald-100 dark:border-emerald-900/30 space-y-6">
-                  <h3 className="text-xs font-black uppercase text-emerald-600 tracking-[0.2em] flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Netto-Risiko (Mit Kontrollen)</h3>
-                  <div className="space-y-6">
-                    <div className="space-y-3">
-                      <Label className="text-[10px] font-bold uppercase text-slate-500">Wahrscheinlichkeit (Netto)</Label>
-                      <div className="flex gap-2">
+                <div className="p-6 md:p-8 bg-emerald-50 dark:bg-emerald-950/20 rounded-[1.5rem] md:rounded-[2rem] border border-emerald-100 dark:border-emerald-900/30 space-y-4 md:space-y-6">
+                  <h3 className="text-[10px] md:text-xs font-black uppercase text-emerald-600 tracking-[0.2em] flex items-center gap-2"><ShieldCheck className="w-3.5 md:w-4 h-3.5 md:h-4" /> Netto-Risiko</h3>
+                  <div className="space-y-4 md:space-y-6">
+                    <div className="space-y-2 md:space-y-3">
+                      <Label className="text-[8px] md:text-[10px] font-bold uppercase text-slate-500">Wahrscheinlichkeit (Netto)</Label>
+                      <div className="flex gap-1 md:gap-2">
                         {['1','2','3','4','5'].map(v => (
                           <button key={v} onClick={() => setResProbability(v)} className={cn(
-                            "flex-1 h-12 rounded-xl border-2 font-black transition-all",
+                            "flex-1 h-10 md:h-12 rounded-xl border-2 font-black text-xs md:text-sm transition-all",
                             resProbability === v ? "bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200" : "bg-white border-slate-100 text-slate-400 hover:border-emerald-200"
                           )}>{v}</button>
                         ))}
                       </div>
                     </div>
-                    <div className="space-y-3">
-                      <Label className="text-[10px] font-bold uppercase text-slate-500">Schadenshöhe (Netto)</Label>
-                      <div className="flex gap-2">
+                    <div className="space-y-2 md:space-y-3">
+                      <Label className="text-[8px] md:text-[10px] font-bold uppercase text-slate-500">Schadenshöhe (Netto)</Label>
+                      <div className="flex gap-1 md:gap-2">
                         {['1','2','3','4','5'].map(v => (
                           <button key={v} onClick={() => setResImpact(v)} className={cn(
-                            "flex-1 h-12 rounded-xl border-2 font-black transition-all",
+                            "flex-1 h-10 md:h-12 rounded-xl border-2 font-black text-xs md:text-sm transition-all",
                             resImpact === v ? "bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200" : "bg-white border-slate-100 text-slate-400 hover:border-emerald-200"
                           )}>{v}</button>
                         ))}
@@ -725,15 +720,15 @@ function RiskDashboardContent() {
               </div>
 
               <div className="space-y-4">
-                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Szenario Beschreibung</Label>
-                <Textarea value={description} onChange={e => setDescription(e.target.value)} className="rounded-[2rem] min-h-[150px] p-6 border-slate-200 leading-relaxed" placeholder="Beschreiben Sie das Bedrohungsszenario im Detail..." />
+                <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Szenario Beschreibung</Label>
+                <Textarea value={description} onChange={e => setDescription(e.target.value)} className="rounded-[1.5rem] md:rounded-[2rem] min-h-[120px] md:min-h-[150px] p-4 md:p-6 border-slate-200 leading-relaxed" placeholder="Beschreiben Sie das Bedrohungsszenario im Detail..." />
               </div>
             </div>
           </ScrollArea>
           
-          <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-900/50 border-t shrink-0">
-            <Button variant="ghost" onClick={() => setIsRiskDialogOpen(false)} className="rounded-xl font-black uppercase text-[10px] px-8 h-12">Abbrechen</Button>
-            <Button onClick={handleSaveRisk} disabled={isSaving} className="rounded-2xl font-black uppercase text-[10px] tracking-widest px-12 h-14 bg-accent hover:bg-accent/90 text-white shadow-2xl shadow-accent/20 transition-all gap-3">
+          <DialogFooter className="p-6 md:p-8 bg-slate-50 dark:bg-slate-900/50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="ghost" onClick={() => setIsRiskDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-black uppercase text-[10px] px-8 h-12">Abbrechen</Button>
+            <Button onClick={handleSaveRisk} disabled={isSaving} className="w-full sm:w-auto rounded-2xl font-black uppercase text-[10px] tracking-widest px-12 h-12 md:h-14 bg-accent hover:bg-accent/90 text-white shadow-2xl shadow-accent/20 transition-all gap-3">
               {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />} Risiko Speichern
             </Button>
           </DialogFooter>
@@ -742,68 +737,75 @@ function RiskDashboardContent() {
 
       {/* Review Dialog */}
       <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
-        <DialogContent className="max-w-2xl rounded-[2.5rem] p-0 overflow-hidden bg-white dark:bg-slate-950 border-none shadow-2xl">
-          <DialogHeader className="p-8 bg-emerald-900 text-white">
+        <DialogContent className="max-w-2xl w-[95vw] md:w-full rounded-[2rem] md:rounded-[2.5rem] p-0 overflow-hidden bg-white dark:bg-slate-950 border-none shadow-2xl flex flex-col h-[90vh] md:h-auto">
+          <DialogHeader className="p-6 md:p-8 bg-emerald-900 text-white shrink-0">
             <div className="flex items-center gap-4">
-              <CalendarCheck className="w-8 h-8 text-emerald-400" />
-              <DialogTitle className="text-xl font-headline font-bold uppercase tracking-tight">Regelmäßiger Review</DialogTitle>
+              <CalendarCheck className="w-6 h-6 md:w-8 md:h-8 text-emerald-400" />
+              <DialogTitle className="text-lg md:text-xl font-headline font-bold uppercase tracking-tight">Regelmäßiger Review</DialogTitle>
             </div>
           </DialogHeader>
-          <div className="p-8 space-y-8">
-            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-              <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Aktuelles Risiko</Label>
-              <p className="font-bold text-slate-800 dark:text-slate-100">{reviewRisk?.title}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-6 pt-4 border-t">
-              <div className="space-y-4">
-                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Brutto Score</Label>
-                <div className="flex gap-2"><Input value={revProbability} onChange={e => setRevProbability(e.target.value)} type="number" className="rounded-xl h-12" /><Input value={revImpact} onChange={e => setRevImpact(e.target.value)} type="number" className="rounded-xl h-12" /></div>
+          <ScrollArea className="flex-1">
+            <div className="p-6 md:p-8 space-y-6 md:space-y-8">
+              <div className="p-4 md:p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                <Label className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Aktuelles Risiko</Label>
+                <p className="font-bold text-sm md:text-base text-slate-800 dark:text-slate-100">{reviewRisk?.title}</p>
               </div>
-              <div className="space-y-4">
-                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Netto Score</Label>
-                <div className="flex gap-2"><Input value={revResProbability} onChange={e => setRevResProbability(e.target.value)} type="number" className="rounded-xl h-12" /><Input value={revResImpact} onChange={e => setRevResImpact(e.target.value)} type="number" className="rounded-xl h-12" /></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
+                <div className="space-y-4">
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Brutto Score</Label>
+                  <div className="flex gap-2"><Input value={revProbability} onChange={e => setRevProbability(e.target.value)} type="number" className="rounded-xl h-12" /><Input value={revImpact} onChange={e => setRevImpact(e.target.value)} type="number" className="rounded-xl h-12" /></div>
+                </div>
+                <div className="space-y-4">
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Netto Score</Label>
+                  <div className="flex gap-2"><Input value={revResProbability} onChange={e => setRevResProbability(e.target.value)} type="number" className="rounded-xl h-12" /><Input value={revResImpact} onChange={e => setRevResImpact(e.target.value)} type="number" className="rounded-xl h-12" /></div>
+                </div>
               </div>
             </div>
-          </div>
-          <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-900/50 border-t">
-            <Button variant="ghost" onClick={() => setIsReviewDialogOpen(false)} className="rounded-xl text-[10px] font-black uppercase">Abbrechen</Button>
-            <Button onClick={handleReviewSubmit} disabled={isSaving} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase text-[10px] h-12 shadow-lg">Review Abschließen</Button>
+          </ScrollArea>
+          <DialogFooter className="p-6 md:p-8 bg-slate-50 dark:bg-slate-900/50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="ghost" onClick={() => setIsReviewDialogOpen(false)} className="w-full sm:w-auto rounded-xl text-[10px] font-black uppercase">Abbrechen</Button>
+            <Button onClick={handleReviewSubmit} disabled={isSaving} className="w-full sm:w-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase text-[10px] h-12 shadow-lg">Review Abschließen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Workflow Approval Dialog */}
       <Dialog open={isApprovalOpen} onOpenChange={setIsApprovalOpen}>
-        <DialogContent className="max-w-lg rounded-[2.5rem] p-0 overflow-hidden bg-white dark:bg-slate-900 border-none shadow-2xl">
-          <DialogHeader className="p-8 bg-slate-900 text-white">
+        <DialogContent className="max-w-lg w-[95vw] md:w-full rounded-[2rem] md:rounded-[2.5rem] p-0 overflow-hidden bg-white dark:bg-slate-900 border-none shadow-2xl flex flex-col h-[90vh] md:h-auto">
+          <DialogHeader className="p-6 md:p-8 bg-slate-900 text-white shrink-0">
             <div className="flex items-center gap-4">
-              <FileCheck className="w-8 h-8 text-primary" />
-              <DialogTitle className="text-xl font-headline font-bold uppercase">Risiko-Abnahme</DialogTitle>
+              <FileCheck className="w-6 h-6 md:w-8 md:h-8 text-primary" />
+              <DialogTitle className="text-lg md:text-xl font-headline font-bold uppercase">Risiko-Abnahme</DialogTitle>
             </div>
           </DialogHeader>
-          <div className="p-8 space-y-6">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Anmerkungen zur Abnahme</Label>
-              <Textarea 
-                value={approvalComment} 
-                onChange={e => setApprovalComment(e.target.value)} 
-                placeholder="Begründung für die Abnahme oder Ablehnung..."
-                className="rounded-xl min-h-[120px] border-slate-200"
-              />
+          <ScrollArea className="flex-1">
+            <div className="p-6 md:p-8 space-y-6">
+              <div className="space-y-2">
+                <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Anmerkungen zur Abnahme</Label>
+                <Textarea 
+                  value={approvalComment} 
+                  onChange={e => setApprovalComment(e.target.value)} 
+                  placeholder="Begründung für die Abnahme oder Ablehnung..."
+                  className="rounded-xl min-h-[120px] border-slate-200"
+                />
+              </div>
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 rounded-xl">
+                <p className="text-[9px] md:text-[10px] text-blue-700 dark:text-blue-300 font-bold uppercase leading-relaxed italic">
+                  Hinweis: Mit der Abnahme bestätigen Sie die Korrektheit der Szenario-Bewertung und die Angemessenheit der Netto-Schätzung.
+                </p>
+              </div>
             </div>
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 rounded-xl">
-              <p className="text-[10px] text-blue-700 dark:text-blue-300 font-bold uppercase leading-relaxed italic">
-                Hinweis: Mit der Abnahme bestätigen Sie die Korrektheit der Szenario-Bewertung und die Angemessenheit der Netto-Schätzung.
-              </p>
+          </ScrollArea>
+          <DialogFooter className="p-6 md:p-8 bg-slate-50 dark:bg-slate-900/50 border-t shrink-0 flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 w-full">
+              <Button variant="outline" onClick={() => handleWorkflowAction(riskToApprove!, 'reject')} disabled={isSaving} className="flex-1 rounded-xl h-12 font-black uppercase text-red-600 border-red-100 hover:bg-red-50">
+                <X className="w-4 h-4 mr-2" /> Ablehnen
+              </Button>
+              <Button onClick={() => handleWorkflowAction(riskToApprove!, 'approve')} disabled={isSaving} className="flex-1 rounded-xl h-12 font-black uppercase bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200">
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 mr-2" />} Abnehmen
+              </Button>
             </div>
-          </div>
-          <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-900/50 border-t flex gap-3">
-            <Button variant="outline" onClick={() => handleWorkflowAction(riskToApprove!, 'reject')} disabled={isSaving} className="flex-1 rounded-xl h-12 font-black uppercase text-red-600 border-red-100 hover:bg-red-50">
-              <X className="w-4 h-4 mr-2" /> Ablehnen
-            </Button>
-            <Button onClick={() => handleWorkflowAction(riskToApprove!, 'approve')} disabled={isSaving} className="flex-1 rounded-xl h-12 font-black uppercase bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200">
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 mr-2" />} Abnehmen
-            </Button>
+            <Button variant="ghost" onClick={() => setIsApprovalOpen(false)} className="w-full rounded-xl text-[10px] font-black uppercase text-slate-400">Schließen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

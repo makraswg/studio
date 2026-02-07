@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -210,17 +209,29 @@ export default function GroupsPage() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl rounded-none h-[80vh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="p-6 bg-slate-900 text-white">
+        <DialogContent className="max-w-4xl w-[95vw] md:w-full rounded-2xl md:rounded-none h-[90vh] md:h-[80vh] flex flex-col p-0 overflow-hidden bg-white">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <DialogTitle className="text-sm font-bold uppercase">{selectedGroup ? 'Gruppe bearbeiten' : 'Neue Gruppe'}</DialogTitle>
           </DialogHeader>
-          <ScrollArea className="flex-1 p-8 space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Name</Label><Input value={name} onChange={e => setName(e.target.value)} className="rounded-none" /></div>
-              <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Beschreibung</Label><Input value={description} onChange={e => setDescription(e.target.value)} className="rounded-none" /></div>
+          <ScrollArea className="flex-1">
+            <div className="p-6 md:p-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase">Name</Label>
+                  <Input value={name} onChange={e => setName(e.target.value)} className="rounded-none h-11" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase">Beschreibung</Label>
+                  <Input value={description} onChange={e => setDescription(e.target.value)} className="rounded-none h-11" />
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-400 italic">Die weitere Besetzung und Rollen-Zuweisung erfolgt in den Details nach Erstellung.</p>
             </div>
           </ScrollArea>
-          <DialogFooter className="p-6 border-t"><Button onClick={handleSaveGroup} disabled={isSaving} className="h-10 px-12">Speichern</Button></DialogFooter>
+          <DialogFooter className="p-6 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
+            <Button onClick={handleSaveGroup} disabled={isSaving} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] bg-slate-900 text-white">Speichern</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

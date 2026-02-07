@@ -595,45 +595,47 @@ export default function UsersPage() {
         </>
       )}
 
-      {/* Dialogs */}
+      {/* Add/Edit User Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={(val) => { if (!val) setIsAddOpen(false); }}>
-        <DialogContent className="max-w-md rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden bg-white dark:bg-slate-900">
-          <DialogHeader className="p-8 bg-slate-50 dark:bg-slate-800/50 border-b dark:border-slate-800">
+        <DialogContent className="max-w-md w-[95vw] md:w-full rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden bg-white dark:bg-slate-900 flex flex-col h-[90vh] md:h-auto">
+          <DialogHeader className="p-6 md:p-8 bg-slate-50 dark:bg-slate-800/50 border-b dark:border-slate-800 shrink-0">
             <DialogTitle className="text-xl font-headline font-bold text-slate-800 dark:text-white uppercase tracking-tight">
               {selectedUser ? 'Benutzer bearbeiten' : 'Neuer Benutzer'}
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500 uppercase font-bold tracking-widest mt-1">Identitäts-Stammdaten</DialogDescription>
           </DialogHeader>
-          <div className="p-8 space-y-6">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Anzeigename</Label>
-              <Input value={displayName} onChange={e => setDisplayName(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950" placeholder="Max Mustermann" />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">E-Mail Adresse</Label>
-              <Input value={email} onChange={e => setEmail(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950" placeholder="name@firma.de" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+          <ScrollArea className="flex-1">
+            <div className="p-6 md:p-8 space-y-6">
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Abteilung</Label>
-                <Input value={department} onChange={e => setDepartment(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950" placeholder="IT" />
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Anzeigename</Label>
+                <Input value={displayName} onChange={e => setDisplayName(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950" placeholder="Max Mustermann" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Mandant</Label>
-                <Select value={tenantId} onValueChange={setTenantId}>
-                  <SelectTrigger className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950">
-                    <SelectValue placeholder="Wählen..." />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800">
-                    {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">E-Mail Adresse</Label>
+                <Input value={email} onChange={e => setEmail(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950" placeholder="name@firma.de" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Abteilung</Label>
+                  <Input value={department} onChange={e => setDepartment(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950" placeholder="IT" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Mandant</Label>
+                  <Select value={tenantId} onValueChange={setTenantId}>
+                    <SelectTrigger className="rounded-xl h-12 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950">
+                      <SelectValue placeholder="Wählen..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-100 dark:border-slate-800">
+                      {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
-          </div>
-          <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-800/50 border-t dark:border-slate-800">
-            <Button variant="ghost" onClick={() => setIsAddOpen(false)} className="rounded-xl text-[10px] font-black uppercase px-6">Abbrechen</Button>
-            <Button onClick={handleSaveUser} className="rounded-xl font-black uppercase text-[10px] tracking-widest px-10 h-12 shadow-lg shadow-primary/20 active:scale-95 transition-transform">
+          </ScrollArea>
+          <DialogFooter className="p-6 md:p-8 bg-slate-50 dark:bg-slate-800/50 border-t dark:border-slate-800 shrink-0 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="ghost" onClick={() => setIsAddOpen(false)} className="w-full sm:w-auto rounded-xl text-[10px] font-black uppercase px-6">Abbrechen</Button>
+            <Button onClick={handleSaveUser} className="w-full sm:w-auto rounded-xl font-black uppercase text-[10px] tracking-widest px-10 h-12 shadow-lg shadow-primary/20 active:scale-95 transition-transform bg-primary text-white">
               Speichern
             </Button>
           </DialogFooter>
@@ -642,61 +644,63 @@ export default function UsersPage() {
 
       {/* Quick Assignment Dialog */}
       <Dialog open={isQuickAssignOpen} onOpenChange={setIsQuickAssignOpen}>
-        <DialogContent className="max-w-md rounded-[2.5rem] p-0 overflow-hidden bg-white dark:bg-slate-900 border-none shadow-2xl">
-          <DialogHeader className="p-8 bg-primary/5 dark:bg-primary/10 border-b border-primary/10">
+        <DialogContent className="max-w-md w-[95vw] md:w-full rounded-[2.5rem] p-0 overflow-hidden bg-white dark:bg-slate-900 border-none shadow-2xl flex flex-col h-[90vh] md:h-auto">
+          <DialogHeader className="p-6 md:p-8 bg-primary/5 dark:bg-primary/10 border-b border-primary/10 shrink-0">
             <DialogTitle className="text-xl font-headline font-bold text-primary uppercase">Berechtigung zuweisen</DialogTitle>
             <DialogDescription className="text-xs text-slate-500 uppercase font-bold mt-1">Direktzuweisung für {selectedUser?.displayName}</DialogDescription>
           </DialogHeader>
-          <div className="p-8 space-y-6">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">1. System auswählen</Label>
-              <Select value={qaResourceId} onValueChange={(val) => { setQaResourceId(val); setQaEntitlementId(''); }}>
-                <SelectTrigger className="rounded-xl h-12 border-slate-200 dark:border-slate-800">
-                  <SelectValue placeholder="System wählen..." />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-100">
-                  <ScrollArea className="h-48">
-                    {resources?.filter(r => r.tenantId === 'global' || r.tenantId === selectedUser?.tenantId).map(r => (
-                      <SelectItem key={r.id} value={r.id}>
-                        <div className="flex items-center gap-2"><Layers className="w-3.5 h-3.5 text-primary" /> {r.name}</div>
-                      </SelectItem>
-                    ))}
-                  </ScrollArea>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {qaResourceId && (
-              <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">2. Rolle wählen</Label>
-                <Select value={qaEntitlementId} onValueChange={setQaEntitlementId}>
+          <ScrollArea className="flex-1">
+            <div className="p-6 md:p-8 space-y-6">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">1. System auswählen</Label>
+                <Select value={qaResourceId} onValueChange={(val) => { setQaResourceId(val); setQaEntitlementId(''); }}>
                   <SelectTrigger className="rounded-xl h-12 border-slate-200 dark:border-slate-800">
-                    <SelectValue placeholder="Rolle wählen..." />
+                    <SelectValue placeholder="System wählen..." />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-slate-100">
                     <ScrollArea className="h-48">
-                      {entitlements?.filter(e => e.resourceId === qaResourceId).map(e => (
-                        <SelectItem key={e.id} value={e.id}>
-                          <div className="flex items-center gap-2">
-                            {!!(e.isAdmin === true || e.isAdmin === 1 || e.isAdmin === "1") && <ShieldAlert className="w-3.5 h-3.5 text-red-600" />}
-                            {e.name}
-                          </div>
+                      {resources?.filter(r => r.tenantId === 'global' || r.tenantId === selectedUser?.tenantId).map(r => (
+                        <SelectItem key={r.id} value={r.id}>
+                          <div className="flex items-center gap-2"><Layers className="w-3.5 h-3.5 text-primary" /> {r.name}</div>
                         </SelectItem>
                       ))}
                     </ScrollArea>
                   </SelectContent>
                 </Select>
               </div>
-            )}
 
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Gültig bis (Optional)</Label>
-              <Input type="date" value={qaValidUntil} onChange={e => setQaValidUntil(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800" />
+              {qaResourceId && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">2. Rolle wählen</Label>
+                  <Select value={qaEntitlementId} onValueChange={setQaEntitlementId}>
+                    <SelectTrigger className="rounded-xl h-12 border-slate-200 dark:border-slate-800">
+                      <SelectValue placeholder="Rolle wählen..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-100">
+                      <ScrollArea className="h-48">
+                        {entitlements?.filter(e => e.resourceId === qaResourceId).map(e => (
+                          <SelectItem key={e.id} value={e.id}>
+                            <div className="flex items-center gap-2">
+                              {!!(e.isAdmin === true || e.isAdmin === 1 || e.isAdmin === "1") && <ShieldAlert className="w-3.5 h-3.5 text-red-600" />}
+                              {e.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </ScrollArea>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Gültig bis (Optional)</Label>
+                <Input type="date" value={qaValidUntil} onChange={e => setQaValidUntil(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800" />
+              </div>
             </div>
-          </div>
-          <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-800/50 border-t">
-            <Button variant="ghost" onClick={() => setIsQuickAssignOpen(false)} className="rounded-xl text-[10px] font-black uppercase">Abbrechen</Button>
-            <Button onClick={handleQuickAssign} disabled={!qaEntitlementId || isSavingAssignment} className="rounded-xl font-black uppercase text-[10px] tracking-widest px-8 h-12 shadow-lg shadow-primary/20 active:scale-95 transition-transform">
+          </ScrollArea>
+          <DialogFooter className="p-6 md:p-8 bg-slate-50 dark:bg-slate-800/50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="ghost" onClick={() => setIsQuickAssignOpen(false)} className="w-full sm:w-auto rounded-xl text-[10px] font-black uppercase">Abbrechen</Button>
+            <Button onClick={handleQuickAssign} disabled={!qaEntitlementId || isSavingAssignment} className="w-full sm:w-auto rounded-xl font-black uppercase text-[10px] tracking-widest px-8 h-12 shadow-lg shadow-primary/20 active:scale-95 transition-transform bg-primary text-white">
               {isSavingAssignment ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Zuweisung erstellen'}
             </Button>
           </DialogFooter>
@@ -705,62 +709,68 @@ export default function UsersPage() {
 
       {/* Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 rounded-[3rem] overflow-hidden bg-white dark:bg-slate-950 border-none shadow-2xl">
-          <DialogHeader className="p-10 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center gap-6">
-              <div className="w-20 h-20 bg-primary/20 rounded-3xl flex items-center justify-center text-primary font-black text-3xl shadow-xl shadow-black/20">
+        <DialogContent className="max-w-4xl w-[95vw] md:w-full h-[95vh] md:h-[85vh] flex flex-col p-0 rounded-[2rem] md:rounded-[3rem] overflow-hidden bg-white dark:bg-slate-950 border-none shadow-2xl">
+          <DialogHeader className="p-6 md:p-10 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-4 md:gap-6">
+              <div className="w-12 h-12 md:w-20 md:h-20 bg-primary/20 rounded-2xl md:rounded-3xl flex items-center justify-center text-primary font-black text-xl md:text-3xl shadow-xl shadow-black/20">
                 {selectedUser?.displayName?.charAt(0)}
               </div>
               <div className="flex-1 min-w-0">
-                <DialogTitle className="text-3xl font-headline font-bold tracking-tight truncate">{selectedUser?.displayName}</DialogTitle>
-                <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 font-bold uppercase mt-2 tracking-widest">
-                  <span className="flex items-center gap-2"><Mail className="w-3.5 h-3.5" /> {selectedUser?.email}</span>
-                  <span className="w-1 h-1 bg-slate-700 rounded-full" />
-                  <span className="flex items-center gap-2"><Building2 className="w-3.5 h-3.5" /> {getTenantSlug(selectedUser?.tenantId)}</span>
+                <DialogTitle className="text-xl md:text-3xl font-headline font-bold tracking-tight truncate">{selectedUser?.displayName}</DialogTitle>
+                <div className="flex flex-wrap items-center gap-2 md:gap-4 text-[9px] md:text-xs text-slate-400 font-bold uppercase mt-1 md:mt-2 tracking-widest">
+                  <span className="flex items-center gap-1.5 md:gap-2"><Mail className="w-3 md:w-3.5 h-3 md:h-3.5" /> {selectedUser?.email}</span>
+                  <span className="hidden sm:inline w-1 h-1 bg-slate-700 rounded-full" />
+                  <span className="flex items-center gap-1.5 md:gap-2"><Building2 className="w-3 md:w-3.5 h-3 md:h-3.5" /> {getTenantSlug(selectedUser?.tenantId)}</span>
                 </div>
               </div>
             </div>
           </DialogHeader>
           <Tabs defaultValue="access" className="flex-1 flex flex-col min-h-0">
-            <div className="px-10 border-b border-slate-100 dark:border-slate-800 shrink-0">
-              <TabsList className="h-14 bg-transparent gap-8 p-0">
-                <TabsTrigger value="access" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 gap-2 text-[10px] font-black uppercase tracking-widest">
-                  <ShieldCheck className="w-4 h-4" /> Aktive Zugriffe
+            <div className="px-6 md:px-10 border-b border-slate-100 dark:border-slate-800 shrink-0">
+              <TabsList className="h-12 md:h-14 bg-transparent gap-4 md:gap-8 p-0">
+                <TabsTrigger value="access" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 gap-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest">
+                  <ShieldCheck className="w-3.5 md:w-4 h-3.5 md:h-4" /> Zugriffe
                 </TabsTrigger>
-                <TabsTrigger value="history" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 gap-2 text-[10px] font-black uppercase tracking-widest">
-                  <History className="w-4 h-4" /> Aktivitätsverlauf
+                <TabsTrigger value="history" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 gap-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest">
+                  <History className="w-3.5 md:w-4 h-3.5 md:h-4" /> Verlauf
                 </TabsTrigger>
               </TabsList>
             </div>
             <ScrollArea className="flex-1">
-              <div className="p-10">
-                <TabsContent value="access" className="mt-0 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-6 md:p-10">
+                <TabsContent value="access" className="mt-0 grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   {assignments?.filter(a => a.userId === selectedUser?.id && a.status === 'active').map(a => {
                     const ent = entitlements?.find(e => e.id === a.entitlementId);
                     const res = resources?.find(r => r.id === ent?.resourceId);
                     return (
-                      <div key={a.id} className="flex items-center justify-between p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 transition-all hover:scale-[1.02] hover:shadow-md">
-                        <div className="flex items-center gap-4">
-                          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", ent?.isAdmin ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600")}>
-                            {ent?.isAdmin ? <ShieldAlert className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+                      <div key={a.id} className="flex items-center justify-between p-4 md:p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 transition-all hover:scale-[1.02] hover:shadow-md">
+                        <div className="flex items-center gap-3 md:gap-4">
+                          <div className={cn("w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center", ent?.isAdmin ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600")}>
+                            {ent?.isAdmin ? <ShieldAlert className="w-4 md:w-5 h-4 md:h-5" /> : <ShieldCheck className="w-4 md:w-5 h-4 md:h-5" />}
                           </div>
-                          <div>
-                            <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{res?.name}</p>
-                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">{ent?.name}</p>
+                          <div className="min-w-0">
+                            <p className="font-bold text-xs md:text-sm text-slate-800 dark:text-slate-100 truncate">{res?.name}</p>
+                            <p className="text-[8px] md:text-[9px] text-slate-400 font-black uppercase tracking-widest truncate">{ent?.name}</p>
                           </div>
                         </div>
                       </div>
                     );
                   })}
+                  {assignments?.filter(a => a.userId === selectedUser?.id && a.status === 'active').length === 0 && (
+                    <div className="col-span-full py-12 text-center space-y-3 opacity-20">
+                      <Shield className="w-10 h-10 mx-auto" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Keine aktiven Rollen</p>
+                    </div>
+                  )}
                 </TabsContent>
                 <TabsContent value="history" className="mt-0">
-                  <div className="space-y-8">
+                  <div className="space-y-6 md:space-y-8">
                     {auditLogs?.filter(log => log.entityId === selectedUser?.id || (log.entityType === 'user' && log.entityId === selectedUser?.id)).map((log, i) => (
-                      <div key={log.id} className="relative pl-8 pb-8 border-l-2 border-slate-100 dark:border-slate-800 last:border-0 last:pb-0">
-                        <div className="absolute left-[-9px] top-0 w-4 h-4 rounded-full bg-white dark:bg-slate-900 border-4 border-primary" />
-                        <div className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 mb-1 tracking-widest">{log.timestamp ? new Date(log.timestamp).toLocaleString() : '—'}</div>
-                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{log.action}</p>
-                        <p className="text-[10px] font-medium text-slate-500 mt-1 uppercase tracking-wider">Akteur: {log.actorUid}</p>
+                      <div key={log.id} className="relative pl-6 md:pl-8 pb-6 md:pb-8 border-l-2 border-slate-100 dark:border-slate-800 last:border-0 last:pb-0">
+                        <div className="absolute left-[-7px] md:left-[-9px] top-0 w-3 md:w-4 h-3 md:h-4 rounded-full bg-white dark:bg-slate-900 border-[3px] md:border-4 border-primary" />
+                        <div className="text-[8px] md:text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 mb-1 tracking-widest">{log.timestamp ? new Date(log.timestamp).toLocaleString() : '—'}</div>
+                        <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">{log.action}</p>
+                        <p className="text-[8px] md:text-[9px] font-medium text-slate-500 mt-1 uppercase tracking-wider">Akteur: {log.actorUid}</p>
                       </div>
                     ))}
                   </div>
@@ -768,23 +778,23 @@ export default function UsersPage() {
               </div>
             </ScrollArea>
           </Tabs>
-          <div className="p-8 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex justify-end shrink-0">
-            <Button onClick={() => setIsDetailOpen(false)} className="rounded-xl h-12 px-12 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-transform">Schließen</Button>
+          <div className="p-6 md:p-8 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex justify-end shrink-0">
+            <Button onClick={() => setIsDetailOpen(false)} className="w-full md:w-auto rounded-xl h-12 px-12 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-transform">Schließen</Button>
           </div>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl p-10">
+        <AlertDialogContent className="max-w-sm w-[95vw] md:w-full rounded-[2rem] border-none shadow-2xl p-6 md:p-10">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-2xl font-headline font-bold text-red-600 uppercase tracking-tight">Benutzer löschen?</AlertDialogTitle>
+            <AlertDialogTitle className="text-xl md:text-2xl font-headline font-bold text-red-600 uppercase tracking-tight">Benutzer löschen?</AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2">
-              Dies entfernt die Identität von <strong>{selectedUser?.displayName}</strong> permanent aus dem System. Alle verknüpften Zugriffe bleiben in der Historie als "Removed" markiert.
+              Dies entfernt die Identität von <strong>{selectedUser?.displayName}</strong> permanent.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="pt-6">
-            <AlertDialogCancel className="rounded-xl font-bold uppercase text-[10px] tracking-widest h-12 px-8 active:scale-95 transition-transform">Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 hover:bg-red-700 rounded-xl font-black uppercase text-[10px] tracking-widest h-12 px-10 active:scale-95 transition-transform">Löschen</AlertDialogAction>
+          <AlertDialogFooter className="pt-6 flex flex-col-reverse sm:flex-row gap-3">
+            <AlertDialogCancel className="w-full sm:w-auto rounded-xl font-bold uppercase text-[10px] tracking-widest h-12 px-8 active:scale-95 transition-transform">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="w-full sm:w-auto bg-red-600 hover:bg-red-700 rounded-xl font-black uppercase text-[10px] tracking-widest h-12 px-10 active:scale-95 transition-transform text-white">Löschen</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

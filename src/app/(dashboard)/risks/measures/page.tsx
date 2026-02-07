@@ -268,7 +268,7 @@ export default function RiskMeasuresPage() {
       </div>
 
       <Dialog open={isMeasureDialogOpen} onOpenChange={setIsMeasureDialogOpen}>
-        <DialogContent className="max-w-6xl rounded-none p-0 flex flex-col border-2 shadow-2xl h-[90vh] bg-card overflow-hidden">
+        <DialogContent className="max-w-6xl w-[95vw] md:w-full h-[95vh] md:h-[90vh] rounded-[1.5rem] md:rounded-none p-0 flex flex-col border-2 shadow-2xl bg-white overflow-hidden">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center justify-between w-full pr-8">
               <div className="flex items-center gap-3">
@@ -284,24 +284,24 @@ export default function RiskMeasuresPage() {
           </DialogHeader>
           
           <Tabs defaultValue="base" className="flex-1 flex flex-col overflow-hidden">
-            <div className="px-6 border-b bg-slate-50 shrink-0">
-              <TabsList className="h-12 bg-transparent gap-6 p-0">
+            <div className="px-6 border-b bg-slate-50 shrink-0 overflow-x-auto no-scrollbar">
+              <TabsList className="h-12 bg-transparent gap-6 p-0 w-max">
                 <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-4 text-[10px] font-bold uppercase">Allgemein</TabsTrigger>
                 <TabsTrigger value="tom" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 h-full px-4 text-[10px] font-bold uppercase">TOM & DSGVO</TabsTrigger>
-                <TabsTrigger value="links" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-4 text-[10px] font-bold uppercase">Verknüpfungen</TabsTrigger>
-                <TabsTrigger value="audit" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 h-full px-4 text-[10px] font-bold uppercase">Audit & Wirksamkeit</TabsTrigger>
+                <TabsTrigger value="links" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-4 text-[10px] font-bold uppercase">Links</TabsTrigger>
+                <TabsTrigger value="audit" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 h-full px-4 text-[10px] font-bold uppercase">Audit</TabsTrigger>
               </TabsList>
             </div>
 
             <ScrollArea className="flex-1">
-              <div className="p-8">
+              <div className="p-6 md:p-8">
                 <TabsContent value="base" className="mt-0 space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2 col-span-2"><Label className="text-[10px] font-bold uppercase">Titel</Label><Input value={title} onChange={e => setTitle(e.target.value)} className="rounded-none h-10 font-bold" /></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2 md:col-span-2"><Label className="text-[10px] font-bold uppercase">Titel</Label><Input value={title} onChange={e => setTitle(e.target.value)} className="rounded-none h-10 font-bold" /></div>
                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Verantwortlich</Label><Input value={owner} onChange={e => setOwner(e.target.value)} className="rounded-none h-10" /></div>
                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Deadline</Label><Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="rounded-none h-10" /></div>
                   </div>
-                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Beschreibung</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} className="rounded-none min-h-[150px]" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Beschreibung</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} className="rounded-none min-h-[100px] md:min-h-[150px]" /></div>
                 </TabsContent>
 
                 <TabsContent value="tom" className="mt-0 space-y-6">
@@ -310,7 +310,7 @@ export default function RiskMeasuresPage() {
                     <Switch checked={isTom} onCheckedChange={setIsTom} />
                   </div>
                   {isTom && (
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <Label className="text-[10px] font-bold uppercase">TOM-Kategorie</Label>
                         <Select value={tomCategory} onValueChange={(v:any) => setTomCategory(v)}>
@@ -325,10 +325,10 @@ export default function RiskMeasuresPage() {
                 </TabsContent>
 
                 <TabsContent value="links" className="mt-0 space-y-6">
-                  <div className="grid grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
                       <Label className="text-[10px] font-bold uppercase text-primary">Risiken ({selectedRiskIds.length})</Label>
-                      <ScrollArea className="h-[300px] border p-2 bg-slate-50/50">
+                      <ScrollArea className="h-[200px] md:h-[300px] border p-2 bg-slate-50/50">
                         {risks?.filter(r => activeTenantId === 'all' || r.tenantId === activeTenantId).map(r => (
                           <div key={r.id} className="flex items-center gap-2 p-2 bg-white border mb-1 cursor-pointer" onClick={() => setSelectedRiskIds(prev => prev.includes(r.id) ? prev.filter(id => id !== r.id) : [...prev, r.id])}>
                             <Checkbox checked={selectedRiskIds.includes(r.id)} className="rounded-none" />
@@ -339,7 +339,7 @@ export default function RiskMeasuresPage() {
                     </div>
                     <div className="space-y-4">
                       <Label className="text-[10px] font-bold uppercase text-primary">Systeme ({selectedResourceIds.length})</Label>
-                      <ScrollArea className="h-[300px] border p-2 bg-slate-50/50">
+                      <ScrollArea className="h-[200px] md:h-[300px] border p-2 bg-slate-50/50">
                         {resources?.filter(res => activeTenantId === 'all' || res.tenantId === activeTenantId || res.tenantId === 'global').map(res => (
                           <div key={res.id} className="flex items-center gap-2 p-2 bg-white border mb-1 cursor-pointer" onClick={() => setSelectedResourceIds(prev => prev.includes(res.id) ? prev.filter(id => id !== res.id) : [...prev, res.id])}>
                             <Checkbox checked={selectedResourceIds.includes(res.id)} className="rounded-none" />
@@ -356,19 +356,19 @@ export default function RiskMeasuresPage() {
                     <Label className="text-xs font-black uppercase text-blue-800">Wirksamkeit bestätigt?</Label>
                     <Switch checked={isEffective} onCheckedChange={setIsEffective} />
                   </div>
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Audit Datum</Label><Input type="date" value={lastCheckDate} onChange={e => setLastCheckDate(e.target.value)} className="rounded-none h-10" /></div>
                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Audit Typ</Label><Select value={checkType} onValueChange={(v:any) => setCheckType(v)}><SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger><SelectContent className="rounded-none"><SelectItem value="Audit">Formales Audit</SelectItem><SelectItem value="Test">Technischer Test</SelectItem><SelectItem value="Review">Stichprobe</SelectItem></SelectContent></Select></div>
                   </div>
-                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Evidence / Nachweis</Label><Textarea value={evidenceDetails} onChange={e => setEvidenceDetails(e.target.value)} className="rounded-none h-32" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Evidence / Nachweis</Label><Textarea value={evidenceDetails} onChange={e => setEvidenceDetails(e.target.value)} className="rounded-none h-24 md:h-32" /></div>
                 </TabsContent>
               </div>
             </ScrollArea>
           </Tabs>
 
-          <DialogFooter className="p-6 bg-muted/30 border-t shrink-0">
-            <Button variant="outline" onClick={() => setIsMeasureDialogOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
-            <Button onClick={handleSaveMeasure} disabled={isSaving || selectedRiskIds.length === 0} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+          <DialogFooter className="p-6 bg-muted/30 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="outline" onClick={() => setIsMeasureDialogOpen(false)} className="w-full sm:w-auto rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
+            <Button onClick={handleSaveMeasure} disabled={isSaving || selectedRiskIds.length === 0} className="w-full sm:w-auto rounded-none h-10 px-12 font-bold uppercase text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Maßnahme speichern
             </Button>
           </DialogFooter>

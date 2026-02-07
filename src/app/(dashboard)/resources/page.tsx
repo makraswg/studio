@@ -458,7 +458,7 @@ export default function ResourcesPage() {
       </div>
 
       <Dialog open={isResourceDialogOpen} onOpenChange={setIsResourceDialogOpen}>
-        <DialogContent className="max-w-5xl rounded-none p-0 overflow-hidden flex flex-col h-[90vh] border-2 shadow-2xl">
+        <DialogContent className="max-w-5xl w-[95vw] md:w-full h-[95vh] md:h-[90vh] rounded-[1.5rem] md:rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center justify-between w-full pr-8">
               <div className="flex items-center gap-3">
@@ -473,18 +473,18 @@ export default function ResourcesPage() {
             </div>
           </DialogHeader>
           <Tabs defaultValue="base" className="flex-1 flex flex-col overflow-hidden">
-            <div className="px-6 border-b bg-slate-50 shrink-0">
-              <TabsList className="h-12 bg-transparent gap-6 p-0">
+            <div className="px-6 border-b bg-slate-50 shrink-0 overflow-x-auto no-scrollbar">
+              <TabsList className="h-12 bg-transparent gap-6 p-0 w-max">
                 <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-4 text-[10px] font-bold uppercase">Stammdaten</TabsTrigger>
                 <TabsTrigger value="risk" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-4 text-[10px] font-bold uppercase">Risiko & Schutzbedarf</TabsTrigger>
                 <TabsTrigger value="gdpr" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-4 text-[10px] font-bold uppercase">DSGVO</TabsTrigger>
               </TabsList>
             </div>
             <ScrollArea className="flex-1">
-              <div className="p-8">
+              <div className="p-6 md:p-8">
                 <TabsContent value="base" className="mt-0 space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2 col-span-2"><Label className="text-[10px] font-bold uppercase">Name</Label><Input value={name} onChange={e => setName(e.target.value)} className="rounded-none h-10 font-bold" /></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2 md:col-span-2"><Label className="text-[10px] font-bold uppercase">Name</Label><Input value={name} onChange={e => setName(e.target.value)} className="rounded-none h-10 font-bold" /></div>
                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Asset-Typ</Label><Select value={assetType} onValueChange={(v:any) => setAssetType(v)}><SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger><SelectContent className="rounded-none"><SelectItem value="Hardware">Hardware</SelectItem><SelectItem value="Software">Software</SelectItem><SelectItem value="SaaS">SaaS</SelectItem><SelectItem value="Infrastruktur">Infrastruktur</SelectItem></SelectContent></Select></div>
                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Kategorie</Label><Select value={category} onValueChange={(v:any) => setCategory(v)}><SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger><SelectContent className="rounded-none"><SelectItem value="Fachanwendung">Fachanwendung</SelectItem><SelectItem value="Infrastruktur">Infrastruktur</SelectItem><SelectItem value="Sicherheitskomponente">Sicherheitskomponente</SelectItem><SelectItem value="Support-Tool">Support-Tool</SelectItem></SelectContent></Select></div>
                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Modell</Label><Select value={operatingModel} onValueChange={(v:any) => setOperatingModel(v)}><SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger><SelectContent className="rounded-none"><SelectItem value="On-Prem">On-Prem</SelectItem><SelectItem value="Cloud">Cloud</SelectItem><SelectItem value="Hybrid">Hybrid</SelectItem></SelectContent></Select></div>
@@ -492,25 +492,25 @@ export default function ResourcesPage() {
                   </div>
                 </TabsContent>
                 <TabsContent value="risk" className="mt-0 space-y-6">
-                  <div className="grid grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Vertraulichkeit</Label><Select value={confReq} onValueChange={(v:any) => setConfReq(v)}><SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger><SelectContent className="rounded-none"><SelectItem value="low">Niedrig</SelectItem><SelectItem value="medium">Mittel</SelectItem><SelectItem value="high">Hoch</SelectItem></SelectContent></Select></div>
                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Integrität</Label><Select value={intReq} onValueChange={(v:any) => setIntReq(v)}><SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger><SelectContent className="rounded-none"><SelectItem value="low">Niedrig</SelectItem><SelectItem value="medium">Mittel</SelectItem><SelectItem value="high">Hoch</SelectItem></SelectContent></Select></div>
                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Verfügbarkeit</Label><Select value={availReq} onValueChange={(v:any) => setAvailReq(v)}><SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger><SelectContent className="rounded-none"><SelectItem value="low">Niedrig</SelectItem><SelectItem value="medium">Mittel</SelectItem><SelectItem value="high">Hoch</SelectItem></SelectContent></Select></div>
                   </div>
                 </TabsContent>
                 <TabsContent value="gdpr" className="mt-0 space-y-6">
-                  <div className="flex items-center justify-between p-4 border rounded-none">
+                  <div className="flex items-center justify-between p-4 border rounded-none bg-slate-50">
                     <Label className="text-[10px] font-bold uppercase">Personenbezogene Daten</Label>
                     <Switch checked={hasPersonalData} onCheckedChange={setHasPersonalData} />
                   </div>
-                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Zweck der Verarbeitung</Label><Textarea value={processingPurpose} onChange={e => setProcessingPurpose(e.target.value)} className="rounded-none" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Zweck der Verarbeitung</Label><Textarea value={processingPurpose} onChange={e => setProcessingPurpose(e.target.value)} className="rounded-none min-h-[100px]" /></div>
                 </TabsContent>
               </div>
             </ScrollArea>
           </Tabs>
-          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">
-            <Button variant="outline" onClick={() => setIsResourceDialogOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
-            <Button onClick={handleSaveResource} disabled={isSaving || !name} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] bg-slate-900 text-white gap-2">
+          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="outline" onClick={() => setIsResourceDialogOpen(false)} className="w-full sm:w-auto rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
+            <Button onClick={handleSaveResource} disabled={isSaving || !name} className="w-full sm:w-auto rounded-none h-10 px-12 font-bold uppercase text-[10px] bg-slate-900 text-white gap-2">
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Asset Speichern
             </Button>
           </DialogFooter>
@@ -518,7 +518,7 @@ export default function ResourcesPage() {
       </Dialog>
 
       <Dialog open={isEntitlementListOpen} onOpenChange={setIsEntitlementListOpen}>
-        <DialogContent className="max-w-4xl rounded-none p-0 overflow-hidden flex flex-col h-[80vh] border-2 shadow-2xl">
+        <DialogContent className="max-w-4xl w-[95vw] md:w-full rounded-[1.5rem] md:rounded-none h-[90vh] md:h-[80vh] p-0 overflow-hidden flex flex-col border-2 shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -541,7 +541,7 @@ export default function ResourcesPage() {
                     </p>
                     <p className="text-[10px] text-muted-foreground uppercase">{e.riskLevel} RISIKO</p>
                   </div>
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100">
+                  <div className="flex gap-2">
                     <Button variant="ghost" size="icon" onClick={() => { setSelectedEnt(e); setEntName(e.name); setEntDesc(e.description); setEntRisk(e.riskLevel); setEntIsAdmin(!!e.isAdmin); setEntMapping(e.externalMapping || ''); setIsEntDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
                     <Button variant="ghost" size="icon" className="text-red-600" onClick={() => { if(confirm("Rolle löschen?")) deleteCollectionRecord('entitlements', e.id, dataSource).then(() => refreshEnts()); }}><Trash2 className="w-3.5 h-3.5" /></Button>
                   </div>
@@ -549,39 +549,41 @@ export default function ResourcesPage() {
               ))}
             </div>
           </ScrollArea>
-          <div className="p-4 bg-slate-50 border-t flex justify-end">
-            <Button onClick={() => setIsEntitlementListOpen(false)} className="rounded-none h-10 px-8">Schließen</Button>
+          <div className="p-4 bg-slate-50 border-t flex justify-end shrink-0">
+            <Button onClick={() => setIsEntitlementListOpen(false)} className="w-full sm:w-auto rounded-none h-10 px-8">Schließen</Button>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isEntDialogOpen} onOpenChange={setIsEntDialogOpen}>
-        <DialogContent className="max-w-md rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-xl">
+        <DialogContent className="max-w-md w-[95vw] md:w-full rounded-[1.5rem] md:rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-xl bg-white">
           <DialogHeader className="p-6 bg-slate-100 shrink-0">
             <div className="flex items-center justify-between w-full pr-8">
               <div className="flex items-center gap-3">
                 <Shield className="w-5 h-5 text-emerald-600" />
-                <DialogTitle className="text-xs font-black uppercase">{selectedEnt ? 'Rolle bearbeiten' : 'Neue Rolle anlegen'}</DialogTitle>
+                <DialogTitle className="text-xs font-black uppercase">{selectedEnt ? 'Rolle bearbeiten' : 'Neue Rolle'}</DialogTitle>
               </div>
               <AiFormAssistant 
-                formType="entitlement" 
+                formType="gdpr" 
                 currentData={{ name: entName, description: entDesc, riskLevel: entRisk }} 
                 onApply={applyAiSuggestionsEnt} 
               />
             </div>
           </DialogHeader>
-          <div className="p-6 space-y-4 bg-white">
-            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Bezeichnung</Label><Input value={entName} onChange={e => setEntName(e.target.value)} className="rounded-none" /></div>
-            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Risiko-Level</Label><Select value={entRisk} onValueChange={(v:any) => setEntRisk(v)}><SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger><SelectContent className="rounded-none"><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent></Select></div>
-            <div className="flex items-center justify-between p-3 border rounded-none">
-              <Label className="text-[10px] font-bold uppercase">Admin-Rolle</Label>
-              <Switch checked={entIsAdmin} onCheckedChange={setEntIsAdmin} />
+          <ScrollArea className="flex-1">
+            <div className="p-6 space-y-4">
+              <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Bezeichnung</Label><Input value={entName} onChange={e => setEntName(e.target.value)} className="rounded-none h-10" /></div>
+              <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Risiko-Level</Label><Select value={entRisk} onValueChange={(v:any) => setEntRisk(v)}><SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger><SelectContent className="rounded-none"><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent></Select></div>
+              <div className="flex items-center justify-between p-3 border rounded-none bg-slate-50">
+                <Label className="text-[10px] font-bold uppercase">Admin-Rolle</Label>
+                <Switch checked={entIsAdmin} onCheckedChange={setEntIsAdmin} />
+              </div>
+              <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Beschreibung</Label><Textarea value={entDesc} onChange={e => setEntDesc(e.target.value)} className="rounded-none h-24" /></div>
             </div>
-            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Beschreibung</Label><Textarea value={entDesc} onChange={e => setEntDesc(e.target.value)} className="rounded-none h-24" /></div>
-          </div>
-          <DialogFooter className="p-4 bg-slate-50 border-t">
-            <Button variant="outline" onClick={() => setIsEntDialogOpen(false)} className="rounded-none">Abbrechen</Button>
-            <Button onClick={handleSaveEnt} disabled={isSaving || !entName} className="rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold uppercase text-[10px]">Rolle Speichern</Button>
+          </ScrollArea>
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setIsEntDialogOpen(false)} className="w-full sm:w-auto rounded-none">Abbrechen</Button>
+            <Button onClick={handleSaveEnt} disabled={isSaving || !entName} className="w-full sm:w-auto rounded-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold uppercase text-[10px] h-10">Rolle Speichern</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -73,8 +73,8 @@ export function AiFormAssistant({ formType, currentData, onApply }: AiFormAssist
       </Button>
 
       {isOpen && (
-        <div className="fixed bottom-20 right-8 w-[450px] h-[600px] bg-white border-2 shadow-2xl z-[100] flex flex-col animate-in slide-in-from-bottom-4 border-slate-900">
-          <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+        <div className="fixed bottom-0 md:bottom-20 right-0 md:right-8 w-full md:w-[450px] h-full md:h-[600px] bg-white border-2 shadow-2xl z-[100] flex flex-col animate-in slide-in-from-bottom-4 border-slate-900 md:rounded-[1.5rem] overflow-hidden">
+          <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
               <div className="flex flex-col">
@@ -82,8 +82,8 @@ export function AiFormAssistant({ formType, currentData, onApply }: AiFormAssist
                 <span className="text-[8px] font-bold text-slate-400 uppercase">Auto-Fill Support aktiv</span>
               </div>
             </div>
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-white hover:bg-white/10" onClick={() => setIsOpen(false)}>
-              <X className="w-4 h-4" />
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={() => setIsOpen(false)}>
+              <X className="w-5 h-5" />
             </Button>
           </div>
 
@@ -153,7 +153,7 @@ export function AiFormAssistant({ formType, currentData, onApply }: AiFormAssist
             </div>
           </ScrollArea>
 
-          <div className="p-4 border-t bg-white">
+          <div className="p-4 border-t bg-white shrink-0">
             <div className="flex gap-2">
               <Input 
                 placeholder="Schreiben Sie eine Anweisung..." 
@@ -163,7 +163,7 @@ export function AiFormAssistant({ formType, currentData, onApply }: AiFormAssist
                 className="h-11 text-xs rounded-none border-2 focus:ring-0 focus:border-slate-900 transition-all"
                 disabled={isLoading}
               />
-              <Button size="icon" className="h-11 w-11 shrink-0 rounded-none bg-slate-900 hover:bg-slate-800" onClick={handleAsk} disabled={isLoading || !query}>
+              <Button size="icon" className="h-11 w-11 shrink-0 rounded-none bg-slate-900 hover:bg-slate-800 text-white" onClick={handleAsk} disabled={isLoading || !query}>
                 <Send className="w-4 h-4" />
               </Button>
             </div>

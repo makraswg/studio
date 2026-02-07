@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -276,15 +275,15 @@ export default function LifecyclePage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-muted/50 h-12 rounded-none border w-full justify-start gap-2 p-1">
-          <TabsTrigger value="joiner" className="px-8 text-[10px] font-bold uppercase rounded-none">
+        <TabsList className="bg-muted/50 h-12 rounded-none border w-full justify-start gap-2 p-1 overflow-x-auto no-scrollbar">
+          <TabsTrigger value="joiner" className="px-8 text-[10px] font-bold uppercase rounded-none shrink-0">
             <UserPlus className="w-3.5 h-3.5 mr-2" /> Onboarding
           </TabsTrigger>
-          <TabsTrigger value="leaver" className="px-8 text-[10px] font-bold uppercase rounded-none">
+          <TabsTrigger value="leaver" className="px-8 text-[10px] font-bold uppercase rounded-none shrink-0">
             <UserMinus className="w-3.5 h-3.5 mr-2" /> Offboarding
           </TabsTrigger>
-          <TabsTrigger value="bundles" className="px-8 text-[10px] font-bold uppercase rounded-none">
-            <Package className="w-3.5 h-3.5 mr-2" /> Berechtigungspakete
+          <TabsTrigger value="bundles" className="px-8 text-[10px] font-bold uppercase rounded-none shrink-0">
+            <Package className="w-3.5 h-3.5 mr-2" /> Pakete
           </TabsTrigger>
         </TabsList>
 
@@ -295,7 +294,7 @@ export default function LifecyclePage() {
                 <UserPlus className="w-4 h-4" /> Neuer Eintritt registrieren
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-8 space-y-8 bg-white">
+            <CardContent className="p-6 md:p-8 space-y-8 bg-white">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -309,7 +308,7 @@ export default function LifecyclePage() {
                 </div>
                 <div className="space-y-4">
                   <Label className="text-[10px] font-bold uppercase text-primary">Rollenpaket</Label>
-                  <ScrollArea className="h-64 border p-2 bg-slate-50/50">
+                  <ScrollArea className="h-48 md:h-64 border p-2 bg-slate-50/50">
                     <div className="grid grid-cols-1 gap-1.5">
                       {bundles?.filter(b => b.status !== 'archived' && (activeTenantId === 'all' || b.tenantId === activeTenantId)).map(bundle => (
                         <div key={bundle.id} className={cn("p-2 border cursor-pointer flex items-center justify-between", selectedBundleId === bundle.id ? "border-primary bg-primary/5" : "bg-white")} onClick={() => setSelectedBundleId(bundle.id)}>
@@ -323,7 +322,7 @@ export default function LifecyclePage() {
               </div>
             </CardContent>
             <div className="p-6 border-t bg-slate-50 flex justify-end">
-              <Button onClick={startOnboarding} disabled={isActionLoading || !selectedBundleId || !newUserName} className="rounded-none font-bold uppercase text-[10px] h-12 px-12">Onboarding starten</Button>
+              <Button onClick={startOnboarding} disabled={isActionLoading || !selectedBundleId || !newUserName} className="w-full md:w-auto rounded-none font-bold uppercase text-[10px] h-12 px-12">Onboarding starten</Button>
             </div>
           </Card>
         </TabsContent>
@@ -340,7 +339,6 @@ export default function LifecyclePage() {
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   <TableHead className="py-3 font-bold uppercase text-[10px]">Paket-Name</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px]">Mandant</TableHead>
                   <TableHead className="font-bold uppercase text-[10px]">Inhalt</TableHead>
                   <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
                 </TableRow>
@@ -349,7 +347,6 @@ export default function LifecyclePage() {
                 {bundles?.filter(b => (showArchived ? b.status === 'archived' : b.status !== 'archived') && (activeTenantId === 'all' || b.tenantId === activeTenantId)).map(bundle => (
                   <TableRow key={bundle.id} className={cn("hover:bg-muted/5 border-b", bundle.status === 'archived' && "opacity-60")}>
                     <TableCell className="font-bold text-[11px] uppercase">{bundle.name}</TableCell>
-                    <TableCell><Badge variant="outline" className="text-[8px] font-bold uppercase">{getTenantSlug(bundle.tenantId)}</Badge></TableCell>
                     <TableCell><span className="text-[10px] font-bold">{(bundle.entitlementIds || []).length} Rollen</span></TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -376,27 +373,33 @@ export default function LifecyclePage() {
       </Tabs>
 
       <Dialog open={isBundleCreateOpen} onOpenChange={setIsBundleCreateOpen}>
-        <DialogContent className="max-w-5xl rounded-none h-[90vh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="p-6 bg-slate-900 text-white">
+        <DialogContent className="max-w-5xl w-[95vw] md:w-full h-[95vh] md:h-[90vh] rounded-[1.5rem] md:rounded-none flex flex-col p-0 overflow-hidden bg-white">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <DialogTitle className="text-sm font-bold uppercase">{selectedBundle ? 'Paket bearbeiten' : 'Neues Paket'}</DialogTitle>
           </DialogHeader>
-          <ScrollArea className="flex-1 p-8 space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Paket-Name</Label><Input value={bundleName} onChange={e => setBundleName(e.target.value)} className="rounded-none" /></div>
-              <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Beschreibung</Label><Input value={bundleDesc} onChange={e => setBundleDesc(e.target.value)} className="rounded-none" /></div>
-            </div>
-            <div className="space-y-4 pt-6 border-t">
-              <Label className="text-[10px] font-bold uppercase text-primary">Rollen wählen ({selectedEntitlementIds.length})</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {filteredRoles.map((ent: any) => (
-                  <div key={ent.id} className={cn("p-2 border cursor-pointer text-[9px] font-bold uppercase", selectedEntitlementIds.includes(ent.id) ? "bg-emerald-50 border-emerald-500" : "bg-white")} onClick={() => setSelectedEntitlementIds(prev => selectedEntitlementIds.includes(ent.id) ? prev.filter(id => id !== ent.id) : [...prev, ent.id])}>
-                    {ent.name}
-                  </div>
-                ))}
+          <ScrollArea className="flex-1">
+            <div className="p-6 md:p-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Paket-Name</Label><Input value={bundleName} onChange={e => setBundleName(e.target.value)} className="rounded-none h-11" /></div>
+                <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Beschreibung</Label><Input value={bundleDesc} onChange={e => setBundleDesc(e.target.value)} className="rounded-none h-11" /></div>
+              </div>
+              <div className="space-y-4 pt-6 border-t">
+                <Label className="text-[10px] font-bold uppercase text-primary">Rollen wählen ({selectedEntitlementIds.length})</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {filteredRoles.map((ent: any) => (
+                    <div key={ent.id} className={cn("p-2 border cursor-pointer text-[9px] font-bold uppercase flex items-center gap-2", selectedEntitlementIds.includes(ent.id) ? "bg-emerald-50 border-emerald-500" : "bg-white")} onClick={() => setSelectedEntitlementIds(prev => selectedEntitlementIds.includes(ent.id) ? prev.filter(id => id !== ent.id) : [...prev, ent.id])}>
+                      <Checkbox checked={selectedEntitlementIds.includes(ent.id)} className="rounded-sm" />
+                      <span className="truncate">{ent.name}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </ScrollArea>
-          <DialogFooter className="p-6 bg-slate-50 border-t"><Button onClick={handleCreateBundle} className="rounded-none h-10 px-12">Speichern</Button></DialogFooter>
+          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="ghost" onClick={() => setIsBundleCreateOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
+            <Button onClick={handleCreateBundle} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] bg-slate-900 text-white">Speichern</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

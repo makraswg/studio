@@ -342,30 +342,30 @@ export default function DashboardPage() {
 
       {/* Report Dialog remains logic-identical but fits style */}
       <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
-        <DialogContent className="rounded-[3rem] max-w-2xl bg-white dark:bg-slate-950 p-0 border-none shadow-2xl overflow-hidden">
-          <DialogHeader className="p-10 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center gap-6">
-              <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-xl">
-                <FileText className="w-8 h-8" />
+        <DialogContent className="rounded-[2rem] md:rounded-[3rem] max-w-2xl w-[95vw] md:w-full bg-white dark:bg-slate-950 p-0 border-none shadow-2xl overflow-hidden flex flex-col">
+          <DialogHeader className="p-6 md:p-10 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-4 md:gap-6">
+              <div className="w-12 h-12 md:w-16 md:h-16 bg-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-xl">
+                <FileText className="w-6 h-6 md:w-8 md:h-8" />
               </div>
               <div>
-                <DialogTitle className="text-2xl font-headline font-bold uppercase tracking-tight">Compliance Snapshot</DialogTitle>
-                <DialogDescription className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1.5">Offizieller Bericht für Auditoren</DialogDescription>
+                <DialogTitle className="text-xl md:text-2xl font-headline font-bold uppercase tracking-tight">Compliance Snapshot</DialogTitle>
+                <DialogDescription className="text-slate-400 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mt-1.5">Offizieller Bericht für Auditoren</DialogDescription>
               </div>
             </div>
           </DialogHeader>
-          <div className="p-10 grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="p-6 md:p-10 grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 flex-1 overflow-y-auto">
             <Button variant="outline" className="h-20 rounded-3xl border-slate-100 flex flex-col gap-1 items-start px-6 justify-center hover:bg-primary/5 hover:border-primary/20 transition-all" onClick={() => handleExport('pdf', 'user')}>
-              <span className="font-black uppercase text-[11px]">Identitäten (PDF)</span>
-              <span className="text-[9px] text-slate-400">Detaillierter IAM-Bericht</span>
+              <span className="font-black uppercase text-[10px] md:text-[11px]">Identitäten (PDF)</span>
+              <span className="text-[8px] md:text-[9px] text-slate-400">Detaillierter IAM-Bericht</span>
             </Button>
             <Button variant="outline" className="h-20 rounded-3xl border-slate-100 flex flex-col gap-1 items-start px-6 justify-center hover:bg-indigo-50 hover:border-indigo-200 transition-all" onClick={() => handleExport('pdf', 'resource')}>
-              <span className="font-black uppercase text-[11px]">Systeme (PDF)</span>
-              <span className="text-[9px] text-slate-400">Ressourcen- & Assetbericht</span>
+              <span className="font-black uppercase text-[10px] md:text-[11px]">Systeme (PDF)</span>
+              <span className="text-[8px] md:text-[9px] text-slate-400">Ressourcen- & Assetbericht</span>
             </Button>
           </div>
-          <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-900/50 border-t shrink-0">
-            <Button variant="ghost" onClick={() => setIsReportDialogOpen(false)} className="rounded-xl text-[10px] font-black uppercase">Abbrechen</Button>
+          <DialogFooter className="p-6 md:p-8 bg-slate-50 dark:bg-slate-900/50 border-t shrink-0">
+            <Button variant="ghost" onClick={() => setIsReportDialogOpen(false)} className="w-full md:w-auto rounded-xl text-[10px] font-black uppercase">Abbrechen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

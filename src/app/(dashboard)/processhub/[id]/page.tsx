@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -159,7 +158,10 @@ export default function ProcessDesignerPage() {
   const { data: comments, refresh: refreshComments } = usePluggableCollection<ProcessComment>('process_comments');
   const { data: auditEvents } = usePluggableCollection<any>('auditEvents');
   
-  const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id), [processes, id]);
+  const currentProcess = useMemo(() => {
+    const proc = processes?.find((p: any) => p.id === id);
+    return proc ? proc : null;
+  }, [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
   const processComments = useMemo(() => comments?.filter(c => c.process_id === id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) || [], [comments, id]);
 
@@ -714,7 +716,7 @@ export default function ProcessDesignerPage() {
               </Avatar>
             </div>
           </div>
-          <Button variant="outline" size="sm" className="rounded-xl h-10 text-[10px] font-black uppercase border-slate-200 px-6 gap-2 hidden md:flex hover:bg-indigo-50 hover:text-indigo-600 transition-all" onClick={() => publishToBookStackAction(currentProcess.id, currentVersion?.version || 1, "", dataSource).then(() => toast({ title: "Export erfolgreich" }))} disabled={isPublishing}>
+          <Button variant="outline" size="sm" className="rounded-xl h-10 text-[10px] font-black uppercase border-slate-200 px-6 gap-2 hidden md:flex hover:bg-indigo-50 hover:text-indigo-600 transition-all" onClick={() => publishToBookStackAction(currentProcess?.id || '', currentVersion?.version || 1, "", dataSource).then(() => toast({ title: "Export erfolgreich" }))} disabled={isPublishing}>
             {isPublishing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BookOpen className="w-4 h-4" />} Export
           </Button>
           <Button size="sm" className="rounded-xl h-10 text-[10px] font-black uppercase bg-primary hover:bg-primary/90 text-white px-8 shadow-lg shadow-primary/20" onClick={() => syncDiagramToModel()}>
@@ -747,32 +749,32 @@ export default function ProcessDesignerPage() {
       )}
 
       <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] rounded-[2.5rem] p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white max-h-[90vh]">
-          <DialogHeader className={cn("p-10 text-white shrink-0", localNodeEdits.type === 'end' ? "bg-red-900" : "bg-slate-900")}>
-            <div className="flex items-center gap-6">
-              <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center shrink-0 border border-white/20 shadow-xl">
-                {localNodeEdits.type === 'decision' ? <GitBranch className="w-8 h-8" /> : 
-                 localNodeEdits.type === 'end' ? <CircleDot className="w-8 h-8" /> :
-                 <Activity className="w-8 h-8" />}
+        <DialogContent className="max-w-4xl w-[95vw] rounded-[2rem] md:rounded-[2.5rem] p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[90vh]">
+          <DialogHeader className={cn("p-6 md:p-10 text-white shrink-0", localNodeEdits.type === 'end' ? "bg-red-900" : "bg-slate-900")}>
+            <div className="flex items-center gap-4 md:gap-6">
+              <div className="w-12 h-12 md:w-16 md:h-16 bg-white/10 rounded-2xl flex items-center justify-center shrink-0 border border-white/20 shadow-xl">
+                {localNodeEdits.type === 'decision' ? <GitBranch className="w-6 h-6 md:w-8 md:h-8" /> : 
+                 localNodeEdits.type === 'end' ? <CircleDot className="w-6 h-6 md:w-8 md:h-8" /> :
+                 <Activity className="w-6 h-6 md:w-8 md:h-8" />}
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-2xl font-headline font-bold uppercase tracking-tight truncate">{localNodeEdits.title || 'Schritt bearbeiten'}</DialogTitle>
-                <DialogDescription className="text-[10px] text-white/50 uppercase font-black tracking-[0.2em] mt-1.5">ID: {selectedNodeId} | Typ: {localNodeEdits.type}</DialogDescription>
+                <DialogTitle className="text-xl md:text-2xl font-headline font-bold uppercase tracking-tight truncate">{localNodeEdits.title || 'Schritt bearbeiten'}</DialogTitle>
+                <DialogDescription className="text-[9px] md:text-[10px] text-white/50 uppercase font-black tracking-[0.2em] mt-1 md:mt-1.5">ID: {selectedNodeId} | Typ: {localNodeEdits.type}</DialogDescription>
               </div>
             </div>
           </DialogHeader>
           
           <ScrollArea className="flex-1 p-0">
-            <div className="p-8 md:p-12 space-y-12">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="p-6 md:p-12 space-y-8 md:space-y-12">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Schrittbezeichnung</Label>
-                  <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} onBlur={() => saveNodeUpdate('title')} className="h-14 text-base font-bold rounded-2xl border-slate-200 focus:border-primary focus:ring-4 ring-primary/5" />
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Schrittbezeichnung</Label>
+                  <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} onBlur={() => saveNodeUpdate('title')} className="h-12 md:h-14 text-base font-bold rounded-2xl border-slate-200 focus:border-primary focus:ring-4 ring-primary/5" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Verantwortliche Stelle</Label>
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Verantwortliche Stelle</Label>
                   <Select value={localNodeEdits.roleId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, roleId: val}); saveNodeUpdate('roleId', val); }}>
-                    <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-slate-50/50">
+                    <SelectTrigger className="h-12 md:h-14 rounded-2xl border-slate-200 bg-slate-50/50">
                       <SelectValue placeholder="Rolle wählen..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl">
@@ -785,17 +787,17 @@ export default function ProcessDesignerPage() {
                 </div>
               </div>
 
-              <div className="space-y-8">
+              <div className="space-y-6 md:space-y-8">
                 <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Detaillierte Anweisung</Label>
-                  <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-sm min-h-[150px] rounded-2xl border-slate-200 bg-slate-50 focus:bg-white transition-all leading-relaxed p-5" placeholder="Beschreiben Sie hier präzise, was in diesem Schritt zu tun ist..." />
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Detaillierte Anweisung</Label>
+                  <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-sm min-h-[120px] md:min-h-[150px] rounded-2xl border-slate-200 bg-slate-50 focus:bg-white transition-all leading-relaxed p-4 md:p-5" placeholder="Beschreiben Sie hier präzise, was in diesem Schritt zu tun ist..." />
                 </div>
                 
                 <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest flex items-center gap-2">
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-emerald-600" /> Operative Checkliste
                   </Label>
-                  <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-xs min-h-[120px] bg-slate-900 text-slate-100 rounded-2xl font-mono p-5 leading-relaxed" placeholder="Ein Prüfpunkt pro Zeile..." />
+                  <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[10px] md:text-xs min-h-[100px] md:min-h-[120px] bg-slate-900 text-slate-100 rounded-2xl font-mono p-4 md:p-5 leading-relaxed" placeholder="Ein Prüfpunkt pro Zeile..." />
                 </div>
               </div>
 
@@ -811,11 +813,11 @@ export default function ProcessDesignerPage() {
             </div>
           </ScrollArea>
 
-          <DialogFooter className="p-10 bg-slate-50 border-t shrink-0 flex items-center justify-between">
-            <Button variant="ghost" className="text-red-600 rounded-xl h-14 px-8 hover:bg-red-50 font-black uppercase text-[10px] gap-3 transition-colors" onClick={() => { if(confirm("Schritt permanent löschen?")) { handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }]); setIsStepDialogOpen(false); } }}>
+          <DialogFooter className="p-6 md:p-10 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
+            <Button variant="ghost" className="text-red-600 rounded-xl h-12 md:h-14 px-8 hover:bg-red-50 font-black uppercase text-[10px] gap-3 transition-colors w-full sm:w-auto" onClick={() => { if(confirm("Schritt permanent löschen?")) { handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }]); setIsStepDialogOpen(false); } }}>
               <Trash2 className="w-5 h-5" /> Schritt löschen
             </Button>
-            <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-2xl h-14 px-16 font-black uppercase text-xs tracking-[0.2em] bg-slate-900 hover:bg-black text-white shadow-2xl">
+            <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-2xl h-12 md:h-14 px-16 font-black uppercase text-[10px] md:text-xs tracking-[0.2em] bg-slate-900 hover:bg-black text-white shadow-2xl w-full sm:w-auto">
               Schließen
             </Button>
           </DialogFooter>

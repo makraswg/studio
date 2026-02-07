@@ -529,56 +529,56 @@ function AssignmentsPageContent() {
 
       {/* Details Dialog optimized for readability */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="max-w-3xl w-[95vw] h-[85vh] rounded-[3rem] p-0 overflow-hidden bg-white dark:bg-slate-950 border-none shadow-2xl">
-          <DialogHeader className="p-10 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center gap-6">
-              <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center text-primary font-black text-2xl shadow-xl shadow-black/20">
-                <ShieldCheck className="w-8 h-8" />
+        <DialogContent className="max-w-3xl w-[95vw] h-[90vh] md:h-[85vh] rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden bg-white dark:bg-slate-950 border-none shadow-2xl flex flex-col">
+          <DialogHeader className="p-6 md:p-10 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-4 md:gap-6">
+              <div className="w-12 h-12 md:w-16 md:h-16 bg-primary/20 rounded-2xl flex items-center justify-center text-primary font-black text-xl md:text-2xl shadow-xl shadow-black/20">
+                <ShieldCheck className="w-6 h-6 md:w-8 md:h-8" />
               </div>
               <div className="flex-1 min-w-0">
-                <DialogTitle className="text-2xl font-headline font-bold tracking-tight uppercase">Zuweisung Details</DialogTitle>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 flex items-center gap-2">
-                  <UserCircle className="w-3.5 h-3.5" /> {users?.find(u => u.id === selectedAssignment?.userId)?.displayName || 'Unbekannt'}
+                <DialogTitle className="text-xl md:text-2xl font-headline font-bold tracking-tight uppercase">Zuweisung Details</DialogTitle>
+                <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 flex items-center gap-2">
+                  <UserCircle className="w-3 md:w-3.5 h-3 md:h-3.5" /> {users?.find(u => u.id === selectedAssignment?.userId)?.displayName || 'Unbekannt'}
                 </p>
               </div>
             </div>
           </DialogHeader>
           
           <ScrollArea className="flex-1">
-            <div className="p-10 space-y-10">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Status</Label>
-                  <Badge className={cn("rounded-full px-4 h-7 text-[10px] font-black uppercase border-none", selectedAssignment?.status === 'active' ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{selectedAssignment?.status}</Badge>
+            <div className="p-6 md:p-10 space-y-8 md:space-y-10">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+                <div className="p-4 md:p-5 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Status</Label>
+                  <Badge className={cn("rounded-full px-4 h-7 text-[9px] md:text-[10px] font-black uppercase border-none", selectedAssignment?.status === 'active' ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{selectedAssignment?.status}</Badge>
                 </div>
-                <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Mandant</Label>
-                  <div className="flex items-center gap-2 font-black text-xs text-primary uppercase">
-                    <Building2 className="w-4 h-4" /> {getTenantSlug(selectedAssignment?.tenantId)}
+                <div className="p-4 md:p-5 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Mandant</Label>
+                  <div className="flex items-center gap-2 font-black text-[10px] md:text-xs text-primary uppercase">
+                    <Building2 className="w-3.5 md:w-4 h-3.5 md:h-4" /> {getTenantSlug(selectedAssignment?.tenantId)}
                   </div>
                 </div>
-                <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Quelle</Label>
-                  <Badge variant="outline" className="rounded-full text-[10px] font-black uppercase border-slate-200 dark:border-slate-800 px-4 h-7">{selectedAssignment?.syncSource || 'Manuell'}</Badge>
+                <div className="p-4 md:p-5 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                  <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Quelle</Label>
+                  <Badge variant="outline" className="rounded-full text-[9px] md:text-[10px] font-black uppercase border-slate-200 dark:border-slate-800 px-4 h-7">{selectedAssignment?.syncSource || 'Manuell'}</Badge>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <Separator className="bg-slate-100 dark:bg-slate-800" />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                   <div className="space-y-3">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Identität</Label>
-                    <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center gap-4 shadow-sm">
+                    <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Identität</Label>
+                    <div className="p-4 md:p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center gap-4 shadow-sm">
                       <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center shadow-inner"><UserIcon className="w-5 h-5 text-slate-400" /></div>
                       <div className="min-w-0">
                         <p className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">{users?.find(u => u.id === selectedAssignment?.userId)?.displayName}</p>
-                        <p className="text-[10px] text-slate-400 font-bold tracking-wider truncate">{users?.find(u => u.id === selectedAssignment?.userId)?.email}</p>
+                        <p className="text-[9px] md:text-[10px] text-slate-400 font-bold tracking-wider truncate">{users?.find(u => u.id === selectedAssignment?.userId)?.email}</p>
                       </div>
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Rolle & System</Label>
-                    <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center gap-4 shadow-sm">
+                    <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Rolle & System</Label>
+                    <div className="p-4 md:p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center gap-4 shadow-sm">
                       <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center shadow-inner"><Layers className="w-5 h-5 text-primary" /></div>
                       {(() => {
                         const ent = entitlements?.find(e => e.id === selectedAssignment?.entitlementId);
@@ -587,7 +587,7 @@ function AssignmentsPageContent() {
                           <div className="min-w-0">
                             <p className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">{res?.name}</p>
                             <div className="flex items-center gap-2">
-                              <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase truncate">{ent?.name}</p>
+                              <p className="text-[9px] md:text-[10px] text-slate-400 font-bold tracking-wider uppercase truncate">{ent?.name}</p>
                               {ent?.isAdmin && <Badge className="bg-red-50 text-red-600 border-none rounded-full text-[8px] h-4 font-black px-2">ADMIN</Badge>}
                             </div>
                           </div>
@@ -598,41 +598,41 @@ function AssignmentsPageContent() {
                 </div>
               </div>
 
-              <div className="p-8 rounded-[2.5rem] bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-8 shadow-inner">
-                <div><p className="text-[9px] font-black uppercase text-slate-400 mb-1">Gültig ab</p><p className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedAssignment?.validFrom || 'Sofort'}</p></div>
-                <div><p className="text-[9px] font-black uppercase text-slate-400 mb-1">Gültig bis</p><p className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedAssignment?.validUntil || '∞'}</p></div>
-                <div><p className="text-[9px] font-black uppercase text-slate-400 mb-1">Zertifiziert</p><p className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedAssignment?.lastReviewedAt ? new Date(selectedAssignment.lastReviewedAt).toLocaleDateString() : 'Ausstehend'}</p></div>
-                <div><p className="text-[9px] font-black uppercase text-slate-400 mb-1">Ticket</p><p className="text-xs font-bold text-primary font-mono">{selectedAssignment?.ticketRef || selectedAssignment?.jiraIssueKey || 'N/A'}</p></div>
+              <div className="p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 shadow-inner">
+                <div><p className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 mb-1">Gültig ab</p><p className="text-[10px] md:text-xs font-bold text-slate-700 dark:text-slate-300">{selectedAssignment?.validFrom || 'Sofort'}</p></div>
+                <div><p className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 mb-1">Gültig bis</p><p className="text-[10px] md:text-xs font-bold text-slate-700 dark:text-slate-300">{selectedAssignment?.validUntil || '∞'}</p></div>
+                <div><p className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 mb-1">Zertifiziert</p><p className="text-[10px] md:text-xs font-bold text-slate-700 dark:text-slate-300">{selectedAssignment?.lastReviewedAt ? new Date(selectedAssignment.lastReviewedAt).toLocaleDateString() : 'Ausstehend'}</p></div>
+                <div><p className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 mb-1">Ticket</p><p className="text-[10px] md:text-xs font-bold text-primary font-mono">{selectedAssignment?.ticketRef || selectedAssignment?.jiraIssueKey || 'N/A'}</p></div>
               </div>
             </div>
           </ScrollArea>
           
-          <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 shrink-0">
-            <Button onClick={() => setIsDetailsOpen(false)} className="rounded-xl h-12 px-12 font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-transform">Schließen</Button>
+          <DialogFooter className="p-6 md:p-8 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 shrink-0">
+            <Button onClick={() => setIsDetailsOpen(false)} className="w-full md:w-auto rounded-xl h-12 px-12 font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-transform">Schließen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Revoke Dialog remains logic-identical but styled */}
       <Dialog open={isRevokeOpen} onOpenChange={setIsRevokeOpen}>
-        <DialogContent className="max-w-sm rounded-[3rem] p-0 overflow-hidden bg-white dark:bg-slate-950 border-none shadow-2xl">
-          <DialogHeader className="p-10 bg-red-50 dark:bg-red-900/20 border-b border-red-100 dark:border-red-900/30">
-            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/40 rounded-3xl flex items-center justify-center mb-4 mx-auto shadow-xl">
-              <AlertTriangle className="w-8 h-8 text-red-600" />
+        <DialogContent className="max-w-sm rounded-[2rem] md:rounded-[3rem] p-0 overflow-hidden bg-white dark:bg-slate-950 border-none shadow-2xl">
+          <DialogHeader className="p-6 md:p-10 bg-red-50 dark:bg-red-900/20 border-b border-red-100 dark:border-red-900/30">
+            <div className="w-12 h-12 md:w-16 md:h-16 bg-red-100 dark:bg-red-900/40 rounded-3xl flex items-center justify-center mb-4 mx-auto shadow-xl">
+              <AlertTriangle className="w-6 h-6 md:w-8 md:h-8 text-red-600" />
             </div>
-            <DialogTitle className="text-xl font-headline font-bold text-red-600 uppercase text-center">Zugriff entziehen</DialogTitle>
+            <DialogTitle className="text-lg md:text-xl font-headline font-bold text-red-600 uppercase text-center">Zugriff entziehen</DialogTitle>
           </DialogHeader>
-          <div className="p-10 space-y-8">
-            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-inner">
-              <p className="text-[9px] font-black uppercase text-slate-400 mb-1 tracking-widest">Mitarbeiter</p>
-              <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{users?.find(u => u.id === assignmentToRevoke?.userId)?.displayName}</p>
+          <div className="p-6 md:p-10 space-y-6 md:space-y-8">
+            <div className="p-4 md:p-6 rounded-3xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-inner">
+              <p className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 mb-1 tracking-widest">Mitarbeiter</p>
+              <p className="text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200">{users?.find(u => u.id === assignmentToRevoke?.userId)?.displayName}</p>
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Entzug wirksam bis</Label>
+              <Label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Entzug wirksam bis</Label>
               <Input type="date" value={revokeValidUntil} onChange={e => setRevokeValidUntil(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800 shadow-sm" />
             </div>
           </div>
-          <DialogFooter className="p-10 bg-slate-50 dark:bg-slate-900/50 border-t flex flex-col gap-3">
+          <DialogFooter className="p-6 md:p-10 bg-slate-50 dark:bg-slate-900/50 border-t flex flex-col gap-3">
             <Button onClick={confirmRevokeAssignment} disabled={isSaving} className="w-full rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest h-14 gap-2 shadow-xl shadow-red-200 dark:shadow-none active:scale-95 transition-transform">
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />} Bestätigen & Widerrufen
             </Button>

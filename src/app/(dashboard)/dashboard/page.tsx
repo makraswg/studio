@@ -32,7 +32,8 @@ import {
   CalendarCheck,
   ClipboardList,
   Target,
-  Clock
+  Clock,
+  LayoutDashboard
 } from 'lucide-react';
 import { 
   PieChart, 

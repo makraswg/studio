@@ -13,15 +13,10 @@ import {
   RefreshCw, 
   ChevronRight,
   ClipboardList,
-  FilePen,
-  Link as LinkIcon,
   Maximize2,
-  CircleDot,
   ExternalLink,
   Info,
   Briefcase,
-  FileDown,
-  Download,
   Building2,
   CheckCircle,
   Network,
@@ -117,7 +112,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     const sourceId = String(edge.source);
     const targetId = String(edge.target);
     if (nodes.some(n => String(n.id) === sourceId) && nodes.some(n => String(n.id) === targetId)) {
-      xml += `<mxCell id="edge-${idx}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;fontColor=#000000;endArrow=block;endFill=1;curved=0;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="${edge.id || `edge-${idx}`}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;fontColor=#000000;endArrow=block;endFill=1;curved=0;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
   xml += `</root></mxGraphModel>`;
@@ -138,7 +133,6 @@ export default function ProcessDetailViewPage() {
   const { data: versions } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: departments } = usePluggableCollection<Department>('departments');
-  const { data: auditLogs } = usePluggableCollection<any>('auditEvents');
   const { data: featureLinks } = usePluggableCollection<any>('feature_process_steps');
   const { data: allFeatures } = usePluggableCollection<Feature>('features');
   const { data: resources } = usePluggableCollection<Resource>('resources');
@@ -196,7 +190,14 @@ export default function ProcessDetailViewPage() {
     return calculateProcessMaturity(currentProcess, activeVersion, pMedia);
   }, [currentProcess, activeVersion, media, id]);
 
-  const currentDept = useMemo(() => departments?.find(d => d.id === currentProcess?.responsibleDepartmentId), [departments, currentProcess]);
+  const getFullRoleName = (roleId?: string) => {
+    if (!roleId) return '---';
+    const role = jobTitles?.find(j => j.id === roleId);
+    if (!role) return roleId;
+    const dept = departments?.find(d => d.id === role.departmentId);
+    return dept ? `${dept.name} - ${role.name}` : role.name;
+  };
+
   const currentVvt = useMemo(() => vvts?.find(v => v.id === currentProcess?.vvtId), [vvts, currentProcess]);
 
   const handleUpdateVvtLink = async (vvtId: string) => {
@@ -298,6 +299,24 @@ export default function ProcessDetailViewPage() {
                 </div>
               </section>
 
+              <section className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2">
+                  <UserCircle className="w-3.5 h-3.5" /> Prozess-Verantwortung
+                </h3>
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-3">
+                  <div>
+                    <Label className="text-[8px] font-black uppercase text-slate-400">Owner Rolle</Label>
+                    <p className="text-xs font-bold text-slate-900">{getFullRoleName(currentProcess?.ownerRoleId)}</p>
+                  </div>
+                  {currentDept && (
+                    <div>
+                      <Label className="text-[8px] font-black uppercase text-slate-400">Zuständige Abteilung</Label>
+                      <p className="text-xs font-bold text-slate-700">{currentDept.name}</p>
+                    </div>
+                  )}
+                </div>
+              </section>
+
               {maturity && (
                 <section className="space-y-4">
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2">
@@ -323,19 +342,6 @@ export default function ProcessDetailViewPage() {
                   </Card>
                 </section>
               )}
-
-              <section className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-accent border-b pb-2 flex items-center gap-2">
-                  <AlertTriangle className="w-3.5 h-3.5" /> Risiko-Profil
-                </h3>
-                <div className="p-4 rounded-2xl bg-orange-50/50 border border-orange-100 space-y-4 shadow-inner">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">Gefahrenlage</span>
-                    <Badge variant="outline" className="bg-white border-orange-200 text-orange-700 font-black text-[10px] h-5">{risksData.maxScore} Pkt.</Badge>
-                  </div>
-                  <Button variant="ghost" size="sm" className="w-full text-[9px] font-black uppercase text-orange-700 hover:bg-orange-100 h-8" onClick={() => setViewMode('risks')}>Details anzeigen</Button>
-                </div>
-              </section>
 
               <section className="space-y-4">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 border-b pb-2 flex items-center gap-2"><Server className="w-3.5 h-3.5" /> IT-Unterstützung</h3>
@@ -449,7 +455,7 @@ export default function ProcessDetailViewPage() {
                 <div className="space-y-8 relative">
                   <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-slate-200 z-0" />
                   {activeVersion?.model_json?.nodes?.map((node: ProcessNode, i: number) => {
-                    const role = jobTitles?.find(j => j.id === node.roleId);
+                    const roleName = getFullRoleName(node.roleId);
                     const nodeLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id);
                     const nodeResources = resources?.filter(r => node.resourceIds?.includes(r.id));
                     const nodeGroups = subjectGroups?.filter(g => node.subjectGroupIds?.includes(g.id));
@@ -465,7 +471,7 @@ export default function ProcessDetailViewPage() {
                             <div>
                               <h3 className="font-headline font-bold text-base text-slate-900 uppercase">{node.title}</h3>
                               <div className="flex flex-wrap gap-3 mt-1.5">
-                                {role && <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-primary"><Briefcase className="w-3.5 h-3.5" /> {role.name}</div>}
+                                <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-primary"><Briefcase className="w-3.5 h-3.5" /> {roleName}</div>
                                 {nodeResources && nodeResources.length > 0 && (
                                   <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-indigo-600"><Server className="w-3.5 h-3.5" /> {nodeResources.length} Systeme</div>
                                 )}
@@ -512,18 +518,6 @@ export default function ProcessDetailViewPage() {
                                     </div>
                                   </div>
                                 )}
-
-                                {(node.predecessorIds?.length || 0) > 0 && (
-                                  <div className="space-y-2">
-                                    <Label className="text-[9px] font-black uppercase text-slate-400">Vorgänger</Label>
-                                    <div className="space-y-1">
-                                      {node.predecessorIds?.map(pid => {
-                                        const pred = activeVersion.model_json.nodes.find((n: any) => n.id === pid);
-                                        return pred ? <div key={pid} className="text-[10px] font-bold text-slate-600 flex items-center gap-2"><ArrowLeftCircle className="w-3 h-3 text-slate-300" /> {pred.title}</div> : null;
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
                               </div>
                             </div>
 
@@ -533,7 +527,7 @@ export default function ProcessDetailViewPage() {
                                 <div className="space-y-2">
                                   {node.checklist.map((item, idx) => (
                                     <div key={idx} className="flex items-start gap-3">
-                                      <div className="w-4 h-4 rounded-md border bg-white flex items-center justify-center shrink-0 mt-0.5"><Check className="w-2.5 h-2.5 text-slate-200" /></div>
+                                      <div className="w-4 h-4 rounded-md border bg-white flex items-center justify-center shrink-0 mt-0.5"><CheckCircle className="w-2.5 h-2.5 text-slate-200" /></div>
                                       <span className="text-xs font-medium text-slate-700">{item}</span>
                                     </div>
                                   ))}

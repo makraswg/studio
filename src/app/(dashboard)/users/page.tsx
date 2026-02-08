@@ -29,7 +29,8 @@ import {
   ShieldCheck,
   AlertTriangle,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  Briefcase
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -64,7 +65,7 @@ import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { exportUsersExcel } from '@/lib/export-utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 export default function UsersPage() {
   const db = useFirestore();
@@ -90,6 +91,7 @@ export default function UsersPage() {
   const { data: assignments } = usePluggableCollection<any>('assignments');
   const { data: entitlements } = usePluggableCollection<any>('entitlements');
   const { data: jobTitles } = usePluggableCollection<any>('jobTitles');
+  const { data: departmentsData } = usePluggableCollection<any>('departments');
   const { refresh: refreshAudit } = usePluggableCollection<any>('auditEvents');
 
   useEffect(() => { setMounted(true); }, []);
@@ -100,16 +102,19 @@ export default function UsersPage() {
     return tenant ? tenant.slug : id;
   };
 
-  /**
-   * Berechnet den LDAP-Drift für einen Benutzer.
-   */
+  const getFullRoleName = (roleName: string, roleTenantId: string) => {
+    const job = jobTitles?.find(j => j.name === roleName && j.tenantId === roleTenantId);
+    if (!job) return roleName;
+    const dept = departmentsData?.find((d: any) => d.id === job.departmentId);
+    return dept ? `${dept.name} - ${job.name}` : job.name;
+  };
+
   const calculateDrift = (user: any) => {
     if (!user || !entitlements || !assignments) return { hasDrift: false, missing: [], extra: [], integrity: 100 };
 
     const userAssignments = assignments.filter((a: any) => a.userId === user.id && a.status === 'active');
     const assignedEntitlementIds = userAssignments.map((a: any) => a.entitlementId);
     
-    // Blueprint Rollen einbeziehen
     const job = jobTitles?.find((j: any) => j.name === user.title && j.tenantId === user.tenantId);
     const blueprintIds = job?.entitlementIds || [];
     
@@ -122,7 +127,6 @@ export default function UsersPage() {
 
     const missing = targetGroups.filter(g => !actualGroups.includes(g));
     const extra = actualGroups.filter((g: string) => {
-      // Prüfen, ob die Gruppe überhaupt vom Hub verwaltet wird
       const isManaged = entitlements.some((e: any) => e.externalMapping === g);
       return isManaged && !targetGroups.includes(g);
     });
@@ -276,8 +280,8 @@ export default function UsersPage() {
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Identität</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400">Mandant</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400">Integrität (Soll/Ist)</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Rollenprofil</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Integrität (AD Sync)</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400">Status</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
               </TableRow>
@@ -301,54 +305,37 @@ export default function UsersPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="rounded-full text-[8px] font-bold border-slate-200 text-slate-500 px-2 h-5">
-                        {getTenantSlug(u.tenantId)}
-                      </Badge>
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                        <Briefcase className="w-3 h-3 text-slate-300" />
+                        {getFullRoleName(u.title, u.tenantId)}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="w-24 space-y-1">
                           <div className="flex justify-between text-[8px] font-black uppercase text-slate-400">
-                            <span>AD Integrity</span>
+                            <span>Integrity</span>
                             <span className={drift.integrity === 100 ? "text-emerald-600" : "text-amber-600"}>{drift.integrity}%</span>
                           </div>
                           <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
                             <div className={cn("h-full transition-all", drift.integrity === 100 ? "bg-emerald-500" : "bg-amber-500")} style={{ width: `${drift.integrity}%` }} />
                           </div>
                         </div>
-                        <TooltipProvider>
-                          {drift.hasDrift && (
+                        {drift.hasDrift && (
+                          <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="p-1 rounded-md bg-amber-50 text-amber-600 border border-amber-100 cursor-help animate-pulse">
-                                  <ShieldAlert className="w-3.5 h-3.5" />
+                                <div className="p-1 rounded-md bg-amber-50 text-amber-600 border border-amber-100 cursor-help">
+                                  <ShieldAlert className="w-3 h-3" />
                                 </div>
                               </TooltipTrigger>
-                              <TooltipContent className="max-w-[250px] p-3 bg-slate-900 text-white rounded-xl border-none shadow-2xl">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-2">Sync Abweichung erkannt</p>
-                                <div className="space-y-2">
-                                  {drift.missing.length > 0 && (
-                                    <div className="space-y-1">
-                                      <p className="text-[8px] font-bold uppercase text-slate-400">Fehlt in AD:</p>
-                                      {drift.missing.map(g => <p key={g} className="text-[9px] font-mono text-red-300">- {g}</p>)}
-                                    </div>
-                                  )}
-                                  {drift.extra.length > 0 && (
-                                    <div className="space-y-1">
-                                      <p className="text-[8px] font-bold uppercase text-slate-400">Unautorisiert in AD:</p>
-                                      {drift.extra.map(g => <p key={g} className="text-[9px] font-mono text-amber-300">- {g}</p>)}
-                                    </div>
-                                  )}
-                                </div>
+                              <TooltipContent className="p-3 bg-slate-900 text-white rounded-lg border-none shadow-xl">
+                                <p className="text-[9px] font-black uppercase text-amber-400 mb-1">Abweichung erkannt</p>
+                                <p className="text-[10px] leading-relaxed">Rollen in AD stimmen nicht mit Hub-Definition überein.</p>
                               </TooltipContent>
                             </Tooltip>
-                          )}
-                          {!drift.hasDrift && (
-                            <div className="p-1 rounded-md bg-emerald-50 text-emerald-600 opacity-40">
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                            </div>
-                          )}
-                        </TooltipProvider>
+                          </TooltipProvider>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -398,26 +385,22 @@ export default function UsersPage() {
               <Input value={email} onChange={e => setEmail(e.target.value)} className="rounded-md h-11 border-slate-200" />
             </div>
             <div className="space-y-2">
-              <Label className="text-[11px] font-bold text-slate-400 ml-1">Abteilung</Label>
-              <Input value={department} onChange={e => setDepartment(e.target.value)} className="rounded-md h-11 border-slate-200" />
+              <Label required className="text-[11px] font-bold text-slate-400 ml-1">Mandant</Label>
+              <Select value={tenantId} onValueChange={setTenantId}>
+                <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                <SelectContent>
+                  {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label required className="text-[11px] font-bold text-slate-400 ml-1">Rollenprofil</Label>
               <Select value={userTitle} onValueChange={setUserTitle}>
                 <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
                 <SelectContent>
-                  {jobTitles?.filter((j: any) => tenantId === 'all' || j.tenantId === tenantId).map((j: any) => (
-                    <SelectItem key={j.id} value={j.name}>{j.name}</SelectItem>
+                  {jobTitles?.filter((j: any) => tenantId === '' || tenantId === 'all' || j.tenantId === tenantId).map((j: any) => (
+                    <SelectItem key={j.id} value={j.name}>{getFullRoleName(j.name, j.tenantId)}</SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label required className="text-[11px] font-bold text-slate-400 ml-1">Mandant</Label>
-              <Select value={tenantId} onValueChange={setTenantId}>
-                <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                <SelectContent>
-                  {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

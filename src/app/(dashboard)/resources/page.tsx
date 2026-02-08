@@ -10,33 +10,15 @@ import {
   Layers, 
   Filter,
   Download,
-  MoreVertical,
   Server,
-  Archive,
-  RotateCcw,
-  ShieldCheck,
-  ShieldAlert,
-  Globe,
-  Database,
-  User as UserIcon,
-  Save,
   Pencil,
-  Trash2,
-  FileEdit,
-  Activity,
-  Info,
-  HardDrive,
-  HelpCircle,
   Eye,
-  ChevronRight,
-  UserCircle,
-  Workflow,
-  Zap,
   Briefcase,
-  AlertTriangle,
-  Building2,
   Fingerprint,
-  KeyRound
+  Database,
+  KeyRound,
+  ShieldAlert,
+  Save
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,7 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Tenant, JobTitle, ServicePartner, ServicePartnerContact, Process, ProcessVersion, ProcessNode, Feature, FeatureProcessStep, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department } from '@/lib/types';
+import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportResourcesExcel } from '@/lib/export-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
@@ -61,18 +43,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { saveResourceAction, deleteResourceAction } from '@/app/actions/resource-actions';
+import { saveResourceAction } from '@/app/actions/resource-actions';
 import { toast } from '@/hooks/use-toast';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export default function ResourcesPage() {
@@ -104,12 +79,9 @@ export default function ResourcesPage() {
   const [identityProviderId, setIdentityProviderId] = useState('none');
   const [dataLocation, setDataLocation] = useState('');
   
-  // System Owner
   const [systemOwnerType, setSystemOwnerType] = useState<'internal' | 'external'>('internal');
   const [systemOwnerRoleId, setSystemOwnerRoleId] = useState('');
-  const [externalRefId, setExternalRefId] = useState('none'); // Combined 'p:ID' or 'a:ID'
-  
-  // Risk Owner (ALWAYS INTERNAL)
+  const [externalRefId, setExternalRefId] = useState('none'); 
   const [riskOwnerRoleId, setRiskOwnerRoleId] = useState('');
 
   const [notes, setNotes] = useState('');
@@ -117,71 +89,29 @@ export default function ResourcesPage() {
 
   const { data: resources, isLoading, refresh } = usePluggableCollection<Resource>('resources');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
-  const { data: jobs } = usePluggableCollection<JobTitle>('jobTitles');
-  const { data: departments } = usePluggableCollection<Department>('departments');
+  const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: departmentsData } = usePluggableCollection<Department>('departments');
   const { data: partners } = usePluggableCollection<ServicePartner>('servicePartners');
   const { data: areas } = usePluggableCollection<ServicePartnerArea>('servicePartnerAreas');
-  const { data: processes } = usePluggableCollection<Process>('processes');
-  const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
-  const { data: features } = usePluggableCollection<Feature>('features');
-  const { data: featureLinks } = usePluggableCollection<FeatureProcessStep>('feature_process_steps');
   
   const { data: assetTypeOptions } = usePluggableCollection<AssetTypeOption>('assetTypeOptions');
   const { data: operatingModelOptions } = usePluggableCollection<OperatingModelOption>('operatingModelOptions');
 
   useEffect(() => { setMounted(true); }, []);
 
+  const getFullRoleName = (roleId?: string) => {
+    if (!roleId || roleId === 'none') return '---';
+    const role = jobTitles?.find(j => j.id === roleId);
+    if (!role) return roleId;
+    const dept = departmentsData?.find(d => d.id === role.departmentId);
+    return dept ? `${dept.name} - ${role.name}` : role.name;
+  };
+
   const getTenantSlug = (id?: string | null) => {
     if (!id || id === 'all' || id === 'global') return 'alle Standorte';
     const tenant = tenants?.find((t: any) => t.id === id);
     return tenant ? tenant.slug : id;
   };
-
-  const suggestedCompliance = useMemo(() => {
-    if (!selectedResource || !processes || !versions || !features || !featureLinks) return null;
-
-    const resId = selectedResource.id;
-    const affectedProcessIds = new Set<string>();
-    versions.forEach(v => {
-      if (v.model_json.nodes.some(n => n.resourceIds?.includes(resId))) {
-        affectedProcessIds.add(v.process_id);
-      }
-    });
-
-    const processedFeatureIds = new Set<string>();
-    featureLinks.forEach(link => {
-      if (affectedProcessIds.has(link.processId)) {
-        processedFeatureIds.add(link.featureId);
-      }
-    });
-
-    if (processedFeatureIds.size === 0) return null;
-
-    const relevantFeatures = features.filter(f => processedFeatureIds.has(f.id));
-    const rankMap = { 'low': 1, 'medium': 2, 'high': 3 };
-    const classRankMap = { 'public': 1, 'internal': 2, 'confidential': 3, 'strictly_confidential': 4 };
-    const revRankMap = { 1: 'low', 2: 'medium', 3: 'high' } as const;
-    const revClassMap = { 1: 'public', 2: 'internal', 3: 'confidential', 4: 'strictly_confidential' } as const;
-
-    let maxC = 1, maxI = 1, maxA = 1, maxCrit = 1, maxClass = 1;
-
-    relevantFeatures.forEach(f => {
-      maxC = Math.max(maxC, rankMap[f.confidentialityReq || 'low'] || 1);
-      maxI = Math.max(maxI, rankMap[f.integrityReq || 'low'] || 1);
-      maxA = Math.max(maxA, rankMap[f.availabilityReq || 'low'] || 1);
-      maxCrit = Math.max(maxCrit, rankMap[f.criticality] || 1);
-      if (f.criticality === 'high') maxClass = Math.max(maxClass, 3);
-      else if (f.criticality === 'medium') maxClass = Math.max(maxClass, 2);
-    });
-
-    return {
-      confidentiality: revRankMap[maxC as 1|2|3],
-      integrity: revRankMap[maxI as 1|2|3],
-      availability: revRankMap[maxA as 1|2|3],
-      criticality: revRankMap[maxCrit as 1|2|3],
-      classification: revClassMap[maxClass as 1|2|3|4]
-    };
-  }, [selectedResource, processes, versions, features, featureLinks]);
 
   const identityProviders = useMemo(() => {
     return resources?.filter(r => r.isIdentityProvider === true || r.isIdentityProvider === 1) || [];
@@ -220,7 +150,6 @@ export default function ResourcesPage() {
     setIsSaving(true);
     const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
     
-    // Resolve External Reference
     let externalOwnerPartnerId = undefined;
     let externalOwnerAreaId = undefined;
     if (externalRefId.startsWith('p:')) {
@@ -267,7 +196,7 @@ export default function ResourcesPage() {
       const res = await saveResourceAction(resourceData, dataSource, user?.email || 'system');
       if (res.success) {
         toast({ title: selectedResource ? "Ressource aktualisiert" : "Ressource registriert" });
-        setIsDialogOpen(false);
+        setIsAddOpen(false);
         resetForm();
         refresh();
       }
@@ -392,9 +321,7 @@ export default function ResourcesPage() {
             </TableHeader>
             <TableBody>
               {filteredResources.map((res) => {
-                const internalOwner = jobs?.find(j => j.id === res.systemOwnerRoleId);
-                const internalDept = internalOwner ? departments?.find(d => d.id === internalOwner.departmentId) : null;
-                
+                const internalOwnerName = getFullRoleName(res.systemOwnerRoleId);
                 const externalPartner = partners?.find(p => p.id === res.externalOwnerPartnerId);
                 const externalArea = areas?.find(a => a.id === res.externalOwnerAreaId);
                 
@@ -408,26 +335,8 @@ export default function ResourcesPage() {
                         <div>
                           <div className="flex items-center gap-2">
                             <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{res.name}</div>
-                            {(res.isIdentityProvider === true || res.isIdentityProvider === 1) && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Fingerprint className="w-3.5 h-3.5 text-blue-600" />
-                                  </TooltipTrigger>
-                                  <TooltipContent className="text-[10px] font-bold">Identitätsanbieter (IdP)</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
-                            {(res.isDataRepository === true || res.isDataRepository === 1) && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Database className="w-3.5 h-3.5 text-indigo-600" />
-                                  </TooltipTrigger>
-                                  <TooltipContent className="text-[10px] font-bold">Datenmanagement Quelle</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
+                            {(res.isIdentityProvider === true || res.isIdentityProvider === 1) && <Fingerprint className="w-3.5 h-3.5 text-blue-600" />}
+                            {(res.isDataRepository === true || res.isDataRepository === 1) && <Database className="w-3.5 h-3.5 text-indigo-600" />}
                           </div>
                           <div className="text-[9px] text-slate-400 font-bold uppercase">{res.assetType} • {res.operatingModel}</div>
                         </div>
@@ -436,10 +345,7 @@ export default function ResourcesPage() {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 border-slate-200 uppercase">{res.confidentialityReq?.charAt(0)}{res.integrityReq?.charAt(0)}{res.availabilityReq?.charAt(0)}</Badge>
-                        <Badge className={cn(
-                          "text-[8px] font-black h-4 border-none uppercase",
-                          res.criticality === 'high' ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"
-                        )}>{res.criticality}</Badge>
+                        <Badge className={cn("text-[8px] font-black h-4 border-none uppercase", res.criticality === 'high' ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>{res.criticality}</Badge>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -449,16 +355,11 @@ export default function ResourcesPage() {
                             <Badge className="bg-indigo-600 text-white border-none rounded-full h-3.5 px-1 text-[6px] font-black uppercase">EXTERN</Badge>
                             <span className="text-[10px] font-bold text-slate-600">{externalPartner.name}</span>
                           </div>
-                          {externalArea && (
-                            <span className="text-[8px] font-black uppercase text-indigo-400 pl-6">{externalArea.name}</span>
-                          )}
+                          {externalArea && <span className="text-[8px] font-black uppercase text-indigo-400 pl-6">{externalArea.name}</span>}
                         </div>
-                      ) : internalOwner ? (
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                            <Briefcase className="w-3.5 h-3.5 text-primary opacity-50" /> {internalOwner.name}
-                          </div>
-                          {internalDept && <span className="text-[8px] font-black uppercase text-slate-400 pl-5">{internalDept.name}</span>}
+                      ) : res.systemOwnerRoleId ? (
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                          <Briefcase className="w-3.5 h-3.5 text-primary opacity-50" /> {internalOwnerName}
                         </div>
                       ) : (
                         <span className="text-[10px] text-slate-300 italic">Nicht zugewiesen</span>
@@ -466,7 +367,7 @@ export default function ResourcesPage() {
                     </TableCell>
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100" onClick={() => openEdit(res)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white" onClick={() => openEdit(res)}>
                           <Pencil className="w-3.5 h-3.5 text-slate-400" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md" onClick={() => router.push(`/resources/${res.id}`)}>
@@ -495,11 +396,7 @@ export default function ResourcesPage() {
                   <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Asset-Management & Schutzbedarfsfeststellung</DialogDescription>
                 </div>
               </div>
-              <AiFormAssistant 
-                formType="resource" 
-                currentData={{ name, assetType, category, operatingModel }} 
-                onApply={(s) => { if(s.name) setName(s.name); if(s.category) setCategory(s.category); }} 
-              />
+              <AiFormAssistant formType="resource" currentData={{ name, assetType, category, operatingModel }} onApply={(s) => { if(s.name) setName(s.name); if(s.category) setCategory(s.category); }} />
             </div>
           </DialogHeader>
           
@@ -507,7 +404,7 @@ export default function ResourcesPage() {
             <div className="px-6 border-b shrink-0 bg-white">
               <TabsList className="h-12 bg-transparent gap-8 p-0">
                 <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Basisdaten</TabsTrigger>
-                <TabsTrigger value="governance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600 transition-all">Vererbung & Schutzbedarf</TabsTrigger>
+                <TabsTrigger value="governance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600 transition-all">Schutzbedarf</TabsTrigger>
                 <TabsTrigger value="admin" className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-slate-900 transition-all">Verantwortung & Auth</TabsTrigger>
               </TabsList>
             </div>
@@ -524,39 +421,25 @@ export default function ResourcesPage() {
                       <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Asset Typ</Label>
                       <Select value={assetType} onValueChange={(v:any) => setAssetType(v)}>
                         <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                        <SelectContent>
-                          {assetTypeOptions?.filter(o => o.enabled).map(o => <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>)}
-                        </SelectContent>
+                        <SelectContent>{assetTypeOptions?.filter(o => o.enabled).map(o => <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Betriebsmodell</Label>
                       <Select value={operatingModel} onValueChange={(v:any) => setOperatingModel(v)}>
                         <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                        <SelectContent>
-                          {operatingModelOptions?.filter(o => o.enabled).map(o => <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>)}
-                        </SelectContent>
+                        <SelectContent>{operatingModelOptions?.filter(o => o.enabled).map(o => <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-
                     <div className="p-6 bg-white border rounded-2xl md:col-span-2 shadow-sm space-y-6">
-                      <div className="flex items-center gap-2 border-b pb-3">
-                        <Database className="w-4 h-4 text-indigo-600" />
-                        <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Governance Rollen</h4>
-                      </div>
+                      <div className="flex items-center gap-2 border-b pb-3"><Database className="w-4 h-4 text-indigo-600" /><h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Governance Rollen</h4></div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                         <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border">
-                          <div className="space-y-0.5">
-                            <Label className="text-[10px] font-bold uppercase text-slate-900">Datenmanagement Quelle</Label>
-                            <p className="text-[8px] text-slate-400 uppercase font-black">Feature Repository</p>
-                          </div>
+                          <div className="space-y-0.5"><Label className="text-[10px] font-bold uppercase text-slate-900">Datenmanagement Quelle</Label><p className="text-[8px] text-slate-400 uppercase font-black">Feature Repository</p></div>
                           <Switch checked={isDataRepository} onCheckedChange={setIsDataRepository} />
                         </div>
                         <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border">
-                          <div className="space-y-0.5">
-                            <Label className="text-[10px] font-bold uppercase text-slate-900">Identitätsanbieter (IdP)</Label>
-                            <p className="text-[8px] text-slate-400 uppercase font-black">Authentifizierungs-Quelle</p>
-                          </div>
+                          <div className="space-y-0.5"><Label className="text-[10px] font-bold uppercase text-slate-900">Identitätsanbieter (IdP)</Label><p className="text-[8px] text-slate-400 uppercase font-black">Authentifizierungs-Quelle</p></div>
                           <Switch checked={isIdentityProvider} onCheckedChange={setIsIdentityProvider} />
                         </div>
                       </div>
@@ -565,214 +448,52 @@ export default function ResourcesPage() {
                 </TabsContent>
 
                 <TabsContent value="governance" className="mt-0 space-y-10">
-                  {suggestedCompliance && (
-                    <Alert className="bg-indigo-50 border-indigo-100 rounded-2xl animate-in fade-in slide-in-from-top-2">
-                      <Zap className="h-5 w-5 text-indigo-600" />
-                      <AlertTitle className="text-sm font-black uppercase text-indigo-900">Prozess-basierte Vererbung</AlertTitle>
-                      <AlertDescription className="text-[11px] text-indigo-700 leading-relaxed mt-1">
-                        Basierend auf den verarbeiteten Datenobjekten in den verknüpften Prozessen wird ein Schutzbedarf von <strong className="uppercase">{suggestedCompliance.criticality}</strong> empfohlen.
-                        <div className="mt-3">
-                          <Button size="sm" onClick={applyInheritance} className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[9px] uppercase h-8 px-4 rounded-lg shadow-md gap-2">
-                            <RotateCcw className="w-3.5 h-3.5" /> Auf Vorschlag zurücksetzen
-                          </Button>
-                        </div>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-8">
-                    <div className="flex items-center gap-2 border-b pb-3">
-                      <ShieldCheck className="w-4 h-4 text-indigo-600" />
-                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Schutzbedarfsfeststellung (CIA)</h4>
-                    </div>
+                    <div className="flex items-center gap-2 border-b pb-3"><ShieldCheck className="w-4 h-4 text-indigo-600" /><h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Schutzbedarfsfeststellung (CIA)</h4></div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Vertraulichkeit</Label>
-                        <Select value={confidentialityReq} onValueChange={(v:any) => setConfidentialityReq(v)}>
-                          <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
-                          <SelectContent>{['low', 'medium', 'high'].map(v => <SelectItem key={v} value={v} className="uppercase font-bold text-[10px]">{v}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Integrität</Label>
-                        <Select value={integrityReq} onValueChange={(v:any) => setIntegrityReq(v)}>
-                          <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
-                          <SelectContent>{['low', 'medium', 'high'].map(v => <SelectItem key={v} value={v} className="uppercase font-bold text-[10px]">{v}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verfügbarkeit</Label>
-                        <Select value={availabilityReq} onValueChange={(v:any) => setAvailabilityReq(v)}>
-                          <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
-                          <SelectContent>{['low', 'medium', 'high'].map(v => <SelectItem key={v} value={v} className="uppercase font-bold text-[10px]">{v}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
+                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Vertraulichkeit</Label><Select value={confidentialityReq} onValueChange={(v:any) => setConfidentialityReq(v)}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue /></SelectTrigger><SelectContent>{['low', 'medium', 'high'].map(v => <SelectItem key={v} value={v} className="uppercase font-bold text-[10px]">{v}</SelectItem>)}</SelectContent></Select></div>
+                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Integrität</Label><Select value={integrityReq} onValueChange={(v:any) => setIntegrityReq(v)}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue /></SelectTrigger><SelectContent>{['low', 'medium', 'high'].map(v => <SelectItem key={v} value={v} className="uppercase font-bold text-[10px]">{v}</SelectItem>)}</SelectContent></Select></div>
+                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verfügbarkeit</Label><Select value={availabilityReq} onValueChange={(v:any) => setAvailabilityReq(v)}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue /></SelectTrigger><SelectContent>{['low', 'medium', 'high'].map(v => <SelectItem key={v} value={v} className="uppercase font-bold text-[10px]">{v}</SelectItem>)}</SelectContent></Select></div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Datenklassifizierung</Label>
-                        <Select value={dataClassification} onValueChange={(v:any) => setDataClassification(v)}>
-                          <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="public">Öffentlich (Public)</SelectItem>
-                            <SelectItem value="internal">Intern (Internal)</SelectItem>
-                            <SelectItem value="confidential">Vertraulich (Confidential)</SelectItem>
-                            <SelectItem value="strictly_confidential">Streng Vertraulich</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Gesamt-Kritikalität</Label>
-                        <Select value={criticality} onValueChange={(v:any) => setCriticality(v)}>
-                          <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="low" className="text-emerald-600">Niedrig (Low)</SelectItem>
-                            <SelectItem value="medium" className="text-orange-600">Mittel (Medium)</SelectItem>
-                            <SelectItem value="high" className="text-red-600">Hoch (High)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Datenklassifizierung</Label><Select value={dataClassification} onValueChange={(v:any) => setDataClassification(v)}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="public">Öffentlich</SelectItem><SelectItem value="internal">Intern</SelectItem><SelectItem value="confidential">Vertraulich</SelectItem><SelectItem value="strictly_confidential">Streng Vertraulich</SelectItem></SelectContent></Select></div>
+                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Gesamt-Kritikalität</Label><Select value={criticality} onValueChange={(v:any) => setCriticality(v)}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Niedrig</SelectItem><SelectItem value="medium">Mittel</SelectItem><SelectItem value="high">Hoch</SelectItem></SelectContent></Select></div>
                     </div>
                   </div>
                 </TabsContent>
 
                 <TabsContent value="admin" className="mt-0 space-y-10">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    {/* System Owner Section */}
                     <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
-                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                        <UserCircle className="w-4 h-4 text-primary" />
-                        <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">System Owner</h4>
-                      </div>
-                      
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3"><UserCircle className="w-4 h-4 text-primary" /><h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">System Owner</h4></div>
                       <div className="space-y-4">
                         <RadioGroup value={systemOwnerType} onValueChange={(v: any) => setSystemOwnerType(v)} className="grid grid-cols-2 gap-2">
-                          <div className={cn("flex items-center space-x-2 border p-3 rounded-xl cursor-pointer transition-all", systemOwnerType === 'internal' && "border-primary bg-primary/5")}>
-                            <RadioGroupItem value="internal" id="sys-int" />
-                            <Label htmlFor="sys-int" className="text-[10px] font-bold uppercase cursor-pointer">Intern (Job)</Label>
-                          </div>
-                          <div className={cn("flex items-center space-x-2 border p-3 rounded-xl cursor-pointer transition-all", systemOwnerType === 'external' && "border-indigo-600 bg-indigo-50/50")}>
-                            <RadioGroupItem value="external" id="sys-ext" />
-                            <Label htmlFor="sys-ext" className="text-[10px] font-bold uppercase cursor-pointer">Extern (Partner)</Label>
-                          </div>
+                          <div className={cn("flex items-center space-x-2 border p-3 rounded-xl cursor-pointer", systemOwnerType === 'internal' && "border-primary bg-primary/5")}><RadioGroupItem value="internal" id="sys-int" /><Label htmlFor="sys-int" className="text-[10px] font-bold uppercase cursor-pointer">Intern</Label></div>
+                          <div className={cn("flex items-center space-x-2 border p-3 rounded-xl cursor-pointer", systemOwnerType === 'external' && "border-indigo-600 bg-indigo-50/50")}><RadioGroupItem value="external" id="sys-ext" /><Label htmlFor="sys-ext" className="text-[10px] font-bold uppercase cursor-pointer">Extern</Label></div>
                         </RadioGroup>
-
                         {systemOwnerType === 'internal' ? (
-                          <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                            <Label className="text-[9px] font-black uppercase text-slate-400">Interne Rolle auswählen</Label>
-                            <Select value={systemOwnerRoleId} onValueChange={setSystemOwnerRoleId}>
-                              <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">Keine Rolle zugewiesen</SelectItem>
-                                {jobs?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => {
-                                  const dept = departments?.find(d => d.id === job.departmentId);
-                                  const label = dept ? `${dept.name} — ${job.name}` : job.name;
-                                  return <SelectItem key={job.id} value={job.id}>{label}</SelectItem>;
-                                })}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          <div className="space-y-2 animate-in fade-in"><Label className="text-[9px] font-black uppercase text-slate-400">Interne Rolle</Label><Select value={systemOwnerRoleId} onValueChange={setSystemOwnerRoleId}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent><SelectItem value="none">Keine</SelectItem>{jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => <SelectItem key={job.id} value={job.id}>{getFullRoleName(job.id)}</SelectItem>)}</SelectContent></Select></div>
                         ) : (
-                          <div className="space-y-4 animate-in fade-in slide-in-from-top-1">
-                            <div className="space-y-2">
-                              <Label className="text-[9px] font-black uppercase text-slate-400">Externer Partner oder Bereich</Label>
-                              <Select value={externalRefId} onValueChange={setExternalRefId}>
-                                <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm">
-                                  <SelectValue placeholder="Firma oder Bereich wählen..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="none">Keine externe Zuweisung</SelectItem>
-                                  {partners?.map(p => (
-                                    <SelectGroup key={p.id}>
-                                      <SelectLabel className="text-[8px] font-black uppercase text-slate-400 px-2 py-1 bg-slate-50/50">{p.name}</SelectLabel>
-                                      <SelectItem value={`p:${p.id}`} className="font-bold text-xs">
-                                        {p.name} (Zentrale)
-                                      </SelectItem>
-                                      {areas?.filter(a => a.partnerId === p.id).map(area => (
-                                        <SelectItem key={area.id} value={`a:${area.id}`} className="text-xs pl-6">
-                                          {area.name}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectGroup>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
+                          <div className="space-y-2 animate-in fade-in"><Label className="text-[9px] font-black uppercase text-slate-400">Externer Partner/Bereich</Label><Select value={externalRefId} onValueChange={setExternalRefId}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger><SelectContent><SelectItem value="none">Keine</SelectItem>{partners?.map(p => <SelectGroup key={p.id}><SelectLabel className="text-[8px] font-black uppercase py-1 bg-slate-50/50">{p.name}</SelectLabel><SelectItem value={`p:${p.id}`}>{p.name} (Zentrale)</SelectItem>{areas?.filter(a => a.partnerId === p.id).map(area => <SelectItem key={area.id} value={`a:${area.id}`} className="pl-6">{area.name}</SelectItem>)}</SelectGroup>)}</SelectContent></Select></div>
                         )}
                       </div>
                     </div>
-
-                    {/* Authentication Section (Phase 5) */}
                     <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
-                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                        <KeyRound className="w-4 h-4 text-blue-600" />
-                        <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Identitätsanbieter (Auth)</h4>
-                      </div>
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3"><KeyRound className="w-4 h-4 text-blue-600" /><h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Identitätsanbieter</h4></div>
                       <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label className="text-[9px] font-black uppercase text-slate-400">Anmeldung erfolgt über</Label>
-                          <Select value={identityProviderId} onValueChange={setIdentityProviderId}>
-                            <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm">
-                              <SelectValue placeholder="IdP wählen..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none" className="text-xs italic">Eigenständige Anmeldung / Lokal</SelectItem>
-                              <SelectItem value="self" className="text-xs font-bold text-blue-600">Dieses System ist der IdP</SelectItem>
-                              {identityProviders.filter(idp => idp.id !== selectedResource?.id).map(idp => (
-                                <SelectItem key={idp.id} value={idp.id} className="text-xs">
-                                  {idp.name} (Zentraler IdP)
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 flex items-start gap-3">
-                          <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                          <p className="text-[9px] text-blue-800 leading-relaxed italic">Wählen Sie einen Identitätsanbieter aus, um SSO-Ketten oder LDAP-Abhängigkeiten zu dokumentieren.</p>
-                        </div>
+                        <Label className="text-[9px] font-black uppercase text-slate-400">Anmeldung über</Label>
+                        <Select value={identityProviderId} onValueChange={setIdentityProviderId}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="IdP wählen..." /></SelectTrigger><SelectContent><SelectItem value="none">Direkt / Lokal</SelectItem><SelectItem value="self">Dieses System</SelectItem>{identityProviders.filter(idp => idp.id !== selectedResource?.id).map(idp => <SelectItem key={idp.id} value={idp.id}>{idp.name}</SelectItem>)}</SelectContent></Select>
                       </div>
                     </div>
-
-                    {/* Risk Owner Section (ALWAYS INTERNAL) */}
                     <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6 md:col-span-2">
-                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                        <ShieldAlert className="w-4 h-4 text-orange-600" />
-                        <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Risk Owner (Intern)</h4>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label className="text-[9px] font-black uppercase text-slate-400">Verantwortliche interne Rolle</Label>
-                          <Select value={riskOwnerRoleId} onValueChange={setRiskOwnerRoleId}>
-                            <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Keine Rolle zugewiesen</SelectItem>
-                              {jobs?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => {
-                                const dept = departments?.find(d => d.id === job.departmentId);
-                                const label = dept ? `${dept.name} — ${job.name}` : job.name;
-                                return <SelectItem key={job.id} value={job.id}>{label}</SelectItem>;
-                              })}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="p-4 bg-orange-50/50 rounded-xl border border-orange-100 flex items-start gap-3">
-                          <Info className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
-                          <p className="text-[9px] text-orange-800 leading-relaxed italic">Die Rechenschaftspflicht für Risiken muss laut GRC-Vorgabe immer intern verankert sein.</p>
-                        </div>
-                      </div>
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3"><ShieldAlert className="w-4 h-4 text-orange-600" /><h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Risk Owner (Intern)</h4></div>
+                      <div className="space-y-2"><Label className="text-[9px] font-black uppercase text-slate-400">Verantwortliche interne Rolle</Label><Select value={riskOwnerRoleId} onValueChange={setRiskOwnerRoleId}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent><SelectItem value="none">Keine</SelectItem>{jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => <SelectItem key={job.id} value={job.id}>{getFullRoleName(job.id)}</SelectItem>)}</SelectContent></Select></div>
                     </div>
                   </div>
                 </TabsContent>
               </div>
             </ScrollArea>
-
-            <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button>
-              <Button size="sm" onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-95 gap-2 uppercase">
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern
-              </Button>
-            </DialogFooter>
+            <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2"><Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] h-11 uppercase">Abbrechen</Button><Button size="sm" onClick={handleSave} disabled={isSaving || !name} className="rounded-xl h-11 px-12 bg-primary hover:bg-primary/90 text-white font-bold text-[10px] uppercase shadow-lg gap-2">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern</Button></DialogFooter>
           </Tabs>
         </DialogContent>
       </Dialog>

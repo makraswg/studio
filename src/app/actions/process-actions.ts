@@ -16,7 +16,6 @@ import { logAuditEventAction } from './audit-actions';
 /**
  * Hilfsfunktion zur Generierung einer eindeutigen ID innerhalb eines Modells.
  * Verhindert den "Duplicate ID" Fehler für Knoten und Verbindungen.
- * Erkennt auch ungültige Strings wie "undefined" oder "null".
  */
 function ensureUniqueId(requestedId: string | null | undefined, usedIds: Set<string>, prefix: string = 'node'): string {
   const idStr = String(requestedId || '').trim().toLowerCase();
@@ -45,7 +44,7 @@ function ensureUniqueId(requestedId: string | null | undefined, usedIds: Set<str
 export async function createProcessAction(
   tenantId: string, 
   title: string, 
-  ownerUserId: string,
+  ownerRoleId: string,
   dataSource: DataSource = 'mysql'
 ) {
   const processId = `proc-${Math.random().toString(36).substring(2, 9)}`;
@@ -58,7 +57,7 @@ export async function createProcessAction(
     description: '',
     openQuestions: '',
     status: 'draft',
-    ownerUserId,
+    ownerRoleId,
     currentVersion: 1,
     createdAt: now,
     updatedAt: now
@@ -83,7 +82,7 @@ export async function createProcessAction(
     model_json: initialModel,
     layout_json: initialLayout,
     revision: 0,
-    created_by_user_id: ownerUserId,
+    created_by_user_id: 'system',
     created_at: now
   };
 
@@ -136,7 +135,6 @@ export async function updateProcessMetadataAction(
 
 /**
  * Wendet Operationen auf eine Prozessversion an.
- * Behebt ID-Kollisionen und stellt globale Eindeutigkeit sicher.
  */
 export async function applyProcessOpsAction(
   processId: string,
@@ -291,17 +289,14 @@ export async function commitProcessVersionAction(
   actorUid: string,
   dataSource: DataSource = 'mysql'
 ) {
-  // 1. Holen der aktuellen (Revision > 0) und eventuellen Vorversion für Diff-Zwecke
   const versionsRes = await getCollectionData('process_versions', dataSource);
   const current = versionsRes.data?.find((v: ProcessVersion) => v.process_id === processId && v.version === versionNum);
   
   if (!current) throw new Error("Keine Version zum Speichern gefunden.");
 
-  // 2. Erzeuge Log-Nachricht basierend auf der Revision (einfache Logik für MVP)
   const timestamp = new Date().toISOString();
   const summary = `Version ${versionNum}.0 (Revision ${current.revision}) durch ${actorUid} gespeichert. Struktur-Integrität bestätigt.`;
 
-  // 3. Speichere Log-Eintrag in auditEvents
   await logAuditEventAction(dataSource, {
     tenantId: 'global',
     actorUid,
@@ -311,7 +306,6 @@ export async function commitProcessVersionAction(
     after: current.model_json
   });
 
-  // 4. Update Prozess-Stammdaten (UpdatedAt)
   await updateProcessMetadataAction(processId, { updatedAt: timestamp }, dataSource);
 
   return { success: true };

@@ -7,71 +7,35 @@ import {
   Workflow, 
   ChevronLeft, 
   Loader2, 
-  Send, 
-  Check, 
-  X, 
-  BrainCircuit, 
-  ShieldCheck,
   Save, 
   Activity, 
   RefreshCw, 
   GitBranch, 
-  AlertTriangle,
-  ChevronUp,
-  ChevronDown,
-  ClipboardList,
-  FilePen,
-  ArrowRight,
-  CheckCircle,
-  Link as LinkIcon,
-  Maximize2,
-  CircleDot,
-  ExternalLink,
-  HelpCircle,
-  MessageCircle,
-  Info,
-  Sparkles,
-  Briefcase,
-  Plus,
-  ArrowRightCircle,
-  ArrowLeftCircle,
-  Link2,
-  Share2,
-  ArrowRight as ArrowRightIcon,
   Trash2,
   Network,
   Lock,
   Unlock,
   PlusCircle,
   Zap,
-  Shield,
-  History,
-  ClipboardCheck,
+  ClipboardList,
   Building2,
-  CheckSquare,
-  Square,
-  FileEdit,
-  Tag,
-  Target,
+  CheckCircle,
   FileStack,
-  FileText,
   Upload,
-  Eye,
-  FileSearch,
   Server,
-  Layers,
-  Database,
+  Tag,
   Settings2,
-  BarChart3,
   Clock,
   ListChecks,
   AlertCircle,
   Lightbulb,
   FileCheck,
   UserCircle,
-  ChevronDoubleUp,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Info,
+  Search,
+  Briefcase
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,18 +44,18 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
 import { applyProcessOpsAction, updateProcessMetadataAction, commitProcessVersionAction } from '@/app/actions/process-actions';
-import { linkFeatureToProcessAction, unlinkFeatureFromProcessAction, saveFeatureAction } from '@/app/actions/feature-actions';
+import { linkFeatureToProcessAction, unlinkFeatureFromProcessAction } from '@/app/actions/feature-actions';
 import { saveTaskAction } from '@/app/actions/task-actions';
-import { saveMediaAction, deleteMediaAction, getMediaConfigAction } from '@/app/actions/media-actions';
+import { saveMediaAction, deleteMediaAction } from '@/app/actions/media-actions';
 import { runOcrAction } from '@/ai/flows/ocr-flow';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation, ProcessEdge, ProcessVersion, Department, RegulatoryOption, Feature, FeatureProcessLink, MediaFile, Resource, Task, PlatformUser, ProcessingActivity, DataSubjectGroup, DataCategory } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessNode, ProcessOperation, ProcessVersion, Department, RegulatoryOption, Feature, MediaFile, Resource, Task, PlatformUser, ProcessingActivity, DataSubjectGroup, DataCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -141,11 +105,10 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   });
 
   edges.forEach((edge, idx) => {
-    let edgeSafeId = String(edge.id || `edge-${idx}`);
     const sourceId = String(edge.source);
     const targetId = String(edge.target);
     if (nodes.some(n => String(n.id) === sourceId) && nodes.some(n => String(n.id) === targetId)) {
-      xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;fontColor=#000000;endArrow=block;endFill=1;curved=0;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="${edge.id || `edge-${idx}`}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;fontColor=#000000;endArrow=block;endFill=1;curved=0;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
   xml += `</root></mxGraphModel>`;
@@ -171,6 +134,7 @@ export default function ProcessDesignerPage() {
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
+  const [resSearch, setResSearch] = useState('');
   
   const [localNodeEdits, setLocalNodeEdits] = useState({ 
     id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '', type: 'step', targetProcessId: '', resourceIds: [] as string[], featureIds: [] as string[], subjectGroupIds: [] as string[], dataCategoryIds: [] as string[], predecessorIds: [] as string[], successorIds: [] as string[], customFields: {} as Record<string, string>
@@ -190,7 +154,7 @@ export default function ProcessDesignerPage() {
   const [metaTags, setMetaTags] = useState('');
   const [metaQuestions, setMetaQuestions] = useState('');
   const [metaVvtId, setMetaVvtId] = useState('');
-  const [metaOwnerId, setMetaOwnerId] = useState('');
+  const [metaOwnerRoleId, setMetaOwnerRoleId] = useState('');
 
   // Task Creation State
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
@@ -245,7 +209,7 @@ export default function ProcessDesignerPage() {
       setMetaTags(currentProcess.tags || '');
       setMetaQuestions(currentProcess.openQuestions || '');
       setMetaVvtId(currentProcess.vvtId || 'none');
-      setMetaOwnerId(currentProcess.ownerUserId || 'none');
+      setMetaOwnerRoleId(currentProcess.ownerRoleId || 'none');
     }
   }, [currentProcess]);
 
@@ -359,7 +323,7 @@ export default function ProcessDesignerPage() {
         tags: metaTags,
         openQuestions: metaQuestions,
         vvtId: metaVvtId === 'none' ? undefined : metaVvtId,
-        ownerUserId: metaOwnerId === 'none' ? undefined : metaOwnerId
+        ownerRoleId: metaOwnerRoleId === 'none' ? undefined : metaOwnerRoleId
       }, dataSource);
       if (res.success) {
         toast({ title: "Stammdaten gespeichert" });
@@ -464,13 +428,11 @@ export default function ProcessDesignerPage() {
     const nodes = currentVersion.model_json.nodes || [];
     const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : (nodes.length > 0 ? nodes[nodes.length - 1] : null);
     
-    // Auto-Inheritance
     const newNode: ProcessNode = {
       id: newId,
       type,
       title: titles[type],
       checklist: [],
-      // Inherited fields
       roleId: predecessor?.roleId || '',
       resourceIds: predecessor?.resourceIds || [],
       featureIds: featureLinks?.filter((l: any) => predecessor && l.nodeId === predecessor.id).map((l: any) => l.featureId) || [],
@@ -510,7 +472,6 @@ export default function ProcessDesignerPage() {
       }
     }];
     
-    // Sync Feature Links
     const existingLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === selectedNodeId) || [];
     const existingIds = existingLinks.map((l: any) => l.featureId);
     
@@ -538,6 +499,18 @@ export default function ProcessDesignerPage() {
       refreshFeatureLinks();
       setIsStepDialogOpen(false);
     }
+  };
+
+  const filteredResources = useMemo(() => {
+    if (!resources) return [];
+    return resources.filter(r => r.name.toLowerCase().includes(resSearch.toLowerCase()) && r.status !== 'archived');
+  }, [resources, resSearch]);
+
+  const getFullRoleName = (roleId: string) => {
+    const role = jobTitles?.find(j => j.id === roleId);
+    if (!role) return roleId;
+    const dept = departments?.find(d => d.id === role.departmentId);
+    return dept ? `${dept.name} - ${role.name}` : role.name;
   };
 
   if (!mounted) return null;
@@ -650,13 +623,13 @@ export default function ProcessDesignerPage() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Prozessverantwortlicher (Owner)</Label>
-                      <Select value={metaOwnerId} onValueChange={setMetaOwnerId}>
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Prozessverantwortlicher (Owner Rolle)</Label>
+                      <Select value={metaOwnerRoleId} onValueChange={setMetaOwnerRoleId}>
                         <SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">Nicht zugewiesen</SelectItem>
-                          {pUsers?.map(u => (
-                            <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>
+                          {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(role => (
+                            <SelectItem key={role.id} value={role.id}>{getFullRoleName(role.id)}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -750,22 +723,25 @@ export default function ProcessDesignerPage() {
                     const nodeMedia = mediaFiles?.filter(m => m.entityId === id && m.subEntityId === node.id).length || 0;
                     const nodeFeats = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id).length || 0;
                     return (
-                      <div key={node.id} className={cn("group flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer bg-white shadow-sm", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}>
+                      <div key={node.id} className={cn("group flex items-center gap-3 p-2 rounded-xl border transition-all cursor-pointer bg-white shadow-sm hover:border-primary/20", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}>
                         <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border relative", node.type === 'decision' ? "bg-amber-50 text-amber-600" : node.type === 'subprocess' ? "bg-indigo-50 text-indigo-600" : "bg-slate-50 text-slate-500")}>
                           {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : node.type === 'subprocess' ? <Network className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
                           {nodeMedia > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white rounded-full flex items-center justify-center text-[8px] font-bold border border-white">{nodeMedia}</div>}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-bold text-slate-800 truncate">{node.title}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            {node.resourceIds?.length > 0 && <span className="text-[7px] text-indigo-600 font-black uppercase">{node.resourceIds.length} Systeme</span>}
-                            {nodeFeats > 0 && <span className="text-[7px] text-sky-600 font-black uppercase">{nodeFeats} Daten</span>}
+                          <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{node.title}</p>
+                          {node.description && <p className="text-[9px] text-slate-400 truncate mt-0.5">{node.description}</p>}
+                          <div className="flex items-center gap-2 mt-1">
+                            {node.resourceIds?.length > 0 && <span className="text-[7px] text-indigo-600 font-black uppercase">{node.resourceIds.length} Sys</span>}
+                            {nodeFeats > 0 && <span className="text-[7px] text-sky-600 font-black uppercase">{nodeFeats} Dat</span>}
                           </div>
                         </div>
-                        <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100">
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleReorder(node.id, 'up'); }} disabled={index === 0}><ArrowUp className="w-3 h-3" /></Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleReorder(node.id, 'down'); }} disabled={index === (currentVersion?.model_json?.nodes?.length || 0) - 1}><ArrowDown className="w-3 h-3" /></Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}><Trash2 className="w-3 h-3" /></Button>
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
+                          <div className="flex flex-col gap-0.5">
+                            <Button variant="ghost" size="icon" className="h-5 w-5 p-0" onClick={(e) => { e.stopPropagation(); handleReorder(node.id, 'up'); }} disabled={index === 0}><ArrowUp className="w-3 h-3" /></Button>
+                            <Button variant="ghost" size="icon" className="h-5 w-5 p-0" onClick={(e) => { e.stopPropagation(); handleReorder(node.id, 'down'); }} disabled={index === (currentVersion?.model_json?.nodes?.length || 0) - 1}><ArrowDown className="w-3 h-3" /></Button>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}><Trash2 className="w-3.5 h-3.5" /></Button>
                         </div>
                       </div>
                     );
@@ -870,7 +846,17 @@ export default function ProcessDesignerPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1.5 md:col-span-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Bezeichnung</Label><Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 font-bold rounded-xl" /></div>
                     {!isReferenceNode && (
-                      <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortliche Rolle</Label><Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent>{jobTitles?.map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}</SelectContent></Select></div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortliche Rolle</Label>
+                        <Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}>
+                          <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                          <SelectContent>
+                            {jobTitles?.map(role => (
+                              <SelectItem key={role.id} value={role.id}>{getFullRoleName(role.id)}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     )}
                     {isReferenceNode && (
                       <div className="space-y-1.5 md:col-span-2">
@@ -918,13 +904,31 @@ export default function ProcessDesignerPage() {
                     </TabsContent>
 
                     <TabsContent value="resources" className="mt-0 space-y-6">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {resources?.filter(r => r.status !== 'archived').map(res => (
-                          <div key={res.id} className={cn("p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-sm group", localNodeEdits.resourceIds.includes(res.id) ? "border-indigo-500 bg-indigo-50/20" : "bg-white border-slate-100")} onClick={() => setLocalNodeEdits(prev => ({ ...prev, resourceIds: prev.resourceIds.includes(res.id) ? prev.resourceIds.filter(id => id !== res.id) : [...prev.resourceIds, res.id] }))}>
-                            <Checkbox checked={localNodeEdits.resourceIds.includes(res.id)} />
-                            <div className="min-w-0 flex-1 ml-3"><p className="text-[11px] font-bold text-slate-800 truncate">{res.name}</p><p className="text-[8px] text-slate-400 font-black uppercase">{res.assetType}</p></div>
+                      <div className="space-y-4">
+                        <div className="relative group">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                          <Input 
+                            placeholder="IT-Systeme suchen..." 
+                            value={resSearch}
+                            onChange={(e) => setResSearch(e.target.value)}
+                            className="pl-10 h-11 rounded-xl"
+                          />
+                        </div>
+                        <ScrollArea className="h-[300px] border rounded-2xl bg-slate-50/30 p-4 shadow-inner">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {filteredResources.map(res => (
+                              <div key={res.id} className={cn("p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-sm group", localNodeEdits.resourceIds.includes(res.id) ? "border-indigo-500 bg-indigo-50/20" : "bg-white border-slate-100")} onClick={() => setLocalNodeEdits(prev => ({ ...prev, resourceIds: prev.resourceIds.includes(res.id) ? prev.resourceIds.filter(id => id !== res.id) : [...prev.resourceIds, res.id] }))}>
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  <Checkbox checked={localNodeEdits.resourceIds.includes(res.id)} />
+                                  <div className="min-w-0">
+                                    <p className="text-[11px] font-bold text-slate-800 truncate">{res.name}</p>
+                                    <p className="text-[8px] text-slate-400 font-black uppercase">{res.assetType}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        </ScrollArea>
                       </div>
                     </TabsContent>
 

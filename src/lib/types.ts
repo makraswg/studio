@@ -161,11 +161,11 @@ export interface ProcessNode {
   description?: string;
   roleId?: string; 
   resourceIds?: string[];
-  featureIds?: string[]; // Added explicitly
-  subjectGroupIds?: string[]; // Added
-  dataCategoryIds?: string[]; // Added
-  predecessorIds?: string[]; // Added for logic
-  successorIds?: string[]; // Added for logic
+  featureIds?: string[]; 
+  subjectGroupIds?: string[]; 
+  dataCategoryIds?: string[]; 
+  predecessorIds?: string[]; 
+  successorIds?: string[]; 
   checklist?: string[];
   tips?: string;
   errors?: string;
@@ -214,7 +214,7 @@ export interface Process {
   openQuestions?: string; 
   regulatoryFramework?: string; 
   status: 'draft' | 'published' | 'archived';
-  ownerUserId: string;
+  ownerRoleId?: string;
   currentVersion: number;
   publishedVersion?: number;
   automationLevel?: 'manual' | 'partial' | 'full';

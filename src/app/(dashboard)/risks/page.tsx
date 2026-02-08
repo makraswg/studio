@@ -653,6 +653,7 @@ function RiskDashboardContent() {
                 </TabsContent>
               </div>
             </ScrollArea>
+          </Tabs>
 
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
             <Button variant="ghost" size="sm" onClick={() => setIsRiskDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 tracking-widest text-slate-400 hover:bg-white transition-all">Abbrechen</Button>
@@ -701,7 +702,7 @@ function RiskDashboardContent() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Priorität</Label>
-                  <Select value={taskPriority} onValueChange={(v: any) => setTaskPriority(v)}>
+                  <Select value={taskPriority} onValueChange={(v: any) => setPriority(v)}>
                     <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                     <SelectContent className="rounded-xl">
                       <SelectItem value="low" className="text-xs font-bold">Niedrig</SelectItem>

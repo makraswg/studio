@@ -85,6 +85,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { Bundle, JobTitle, Entitlement, Resource, Tenant } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { usePlatformAuth } from '@/context/auth-context';
@@ -131,7 +132,7 @@ export default function LifecyclePage() {
   const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   const { data: jobs } = usePluggableCollection<JobTitle>('jobTitles');
-  const { data: departments } = usePluggableCollection<Department>('departments');
+  const { data: departments } = usePluggableCollection<any>('departments');
 
   useEffect(() => {
     setMounted(true);
@@ -142,8 +143,8 @@ export default function LifecyclePage() {
   const sortedJobs = useMemo(() => {
     if (!jobs || !departments) return [];
     return [...jobs].sort((a, b) => {
-      const deptA = departments.find(d => d.id === a.departmentId)?.name || '';
-      const deptB = departments.find(d => d.id === b.departmentId)?.name || '';
+      const deptA = departments.find((d: any) => d.id === a.departmentId)?.name || '';
+      const deptB = departments.find((d: any) => d.id === b.departmentId)?.name || '';
       if (deptA !== deptB) return deptA.localeCompare(deptB);
       return a.name.localeCompare(b.name);
     });
@@ -152,7 +153,7 @@ export default function LifecyclePage() {
   const getFullRoleName = (jobId: string) => {
     const job = jobs?.find(j => j.id === jobId);
     if (!job) return jobId;
-    const dept = departments?.find(d => d.id === job.departmentId);
+    const dept = departments?.find((d: any) => d.id === job.departmentId);
     return dept ? `${dept.name} — ${job.name}` : job.name;
   };
 
@@ -454,7 +455,7 @@ export default function LifecyclePage() {
                               <SelectValue placeholder="Rolle wählen..." />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl">
-                              {sortedJobs?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => (
+                              {sortedJobs?.filter((j: any) => activeTenantId === 'all' || j.tenantId === activeTenantId).map((job: any) => (
                                 <SelectItem key={job.id} value={job.id} className="text-xs font-bold">
                                   {getFullRoleName(job.id)}
                                 </SelectItem>

@@ -80,6 +80,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { getRiskAdvice, RiskAdvisorOutput } from '@/ai/flows/risk-advisor-flow';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 function RiskDashboardContent() {
   const router = useRouter();
@@ -153,7 +154,6 @@ function RiskDashboardContent() {
   const { data: hMeasures } = usePluggableCollection<any>('hazardMeasures');
   const { data: hRelations } = usePluggableCollection<any>('hazardMeasureRelations');
 
-  // Unified mounting & derivation handling
   useEffect(() => { 
     setMounted(true); 
   }, []);
@@ -171,7 +171,7 @@ function RiskDashboardContent() {
         setCategory('IT-Sicherheit');
         setHazardId(hazard.id);
         setIsRiskDialogOpen(true);
-        // Silently clear the URL parameter to prevent focus jumping/loops
+        // Silently clear the URL parameter
         const url = new URL(window.location.href);
         url.searchParams.delete('derive');
         window.history.replaceState({}, '', url.toString());
@@ -306,8 +306,9 @@ function RiskDashboardContent() {
 
   const loadCatalogSuggestions = async (riskOverride?: Risk) => {
     const activeRisk = riskOverride || selectedRisk;
-    const hId = activeRisk?.hazardId;
-
+    if (!activeRisk) return;
+    
+    const hId = activeRisk.hazardId;
     if (!hId || !hMeasures || !hRelations) {
       toast({ variant: "destructive", title: "Keine Katalogdaten", description: "Dieses Risiko ist nicht mit einer Katalog-Gefährdung verknüpft." });
       return;
@@ -320,6 +321,7 @@ function RiskDashboardContent() {
       return;
     }
 
+    setSelectedRisk(activeRisk);
     const relations = hRelations.filter((r: any) => r.hazardCode === hazard.code);
     const suggestedMeasures = relations.map((rel: any) => hMeasures.find((m: any) => m.id === rel.measureId)).filter(Boolean);
     
@@ -560,6 +562,18 @@ function RiskDashboardContent() {
           </TableCell>
           <TableCell className="p-4 px-6 text-right" onClick={e => e.stopPropagation()}>
             <div className="flex justify-end items-center gap-1">
+              {risk.hazardId && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={(e) => { e.stopPropagation(); loadCatalogSuggestions(risk); }}>
+                        <Zap className="w-3.5 h-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px] font-bold">BSI Vorschläge</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => openEdit(risk)}>
                 <Pencil className="w-3.5 h-3.5 text-slate-400" />
               </Button>
@@ -584,7 +598,7 @@ function RiskDashboardContent() {
                     </>
                   )}
                   {risk.hazardId && (
-                    <DropdownMenuItem onSelect={() => { setSelectedRisk(risk); loadCatalogSuggestions(risk); }} className="rounded-lg py-2 gap-2 text-xs font-bold text-blue-600"><Zap className="w-3.5 h-3.5" /> ⚡ BSI Vorschläge laden</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => loadCatalogSuggestions(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold text-blue-600"><Zap className="w-3.5 h-3.5" /> ⚡ BSI Vorschläge laden</DropdownMenuItem>
                   )}
                   <DropdownMenuItem onSelect={() => openQuickMeasure(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold text-emerald-600"><FileCheck className="w-3.5 h-3.5" /> Maßnahme hinzufügen</DropdownMenuItem>
                   {!isSub && (
@@ -874,7 +888,7 @@ function RiskDashboardContent() {
                     <div className="flex gap-2">
                       {hazardId && (
                         <Button variant="outline" size="sm" className="h-9 rounded-xl border-emerald-200 bg-white text-emerald-700 font-black text-[9px] uppercase tracking-widest shadow-sm" onClick={() => loadCatalogSuggestions()} disabled={isCatalogLoading}>
-                          {isCatalogLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Library className="w-3.5 h-3.5 mr-2" />} ⚡ BSI Kreuztabelle (Maßnahmen)
+                          {isCatalogLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Library className="w-3.5 h-3.5 mr-2" />} ⚡ BSI Kreuztabelle
                         </Button>
                       )}
                       <Button size="sm" className="h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[9px] uppercase tracking-widest shadow-lg" onClick={() => setIsQuickMeasureOpen(true)}>
@@ -1075,7 +1089,7 @@ function RiskDashboardContent() {
               <div className="py-20 text-center space-y-6">
                 <div className="relative w-16 h-16 mx-auto">
                   <Loader2 className="w-16 h-16 animate-spin text-primary opacity-20" />
-                  <Zap className="absolute inset-0 m-auto w-7 h-7 text-primary animate-pulse" />
+                  <BrainCircuit className="absolute inset-0 m-auto w-7 h-7 text-primary animate-pulse" />
                 </div>
                 <p className="text-sm font-bold text-slate-800">KI bewertet Gefahrenlage...</p>
               </div>

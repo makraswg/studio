@@ -125,6 +125,12 @@ export default function ResourcesPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
+  const getTenantSlug = (id?: string | null) => {
+    if (!id || id === 'all' || id === 'global') return 'alle Standorte';
+    const tenant = tenants?.find((t: any) => t.id === id);
+    return tenant ? tenant.slug : id;
+  };
+
   const suggestedCompliance = useMemo(() => {
     if (!selectedResource || !processes || !versions || !features || !featureLinks) return null;
 
@@ -326,8 +332,8 @@ export default function ResourcesPage() {
           </div>
           <div>
             <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-wider">Resource Catalog</Badge>
-            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">IT-Inventar</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung der IT-Assets für {activeTenantId === 'all' ? 'alle Standorte' : activeTenantId}.</p>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Ressourcenkatalog</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung der IT-Assets für {getTenantSlug(activeTenantId)}.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">

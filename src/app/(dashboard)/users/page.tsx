@@ -29,7 +29,9 @@ import {
   AlertTriangle,
   Zap,
   CheckCircle2,
-  Briefcase
+  Briefcase,
+  Eye,
+  ArrowRight
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -301,14 +303,14 @@ export default function UsersPage() {
                 const drift = calculateDrift(u);
                 
                 return (
-                  <TableRow key={u.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0">
+                  <TableRow key={u.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/users/${u.id}`)}>
                     <TableCell className="py-4 px-6">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center text-primary font-bold text-xs border">
                           {u.displayName?.charAt(0)}
                         </div>
                         <div>
-                          <div className="font-bold text-sm text-slate-800">{u.displayName}</div>
+                          <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{u.displayName}</div>
                           <div className="text-[10px] text-slate-400 font-medium flex items-center gap-1.5 mt-0.5">
                             <Mail className="w-3 h-3" /> {u.email}
                           </div>
@@ -354,14 +356,18 @@ export default function UsersPage() {
                         {isEnabled ? "Aktiv" : "Inaktiv"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right px-6">
+                    <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end items-center gap-1.5">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => router.push(`/users/${u.id}`)}>
+                          <Eye className="w-3.5 h-3.5 text-primary" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => openEdit(u)}>
                           <Pencil className="w-3.5 h-3.5 text-slate-400" />
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-56 rounded-lg p-1 shadow-xl border">
+                            <DropdownMenuItem onSelect={() => router.push(`/users/${u.id}`)} className="rounded-md py-2 gap-2 text-xs font-bold"><Eye className="w-3.5 h-3.5 text-primary" /> Profil ansehen</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => openEdit(u)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
                             <DropdownMenuItem className="text-indigo-600 rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => router.push(`/reviews?search=${u.displayName}`)}><Zap className="w-3.5 h-3.5" /> Review anstoßen</DropdownMenuItem>
                           </DropdownMenuContent>

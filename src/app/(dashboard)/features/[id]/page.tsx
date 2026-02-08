@@ -33,7 +33,10 @@ import {
   GitBranch,
   X,
   Scale,
-  CheckCircle
+  CheckCircle,
+  ClipboardList,
+  Target,
+  MessageSquare
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,7 +46,7 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { 
   Feature, FeatureLink, FeatureDependency, Process, Resource, Risk, RiskMeasure, 
-  Department, JobTitle, FeatureProcessLink, UsageTypeOption 
+  Department, JobTitle, FeatureProcessLink, UsageTypeOption, ProcessVersion, Task
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -52,37 +55,42 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { linkFeatureToProcessAction, unlinkFeatureFromProcessAction } from '@/app/actions/feature-actions';
+import { saveTaskAction } from '@/app/actions/task-actions';
+import { usePlatformAuth } from '@/context/auth-context';
 
 export default function FeatureDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { user } = usePlatformAuth();
   const { dataSource, activeTenantId } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
 
   // Link Form State
   const [selectedProcessId, setSelectedProcessId] = useState('');
+  const [selectedNodeId, setSelectedNodeId] = useState('');
   const [selectedUsageType, setSelectedUsageType] = useState('');
   const [selectedCriticality, setSelectedCriticality] = useState<'low' | 'medium' | 'high'>('low');
 
   const { data: features, isLoading: isFeatLoading, refresh: refreshFeature } = usePluggableCollection<Feature>('features');
-  const { data: processLinks, refresh: refreshProcLinks } = usePluggableCollection<FeatureProcessLink>('feature_processes');
+  const { data: processLinks, refresh: refreshProcLinks } = usePluggableCollection<any>('feature_process_steps');
   const { data: links, refresh: refreshLinks } = usePluggableCollection<FeatureLink>('feature_links');
   const { data: dependencies, refresh: refreshDeps } = usePluggableCollection<FeatureDependency>('feature_dependencies');
   const { data: processes } = usePluggableCollection<Process>('processes');
-  const { data: resources } = usePluggableCollection<Resource>('resources');
+  const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
   const { data: risks } = usePluggableCollection<Risk>('risks');
   const { data: measures } = usePluggableCollection<RiskMeasure>('riskMeasures');
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: usageTypes } = usePluggableCollection<UsageTypeOption>('usage_type_options');
+  const { data: tasks, refresh: refreshTasks } = usePluggableCollection<Task>('tasks');
 
   useEffect(() => { setMounted(true); }, []);
 
   const feature = useMemo(() => features?.find(f => f.id === id), [features, id]);
-  const relatedProcLinks = useMemo(() => processLinks?.filter(l => l.featureId === id) || [], [processLinks, id]);
+  const relatedProcLinks = useMemo(() => processLinks?.filter((l: any) => l.featureId === id) || [], [processLinks, id]);
   const relatedLinks = useMemo(() => links?.filter(l => l.featureId === id) || [], [links, id]);
-  const relatedDeps = useMemo(() => dependencies?.filter(d => d.featureId === id || d.dependentFeatureId === id) || [], [dependencies, id]);
+  const relatedTasks = useMemo(() => tasks?.filter(t => t.entityId === id && t.entityType === 'feature') || [], [tasks, id]);
 
   const linkedRisks = useMemo(() => relatedLinks.filter(l => l.targetType === 'risk').map(l => risks?.find(r => r.id === l.targetId)).filter(Boolean), [relatedLinks, risks]);
   const mitigatingMeasures = useMemo(() => {
@@ -91,19 +99,24 @@ export default function FeatureDetailPage() {
   }, [linkedRisks, measures]);
 
   const handleLinkProcess = async () => {
-    if (!selectedProcessId || !selectedUsageType) return;
+    if (!selectedProcessId || !selectedUsageType || !selectedNodeId) {
+      toast({ variant: "destructive", title: "Fehler", description: "Prozess, Arbeitsschritt und Nutzungstyp sind erforderlich." });
+      return;
+    }
     setIsLinking(true);
     try {
       await linkFeatureToProcessAction({
         featureId: id as string,
         processId: selectedProcessId,
+        nodeId: selectedNodeId,
         usageType: selectedUsageType,
         criticality: selectedCriticality
-      }, dataSource);
-      toast({ title: "Prozess verknüpft" });
+      } as any, dataSource);
+      toast({ title: "Prozessschritt verknüpft" });
       refreshProcLinks();
       refreshFeature();
       setSelectedProcessId('');
+      setSelectedNodeId('');
     } finally {
       setIsLinking(false);
     }
@@ -115,6 +128,12 @@ export default function FeatureDetailPage() {
     refreshProcLinks();
     refreshFeature();
   };
+
+  const currentProcessNodes = useMemo(() => {
+    if (!selectedProcessId || !versions) return [];
+    const ver = versions.find(v => v.process_id === selectedProcessId);
+    return ver?.model_json?.nodes?.filter(n => n.type === 'step') || [];
+  }, [selectedProcessId, versions]);
 
   if (!mounted) return null;
 
@@ -129,21 +148,6 @@ export default function FeatureDetailPage() {
   const dept = departments?.find(d => d.id === feature.deptId);
   const owner = jobTitles?.find(j => j.id === feature.ownerId);
 
-  const MatrixItem = ({ label, checked }: { label: string, checked: boolean }) => (
-    <div className={cn(
-      "flex items-center gap-3 p-3 rounded-xl border transition-all",
-      checked ? "bg-primary/5 border-primary/20" : "bg-slate-50/50 border-slate-100 opacity-50"
-    )}>
-      <div className={cn(
-        "w-5 h-5 rounded-md flex items-center justify-center border",
-        checked ? "bg-primary text-white border-primary" : "bg-white border-slate-200"
-      )}>
-        {checked && <CheckCircle className="w-3.5 h-3.5" />}
-      </div>
-      <span className={cn("text-[11px] font-bold", checked ? "text-slate-900" : "text-slate-400")}>{label}</span>
-    </div>
-  );
-
   return (
     <div className="space-y-6 pb-20">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
@@ -156,15 +160,27 @@ export default function FeatureDetailPage() {
               <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">{feature.name}</h1>
               <Badge className={cn(
                 "rounded-full px-2 h-5 text-[9px] font-black uppercase tracking-widest border-none shadow-sm",
-                feature.status === 'active' ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"
+                feature.status === 'active' ? "bg-emerald-50 text-emerald-700" : feature.status === 'open_questions' ? "bg-amber-50 text-amber-700" : "bg-blue-50 text-blue-700"
               )}>{feature.status.replace('_', ' ')}</Badge>
             </div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Träger: {feature.carrier}</p>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs" onClick={() => router.push(`/features`)}>
-            <Activity className="w-3.5 h-3.5 mr-2" /> Alle Merkmale
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs" onClick={() => {
+            saveTaskAction({
+              tenantId: feature.tenantId,
+              title: `Überprüfung Merkmal: ${feature.name}`,
+              description: `Fachliche Prüfung der Definition und Nutzungskontexte erforderlich.`,
+              entityType: 'feature',
+              entityId: feature.id,
+              assigneeId: user?.id || ''
+            }, dataSource, user?.email || 'system').then(() => {
+              toast({ title: "Prüfungs-Aufgabe erstellt" });
+              refreshTasks();
+            });
+          }}>
+            <ClipboardList className="w-3.5 h-3.5 mr-2" /> Aufgabe erstellen
           </Button>
           <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6">
             <Zap className="w-3.5 h-3.5 mr-2" /> KI Audit
@@ -197,7 +213,7 @@ export default function FeatureDetailPage() {
               <Separator />
               
               <div className="space-y-3">
-                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Punktematrix Ergebnis</p>
+                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Bewertungsergebnis</p>
                 <div className={cn(
                   "p-4 rounded-2xl border flex items-center justify-between shadow-sm transition-all",
                   feature.criticality === 'high' ? "bg-red-50 border-red-100 text-red-700" : 
@@ -206,7 +222,7 @@ export default function FeatureDetailPage() {
                 )}>
                   <div className="flex flex-col">
                     <span className="text-[10px] font-black uppercase">{feature.criticality} ({feature.criticalityScore} Pkt.)</span>
-                    <span className="text-[8px] font-bold opacity-70 italic">Strukturierte Bewertung</span>
+                    <span className="text-[8px] font-bold opacity-70 italic">Matrix Score</span>
                   </div>
                   <AlertTriangle className="w-5 h-5" />
                 </div>
@@ -214,26 +230,36 @@ export default function FeatureDetailPage() {
             </CardContent>
           </Card>
 
-          {feature.isComplianceRelevant && (
-            <Card className="rounded-2xl border-none bg-emerald-600 text-white shadow-lg">
-              <CardContent className="p-5 space-y-3 text-center">
-                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center mx-auto shadow-inner"><ShieldCheck className="w-5 h-5" /></div>
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest opacity-80">Compliance Status</p>
-                  <p className="text-base font-headline font-bold">RELEVANT</p>
+          <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
+            <CardHeader className="bg-indigo-50/50 border-b p-4 px-6">
+              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Aktive Aufgaben</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              {relatedTasks.filter(t => t.status !== 'done').map(t => (
+                <div key={t.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:border-indigo-300 transition-all" onClick={() => router.push('/tasks')}>
+                  <p className="text-[11px] font-bold text-slate-800 line-clamp-1">{t.title}</p>
+                  <div className="flex items-center justify-between mt-1.5">
+                    <Badge className="bg-indigo-600 text-white border-none rounded-full text-[7px] font-black px-1.5 h-3.5">{t.status}</Badge>
+                    <span className="text-[8px] font-bold text-slate-400 italic">{t.dueDate || 'Keine Frist'}</span>
+                  </div>
                 </div>
-                <p className="text-[9px] italic opacity-70">Dieses Merkmal unterliegt speziellen regulatorischen Kontrollen.</p>
-              </CardContent>
-            </Card>
-          )}
+              ))}
+              {relatedTasks.filter(t => t.status !== 'done').length === 0 && (
+                <div className="text-center py-6 opacity-30">
+                  <CheckCircle className="w-8 h-8 mx-auto mb-2" />
+                  <p className="text-[9px] font-bold uppercase">Keine offenen Tasks</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </aside>
 
         <div className="lg:col-span-3">
           <Tabs defaultValue="overview" className="space-y-6">
             <TabsList className="bg-slate-100 p-1 h-11 rounded-xl border w-full justify-start gap-1">
               <TabsTrigger value="overview" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><Info className="w-3.5 h-3.5" /> Überblick</TabsTrigger>
-              <TabsTrigger value="matrix" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><Scale className="w-3.5 h-3.5" /> Kritikalitäts-Matrix</TabsTrigger>
-              <TabsTrigger value="context" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><GitBranch className="w-3.5 h-3.5" /> Nutzungskontext</TabsTrigger>
+              <TabsTrigger value="context" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><GitBranch className="w-3.5 h-3.5" /> Prozess-Kontext</TabsTrigger>
+              <TabsTrigger value="tasks" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><ClipboardList className="w-3.5 h-3.5" /> Aufgaben</TabsTrigger>
               <TabsTrigger value="impact" className="rounded-lg px-6 gap-2 text-[11px] font-bold text-primary data-[state=active]:bg-white data-[state=active]:shadow-sm"><Zap className="w-3.5 h-3.5" /> Impact-Analyse</TabsTrigger>
             </TabsList>
 
@@ -254,62 +280,6 @@ export default function FeatureDetailPage() {
                     <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Zweck der Erfassung</Label>
                     <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium">{feature.purpose || 'Der Zweck wurde noch nicht explizit dokumentiert.'}</p>
                   </div>
-                  <Separator />
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-3">
-                      <Label className="text-[9px] font-black uppercase text-primary tracking-widest">Pflegehinweise & Qualität</Label>
-                      <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 shadow-inner">
-                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed italic">{feature.maintenanceNotes || 'Keine spezifischen Pflegehinweise vorhanden.'}</p>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Gültigkeit</Label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800 text-center shadow-sm">
-                          <p className="text-[8px] font-bold text-slate-400 uppercase">Gültig ab</p>
-                          <p className="text-xs font-bold">{feature.validFrom || 'Sofort'}</p>
-                        </div>
-                        <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800 text-center shadow-sm">
-                          <p className="text-[8px] font-bold text-slate-400 uppercase">Gültig bis</p>
-                          <p className="text-xs font-bold">{feature.validUntil || '∞'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="matrix" className="space-y-6 animate-in fade-in duration-500">
-              <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-slate-50/50 border-b p-6">
-                  <div className="flex items-center gap-3">
-                    <Activity className="w-5 h-5 text-indigo-600" />
-                    <div>
-                      <CardTitle className="text-sm font-bold">Punktematrix Bewertung</CardTitle>
-                      <CardDescription className="text-[10px] font-bold">Auditfähige Dokumentation der Kritikalitäts-Faktoren.</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <MatrixItem label="Fehler wirkt finanziell (z. B. Abrechnung)" checked={!!feature.matrixFinancial} />
-                    <MatrixItem label="Fehler wirkt vertraglich oder rechtlich" checked={!!feature.matrixLegal} />
-                    <MatrixItem label="Fehler wirkt extern (Kunde, Partner, Behörde)" checked={!!feature.matrixExternal} />
-                    <MatrixItem label="Fehler ist nicht leicht korrigierbar" checked={!!feature.matrixHardToCorrect} />
-                    <MatrixItem label="Merkmal fließt in automatisierte Entscheidungen" checked={!!feature.matrixAutomatedDecision} />
-                    <MatrixItem label="Merkmal fließt in langfristige Planung" checked={!!feature.matrixPlanning} />
-                  </div>
-                  <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between shadow-inner">
-                    <div>
-                      <p className="text-sm font-bold text-slate-800">Ermitteltes Schutzniveau</p>
-                      <p className="text-[10px] text-slate-500 font-medium">Basiert auf {feature.criticalityScore} erfüllten Kriterien.</p>
-                    </div>
-                    <Badge className={cn(
-                      "rounded-full px-6 h-10 text-sm font-black uppercase border-none shadow-lg",
-                      feature.criticality === 'high' ? "bg-red-600 text-white" : feature.criticality === 'medium' ? "bg-orange-500 text-white" : "bg-emerald-600 text-white"
-                    )}>{feature.criticality?.toUpperCase()}</Badge>
-                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -321,22 +291,25 @@ export default function FeatureDetailPage() {
                     <div className="flex items-center gap-3">
                       <Workflow className="w-5 h-5 text-indigo-600" />
                       <div>
-                        <CardTitle className="text-sm font-bold">Zugeordnete Geschäftsprozesse</CardTitle>
-                        <CardDescription className="text-[10px] font-bold">Nutzungskontext und operative Relevanz.</CardDescription>
+                        <CardTitle className="text-sm font-bold">Zugeordnete Prozessschritte</CardTitle>
+                        <CardDescription className="text-[10px] font-bold">Verwendung in operativen Abläufen.</CardDescription>
                       </div>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="grid grid-cols-1 gap-4">
-                    {relatedProcLinks.map(link => {
+                    {relatedProcLinks.map((link: any) => {
                       const proc = processes?.find(p => p.id === link.processId);
+                      const ver = versions?.find(v => v.process_id === link.processId);
+                      const node = ver?.model_json?.nodes?.find(n => n.id === link.nodeId);
                       return (
                         <div key={link.id} className="flex items-center justify-between p-4 bg-white border rounded-xl shadow-sm hover:border-indigo-300 transition-all group">
                           <div className="flex items-center gap-4 flex-1">
                             <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-inner"><Workflow className="w-5 h-5" /></div>
                             <div className="min-w-0">
-                              <p className="text-sm font-bold text-slate-800 truncate">{proc?.title || 'Unbekannter Prozess'}</p>
+                              <p className="text-xs font-black uppercase text-slate-400 tracking-widest">{proc?.title || 'Prozess'}</p>
+                              <p className="text-sm font-bold text-slate-800 truncate">{node?.title || 'Unbekannter Schritt'}</p>
                               <div className="flex items-center gap-2 mt-1">
                                 <Badge variant="outline" className="text-[8px] font-black uppercase border-indigo-100 text-indigo-600">{link.usageType}</Badge>
                                 <Badge className={cn(
@@ -354,33 +327,98 @@ export default function FeatureDetailPage() {
                     })}
 
                     <div className="p-6 border-2 border-dashed rounded-2xl bg-slate-50/50 space-y-4">
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Neuen Prozess-Kontext hinzufügen</p>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Select value={selectedProcessId} onValueChange={setSelectedProcessId}>
-                          <SelectTrigger className="rounded-xl h-10 border-slate-200 bg-white"><SelectValue placeholder="Prozess..." /></SelectTrigger>
-                          <SelectContent>
-                            {processes?.filter(p => activeTenantId === 'all' || p.tenantId === activeTenantId).map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        <Select value={selectedUsageType} onValueChange={setSelectedUsageType}>
-                          <SelectTrigger className="rounded-xl h-10 border-slate-200 bg-white"><SelectValue placeholder="Nutzungstyp..." /></SelectTrigger>
-                          <SelectContent>
-                            {usageTypes?.filter(o => o.enabled).map(opt => <SelectItem key={opt.id} value={opt.name}>{opt.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        <Select value={selectedCriticality} onValueChange={(v: any) => setSelectedCriticality(v)}>
-                          <SelectTrigger className="rounded-xl h-10 border-slate-200 bg-white"><SelectValue placeholder="Kritikalität..." /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="low">Niedrig</SelectItem>
-                            <SelectItem value="medium">Mittel</SelectItem>
-                            <SelectItem value="high">Hoch</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Arbeitsschritt verknüpfen</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-black uppercase text-slate-400">1. Prozess wählen</Label>
+                          <Select value={selectedProcessId} onValueChange={(val) => { setSelectedProcessId(val); setSelectedNodeId(''); }}>
+                            <SelectTrigger className="rounded-xl h-10 border-slate-200 bg-white"><SelectValue placeholder="Prozess..." /></SelectTrigger>
+                            <SelectContent>
+                              {processes?.filter(p => activeTenantId === 'all' || p.tenantId === activeTenantId).map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-black uppercase text-slate-400">2. Arbeitsschritt wählen</Label>
+                          <Select value={selectedNodeId} onValueChange={setSelectedNodeId} disabled={!selectedProcessId}>
+                            <SelectTrigger className="rounded-xl h-10 border-slate-200 bg-white"><SelectValue placeholder="Schritt..." /></SelectTrigger>
+                            <SelectContent>
+                              {currentProcessNodes.map(n => <SelectItem key={n.id} value={n.id}>{n.title}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-black uppercase text-slate-400">3. Nutzungstyp</Label>
+                          <Select value={selectedUsageType} onValueChange={setSelectedUsageType}>
+                            <SelectTrigger className="rounded-xl h-10 border-slate-200 bg-white"><SelectValue placeholder="Nutzungstyp..." /></SelectTrigger>
+                            <SelectContent>
+                              {usageTypes?.filter(o => o.enabled).map(opt => <SelectItem key={opt.id} value={opt.name}>{opt.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-black uppercase text-slate-400">4. Kritikalität</Label>
+                          <Select value={selectedCriticality} onValueChange={(v: any) => setSelectedCriticality(v)}>
+                            <SelectTrigger className="rounded-xl h-10 border-slate-200 bg-white"><SelectValue placeholder="Kritikalität..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="low">Niedrig</SelectItem>
+                              <SelectItem value="medium">Mittel</SelectItem>
+                              <SelectItem value="high">Hoch</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
-                      <Button className="w-full rounded-xl h-10 font-bold text-xs gap-2 shadow-lg" onClick={handleLinkProcess} disabled={isLinking || !selectedProcessId || !selectedUsageType}>
-                        {isLinking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Kontext hinzufügen
+                      <Button className="w-full rounded-xl h-10 font-bold text-xs gap-2 shadow-lg" onClick={handleLinkProcess} disabled={isLinking || !selectedProcessId || !selectedNodeId || !selectedUsageType}>
+                        {isLinking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Verknüpfung erstellen
                       </Button>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="tasks" className="space-y-6 animate-in fade-in duration-500">
+              <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
+                <CardHeader className="bg-slate-50/50 border-b p-6 flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <ClipboardList className="w-5 h-5 text-indigo-600" />
+                    <div>
+                      <CardTitle className="text-sm font-bold">Verknüpfte Aufgaben</CardTitle>
+                      <CardDescription className="text-[10px] font-bold uppercase tracking-widest">Maßnahmen und Klärungsbedarfe</CardDescription>
+                    </div>
+                  </div>
+                  <Button size="sm" variant="outline" className="h-8 rounded-lg text-[10px] font-black uppercase gap-2" onClick={() => router.push('/tasks')}>
+                    Alle Aufgaben <ArrowRight className="w-3 h-3" />
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-1 gap-3">
+                    {relatedTasks.map(t => (
+                      <div key={t.id} className="flex items-center justify-between p-4 bg-white border rounded-xl hover:border-indigo-300 transition-all cursor-pointer group" onClick={() => router.push('/tasks')}>
+                        <div className="flex items-center gap-4">
+                          <div className={cn(
+                            "w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm",
+                            t.status === 'done' ? "bg-emerald-500" : t.priority === 'critical' ? "bg-red-600" : "bg-indigo-600"
+                          )}>
+                            <ClipboardList className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-800">{t.title}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 border-slate-200">{t.status}</Badge>
+                              <span className="text-[9px] text-slate-400 font-medium">Zugeordnet: {t.assigneeId ? 'Verantwortlicher' : 'Offen'}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
+                      </div>
+                    ))}
+                    {relatedTasks.length === 0 && (
+                      <div className="py-12 text-center border-2 border-dashed rounded-2xl opacity-30">
+                        <CheckCircle className="w-10 h-10 mx-auto mb-3" />
+                        <p className="text-xs font-bold uppercase">Keine Aufgaben verknüpft</p>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -436,32 +474,6 @@ export default function FeatureDetailPage() {
                         ))}
                         {mitigatingMeasures.length === 0 && <p className="text-[11px] text-slate-500 italic">Keine aktiven Kontrollen für dieses Merkmal.</p>}
                       </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    <h4 className="text-xs font-black uppercase text-slate-900 dark:text-white tracking-widest border-b pb-2">Abhängigkeiten zwischen Merkmalen</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {relatedDeps.map(d => {
-                        const isMain = d.featureId === id;
-                        const otherId = isMain ? d.dependentFeatureId : d.featureId;
-                        const otherFeat = features?.find(f => f.id === otherId);
-                        return (
-                          <div key={d.id} className="p-4 border rounded-2xl bg-white dark:bg-slate-950 shadow-sm flex items-start gap-4 group hover:border-primary transition-all">
-                            <div className={cn(
-                              "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border shadow-inner",
-                              isMain ? "bg-blue-50 text-blue-600" : "bg-indigo-50 text-indigo-600"
-                            )}>
-                              {isMain ? <ArrowRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[10px] font-black uppercase text-slate-400">{d.type}</p>
-                              <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{otherFeat?.name || 'Unbekannt'}</p>
-                              <p className="text-[10px] text-slate-500 italic mt-1 line-clamp-2">{d.description}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
                     </div>
                   </div>
                 </CardContent>

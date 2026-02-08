@@ -70,6 +70,34 @@ export const appSchema: AppSchema = {
       authSource: 'VARCHAR(20) DEFAULT "local"',
     },
   },
+  // Task Management
+  tasks: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      title: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      status: 'VARCHAR(50) DEFAULT "todo"',
+      priority: 'VARCHAR(50) DEFAULT "medium"',
+      assigneeId: 'VARCHAR(255)',
+      creatorId: 'VARCHAR(255)',
+      entityType: 'VARCHAR(50)', // feature, process, risk, measure, resource, role
+      entityId: 'VARCHAR(255)',
+      dueDate: 'VARCHAR(50)',
+      createdAt: 'VARCHAR(50) NOT NULL',
+      updatedAt: 'VARCHAR(50) NOT NULL',
+    }
+  },
+  task_comments: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      taskId: 'VARCHAR(255) NOT NULL',
+      userId: 'VARCHAR(255) NOT NULL',
+      userName: 'VARCHAR(255)',
+      text: 'TEXT NOT NULL',
+      createdAt: 'VARCHAR(50) NOT NULL',
+    }
+  },
   // Feature Management Tables
   features: {
     columns: {
@@ -101,11 +129,12 @@ export const appSchema: AppSchema = {
       updatedAt: 'VARCHAR(50) NOT NULL',
     }
   },
-  feature_processes: {
+  feature_process_steps: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
       featureId: 'VARCHAR(255) NOT NULL',
       processId: 'VARCHAR(255) NOT NULL',
+      nodeId: 'VARCHAR(255) NOT NULL',
       usageType: 'VARCHAR(100)',
       criticality: 'VARCHAR(20) DEFAULT "low"',
     }

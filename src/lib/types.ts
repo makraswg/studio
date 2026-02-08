@@ -53,6 +53,31 @@ export interface User {
   adGroups?: string[];
 }
 
+export interface Task {
+  id: string;
+  tenantId: string;
+  title: string;
+  description: string;
+  status: 'todo' | 'in_progress' | 'done' | 'archived';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  assigneeId: string; // PlatformUser ID
+  creatorId: string; // PlatformUser ID
+  entityType?: 'feature' | 'process' | 'risk' | 'measure' | 'resource' | 'role' | 'assignment';
+  entityId?: string;
+  dueDate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  userId: string;
+  userName: string;
+  text: string;
+  createdAt: string;
+}
+
 export interface PlatformRole {
   id: string;
   name: string;
@@ -201,6 +226,15 @@ export interface Feature {
   changeReason?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface FeatureProcessStep {
+  id: string;
+  featureId: string;
+  processId: string;
+  nodeId: string;
+  usageType: string;
+  criticality: 'low' | 'medium' | 'high';
 }
 
 export interface FeatureProcessLink {

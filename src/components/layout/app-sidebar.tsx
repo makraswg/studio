@@ -41,7 +41,8 @@ import {
   Search,
   Zap,
   Info,
-  ListFilter
+  ListFilter,
+  ClipboardList
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -123,6 +124,7 @@ export function AppSidebar() {
 
   const coreItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Aufgaben-Board', href: '/tasks', icon: ClipboardList },
     { name: 'Organisation & Struktur', href: '/settings/organization', icon: Building2 },
     { name: 'Ressourcenkatalog', href: '/resources', icon: Layers },
     { name: 'Audit Log', href: '/audit', icon: Activity },

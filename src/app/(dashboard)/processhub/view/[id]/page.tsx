@@ -43,7 +43,11 @@ import {
   FileText,
   FileEdit,
   ArrowRightCircle,
-  Tag
+  Tag,
+  Zap,
+  CheckCircle2,
+  HelpCircle,
+  Target
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -53,9 +57,11 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, ProcessNode, Tenant, Department, RegulatoryOption, Feature } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { calculateProcessMaturity } from '@/lib/process-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
 import { exportDetailedProcessPdf } from '@/lib/export-utils';
 import {
   DropdownMenu,
@@ -135,6 +141,7 @@ export default function ProcessDetailViewPage() {
   const { data: auditLogs } = usePluggableCollection<any>('auditEvents');
   const { data: featureLinks } = usePluggableCollection<any>('feature_process_steps');
   const { data: allFeatures } = usePluggableCollection<Feature>('features');
+  const { data: media } = usePluggableCollection<any>('media');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const allProcessVersions = useMemo(() => 
@@ -153,6 +160,12 @@ export default function ProcessDetailViewPage() {
     const featureIds = [...new Set(links.map((l: any) => l.featureId))];
     return featureIds.map(fid => allFeatures?.find(f => f.id === fid)).filter(Boolean);
   }, [featureLinks, id, allFeatures]);
+
+  const maturity = useMemo(() => {
+    if (!currentProcess || !activeVersion) return null;
+    const pMedia = media?.filter((m: any) => m.entityId === id).length || 0;
+    return calculateProcessMaturity(currentProcess, activeVersion, pMedia);
+  }, [currentProcess, activeVersion, media, id]);
 
   const currentTenant = useMemo(() => tenants?.find(t => t.id === currentProcess?.tenantId), [tenants, currentProcess]);
   const currentDept = useMemo(() => departments?.find(d => d.id === currentProcess?.responsibleDepartmentId), [departments, currentProcess]);
@@ -214,6 +227,53 @@ export default function ProcessDetailViewPage() {
         <aside className="w-96 border-r bg-white flex flex-col shrink-0 hidden lg:flex">
           <ScrollArea className="flex-1">
             <div className="p-8 space-y-10">
+              {/* Maturity Section */}
+              {maturity && (
+                <section className="space-y-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2">
+                    <Zap className="w-3.5 h-3.5 fill-current" /> Maturity Center
+                  </h3>
+                  <Card className="rounded-2xl border-none bg-slate-900 text-white shadow-xl overflow-hidden p-6 space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-primary">Reifegrad Level {maturity.level}</p>
+                        <h4 className="text-xl font-headline font-black">{maturity.levelLabel}</h4>
+                      </div>
+                      <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-primary border border-white/10">
+                        <Activity className="w-6 h-6" />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest">
+                        <span className="text-slate-400">Gesamt-Score</span>
+                        <span className="text-primary">{maturity.totalPercent}%</span>
+                      </div>
+                      <Progress value={maturity.totalPercent} className="h-2 rounded-full bg-white/5" />
+                    </div>
+
+                    <div className="space-y-3 pt-4 border-t border-white/5">
+                      {maturity.dimensions.map(dim => (
+                        <div key={dim.name} className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {dim.status === 'complete' ? (
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              ) : (
+                                <HelpCircle className="w-3 h-3 text-slate-500" />
+                              )}
+                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">{dim.name}</span>
+                            </div>
+                            <span className="text-[9px] font-bold text-slate-500">{dim.score}/{dim.maxScore}</span>
+                          </div>
+                          <Progress value={(dim.score / dim.maxScore) * 100} className="h-1 rounded-full bg-white/5" />
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                </section>
+              )}
+
               <section className="space-y-4">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Stammdaten</h3>
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-4 shadow-inner">

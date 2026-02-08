@@ -485,6 +485,7 @@ export const appSchema: AppSchema = {
       availabilityReq: 'VARCHAR(50)',
       hasPersonalData: 'BOOLEAN DEFAULT FALSE',
       hasSpecialCategoryData: 'BOOLEAN DEFAULT FALSE',
+      isDataRepository: 'BOOLEAN DEFAULT FALSE',
       affectedGroups: 'TEXT',
       processingPurpose: 'TEXT',
       dataLocation: 'VARCHAR(255)',

@@ -33,7 +33,8 @@ import {
   Trash2,
   FileEdit,
   Activity,
-  Info
+  Info,
+  HardDrive
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -66,6 +67,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function ResourcesPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -90,6 +92,7 @@ export default function ResourcesPage() {
   const [integrityReq, setIntegrityReq] = useState<Resource['integrityReq']>('medium');
   const [availabilityReq, setAvailabilityReq] = useState<Resource['availabilityReq']>('medium');
   const [hasPersonalData, setHasPersonalData] = useState(false);
+  const [isDataRepository, setIsDataRepository] = useState(false);
   const [processingPurpose, setProcessingPurpose] = useState('');
   const [dataLocation, setDataLocation] = useState('');
   const [systemOwner, setSystemOwner] = useState('');
@@ -102,11 +105,12 @@ export default function ResourcesPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  const getTenantSlug = (id?: string | null) => {
-    if (!id || id === 'global' || id === 'all') return 'global';
-    const tenant = tenants?.find(t => t.id === id);
-    return tenant ? tenant.slug : id;
-  };
+  const activeTenant = useMemo(() => {
+    if (activeTenantId === 'all') return null;
+    return tenants?.find(t => t.id === activeTenantId);
+  }, [tenants, activeTenantId]);
+
+  const currentTenantName = activeTenant ? activeTenant.name : 'alle Standorte';
 
   const resetForm = () => {
     setSelectedResource(null);
@@ -120,6 +124,7 @@ export default function ResourcesPage() {
     setIntegrityReq('medium');
     setAvailabilityReq('medium');
     setHasPersonalData(false);
+    setIsDataRepository(false);
     setProcessingPurpose('');
     setDataLocation('');
     setSystemOwner('');
@@ -151,6 +156,7 @@ export default function ResourcesPage() {
       integrityReq,
       availabilityReq,
       hasPersonalData,
+      isDataRepository,
       processingPurpose,
       dataLocation,
       systemOwner,
@@ -186,6 +192,7 @@ export default function ResourcesPage() {
     setIntegrityReq(res.integrityReq || 'medium');
     setAvailabilityReq(res.availabilityReq || 'medium');
     setHasPersonalData(!!res.hasPersonalData);
+    setIsDataRepository(!!res.isDataRepository);
     setProcessingPurpose(res.processingPurpose || '');
     setDataLocation(res.dataLocation || '');
     setSystemOwner(res.systemOwner || '');
@@ -227,7 +234,7 @@ export default function ResourcesPage() {
           <div>
             <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-wider">Plattform Core</Badge>
             <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Ressourcenkatalog</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">IT-Inventar für {activeTenantId === 'all' ? 'alle Standorte' : getTenantSlug(activeTenantId)}.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">IT-Inventar für {currentTenantName}.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -238,9 +245,27 @@ export default function ResourcesPage() {
             {showArchived ? <RotateCcw className="w-3.5 h-3.5 mr-2" /> : <Archive className="w-3.5 h-3.5 mr-2" />}
             {showArchived ? 'Aktiv' : 'Archiv'}
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-lg active:scale-95 transition-all" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
-            <Plus className="w-3.5 h-3.5 mr-2" /> Ressource registrieren
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button 
+                    size="sm" 
+                    className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-lg active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed" 
+                    onClick={() => { resetForm(); setIsDialogOpen(true); }}
+                    disabled={activeTenantId === 'all'}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-2" /> Ressource registrieren
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {activeTenantId === 'all' && (
+                <TooltipContent className="bg-slate-900 text-white border-none rounded-lg text-[10px] font-bold p-2 shadow-xl">
+                  Bitte wählen Sie erst einen Mandanten aus.
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
@@ -292,8 +317,13 @@ export default function ResourcesPage() {
                 <TableRow key={res.id} className={cn("group hover:bg-slate-50 transition-colors border-b last:border-0", res.status === 'archived' && "opacity-60")}>
                   <TableCell className="py-4 px-6">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shadow-inner">
+                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shadow-inner relative">
                         <Server className="w-4 h-4" />
+                        {res.isDataRepository && (
+                          <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-indigo-600 text-white rounded-full flex items-center justify-center border border-white">
+                            <Database className="w-2 h-2" />
+                          </div>
+                        )}
                       </div>
                       <div>
                         <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors cursor-pointer" onClick={() => openEdit(res)}>{res.name}</div>
@@ -303,7 +333,10 @@ export default function ResourcesPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
-                      <Badge variant="outline" className="text-[8px] font-black uppercase h-4 px-1.5 border-slate-200 text-slate-500 w-fit">{res.category}</Badge>
+                      <div className="flex gap-1.5">
+                        <Badge variant="outline" className="text-[8px] font-black uppercase h-4 px-1.5 border-slate-200 text-slate-500 w-fit">{res.category}</Badge>
+                        {res.isDataRepository && <Badge className="bg-indigo-50 text-indigo-700 border-none text-[7px] font-black h-4 px-1.5">REPOSITORY</Badge>}
+                      </div>
                       <span className="text-[8px] font-black uppercase text-slate-400 flex items-center gap-1">
                         CIA: <span className="text-primary">{res.confidentialityReq?.charAt(0)}</span>|<span className="text-primary">{res.integrityReq?.charAt(0)}</span>|<span className="text-primary">{res.availabilityReq?.charAt(0)}</span>
                       </span>
@@ -417,6 +450,14 @@ export default function ResourcesPage() {
                 </TabsContent>
 
                 <TabsContent value="governance" className="mt-0 space-y-10">
+                  <div className="flex items-center justify-between p-6 bg-indigo-50 border border-indigo-100 rounded-2xl shadow-sm">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-black uppercase text-indigo-800">Ist Daten-Repository?</Label>
+                      <p className="text-[10px] font-bold text-indigo-600 italic">Dient dieses System als primärer Speicherort für fachliche Datenobjekte?</p>
+                    </div>
+                    <Switch checked={isDataRepository} onCheckedChange={setIsDataRepository} className="data-[state=checked]:bg-indigo-600" />
+                  </div>
+
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-8">
                     <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest flex items-center gap-2">
                       <ShieldCheck className="w-4 h-4 text-indigo-600" /> Schutzbedarfsfeststellung (CIA)

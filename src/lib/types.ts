@@ -252,7 +252,7 @@ export interface Feature {
   isComplianceRelevant: boolean | number;
   deptId: string; 
   ownerId?: string; 
-  dataStoreId?: string;
+  dataStoreId?: string; // Links to a Resource ID where isDataRepository is true
   maintenanceNotes?: string;
   validFrom?: string;
   validUntil?: string;
@@ -314,6 +314,7 @@ export interface Resource {
   availabilityReq: 'low' | 'medium' | 'high';
   hasPersonalData: boolean | number;
   hasSpecialCategoryData: boolean | number;
+  isDataRepository: boolean | number;
   affectedGroups: string[];
   processingPurpose: string;
   dataLocation: string;

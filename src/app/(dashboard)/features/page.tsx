@@ -29,7 +29,8 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  HardDrive
+  HardDrive,
+  Database
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -59,7 +60,7 @@ import { useSettings } from '@/context/settings-context';
 import { saveFeatureAction, deleteFeatureAction } from '@/app/actions/feature-actions';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { Feature, Department, JobTitle, DataStore } from '@/lib/types';
+import { Feature, Department, JobTitle, Resource } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
@@ -106,7 +107,7 @@ export default function FeaturesOverviewPage() {
   const { data: features, isLoading, refresh } = usePluggableCollection<Feature>('features');
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
-  const { data: dataStores } = usePluggableCollection<DataStore>('dataStores');
+  const { data: resources } = usePluggableCollection<Resource>('resources');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -126,6 +127,12 @@ export default function FeaturesOverviewPage() {
     if (currentScore >= 2) return 'medium';
     return 'low';
   }, [currentScore]);
+
+  // Repositories are resources with isDataRepository = true
+  const repositoryResources = useMemo(() => {
+    if (!resources) return [];
+    return resources.filter(res => !!res.isDataRepository);
+  }, [resources]);
 
   const handleSave = async () => {
     if (!name || !deptId || !carrier) {
@@ -546,18 +553,18 @@ export default function FeaturesOverviewPage() {
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
-                      <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zugeordneter Datenspeicher</Label>
+                      <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Ablageort (Daten-Repository)</Label>
                       <Select value={dataStoreId} onValueChange={setDataStoreId}>
                         <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white">
                           <div className="flex items-center gap-2">
-                            <HardDrive className="w-3.5 h-3.5 text-slate-400" />
-                            <SelectValue placeholder="Datenspeicher wählen..." />
+                            <Database className="w-3.5 h-3.5 text-slate-400" />
+                            <SelectValue placeholder="Repository wählen..." />
                           </div>
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">Kein spezifischer Datenspeicher</SelectItem>
-                          {dataStores?.filter(ds => ds.status === 'active' && (activeTenantId === 'all' || ds.tenantId === activeTenantId || ds.tenantId === 'global')).map(ds => (
-                            <SelectItem key={ds.id} value={ds.id}>{ds.name}</SelectItem>
+                          <SelectItem value="none">Kein spezifischer Ablageort</SelectItem>
+                          {repositoryResources.map(res => (
+                            <SelectItem key={res.id} value={res.id}>{res.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

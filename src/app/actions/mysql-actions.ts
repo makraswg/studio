@@ -46,7 +46,11 @@ const collectionToTableMap: { [key: string]: string } = {
   process_ops: 'process_ops',
   ai_sessions: 'ai_sessions',
   ai_messages: 'ai_messages',
-  uiConfigs: 'uiConfigs'
+  uiConfigs: 'uiConfigs',
+  features: 'features',
+  feature_links: 'feature_links',
+  feature_dependencies: 'feature_dependencies',
+  bookstackConfigs: 'bookstack_configs'
 };
 
 function normalizeRecord(item: any, tableName: string) {
@@ -82,7 +86,8 @@ function normalizeRecord(item: any, tableName: string) {
     'enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets',
     'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
     'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
-    'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti'
+    'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti',
+    'isComplianceRelevant'
   ];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
@@ -161,7 +166,8 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       'enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets',
       'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
       'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
-      'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti'
+      'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti',
+      'isComplianceRelevant'
     ];
     boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
     
@@ -236,7 +242,10 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       'ai_sessions',
       'ai_messages',
       'uiConfigs',
-      'platformRoles'
+      'platformRoles',
+      'features',
+      'feature_links',
+      'feature_dependencies'
     ];
 
     for (const table of tablesToClear) {

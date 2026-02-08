@@ -167,6 +167,43 @@ export interface RegulatoryOption {
   enabled: boolean | number;
 }
 
+export interface Feature {
+  id: string;
+  tenantId: string;
+  code: string;
+  name: string;
+  status: 'active' | 'in_preparation' | 'open_questions' | 'archived';
+  carrier: 'wirtschaftseinheit' | 'objekt' | 'verwaltungseinheit' | 'mietvertrag' | 'geschaeftspartner';
+  description: string;
+  purpose: string;
+  criticality: 'low' | 'medium' | 'high';
+  isComplianceRelevant: boolean | number;
+  deptId: string;
+  ownerId?: string; // Reference to JobTitle or PlatformUser
+  maintenanceNotes?: string;
+  validFrom?: string;
+  validUntil?: string;
+  changeReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FeatureLink {
+  id: string;
+  featureId: string;
+  targetId: string;
+  targetType: 'process_origin' | 'process_usage' | 'resource_origin' | 'resource_usage' | 'risk';
+}
+
+export interface FeatureDependency {
+  id: string;
+  featureId: string;
+  dependentFeatureId: string;
+  type: 'functional' | 'technical' | 'calculation' | 'rule';
+  description: string;
+  impact: string;
+}
+
 export interface Document {
   id: string;
   [key: string]: any;
@@ -400,4 +437,13 @@ export interface UiConfig {
   enableQuickTours: boolean | number;
   enableGlassmorphism: boolean | number;
   enableConfetti: boolean | number;
+}
+
+export interface BookStackConfig {
+  id: string;
+  enabled: boolean | number;
+  url: string;
+  token_id: string;
+  token_secret: string;
+  default_book_id: string;
 }

@@ -70,6 +70,47 @@ export const appSchema: AppSchema = {
       authSource: 'VARCHAR(20) DEFAULT "local"',
     },
   },
+  // Feature Management Tables
+  features: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      code: 'VARCHAR(100) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      status: 'VARCHAR(50) DEFAULT "active"',
+      carrier: 'VARCHAR(50) NOT NULL',
+      description: 'TEXT',
+      purpose: 'TEXT',
+      criticality: 'VARCHAR(20) DEFAULT "medium"',
+      isComplianceRelevant: 'BOOLEAN DEFAULT FALSE',
+      deptId: 'VARCHAR(255) NOT NULL',
+      ownerId: 'VARCHAR(255)',
+      maintenanceNotes: 'TEXT',
+      validFrom: 'VARCHAR(50)',
+      validUntil: 'VARCHAR(50)',
+      changeReason: 'TEXT',
+      createdAt: 'VARCHAR(50) NOT NULL',
+      updatedAt: 'VARCHAR(50) NOT NULL',
+    }
+  },
+  feature_links: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      featureId: 'VARCHAR(255) NOT NULL',
+      targetId: 'VARCHAR(255) NOT NULL',
+      targetType: 'VARCHAR(50) NOT NULL',
+    }
+  },
+  feature_dependencies: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      featureId: 'VARCHAR(255) NOT NULL',
+      dependentFeatureId: 'VARCHAR(255) NOT NULL',
+      type: 'VARCHAR(50) NOT NULL',
+      description: 'TEXT',
+      impact: 'TEXT',
+    }
+  },
   // ProcessHub Tables
   processes: {
     columns: {
@@ -521,6 +562,16 @@ export const appSchema: AppSchema = {
       enableQuickTours: 'BOOLEAN DEFAULT TRUE',
       enableGlassmorphism: 'BOOLEAN DEFAULT TRUE',
       enableConfetti: 'BOOLEAN DEFAULT TRUE',
+    }
+  },
+  bookstack_configs: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      enabled: 'BOOLEAN DEFAULT FALSE',
+      url: 'TEXT',
+      token_id: 'TEXT',
+      token_secret: 'TEXT',
+      default_book_id: 'VARCHAR(50)',
     }
   }
 };

@@ -36,7 +36,12 @@ import {
   FileCode,
   RefreshCw,
   Ticket,
-  Scale
+  Scale,
+  Database,
+  Search,
+  Zap,
+  Info,
+  ListFilter
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -133,7 +138,8 @@ export function AppSidebar() {
     { name: 'Access Reviews', href: '/reviews', icon: CheckCircle },
   ];
 
-  const processItems = [
+  const hubModules = [
+    { name: 'Merkmalsmanagement', href: '/features', icon: ListFilter },
     { name: 'Prozessübersicht', href: '/processhub', icon: Workflow },
     { name: 'Prozesslandkarte', href: '/processhub/map', icon: Network },
   ];
@@ -221,8 +227,8 @@ export function AppSidebar() {
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">ProcessHub</p>
-            {processItems.map((item) => <NavLink key={item.name} item={item} />)}
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">Governance Hub</p>
+            {hubModules.map((item) => <NavLink key={item.name} item={item} />)}
           </div>
 
           <div className="space-y-1">

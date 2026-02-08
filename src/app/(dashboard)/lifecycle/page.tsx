@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,7 +30,9 @@ import {
   RotateCcw,
   Save,
   Check,
-  ArrowRight
+  ArrowRight,
+  Briefcase,
+  Ticket
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -82,10 +84,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bundle } from '@/lib/types';
+import { Bundle, JobTitle, Entitlement, Resource, Tenant } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { usePlatformAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function LifecyclePage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -104,6 +107,7 @@ export default function LifecyclePage() {
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewEmail] = useState('');
   const [selectedBundleId, setSelectedBundleId] = useState<string | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [onboardingDate, setOnboardingDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Bundle Editor State
@@ -121,10 +125,11 @@ export default function LifecyclePage() {
 
   const { data: users, isLoading: isUsersLoading, refresh: refreshUsers } = usePluggableCollection<any>('users');
   const { data: bundles, isLoading: isBundlesLoading, refresh: refreshBundles } = usePluggableCollection<Bundle>('bundles');
-  const { data: entitlements } = usePluggableCollection<any>('entitlements');
-  const { data: resources } = usePluggableCollection<any>('resources');
+  const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
+  const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
-  const { data: tenants } = usePluggableCollection<any>('tenants');
+  const { data: tenants } = usePluggableCollection<Tenant>('tenants');
+  const { data: jobs } = usePluggableCollection<JobTitle>('jobTitles');
 
   useEffect(() => {
     setMounted(true);
@@ -239,34 +244,95 @@ export default function LifecyclePage() {
   };
 
   const startOnboarding = async () => {
-    if (!newUserName || !newUserEmail || !selectedBundleId) return;
+    if (!newUserName || !newUserEmail || (!selectedBundleId && !selectedJobId)) {
+      toast({ variant: "destructive", title: "Fehler", description: "Name, E-Mail und entweder Paket oder Stelle sind erforderlich." });
+      return;
+    }
+    
     setIsActionLoading(true);
     try {
-      const bundle = bundles?.find(b => b.id === selectedBundleId);
-      if (!bundle) return;
-      
-      const userId = `u-${Math.random().toString(36).substring(2, 9)}`;
       const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
       const timestamp = new Date().toISOString();
+      const userId = `u-${Math.random().toString(36).substring(2, 9)}`;
       
-      const userData = { 
-        id: userId, tenantId: targetTenantId, displayName: newUserName, email: newUserEmail, enabled: true, status: 'active', onboardingDate, lastSyncedAt: timestamp 
-      };
+      // 1. Combine roles from Bundle and Job Blueprint
+      const bundle = bundles?.find(b => b.id === selectedBundleId);
+      const job = jobs?.find(j => j.id === selectedJobId);
+      
+      const allEntitlementIds = new Set<string>();
+      bundle?.entitlementIds.forEach(id => allEntitlementIds.add(id));
+      job?.entitlementIds?.forEach(id => allEntitlementIds.add(id));
 
+      const entitlementList = Array.from(allEntitlementIds);
+
+      // 2. Create User Record
+      const userData = { 
+        id: userId, 
+        tenantId: targetTenantId, 
+        displayName: newUserName, 
+        email: newUserEmail, 
+        enabled: true, 
+        status: 'active', 
+        onboardingDate, 
+        title: job?.name || '',
+        lastSyncedAt: timestamp 
+      };
       await saveCollectionRecord('users', userId, userData, dataSource);
 
+      // 3. Build Detailed Jira Description
+      let jiraDescription = `Automatisches Onboarding-Ticket erstellt via ComplianceHub Gateway.\n\n`;
+      jiraDescription += `BENUTZERDATEN:\n`;
+      jiraDescription += `- Name: ${newUserName}\n`;
+      jiraDescription += `- E-Mail: ${newUserEmail}\n`;
+      jiraDescription += `- Eintrittsdatum: ${onboardingDate}\n`;
+      jiraDescription += `- Position/Stelle: ${job?.name || 'Keine Angabe'}\n\n`;
+      
+      jiraDescription += `GEWÄHLTE PROFILE:\n`;
+      if (bundle) jiraDescription += `- Paket: ${bundle.name}\n`;
+      if (job) jiraDescription += `- Blueprint: ${job.name}\n`;
+      jiraDescription += `\nBENÖTIGTE BERECHTIGUNGEN (${entitlementList.length}):\n`;
+
+      for (const eid of entitlementList) {
+        const ent = entitlements?.find(e => e.id === eid);
+        const res = resources?.find(r => r.id === ent?.resourceId);
+        if (ent && res) {
+          jiraDescription += `- [${res.name}] : ${ent.name}${ent.isAdmin ? ' (ADMIN-RECHTE ERFORDERLICH!)' : ''}\n`;
+        } else {
+          jiraDescription += `- Unbekannte Berechtigung (ID: ${eid})\n`;
+        }
+      }
+
+      // 4. Create Jira Ticket
       const configs = await getJiraConfigs(dataSource);
       let jiraKey = 'manuell';
       
       if (configs.length > 0 && configs[0].enabled) {
-        const res = await createJiraTicket(configs[0].id, `onboarding: ${newUserName}`, `Onboarding Paket: ${bundle.name}`, dataSource);
-        if (res.success) jiraKey = res.key!;
+        const res = await createJiraTicket(
+          configs[0].id, 
+          `Onboarding: ${newUserName} (${job?.name || 'Mitarbeiter'})`, 
+          jiraDescription, 
+          dataSource
+        );
+        if (res.success) {
+          jiraKey = res.key!;
+          toast({ title: "Jira Ticket erstellt", description: `Vorgang ${jiraKey} wurde angelegt.` });
+        }
       }
 
-      for (const eid of bundle.entitlementIds) {
+      // 5. Create Assignments in requested state
+      for (const eid of entitlementList) {
         const assId = `ass-onb-${userId}-${eid}`.substring(0, 50);
         const assData = { 
-          id: assId, tenantId: targetTenantId, userId, entitlementId: eid, status: 'requested', grantedBy: authUser?.email || 'onboarding-wizard', grantedAt: timestamp, validFrom: onboardingDate, jiraIssueKey: jiraKey, syncSource: 'manual' 
+          id: assId, 
+          tenantId: targetTenantId, 
+          userId, 
+          entitlementId: eid, 
+          status: 'requested', 
+          grantedBy: authUser?.email || 'onboarding-wizard', 
+          grantedAt: timestamp, 
+          validFrom: onboardingDate, 
+          jiraIssueKey: jiraKey, 
+          syncSource: 'manual' 
         };
         await saveCollectionRecord('assignments', assId, assData, dataSource);
       }
@@ -274,14 +340,20 @@ export default function LifecyclePage() {
       await logAuditEventAction(dataSource, {
         tenantId: targetTenantId,
         actorUid: authUser?.email || 'onboarding-wizard',
-        action: `Onboarding Prozess gestartet: ${newUserName}`,
+        action: `Onboarding Prozess gestartet: ${newUserName} (Jira: ${jiraKey})`,
         entityType: 'user',
         entityId: userId,
         after: userData
       });
 
-      toast({ title: "Onboarding Prozess aktiv" });
-      setNewUserName(''); setNewEmail(''); setSelectedBundleId(null);
+      toast({ title: "Onboarding Prozess aktiv", description: "Identität und Zuweisungen wurden vorbereitet." });
+      
+      // Reset Form
+      setNewUserName(''); 
+      setNewEmail(''); 
+      setSelectedBundleId(null); 
+      setSelectedJobId(null);
+      
       setTimeout(() => { refreshUsers(); refreshAssignments(); }, 300);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Fehler", description: error.message });
@@ -341,27 +413,79 @@ export default function LifecyclePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-slate-400 ml-1">Vollständiger Name</Label>
-                    <Input value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="Max Mustermann" className="rounded-md h-11 border-slate-200 bg-slate-50/50" />
+                    <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Stammdaten des Mitarbeiters</Label>
+                    <div className="space-y-4 pt-2">
+                      <div className="relative group">
+                        <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-primary transition-colors" />
+                        <Input value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="Vollständiger Name" className="rounded-xl h-11 pl-10 border-slate-200 bg-slate-50/50" />
+                      </div>
+                      <div className="relative group">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-primary transition-colors" />
+                        <Input value={newUserEmail} onChange={e => setNewEmail(e.target.value)} placeholder="E-Mail Adresse" className="rounded-xl h-11 pl-10 border-slate-200 bg-slate-50/50" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-bold text-slate-400 ml-1">Eintritt am</Label>
+                          <Input type="date" value={onboardingDate} onChange={e => setOnboardingDate(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-slate-50/50" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Job Profil</Label>
+                          <Select value={selectedJobId || ''} onValueChange={setSelectedJobId}>
+                            <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white">
+                              <SelectValue placeholder="Stelle wählen..." />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              {jobs?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => (
+                                <SelectItem key={job.id} value={job.id} className="text-xs font-bold">
+                                  {job.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-slate-400 ml-1">E-Mail</Label>
-                    <Input value={newUserEmail} onChange={e => setNewEmail(e.target.value)} placeholder="name@firma.de" className="rounded-md h-11 border-slate-200 bg-slate-50/50" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-slate-400 ml-1">Startdatum</Label>
-                    <Input type="date" value={onboardingDate} onChange={e => setOnboardingDate(e.target.value)} className="rounded-md h-11 border-slate-200 bg-slate-50/50" />
+
+                  <div className="p-6 rounded-2xl bg-blue-50/50 border border-blue-100 flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-lg">
+                      <Ticket className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-black uppercase text-slate-900 tracking-wider">Jira Gateway Aktiv</p>
+                      <p className="text-[10px] text-slate-500 italic leading-relaxed">
+                        Das System erstellt automatisch ein Provisionierungsticket für die IT-Abteilung inklusive aller Blueprint-Berechtigungen.
+                      </p>
+                    </div>
                   </div>
                 </div>
+
                 <div className="space-y-4">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1">Rollenpaket auswählen</Label>
-                  <ScrollArea className="h-[280px] rounded-xl border border-slate-100 bg-slate-50/30 p-2 shadow-inner">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Rollenpaket auswählen</Label>
+                    <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black px-2 h-4 uppercase">Zusatz-Optionen</Badge>
+                  </div>
+                  <ScrollArea className="h-[320px] rounded-2xl border border-slate-100 bg-slate-50/30 p-2 shadow-inner">
                     <div className="grid grid-cols-1 gap-2">
+                      <div 
+                        className={cn(
+                          "p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between group",
+                          !selectedBundleId ? "border-slate-300 bg-slate-100 ring-1 ring-slate-200 shadow-sm" : "bg-white dark:bg-slate-800 border-slate-100 hover:border-slate-200"
+                        )} 
+                        onClick={() => setSelectedBundleId(null)}
+                      >
+                        <div>
+                          <span className="text-xs font-bold text-slate-800">Kein Zusatz-Paket</span>
+                          <p className="text-[9px] text-slate-400 font-medium mt-0.5">Nur Blueprint-Rollen verwenden</p>
+                        </div>
+                        {!selectedBundleId && <CheckCircle2 className="w-4 h-4 text-slate-500" />}
+                      </div>
+                      <Separator className="my-1 opacity-50" />
                       {bundles?.filter(b => b.status !== 'archived' && (activeTenantId === 'all' || b.tenantId === activeTenantId)).map(bundle => (
                         <div 
                           key={bundle.id} 
                           className={cn(
-                            "p-4 rounded-lg border transition-all cursor-pointer flex items-center justify-between group",
+                            "p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between group",
                             selectedBundleId === bundle.id ? "border-primary bg-primary/5 ring-2 ring-primary/5 shadow-sm" : "bg-white dark:bg-slate-800 border-slate-100 hover:border-slate-200"
                           )} 
                           onClick={() => setSelectedBundleId(bundle.id)}
@@ -378,13 +502,17 @@ export default function LifecyclePage() {
                 </div>
               </div>
             </CardContent>
-            <div className="p-6 border-t bg-slate-50/50 dark:bg-slate-800/50 flex justify-end">
+            <div className="p-6 border-t bg-slate-50/50 dark:bg-slate-800/50 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 italic">
+                <Info className="w-3.5 h-3.5" />
+                Initial-Passwort wird automatisch generiert und per E-Mail versendet.
+              </div>
               <Button 
                 onClick={startOnboarding} 
-                disabled={isActionLoading || !selectedBundleId || !newUserName} 
-                className="w-full md:w-auto rounded-md font-bold text-xs h-11 px-12 bg-primary text-white shadow-lg shadow-primary/20 active:scale-95 transition-all"
+                disabled={isActionLoading || (!selectedBundleId && !selectedJobId) || !newUserName} 
+                className="w-full md:w-auto rounded-xl font-bold text-[10px] uppercase tracking-widest h-12 px-16 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 active:scale-95 transition-all gap-2"
               >
-                {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
+                {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
                 Onboarding starten
               </Button>
             </div>

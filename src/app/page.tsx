@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -118,7 +117,7 @@ export default function LoginPage() {
         </div>
         <div className="text-center">
           <h1 className="text-3xl font-headline font-bold tracking-tight text-slate-900 dark:text-white">ComplianceHub</h1>
-          <p className="text-[10px] font-bold tracking-[0.2em] text-primary mt-1 uppercase">Struktur statt Bauchgefühl</p>
+          <p className="text-lg font-script text-primary mt-1">Struktur statt Bauchgefühl</p>
         </div>
       </div>
 

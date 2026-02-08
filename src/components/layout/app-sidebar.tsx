@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -201,7 +200,7 @@ export function AppSidebar() {
           <item.icon className={cn(isSubItem ? "w-3.5 h-3.5" : "w-4 h-4", "transition-transform", active ? "text-white" : "text-slate-400")} />
           <span className={cn(isSubItem ? "text-[10px]" : "text-[11px]", "font-bold")}>{item.name}</span>
         </div>
-        {active && !isSubItem && <ChevronRight className="w-3 h-3 opacity-50" />}
+        {active && !isSubItem && <ChevronRight className="w-3.5 h-3.5 opacity-50" />}
       </Link>
     );
   };
@@ -215,7 +214,7 @@ export function AppSidebar() {
           </div>
           <div>
             <span className="font-headline font-bold text-base tracking-tight block text-slate-900 dark:text-white leading-none">ComplianceHub</span>
-            <span className="text-[9px] text-primary font-bold block mt-1 uppercase tracking-tight">Struktur statt Bauchgefühl</span>
+            <span className="text-sm text-primary font-script block mt-1">Struktur statt Bauchgefühl</span>
           </div>
         </div>
       </div>
@@ -265,7 +264,7 @@ export function AppSidebar() {
                     <Settings className={cn("w-4 h-4", pathname.startsWith('/settings') ? "text-primary" : "text-slate-400")} />
                     <span className="text-[11px] font-bold text-left">Systemeinstellungen</span>
                   </div>
-                  <ChevronDown className={cn("w-3 h-3 transition-transform duration-200", isSettingsOpen ? "rotate-180" : "")} />
+                  <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", isSettingsOpen ? "rotate-180" : "")} />
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-1 overflow-hidden animate-in slide-in-from-top-1 duration-200">

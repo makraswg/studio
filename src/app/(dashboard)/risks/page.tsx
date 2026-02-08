@@ -153,10 +153,15 @@ function RiskDashboardContent() {
   const { data: hMeasures } = usePluggableCollection<any>('hazardMeasures');
   const { data: hRelations } = usePluggableCollection<any>('hazardMeasureRelations');
 
+  // Unified mounting & derivation handling
   useEffect(() => { 
     setMounted(true); 
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || !hazards) return;
     const deriveId = searchParams.get('derive');
-    if (deriveId && hazards && deriveId !== processedDerive.current) {
+    if (deriveId && deriveId !== processedDerive.current) {
       const hazard = hazards.find(h => h.id === deriveId);
       if (hazard) {
         processedDerive.current = deriveId;
@@ -166,10 +171,13 @@ function RiskDashboardContent() {
         setCategory('IT-Sicherheit');
         setHazardId(hazard.id);
         setIsRiskDialogOpen(true);
-        router.replace('/risks', { scroll: false });
+        // Silently clear the URL parameter to prevent focus jumping/loops
+        const url = new URL(window.location.href);
+        url.searchParams.delete('derive');
+        window.history.replaceState({}, '', url.toString());
       }
     }
-  }, [searchParams, hazards, router]);
+  }, [searchParams, hazards, mounted]);
 
   const { topLevelRisks, subRisksMap } = useMemo(() => {
     if (!risks) return { topLevelRisks: [], subRisksMap: {} };
@@ -866,7 +874,7 @@ function RiskDashboardContent() {
                     <div className="flex gap-2">
                       {hazardId && (
                         <Button variant="outline" size="sm" className="h-9 rounded-xl border-emerald-200 bg-white text-emerald-700 font-black text-[9px] uppercase tracking-widest shadow-sm" onClick={() => loadCatalogSuggestions()} disabled={isCatalogLoading}>
-                          {isCatalogLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Library className="w-3.5 h-3.5 mr-2" />} BSI Katalog-Vorschläge
+                          {isCatalogLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Library className="w-3.5 h-3.5 mr-2" />} ⚡ BSI Kreuztabelle (Maßnahmen)
                         </Button>
                       )}
                       <Button size="sm" className="h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[9px] uppercase tracking-widest shadow-lg" onClick={() => setIsQuickMeasureOpen(true)}>
@@ -1219,7 +1227,7 @@ function RiskDashboardContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortlicher</Label>
-                  <Select value={taskAssigneeId} onValueChange={setTaskAssigneeId}>
+                  <Select value={taskAssigneeId} onValueChange={setAssigneeId}>
                     <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                     <SelectContent className="rounded-xl">
                       {pUsers?.map(u => <SelectItem key={u.id} value={u.id} className="text-xs font-bold">{u.displayName}</SelectItem>)}

@@ -12,7 +12,8 @@ import {
   Settings2,
   Layers,
   Server,
-  Workflow
+  Workflow,
+  Filter
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,8 @@ export default function ResourceOptionsPage() {
         setNewTypeName('');
         refreshTypes();
         toast({ title: "Asset Typ hinzugefügt" });
+      } else {
+        toast({ variant: "destructive", title: "Fehler", description: res.error });
       }
     } finally {
       setIsSaving(false);
@@ -69,6 +72,8 @@ export default function ResourceOptionsPage() {
         setNewModelName('');
         refreshModels();
         toast({ title: "Betriebsmodell hinzugefügt" });
+      } else {
+        toast({ variant: "destructive", title: "Fehler", description: res.error });
       }
     } finally {
       setIsSaving(false);
@@ -77,16 +82,28 @@ export default function ResourceOptionsPage() {
 
   const toggleEnabled = async (coll: string, item: any) => {
     const updated = { ...item, enabled: !item.enabled };
-    await saveCollectionRecord(coll, item.id, updated, dataSource);
-    if (coll === 'assetTypeOptions') refreshTypes();
-    else refreshModels();
+    const res = await saveCollectionRecord(coll, item.id, updated, dataSource);
+    if (res.success) {
+      if (coll === 'assetTypeOptions') refreshTypes();
+      else refreshModels();
+      toast({ title: "Status aktualisiert" });
+    }
   };
 
   const handleDelete = async (coll: string, id: string) => {
     if (!confirm("Eintrag permanent entfernen?")) return;
-    await deleteCollectionRecord(coll, id, dataSource);
-    if (coll === 'assetTypeOptions') refreshTypes();
-    else refreshModels();
+    try {
+      const res = await deleteCollectionRecord(coll, id, dataSource);
+      if (res.success) {
+        toast({ title: "Eintrag gelöscht" });
+        if (coll === 'assetTypeOptions') refreshTypes();
+        else refreshModels();
+      } else {
+        toast({ variant: "destructive", title: "Löschen fehlgeschlagen", description: res.error });
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Systemfehler", description: e.message });
+    }
   };
 
   return (
@@ -137,6 +154,9 @@ export default function ResourceOptionsPage() {
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100" onClick={() => handleDelete('assetTypeOptions', opt.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
                     ))}
+                    {(!assetTypes || assetTypes.length === 0) && !typesLoading && (
+                      <div className="py-10 text-center opacity-30 italic text-xs">Keine Typen definiert</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -168,6 +188,9 @@ export default function ResourceOptionsPage() {
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100" onClick={() => handleDelete('operatingModelOptions', opt.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
                     ))}
+                    {(!operatingModels || operatingModels.length === 0) && !modelsLoading && (
+                      <div className="py-10 text-center opacity-30 italic text-xs">Keine Modelle definiert</div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -60,7 +60,10 @@ import {
   FileSearch,
   Server,
   Layers,
-  Database
+  Database,
+  Settings2,
+  BarChart3,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,7 +72,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
@@ -80,23 +83,13 @@ import { saveMediaAction, deleteMediaAction, getMediaConfigAction } from '@/app/
 import { runOcrAction } from '@/ai/flows/ocr-flow';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation, ProcessEdge, ProcessVersion, Department, RegulatoryOption, Feature, FeatureProcessStep, MediaFile, Resource } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation, ProcessEdge, ProcessVersion, Department, RegulatoryOption, Feature, FeatureProcessStep, MediaFile, Resource, Task, PlatformUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -159,15 +152,12 @@ export default function ProcessDesignerPage() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
   const [mounted, setMounted] = useState(false);
-  const [leftWidth, setLeftWidth] = useState(360);
-  const isResizingLeft = useRef(false);
+  const [leftWidth, setLeftWidth] = useState(380);
 
   // UI States
   const [isDiagramLocked, setIsDiagramLocked] = useState(false);
-  const [isAiLoading, setIsAiLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isSavingMeta, setIsSavingMeta] = useState(false);
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -176,6 +166,21 @@ export default function ProcessDesignerPage() {
   const [localNodeEdits, setLocalNodeEdits] = useState({ 
     id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '', type: 'step', targetProcessId: '', resourceIds: [] as string[], featureIds: [] as string[], customFields: {} as Record<string, string>
   });
+
+  // Master Data (Stammdaten) Form State
+  const [metaTitle, setMetaTitle] = useState('');
+  const [metaDesc, setMetaDesc] = useState('');
+  const [metaDeptId, setMetaDeptId] = useState('');
+  const [metaFramework, setMetaFramework] = useState('');
+  const [metaAutomation, setMetaAutomation] = useState<'manual' | 'partial' | 'full'>('manual');
+  const [metaVolume, setMetaDataVolume] = useState<'low' | 'medium' | 'high'>('low');
+  const [metaFrequency, setMetaFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'on_demand'>('on_demand');
+
+  // Task Creation State
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskAssigneeId, setTaskAssigneeId] = useState('');
+  const [isSavingTask, setIsSavingTask] = useState(false);
 
   // Media States
   const [isUploading, setIsUploading] = useState(false);
@@ -188,14 +193,35 @@ export default function ProcessDesignerPage() {
   const { data: allFeatures } = usePluggableCollection<Feature>('features');
   const { data: mediaFiles, refresh: refreshMedia } = usePluggableCollection<MediaFile>('media');
   const { data: featureLinks, refresh: refreshFeatureLinks } = usePluggableCollection<any>('feature_process_steps');
+  const { data: tasks, refresh: refreshTasks } = usePluggableCollection<Task>('tasks');
+  const { data: pUsers } = usePluggableCollection<PlatformUser>('platformUsers');
+  const { data: departments } = usePluggableCollection<Department>('departments');
+  const { data: regulatoryOptions } = usePluggableCollection<RegulatoryOption>('regulatory_options');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
   
+  const processTasks = useMemo(() => 
+    tasks?.filter(t => t.entityId === id && t.entityType === 'process') || [],
+    [tasks, id]
+  );
+
   const selectedNodeMedia = useMemo(() => 
     mediaFiles?.filter(m => m.entityId === id && m.subEntityId === selectedNodeId) || [],
     [mediaFiles, id, selectedNodeId]
   );
+
+  useEffect(() => {
+    if (currentProcess) {
+      setMetaTitle(currentProcess.title || '');
+      setMetaDesc(currentProcess.description || '');
+      setMetaDeptId(currentProcess.responsibleDepartmentId || 'none');
+      setMetaFramework(currentProcess.regulatoryFramework || 'none');
+      setMetaAutomation(currentProcess.automationLevel || 'manual');
+      setMetaDataVolume(currentProcess.dataVolume || 'low');
+      setMetaFrequency(currentProcess.processingFrequency || 'on_demand');
+    }
+  }, [currentProcess]);
 
   useEffect(() => {
     if (selectedNodeId && currentVersion) {
@@ -259,6 +285,52 @@ export default function ProcessDesignerPage() {
       return false;
     } finally {
       setIsApplying(false);
+    }
+  };
+
+  const handleSaveMetadata = async () => {
+    setIsSavingMeta(true);
+    try {
+      const res = await updateProcessMetadataAction(id as string, {
+        title: metaTitle,
+        description: metaDesc,
+        responsibleDepartmentId: metaDeptId === 'none' ? undefined : metaDeptId,
+        regulatoryFramework: metaFramework === 'none' ? undefined : metaFramework,
+        automationLevel: metaAutomation,
+        dataVolume: metaVolume,
+        processingFrequency: metaFrequency
+      }, dataSource);
+      if (res.success) {
+        toast({ title: "Stammdaten gespeichert" });
+        refreshProc();
+      }
+    } finally {
+      setIsSavingMeta(false);
+    }
+  };
+
+  const handleCreateTask = async () => {
+    if (!taskTitle || !taskAssigneeId) return;
+    setIsSavingTask(true);
+    try {
+      const res = await saveTaskAction({
+        tenantId: currentProcess?.tenantId || 'global',
+        title: taskTitle,
+        status: 'todo',
+        priority: 'medium',
+        assigneeId: taskAssigneeId,
+        creatorId: user?.id || 'system',
+        entityType: 'process',
+        entityId: id as string
+      }, dataSource, user?.email || 'system');
+      if (res.success) {
+        toast({ title: "Aufgabe erstellt" });
+        setIsTaskDialogOpen(false);
+        setTaskTitle('');
+        refreshTasks();
+      }
+    } finally {
+      setIsSavingTask(false);
     }
   };
 
@@ -331,7 +403,6 @@ export default function ProcessDesignerPage() {
     const nodes = currentVersion.model_json.nodes || [];
     const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : nodes[nodes.length - 1];
     
-    // Inheritance logic: copy resources from predecessor if available
     const initialResources = predecessor?.resourceIds || [];
 
     const ops: ProcessOperation[] = [{ type: 'ADD_NODE', payload: { node: { id: newId, type, title: titles[type], resourceIds: initialResources } } }];
@@ -344,7 +415,6 @@ export default function ProcessDesignerPage() {
   const handleSaveNodeEdits = async () => {
     if (!selectedNodeId) return;
     
-    // 1. Process Node Model Update
     const ops: ProcessOperation[] = [{
       type: 'UPDATE_NODE',
       payload: {
@@ -359,11 +429,9 @@ export default function ProcessDesignerPage() {
       }
     }];
     
-    // 2. Feature Links Update (Simplified Sync)
     const existingLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === selectedNodeId) || [];
     const existingIds = existingLinks.map((l: any) => l.featureId);
     
-    // Add new links
     for (const fid of localNodeEdits.featureIds) {
       if (!existingIds.includes(fid)) {
         await linkFeatureToProcessAction({
@@ -376,7 +444,6 @@ export default function ProcessDesignerPage() {
       }
     }
     
-    // Remove old links
     for (const link of existingLinks) {
       if (!localNodeEdits.featureIds.includes(link.featureId)) {
         await unlinkFeatureFromProcessAction(link.id, link.featureId, dataSource);
@@ -389,24 +456,6 @@ export default function ProcessDesignerPage() {
       refreshFeatureLinks();
       setIsStepDialogOpen(false);
     }
-  };
-
-  const toggleResource = (resId: string) => {
-    setLocalNodeEdits(prev => ({
-      ...prev,
-      resourceIds: prev.resourceIds.includes(resId) 
-        ? prev.resourceIds.filter(id => id !== resId) 
-        : [...prev.resourceIds, resId]
-    }));
-  };
-
-  const toggleFeature = (featId: string) => {
-    setLocalNodeEdits(prev => ({
-      ...prev,
-      featureIds: prev.featureIds.includes(featId) 
-        ? prev.featureIds.filter(id => id !== featId) 
-        : [...prev.featureIds, featId]
-    }));
   };
 
   if (!mounted) return null;
@@ -436,7 +485,7 @@ export default function ProcessDesignerPage() {
           </Button>
           <Button size="sm" className="rounded-md h-8 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-6 shadow-sm transition-all gap-2" onClick={handleCommitVersion} disabled={isCommitting}>
             {isCommitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ClipboardCheck className="w-3.5 h-3.5" />} 
-            Änderungen speichern
+            Speichern & Loggen
           </Button>
         </div>
       </header>
@@ -446,6 +495,8 @@ export default function ProcessDesignerPage() {
           <Tabs defaultValue="steps" className="h-full flex flex-col overflow-hidden">
             <TabsList className="h-11 bg-slate-50 border-b gap-0 p-0 w-full justify-start shrink-0 rounded-none overflow-x-auto no-scrollbar">
               <TabsTrigger value="steps" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-primary"><ClipboardList className="w-3.5 h-3.5" /> Ablauf</TabsTrigger>
+              <TabsTrigger value="meta" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-blue-600"><Info className="w-3.5 h-3.5" /> Stammdaten</TabsTrigger>
+              <TabsTrigger value="tasks" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-amber-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-amber-600"><CheckCircle className="w-3.5 h-3.5" /> Aufgaben</TabsTrigger>
               <TabsTrigger value="media" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-indigo-600"><FileStack className="w-3.5 h-3.5" /> Medien</TabsTrigger>
             </TabsList>
             
@@ -478,6 +529,107 @@ export default function ProcessDesignerPage() {
                       </div>
                     );
                   })}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="meta" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
+              <ScrollArea className="flex-1 bg-white">
+                <div className="p-6 space-y-6 pb-32">
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Prozesstitel</Label>
+                      <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="h-10 text-xs font-bold" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Fachliche Beschreibung</Label>
+                      <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[100px] text-xs leading-relaxed" />
+                    </div>
+                    <Separator />
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
+                      <Select value={metaDeptId} onValueChange={setMetaDeptId}>
+                        <SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Keine Abteilung</SelectItem>
+                          {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => (
+                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Regulatorik / Standard</Label>
+                      <Select value={metaFramework} onValueChange={setMetaFramework}>
+                        <SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Kein Standard</SelectItem>
+                          {regulatoryOptions?.filter(o => o.enabled).map(o => (
+                            <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Separator />
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Automatisierung</Label>
+                        <Select value={metaAutomation} onValueChange={(v: any) => setMetaAutomation(v)}>
+                          <SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="manual">Manuell</SelectItem>
+                            <SelectItem value="partial">Teil-Automatisiert</SelectItem>
+                            <SelectItem value="full">Voll-Automatisiert</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Frequenz</Label>
+                        <Select value={metaFrequency} onValueChange={(v: any) => setMetaFrequency(v)}>
+                          <SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="daily">Täglich</SelectItem>
+                            <SelectItem value="weekly">Wöchentlich</SelectItem>
+                            <SelectItem value="monthly">Monatlich</SelectItem>
+                            <SelectItem value="on_demand">Ad-hoc / Bedarf</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase gap-2 shadow-lg">
+                      {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 
+                      Stammdaten sichern
+                    </Button>
+                  </div>
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="tasks" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
+              <div className="px-6 py-3 border-b bg-white flex items-center justify-between shrink-0">
+                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Offene Punkte</h4>
+                <Button variant="ghost" size="sm" className="h-7 text-[9px] font-bold text-primary gap-1" onClick={() => { setTaskTitle(''); setIsTaskDialogOpen(true); }}>
+                  <Plus className="w-3 h-3" /> Hinzufügen
+                </Button>
+              </div>
+              <ScrollArea className="flex-1 bg-slate-50/30">
+                <div className="p-4 space-y-2 pb-32">
+                  {processTasks.map(t => (
+                    <div key={t.id} className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm group hover:border-amber-300 transition-all cursor-pointer" onClick={() => router.push('/tasks')}>
+                      <div className="flex items-center justify-between mb-1">
+                        <Badge variant="outline" className={cn("text-[7px] font-black uppercase h-3.5 px-1 border-none", t.status === 'done' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600")}>{t.status}</Badge>
+                        <span className="text-[8px] font-bold text-slate-400 flex items-center gap-1"><Clock className="w-2 h-2" /> {t.dueDate || '∞'}</span>
+                      </div>
+                      <p className="text-[11px] font-bold text-slate-800 leading-tight">{t.title}</p>
+                      <p className="text-[9px] text-slate-400 mt-1 truncate">{pUsers?.find(u => u.id === t.assigneeId)?.displayName || 'Unzugewiesen'}</p>
+                    </div>
+                  ))}
+                  {processTasks.length === 0 && (
+                    <div className="py-20 text-center space-y-3 opacity-20">
+                      <ClipboardList className="w-10 h-10 mx-auto" />
+                      <p className="text-[10px] font-black uppercase">Keine Aufgaben</p>
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
             </TabsContent>
@@ -550,7 +702,7 @@ export default function ProcessDesignerPage() {
                 <TabsContent value="base" className="mt-0 space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Bezeichnung</Label><Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 font-bold rounded-xl" /></div>
-                    <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortliche Stelle</Label><Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent>{jobTitles?.map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}</SelectContent></Select></div>
+                    <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortliche Rolle</Label><Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent>{jobTitles?.map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}</SelectContent></Select></div>
                   </div>
                 </TabsContent>
 
@@ -570,7 +722,13 @@ export default function ProcessDesignerPage() {
                           "p-3 border rounded-xl flex items-center gap-3 cursor-pointer transition-all shadow-sm group",
                           localNodeEdits.resourceIds.includes(res.id) ? "border-indigo-500 bg-indigo-50/20 ring-2 ring-indigo-500/10" : "bg-white border-slate-100 hover:border-slate-300"
                         )}
-                        onClick={() => toggleResource(res.id)}
+                        onClick={() => {
+                          const rid = res.id;
+                          setLocalNodeEdits(prev => ({
+                            ...prev,
+                            resourceIds: prev.resourceIds.includes(rid) ? prev.resourceIds.filter(id => id !== rid) : [...prev.resourceIds, rid]
+                          }));
+                        }}
                       >
                         <Checkbox checked={localNodeEdits.resourceIds.includes(res.id)} className="rounded-md" />
                         <div className="min-w-0 flex-1">
@@ -598,7 +756,13 @@ export default function ProcessDesignerPage() {
                           "p-3 border rounded-xl flex items-center gap-3 cursor-pointer transition-all shadow-sm group",
                           localNodeEdits.featureIds.includes(feat.id) ? "border-sky-500 bg-sky-50/20 ring-2 ring-sky-500/10" : "bg-white border-slate-100 hover:border-slate-300"
                         )}
-                        onClick={() => toggleFeature(feat.id)}
+                        onClick={() => {
+                          const fid = feat.id;
+                          setLocalNodeEdits(prev => ({
+                            ...prev,
+                            featureIds: prev.featureIds.includes(fid) ? prev.featureIds.filter(id => id !== fid) : [...prev.featureIds, fid]
+                          }));
+                        }}
                       >
                         <Checkbox checked={localNodeEdits.featureIds.includes(feat.id)} className="rounded-md" />
                         <div className="min-w-0 flex-1">
@@ -678,6 +842,44 @@ export default function ProcessDesignerPage() {
             <Button variant="outline" size="sm" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs">Abbrechen</Button>
             <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 bg-primary text-white shadow-lg font-bold text-xs gap-2">
               <Save className="w-4 h-4" /> Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Task Creation Dialog */}
+      <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
+        <DialogContent className="max-w-md rounded-xl p-0 overflow-hidden border-none shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center text-primary shadow-sm border border-white/10">
+                <ClipboardList className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-headline font-bold uppercase tracking-tight">Prozessaufgabe erstellen</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Klärungspunkt oder Maßnahme erfassen</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Bezeichnung</Label>
+              <Input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} className="h-11 rounded-xl font-bold" placeholder="z.B. IT-Schnittstelle klären..." />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verantwortlicher</Label>
+              <Select value={taskAssigneeId} onValueChange={setTaskAssigneeId}>
+                <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                <SelectContent>
+                  {pUsers?.map(u => <SelectItem key={u.id} value={u.id} className="text-xs font-bold">{u.displayName}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="p-4 bg-slate-50 border-t">
+            <Button variant="ghost" onClick={() => setIsTaskDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
+            <Button onClick={handleCreateTask} disabled={isSavingTask || !taskTitle || !taskAssigneeId} className="rounded-xl bg-primary text-white font-bold text-[10px] h-11 px-8 shadow-lg gap-2">
+              {isSavingTask ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Speichern
             </Button>
           </DialogFooter>
         </DialogContent>

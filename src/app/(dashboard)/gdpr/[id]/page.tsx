@@ -25,7 +25,8 @@ import {
   History,
   TrendingUp,
   Fingerprint,
-  Users
+  Users,
+  ChevronRight
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { exportGdprPdf } from '@/lib/export-utils';
 import { toast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
 
 export default function GdprDetailViewPage() {
   const { id } = useParams();

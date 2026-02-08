@@ -148,33 +148,36 @@ function RiskDashboardContent() {
     setMounted(true); 
   }, []);
 
-  // Effect to handle derivation from catalog with stable state
+  // Stable derive effect: Cleanup URL immediately after processing
   useEffect(() => {
     if (!mounted || !hazards) return;
     
-    const urlParams = new URLSearchParams(window.location.search);
-    const deriveId = urlParams.get('derive');
-    
+    const deriveId = searchParams.get('derive');
     if (deriveId && deriveId !== processedDerive.current) {
       const hazard = hazards.find(h => h.id === deriveId);
       if (hazard) {
         processedDerive.current = deriveId;
         
         // Reset form and set data
-        resetForm();
+        setSelectedRisk(null);
         setTitle(`Risiko: ${hazard.title}`);
+        setAssetId('none');
+        setProcessId('none');
+        setParentId('none');
         setDescription(hazard.description);
         setCategory('IT-Sicherheit');
+        setImpact('3');
+        setProbability('3');
         setHazardId(hazard.id);
         setIsRiskDialogOpen(true);
         
-        // Clean up URL without full Next.js router re-render loop
-        urlParams.delete('derive');
-        const newUrl = urlParams.toString() ? `${window.location.pathname}?${urlParams.toString()}` : window.location.pathname;
-        window.history.replaceState(null, '', newUrl);
+        // Clean up URL to avoid re-triggering and focus jumps
+        const url = new URL(window.location.href);
+        url.searchParams.delete('derive');
+        window.history.replaceState({}, '', url.toString());
       }
     }
-  }, [hazards, mounted]);
+  }, [hazards, mounted, searchParams]);
 
   const { topLevelRisks, subRisksMap } = useMemo(() => {
     if (!risks) return { topLevelRisks: [], subRisksMap: {} };
@@ -213,22 +216,6 @@ function RiskDashboardContent() {
     toast({ title: "KI-Vorschläge übernommen" });
   };
 
-  const resetForm = () => {
-    setSelectedRisk(null);
-    setTitle('');
-    setAssetId('none');
-    setProcessId('none');
-    setParentId('none');
-    setCategory('IT-Sicherheit');
-    setImpact('3');
-    setProbability('3');
-    setDescription('');
-    setOwner('');
-    setStatus('active');
-    setHazardId('');
-    setCatalogSuggestions([]);
-  };
-
   const handleSaveRisk = async () => {
     if (!title) {
       toast({ variant: "destructive", title: "Fehler", description: "Bitte einen Titel angeben." });
@@ -261,7 +248,6 @@ function RiskDashboardContent() {
       if (res.success) {
         toast({ title: selectedRisk ? "Risiko aktualisiert" : "Risiko gespeichert" });
         setIsRiskDialogOpen(false);
-        resetForm();
         refresh();
       }
     } finally {
@@ -450,13 +436,6 @@ function RiskDashboardContent() {
     setIsRiskDialogOpen(true);
   };
 
-  const openTaskDialog = (risk: Risk) => {
-    setTaskTargetRisk(risk);
-    setTaskTitle(`Maßnahme für Risiko: ${risk.title}`);
-    setTaskDesc(`Detaillierte Klärung und Absicherung für das Risiko-Szenario.`);
-    setIsTaskDialogOpen(true);
-  };
-
   const RiskRow = ({ risk, isSub = false }: { risk: Risk, isSub?: boolean }) => {
     const score = risk.impact * risk.probability;
     const asset = resources?.find(r => r.id === risk.assetId);
@@ -562,9 +541,9 @@ function RiskDashboardContent() {
                     <DropdownMenuItem onSelect={() => loadCatalogSuggestions(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold text-blue-600"><Zap className="w-3.5 h-3.5" /> ⚡ BSI Vorschläge laden</DropdownMenuItem>
                   )}
                   {!isSub && (
-                    <DropdownMenuItem onSelect={() => { resetForm(); setParentId(risk.id); setIsRiskDialogOpen(true); }} className="rounded-lg py-2 gap-2 text-xs font-bold text-blue-600"><Split className="w-3.5 h-3.5" /> Sub-Risiko hinzufügen</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => { setSelectedRisk(null); setTitle(''); setParentId(risk.id); setIsRiskDialogOpen(true); }} className="rounded-lg py-2 gap-2 text-xs font-bold text-blue-600"><Split className="w-3.5 h-3.5" /> Sub-Risiko hinzufügen</DropdownMenuItem>
                   )}
-                  <DropdownMenuItem onSelect={() => openTaskDialog(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold text-indigo-600"><ClipboardList className="w-3.5 h-3.5" /> Aufgabe erstellen</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => { setTaskTargetRisk(risk); setTaskTitle(`Maßnahme für: ${risk.title}`); setIsTaskDialogOpen(true); }} className="rounded-lg py-2 gap-2 text-xs font-bold text-indigo-600"><ClipboardList className="w-3.5 h-3.5" /> Aufgabe erstellen</DropdownMenuItem>
                   <DropdownMenuSeparator className="my-1" />
                   <DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Risiko unwiderruflich löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}>
                     <Trash2 className="w-3.5 h-3.5" /> Löschen
@@ -603,7 +582,7 @@ function RiskDashboardContent() {
           <Button variant="outline" size="sm" onClick={() => router.push('/risks/catalog')} className="h-9 rounded-md font-bold text-xs px-4 border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all active:scale-95">
             <Library className="w-3.5 h-3.5 mr-2" /> Gefährdungskatalog
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-accent hover:bg-accent/90 text-white shadow-lg shadow-accent/20 transition-all active:scale-95" onClick={() => { resetForm(); setIsRiskDialogOpen(true); }}>
+          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-accent hover:bg-accent/90 text-white shadow-lg shadow-accent/20 transition-all active:scale-95" onClick={() => { setSelectedRisk(null); setTitle(''); setIsRiskDialogOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> Risiko erfassen
           </Button>
         </div>

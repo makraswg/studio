@@ -10,7 +10,7 @@ const CACHE_TTL = 5000; // 5 Sekunden Cache-Gültigkeit für Navigationen
 
 /**
  * Ein optimierter Hook, um Daten aus einer MySQL-Datenbank zu laden.
- * Implementiert Caching und intelligentes Polling.
+ * Implementiert Caching, intelligentes Polling und Datenstabilität.
  */
 export function useMysqlCollection<T>(collectionName: string, enabled: boolean) {
   const [data, setData] = useState<T[] | null>(() => {
@@ -27,6 +27,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const isInitialFetch = useRef(true);
+  const prevDataHash = useRef<string>("");
 
   const fetchData = useCallback(async (silent = false) => {
     if (!enabled) return;
@@ -49,9 +50,15 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
         setError(result.error);
       } else {
         const newData = result.data as T[];
-        setData(newData);
+        const currentHash = JSON.stringify(newData);
+        
+        // Stabilität: Nur aktualisieren, wenn sich die Daten tatsächlich geändert haben
+        if (currentHash !== prevDataHash.current) {
+          setData(newData);
+          prevDataHash.current = currentHash;
+          mysqlCache[collectionName] = { data: newData, timestamp: Date.now() };
+        }
         setError(null);
-        mysqlCache[collectionName] = { data: newData, timestamp: Date.now() };
       }
     } catch (e: any) {
       setError(e.message);
@@ -59,11 +66,12 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
       if (!silent) setIsLoading(false);
       isInitialFetch.current = false;
     }
-  }, [collectionName, enabled]); // data wurde als Abhängigkeit entfernt, um Loop zu verhindern
+  }, [collectionName, enabled, data]);
 
   const refresh = useCallback(() => {
     delete mysqlCache[collectionName];
     isInitialFetch.current = true;
+    prevDataHash.current = "";
     setVersion(v => v + 1);
   }, [collectionName]);
 

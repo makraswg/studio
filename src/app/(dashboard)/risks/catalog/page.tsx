@@ -57,7 +57,7 @@ export default function CatalogBrowserPage() {
       return matchesSearch && matchesModule;
     });
 
-    return filtered.sort((a, b) => {
+    return [...filtered].sort((a, b) => {
       const regex = /G\s+(\d+)\.(\d+)/i;
       const matchA = a.code.match(regex);
       const matchB = b.code.match(regex);
@@ -96,9 +96,16 @@ export default function CatalogBrowserPage() {
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Basis für die Risiko-Ableitung nach BSI IT-Grundschutz.</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs border-slate-200 hover:bg-slate-50 transition-all active:scale-95" onClick={() => router.push('/settings/data')}>
-          <Database className="w-3.5 h-3.5 mr-2" /> Kataloge verwalten
-        </Button>
+        <div className="flex items-center gap-3">
+          {isHazardsLoading && hazards && (
+            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 animate-pulse">
+              <Loader2 className="w-3 h-3 animate-spin" /> Aktualisiere...
+            </div>
+          )}
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs border-slate-200 hover:bg-slate-50 transition-all active:scale-95" onClick={() => router.push('/settings/data')}>
+            <Database className="w-3.5 h-3.5 mr-2" /> Kataloge verwalten
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">

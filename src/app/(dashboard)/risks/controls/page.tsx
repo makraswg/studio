@@ -22,7 +22,8 @@ import {
   Info,
   BadgeCheck,
   ChevronRight,
-  Plus
+  Plus,
+  User as UserIcon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

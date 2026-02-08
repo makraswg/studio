@@ -33,7 +33,10 @@ import {
   ChevronRight,
   CornerDownRight,
   Split,
-  X
+  X,
+  BrainCircuit,
+  ShieldCheck,
+  Target
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -69,6 +72,7 @@ import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
+import { getRiskAdvice, RiskAdvisorOutput } from '@/ai/flows/risk-advisor-flow';
 
 function RiskDashboardContent() {
   const router = useRouter();
@@ -76,7 +80,7 @@ function RiskDashboardContent() {
   const { user } = usePlatformAuth();
   const { dataSource, activeTenantId } = useSettings();
   const [mounted, setMounted] = useState(false);
-  const derivationLock = useRef(false);
+  const processedDerive = useRef<string | null>(null);
   
   // UI States
   const [search, setSearch] = useState(searchParams.get('search') || '');
@@ -84,6 +88,11 @@ function RiskDashboardContent() {
   const [isRiskDialogOpen, setIsRiskDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
+
+  // AI Advisor State
+  const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
+  const [isAdvisorLoading, setIsAdvisorLoading] = useState(false);
+  const [aiAdvice, setAiAdvice] = useState<RiskAdvisorOutput | null>(null);
 
   // Task Creation States
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
@@ -131,18 +140,17 @@ function RiskDashboardContent() {
 
   useEffect(() => { 
     setMounted(true); 
-    const deriveFrom = searchParams.get('derive');
-    if (deriveFrom && hazards && !derivationLock.current) {
-      const hazard = hazards.find(h => h.id === deriveFrom);
+    const deriveId = searchParams.get('derive');
+    if (deriveId && hazards && deriveId !== processedDerive.current) {
+      const hazard = hazards.find(h => h.id === deriveId);
       if (hazard) {
-        derivationLock.current = true;
+        processedDerive.current = deriveId;
         resetForm();
         setTitle(`Risiko: ${hazard.title}`);
         setDescription(hazard.description);
         setCategory('IT-Sicherheit');
         setHazardId(hazard.id);
         setIsRiskDialogOpen(true);
-        // Clear the param to prevent loops
         router.replace('/risks', { scroll: false });
       }
     }
@@ -278,11 +286,11 @@ function RiskDashboardContent() {
       title: `${catMeasure.code}: ${catMeasure.title}`,
       description: `Automatisch abgeleitet aus BSI Baustein ${catMeasure.baustein}.`,
       owner: user?.displayName || 'N/A',
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // +30 Tage
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], 
       status: 'planned',
       effectiveness: 3,
       isTom: true,
-      tomCategory: 'Verschlüsselung' // Default
+      tomCategory: 'Verschlüsselung' 
     };
 
     const res = await saveCollectionRecord('riskMeasures', measureId, data, dataSource);
@@ -320,6 +328,31 @@ function RiskDashboardContent() {
       }
     } finally {
       setIsSavingMeasure(false);
+    }
+  };
+
+  const openRiskAdvisor = async () => {
+    setIsAdvisorLoading(true);
+    setIsAdvisorOpen(true);
+    setAiAdvice(null);
+    try {
+      const asset = resources?.find(r => r.id === assetId);
+      const advice = await getRiskAdvice({
+        title,
+        description,
+        category,
+        impact: parseInt(impact),
+        probability: parseInt(probability),
+        assetName: asset?.name,
+        tenantId: activeTenantId,
+        dataSource
+      });
+      setAiAdvice(advice);
+    } catch (e) {
+      toast({ variant: "destructive", title: "KI-Fehler", description: "Beratung konnte nicht geladen werden." });
+      setIsAdvisorOpen(false);
+    } finally {
+      setIsAdvisorLoading(false);
     }
   };
 
@@ -377,8 +410,6 @@ function RiskDashboardContent() {
     if (s.category) setCategory(s.category);
     toast({ title: "KI-Vorschläge übernommen" });
   };
-
-  if (!mounted) return null;
 
   const RiskRow = ({ risk, isSub = false }: { risk: Risk, isSub?: boolean }) => {
     const score = risk.impact * risk.probability;
@@ -546,7 +577,6 @@ function RiskDashboardContent() {
         )}
       </div>
 
-      {/* Enterprise Risk Dialog */}
       <Dialog open={isRiskDialogOpen} onOpenChange={setIsRiskDialogOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
@@ -560,11 +590,16 @@ function RiskDashboardContent() {
                   <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Identifikation & Bewertung von Bedrohungen</DialogDescription>
                 </div>
               </div>
-              <AiFormAssistant 
-                formType="risk" 
-                currentData={{ title, description, category, impact, probability, assetId }} 
-                onApply={applyAiSuggestions} 
-              />
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-9 rounded-xl border-indigo-200 bg-indigo-50/50 text-indigo-700 hover:bg-indigo-100 gap-2 font-bold text-[10px] uppercase tracking-widest" onClick={openRiskAdvisor}>
+                  <BrainCircuit className="w-4 h-4" /> KI-Advisor
+                </Button>
+                <AiFormAssistant 
+                  formType="risk" 
+                  currentData={{ title, description, category, impact, probability, assetId }} 
+                  onApply={applyAiSuggestions} 
+                />
+              </div>
             </div>
           </DialogHeader>
           
@@ -774,12 +809,96 @@ function RiskDashboardContent() {
             </ScrollArea>
 
             <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setIsRiskDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 tracking-widest text-slate-400 hover:bg-white transition-all">Abbrechen</Button>
-              <Button size="sm" onClick={handleSaveRisk} disabled={isSaving || !title} className="w-full sm:w-auto rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-accent hover:bg-accent/90 text-white shadow-lg transition-all active:scale-95 gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setIsRiskDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 tracking-widest text-slate-400 hover:bg-white transition-all uppercase">Abbrechen</Button>
+              <Button size="sm" onClick={handleSaveRisk} disabled={isSaving || !title} className="w-full sm:w-auto rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-accent hover:bg-accent/90 text-white shadow-lg transition-all active:scale-95 gap-2 uppercase">
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Risiko speichern
               </Button>
             </DialogFooter>
           </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Advisor Modal */}
+      <Dialog open={isAdvisorOpen} onOpenChange={setIsAdvisorOpen}>
+        <DialogContent className="max-w-2xl w-[95vw] rounded-3xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[80vh]">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-8">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-white shadow-xl border border-white/10">
+                <BrainCircuit className="w-7 h-7" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-headline font-bold">KI Risk Advisor</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase mt-0.5">Szenario-Analyse & Maßnahmenplanung</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1">
+            {isAdvisorLoading ? (
+              <div className="py-20 text-center space-y-6">
+                <div className="relative w-16 h-16 mx-auto">
+                  <Loader2 className="w-16 h-16 animate-spin text-primary opacity-20" />
+                  <Zap className="absolute inset-0 m-auto w-7 h-7 text-primary animate-pulse" />
+                </div>
+                <p className="text-sm font-bold text-slate-800">KI bewertet Gefahrenlage...</p>
+              </div>
+            ) : aiAdvice && (
+              <div className="p-8 space-y-10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="p-6 rounded-3xl bg-indigo-50 border border-indigo-100 shadow-inner">
+                    <p className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">KI Einschätzung</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <ShieldAlert className={cn("w-5 h-5", aiAdvice.threatLevel === 'critical' ? "text-red-600" : "text-indigo-600")} />
+                      <h3 className="text-xl font-black uppercase text-indigo-900">{aiAdvice.threatLevel}</h3>
+                    </div>
+                  </div>
+                  <div className="p-6 rounded-3xl bg-emerald-50 border border-emerald-100 shadow-inner">
+                    <p className="text-[10px] font-black uppercase text-emerald-400 tracking-widest">Maßnahmenbedarf</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Target className="w-5 h-5 text-emerald-600" />
+                      <h3 className="text-xl font-black uppercase text-emerald-900">{aiAdvice.measures.length} Vorschläge</h3>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 relative overflow-hidden group">
+                  <div className="absolute top-0 left-0 w-1.5 h-full bg-primary" />
+                  <p className="text-sm font-medium italic text-slate-700 leading-relaxed pl-2">
+                    "{aiAdvice.assessment}"
+                  </p>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <h4 className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2 ml-1">
+                      <Zap className="w-3.5 h-3.5 text-primary" /> Empfohlene Kontrollen
+                    </h4>
+                    <div className="grid grid-cols-1 gap-2">
+                      {aiAdvice.measures.map((m, i) => (
+                        <div key={i} className="flex items-start gap-3 p-4 bg-white border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 shadow-sm hover:border-primary/30 transition-all">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                          {m}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="text-[10px] font-black uppercase text-red-600 flex items-center gap-2 ml-1">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Lückenanalyse
+                    </h4>
+                    <div className="p-4 bg-red-50/30 border border-red-100 rounded-2xl text-xs font-medium text-red-900 italic leading-relaxed">
+                      {aiAdvice.gapAnalysis}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </ScrollArea>
+          
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
+            <Button size="sm" onClick={() => setIsAdvisorOpen(false)} className="rounded-xl font-bold text-xs px-8 h-11">Schließen</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

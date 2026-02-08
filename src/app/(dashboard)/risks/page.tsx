@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, Suspense, useRef } from 'react';
@@ -39,7 +40,8 @@ import {
   Target,
   ExternalLink,
   ClipboardCheck,
-  AlertCircle
+  AlertCircle,
+  Workflow
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -47,7 +49,7 @@ import { useSettings } from '@/context/settings-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { exportRisksExcel } from '@/lib/export-utils';
-import { Risk, Resource, Hazard, Task, PlatformUser, RiskMeasure } from '@/lib/types';
+import { Risk, Resource, Hazard, Task, PlatformUser, RiskMeasure, Process } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Dialog, 
@@ -99,6 +101,11 @@ function RiskDashboardContent() {
   const [isAdvisorLoading, setIsAdvisorLoading] = useState(false);
   const [aiAdvice, setAiAdvice] = useState<RiskAdvisorOutput | null>(null);
 
+  // Quick Assessment State
+  const [isQuickAssessmentOpen, setIsQuickAssessmentOpen] = useState(false);
+  const [assessmentType, setAssessmentType] = useState<'resource' | 'process'>('resource');
+  const [assessmentData, setAssessmentData] = useState<Record<string, { impact: string, probability: string, comment: string }>>({});
+
   // Task Creation States
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [isSavingTask, setIsSavingTask] = useState(false);
@@ -112,6 +119,7 @@ function RiskDashboardContent() {
   // Form State
   const [title, setTitle] = useState('');
   const [assetId, setAssetId] = useState('');
+  const [processId, setProcessId] = useState('');
   const [parentId, setParentId] = useState('none');
   const [category, setCategory] = useState('IT-Sicherheit');
   const [impact, setImpact] = useState('3');
@@ -138,6 +146,7 @@ function RiskDashboardContent() {
 
   const { data: risks, isLoading, refresh } = usePluggableCollection<Risk>('risks');
   const { data: resources } = usePluggableCollection<Resource>('resources');
+  const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: hazards } = usePluggableCollection<Hazard>('hazards');
   const { data: pUsers } = usePluggableCollection<PlatformUser>('platformUsers');
   const { data: allMeasures, refresh: refreshMeasures } = usePluggableCollection<RiskMeasure>('riskMeasures');
@@ -185,11 +194,6 @@ function RiskDashboardContent() {
     };
   }, [risks, search, categoryFilter, activeTenantId]);
 
-  const linkedMeasures = useMemo(() => {
-    if (!selectedRisk || !allMeasures) return [];
-    return allMeasures.filter(m => m.riskIds?.includes(selectedRisk.id));
-  }, [selectedRisk, allMeasures]);
-
   const handleSaveRisk = async () => {
     if (!title) {
       toast({ variant: "destructive", title: "Fehler", description: "Bitte einen Titel angeben." });
@@ -204,6 +208,7 @@ function RiskDashboardContent() {
       id,
       tenantId: targetTenantId,
       assetId: assetId === 'none' ? undefined : assetId,
+      processId: processId === 'none' ? undefined : processId,
       hazardId: hazardId || undefined,
       parentId: parentId === 'none' ? undefined : parentId,
       title,
@@ -368,10 +373,62 @@ function RiskDashboardContent() {
     }
   };
 
+  const handleSaveQuickAssessment = async () => {
+    if (!selectedRisk) return;
+    setIsSaving(true);
+    try {
+      const entries = Object.entries(assessmentData).filter(([_, data]) => data.impact !== '' && data.probability !== '');
+      for (const [objId, data] of entries) {
+        const subId = `risk-q-${selectedRisk.id}-${objId}`;
+        const objName = assessmentType === 'resource' 
+          ? resources?.find(r => r.id === objId)?.name 
+          : processes?.find(p => p.id === objId)?.title;
+
+        const subRisk: Risk = {
+          id: subId,
+          tenantId: selectedRisk.tenantId,
+          parentId: selectedRisk.id,
+          title: `${selectedRisk.title} (${objName})`,
+          category: selectedRisk.category,
+          impact: parseInt(data.impact),
+          probability: parseInt(data.probability),
+          description: data.comment || `Automatisch angelegt via Schnellerfassung für ${objName}.`,
+          owner: selectedRisk.owner,
+          status: 'active',
+          assetId: assessmentType === 'resource' ? objId : undefined,
+          processId: assessmentType === 'process' ? objId : undefined,
+          createdAt: new Date().toISOString()
+        };
+        await saveCollectionRecord('risks', subId, subRisk, dataSource);
+      }
+      toast({ title: "Schnellerfassung gespeichert", description: `${entries.length} Sub-Risiken verarbeitet.` });
+      setIsQuickAssessmentOpen(false);
+      refresh();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openQuickAssessment = (risk: Risk, type: 'resource' | 'process') => {
+    setSelectedRisk(risk);
+    setAssessmentType(type);
+    const existingSubRisks = risks?.filter(r => r.parentId === risk.id) || [];
+    const initialData: any = {};
+    existingSubRisks.forEach(sr => {
+      const key = type === 'resource' ? sr.assetId : sr.processId;
+      if (key) {
+        initialData[key] = { impact: String(sr.impact), probability: String(sr.probability), comment: sr.description || '' };
+      }
+    });
+    setAssessmentData(initialData);
+    setIsQuickAssessmentOpen(true);
+  };
+
   const resetForm = () => {
     setSelectedRisk(null);
     setTitle('');
     setAssetId('');
+    setProcessId('');
     setParentId('none');
     setCategory('IT-Sicherheit');
     setImpact('3');
@@ -387,6 +444,7 @@ function RiskDashboardContent() {
     setSelectedRisk(risk);
     setTitle(risk.title);
     setAssetId(risk.assetId || 'none');
+    setProcessId(risk.processId || 'none');
     setParentId(risk.parentId || 'none');
     setCategory(risk.category);
     setImpact(risk.impact.toString());
@@ -426,6 +484,7 @@ function RiskDashboardContent() {
   const RiskRow = ({ risk, isSub = false }: { risk: Risk, isSub?: boolean }) => {
     const score = risk.impact * risk.probability;
     const asset = resources?.find(r => r.id === risk.assetId);
+    const process = processes?.find(p => p.id === risk.processId);
     const measureCount = allMeasures?.filter(m => m.riskIds?.includes(risk.id)).length || 0;
     
     return (
@@ -448,6 +507,7 @@ function RiskDashboardContent() {
                 <div className="font-bold text-sm text-slate-800 group-hover:text-accent transition-colors">{risk.title}</div>
                 <div className="flex items-center gap-2 mt-0.5">
                   {asset && <span className="text-[9px] text-slate-400 font-bold flex items-center gap-1.5"><Layers className="w-3 h-3 opacity-50" /> {asset.name}</span>}
+                  {process && <span className="text-[9px] text-slate-400 font-bold flex items-center gap-1.5"><Workflow className="w-3 h-3 opacity-50" /> {process.title}</span>}
                   {isSub && <Badge className="h-3 px-1 text-[7px] bg-slate-200 text-slate-600 border-none font-black uppercase">Sub-Risiko</Badge>}
                 </div>
               </div>
@@ -493,8 +553,20 @@ function RiskDashboardContent() {
                     <MoreVertical className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
+                <DropdownMenuContent align="end" className="rounded-xl w-64 p-1 shadow-2xl border">
                   <DropdownMenuItem onSelect={() => openEdit(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-primary" /> Bearbeiten</DropdownMenuItem>
+                  {!isSub && (
+                    <>
+                      <DropdownMenuItem onSelect={() => openQuickAssessment(risk, 'resource')} className="rounded-lg py-2 gap-2 text-xs font-bold text-indigo-600">
+                        <Activity className="w-3.5 h-3.5" /> ⚡ Schnellerfassung: Ressourcen
+                      </DropdownMenuItem>
+                      {!risk.hazardId && (
+                        <DropdownMenuItem onSelect={() => openQuickAssessment(risk, 'process')} className="rounded-lg py-2 gap-2 text-xs font-bold text-amber-600">
+                          <Workflow className="w-3.5 h-3.5" /> ⚡ Schnellerfassung: Prozesse
+                        </DropdownMenuItem>
+                      )}
+                    </>
+                  )}
                   {risk.hazardId && (
                     <DropdownMenuItem onSelect={() => { setSelectedRisk(risk); loadCatalogSuggestions(risk); }} className="rounded-lg py-2 gap-2 text-xs font-bold text-blue-600"><Zap className="w-3.5 h-3.5" /> ⚡ BSI Vorschläge laden</DropdownMenuItem>
                   )}
@@ -676,6 +748,19 @@ function RiskDashboardContent() {
                     </div>
 
                     <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Betroffener Geschäftsprozess</Label>
+                      <Select value={processId} onValueChange={setProcessId}>
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Prozess wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="none">Kein spezifischer Prozess</SelectItem>
+                          {processes?.filter(p => activeTenantId === 'all' || p.tenantId === activeTenantId).map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Übergeordnetes Risiko (Eltern)</Label>
                       <Select value={parentId} onValueChange={setParentId}>
                         <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
@@ -826,6 +911,85 @@ function RiskDashboardContent() {
               </Button>
             </DialogFooter>
           </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Assessment Dialog */}
+      <Dialog open={isQuickAssessmentOpen} onOpenChange={setIsQuickAssessmentOpen}>
+        <DialogContent className="max-w-5xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[85vh]">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg border border-white/10">
+                {assessmentType === 'resource' ? <Layers className="w-6 h-6" /> : <Workflow className="w-6 h-6" />}
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Schnellerfassung: {assessmentType === 'resource' ? 'Ressourcen' : 'Prozesse'}</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Parent: {selectedRisk?.title}</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1 bg-slate-50/30">
+            <div className="p-6">
+              <Table>
+                <TableHeader className="bg-white border shadow-sm rounded-t-xl">
+                  <TableRow>
+                    <TableHead className="font-black text-[10px] uppercase text-slate-400 py-4 px-6">{assessmentType === 'resource' ? 'IT-Ressource' : 'Geschäftsprozess'}</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase text-slate-400 text-center">Impact (1-5)</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase text-slate-400 text-center">Prob (1-5)</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase text-slate-400">Kommentar / Hinweis</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(assessmentType === 'resource' ? resources : processes)?.filter(obj => activeTenantId === 'all' || obj.tenantId === activeTenantId || (obj as any).tenantId === 'global').map(obj => (
+                    <TableRow key={obj.id} className="bg-white border-b hover:bg-slate-50/50">
+                      <TableCell className="py-4 px-6">
+                        <div className="font-bold text-xs text-slate-800">{(obj as any).name || (obj as any).title}</div>
+                        <div className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">{(obj as any).assetType || 'Process'}</div>
+                      </TableCell>
+                      <TableCell className="text-center w-24">
+                        <Input 
+                          type="number" min="1" max="5" 
+                          value={assessmentData[obj.id]?.impact || ''} 
+                          onChange={e => setAssessmentData({...assessmentData, [obj.id]: { ...(assessmentData[obj.id] || { impact: '3', probability: '3', comment: '' }), impact: e.target.value }})}
+                          className="h-9 w-16 mx-auto text-center font-bold"
+                        />
+                      </TableCell>
+                      <TableCell className="text-center w-24">
+                        <Input 
+                          type="number" min="1" max="5" 
+                          value={assessmentData[obj.id]?.probability || ''} 
+                          onChange={e => setAssessmentData({...assessmentData, [obj.id]: { ...(assessmentData[obj.id] || { impact: '3', probability: '3', comment: '' }), probability: e.target.value }})}
+                          className="h-9 w-16 mx-auto text-center font-bold"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input 
+                          placeholder="Bemerkung..." 
+                          value={assessmentData[obj.id]?.comment || ''} 
+                          onChange={e => setAssessmentData({...assessmentData, [obj.id]: { ...(assessmentData[obj.id] || { impact: '3', probability: '3', comment: '' }), comment: e.target.value }})}
+                          className="h-9 text-xs border-none bg-slate-50 focus:bg-white"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </ScrollArea>
+
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Info className="w-4 h-4 text-slate-400" />
+              <p className="text-[10px] text-slate-500 italic font-medium">Nur Zeilen mit Impact & Wahrscheinlichkeit werden als Sub-Risiko gespeichert.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setIsQuickAssessmentOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
+              <Button onClick={handleSaveQuickAssessment} disabled={isSaving} className="rounded-xl bg-slate-900 hover:bg-black text-white px-8 h-11 font-bold text-[10px] uppercase gap-2 shadow-xl active:scale-95">
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Batch-Speichern
+              </Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

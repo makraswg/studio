@@ -358,6 +358,7 @@ export interface Risk {
   id: string;
   tenantId: string;
   assetId?: string;
+  processId?: string;
   hazardId?: string;
   parentId?: string;
   title: string;

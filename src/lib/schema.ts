@@ -402,6 +402,7 @@ export const appSchema: AppSchema = {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
       assetId: 'VARCHAR(255)',
+      processId: 'VARCHAR(255)',
       hazardId: 'VARCHAR(255)',
       parentId: 'VARCHAR(255)',
       title: 'VARCHAR(255) NOT NULL',

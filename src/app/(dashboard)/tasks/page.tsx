@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -313,7 +312,7 @@ export default function TasksPage() {
         )}
       </div>
 
-      {/* Task Editor Dialog - Fixed mobile layout */}
+      {/* Task Editor Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
@@ -331,13 +330,13 @@ export default function TasksPage() {
           <ScrollArea className="flex-1 bg-white">
             <div className="p-6 md:p-8 space-y-8">
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung / Titel</Label>
+                <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung / Titel</Label>
                 <Input value={title} onChange={e => setTitle(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white" placeholder="Was ist zu tun?" />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zuständigkeit (Assignee)</Label>
+                  <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zuständigkeit (Assignee)</Label>
                   <Select value={assigneeId} onValueChange={setAssigneeId}>
                     <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                     <SelectContent className="rounded-xl">

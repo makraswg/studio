@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -425,7 +424,7 @@ export default function FeaturesOverviewPage() {
             <div className="p-8 space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung / Code</Label>
+                  <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung / Code</Label>
                   <Input value={name} onChange={e => setName(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white shadow-sm" placeholder="z.B. MERK_001 - Mietbeginn" />
                 </div>
                 
@@ -443,7 +442,7 @@ export default function FeaturesOverviewPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Merkmalsträger</Label>
+                  <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Merkmalsträger</Label>
                   <Select value={carrier} onValueChange={(v: any) => setCarrier(v)}>
                     <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -516,7 +515,7 @@ export default function FeaturesOverviewPage() {
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortliche Abteilung</Label>
+                      <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortliche Abteilung</Label>
                       <Select value={deptId} onValueChange={setDeptId}>
                         <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Abteilung wählen..." /></SelectTrigger>
                         <SelectContent>

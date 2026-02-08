@@ -336,12 +336,12 @@ export default function RolesManagementPage() {
           <ScrollArea className="max-h-[70vh]">
             <div className="p-6 space-y-6">
               <div className="space-y-2">
-                <Label className="text-[11px] font-bold text-slate-400 ml-1">Bezeichnung der Rolle</Label>
+                <Label required className="text-[11px] font-bold text-slate-400 ml-1">Bezeichnung der Rolle</Label>
                 <Input value={name} onChange={e => setName(e.target.value)} className="rounded-md h-11 border-slate-200 dark:border-slate-800 font-bold text-sm" placeholder="z.B. IT-Admin, Buchhalter..." />
               </div>
               
               <div className="space-y-2">
-                <Label className="text-[11px] font-bold text-slate-400 ml-1">Zugehöriges System (Ressource)</Label>
+                <Label required className="text-[11px] font-bold text-slate-400 ml-1">Zugehöriges System (Ressource)</Label>
                 <Select value={resourceId} onValueChange={setResourceId}>
                   <SelectTrigger className="rounded-md h-11 border-slate-200 dark:border-slate-800 text-xs">
                     <SelectValue placeholder="System wählen..." />

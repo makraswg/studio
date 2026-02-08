@@ -297,11 +297,11 @@ export default function UsersPage() {
           </DialogHeader>
           <div className="p-6 space-y-6">
             <div className="space-y-2">
-              <Label className="text-[11px] font-bold text-slate-400 ml-1">Anzeigename</Label>
+              <Label required className="text-[11px] font-bold text-slate-400 ml-1">Anzeigename</Label>
               <Input value={displayName} onChange={e => setDisplayName(e.target.value)} className="rounded-md h-11 border-slate-200" />
             </div>
             <div className="space-y-2">
-              <Label className="text-[11px] font-bold text-slate-400 ml-1">E-Mail</Label>
+              <Label required className="text-[11px] font-bold text-slate-400 ml-1">E-Mail</Label>
               <Input value={email} onChange={e => setEmail(e.target.value)} className="rounded-md h-11 border-slate-200" />
             </div>
             <div className="space-y-2">
@@ -309,7 +309,7 @@ export default function UsersPage() {
               <Input value={department} onChange={e => setDepartment(e.target.value)} className="rounded-md h-11 border-slate-200" />
             </div>
             <div className="space-y-2">
-              <Label className="text-[11px] font-bold text-slate-400 ml-1">Mandant</Label>
+              <Label required className="text-[11px] font-bold text-slate-400 ml-1">Mandant</Label>
               <Select value={tenantId} onValueChange={setTenantId}>
                 <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                 <SelectContent>

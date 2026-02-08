@@ -37,7 +37,9 @@ import {
   MoreVertical,
   Activity,
   Save,
-  Shield
+  Shield,
+  Trash2,
+  Info
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -463,7 +465,7 @@ function AssignmentsPageContent() {
           <ScrollArea className="flex-1">
             <div className="p-6 space-y-6">
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold text-slate-400 ml-1">1. Identität auswählen</Label>
+                <Label required className="text-[10px] font-bold text-slate-400 ml-1">1. Identität auswählen</Label>
                 <Select value={selectedUserId} onValueChange={setSelectedUserId}>
                   <SelectTrigger className="h-11 rounded-md border-slate-200 bg-slate-50/50">
                     <SelectValue placeholder="Mitarbeiter wählen..." />
@@ -479,7 +481,7 @@ function AssignmentsPageContent() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-bold text-slate-400 ml-1">2. System auswählen</Label>
+                <Label required className="text-[10px] font-bold text-slate-400 ml-1">2. System auswählen</Label>
                 <Select value={selectedResourceId} onValueChange={(val) => { setSelectedResourceId(val); setSelectedEntitlementId(''); }}>
                   <SelectTrigger className="h-11 rounded-md border-slate-200 bg-slate-50/50">
                     <SelectValue placeholder="System wählen..." />
@@ -496,7 +498,7 @@ function AssignmentsPageContent() {
 
               {selectedResourceId && (
                 <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1">3. Rolle / Berechtigung wählen</Label>
+                  <Label required className="text-[10px] font-bold text-slate-400 ml-1">3. Rolle / Berechtigung wählen</Label>
                   <Select value={selectedEntitlementId} onValueChange={setSelectedEntitlementId}>
                     <SelectTrigger className="h-11 rounded-md border-slate-200 bg-slate-50/50">
                       <SelectValue placeholder="Rolle wählen..." />

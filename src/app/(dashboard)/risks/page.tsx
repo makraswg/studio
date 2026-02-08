@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -46,7 +45,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -293,7 +293,7 @@ function RiskDashboardContent() {
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white opacity-0 group-hover:opacity-100 transition-all shadow-sm">
                               <MoreVertical className="w-4 h-4 text-slate-400" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -348,7 +348,7 @@ function RiskDashboardContent() {
             <div className="p-8 space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung des Risikos</Label>
+                  <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung des Risikos</Label>
                   <Input value={title} onChange={e => setTitle(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white shadow-sm focus:border-accent" placeholder="z.B. Datendiebstahl durch ungesicherte Schnittstellen..." />
                 </div>
                 

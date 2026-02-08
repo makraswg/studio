@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -24,7 +23,8 @@ import {
   Search,
   FileText,
   Zap,
-  Info
+  Info,
+  BrainCircuit
 } from 'lucide-react';
 import { 
   PieChart, 

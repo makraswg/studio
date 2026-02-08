@@ -33,7 +33,8 @@ import {
   Briefcase,
   Building2,
   Mail,
-  RotateCcw
+  RotateCcw,
+  Globe
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -76,10 +77,14 @@ export default function ResourceDetailPage() {
   useEffect(() => { setMounted(true); }, []);
 
   const resource = useMemo(() => resources?.find(r => r.id === id), [resources, id]);
+  
   const systemOwnerRole = useMemo(() => jobs?.find(j => j.id === resource?.systemOwnerRoleId), [jobs, resource]);
+  const systemOwnerContact = useMemo(() => contacts?.find(c => c.id === resource?.externalOwnerContactId), [contacts, resource]);
+  const systemPartner = useMemo(() => partners?.find(p => p.id === systemOwnerContact?.partnerId), [partners, systemOwnerContact]);
+
   const riskOwnerRole = useMemo(() => jobs?.find(j => j.id === resource?.riskOwnerRoleId), [jobs, resource]);
-  const externalContact = useMemo(() => contacts?.find(c => c.id === resource?.externalOwnerContactId), [contacts, resource]);
-  const externalPartner = useMemo(() => partners?.find(p => p.id === externalContact?.partnerId), [partners, externalContact]);
+  const riskOwnerContact = useMemo(() => contacts?.find(c => c.id === resource?.riskOwnerContactId), [contacts, resource]);
+  const riskPartner = useMemo(() => partners?.find(p => p.id === riskOwnerContact?.partnerId), [partners, riskOwnerContact]);
 
   const impactAnalysis = useMemo(() => {
     if (!resource || !processes || !versions) return { processes: [], vvts: [], features: [] };
@@ -103,7 +108,6 @@ export default function ResourceDetailPage() {
     return { processes: affectedProcesses, vvts: affectedVvts, features: linkedFeatures };
   }, [resource, processes, versions, vvts, features, featureLinks]);
 
-  // Inheritance Logic (Maximum Principle)
   const effectiveInheritance = useMemo(() => {
     if (!impactAnalysis.features || impactAnalysis.features.length === 0) return null;
     
@@ -179,6 +183,30 @@ export default function ResourceDetailPage() {
     return <div className="p-20 text-center space-y-4"><AlertTriangle className="w-12 h-12 text-amber-500 mx-auto" /><h2 className="text-xl font-headline font-bold text-slate-900">Ressource nicht gefunden</h2><Button onClick={() => router.push('/resources')}>Zurück zum Katalog</Button></div>;
   }
 
+  const OwnerDisplay = ({ role, contact, partner, label, icon: Icon, color }: any) => (
+    <div className="space-y-1">
+      <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">{label}</p>
+      {contact ? (
+        <div className="space-y-2 p-3 rounded-xl bg-indigo-50 border border-indigo-100 shadow-inner">
+          <div className="flex items-center gap-2">
+            <Badge className="bg-indigo-600 text-white border-none rounded-full h-3 px-1 text-[6px] font-black uppercase tracking-widest">EXTERN</Badge>
+            <p className="text-[10px] font-black uppercase text-indigo-900 truncate">{partner?.name}</p>
+          </div>
+          <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+            <Icon className={cn("w-4 h-4", color)} /> {contact.name}
+          </div>
+          <p className="text-[9px] text-slate-500 flex items-center gap-1.5 ml-6"><Mail className="w-3 h-3" /> {contact.email}</p>
+        </div>
+      ) : role ? (
+        <div className="flex items-center gap-2 text-slate-900 font-bold text-sm p-1">
+          <Icon className={cn("w-4 h-4", color)} /> {role.name}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-300 italic font-medium p-1">Nicht zugewiesen</p>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-6 pb-20">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
@@ -228,33 +256,23 @@ export default function ResourceDetailPage() {
             <CardHeader className="bg-slate-50/50 border-b p-4 px-6">
               <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Verantwortung & Ownership</CardTitle>
             </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">System Owner (Intern)</p>
-                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                    <Briefcase className="w-4 h-4 text-primary" /> {systemOwnerRole?.name || '---'}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Risk Owner (Intern)</p>
-                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                    <AlertTriangle className="w-4 h-4 text-orange-600" /> {riskOwnerRole?.name || '---'}
-                  </div>
-                </div>
-                {externalContact && (
-                  <div className="space-y-1 p-3 rounded-xl bg-indigo-50 border border-indigo-100 mt-4">
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-indigo-600 text-white border-none rounded-full h-3 px-1 text-[6px] font-black uppercase">Externer Support</Badge>
-                      <p className="text-[9px] font-black uppercase text-indigo-900">{externalPartner?.name}</p>
-                    </div>
-                    <div className="mt-2 space-y-1">
-                      <p className="text-xs font-bold text-slate-800">{externalContact.name}</p>
-                      <p className="text-[9px] text-slate-500 flex items-center gap-1"><Mail className="w-2.5 h-2.5" /> {externalContact.email}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
+            <CardContent className="p-6 space-y-8">
+              <OwnerDisplay 
+                label="System Owner" 
+                role={systemOwnerRole} 
+                contact={systemOwnerContact} 
+                partner={systemPartner} 
+                icon={Briefcase} 
+                color="text-primary" 
+              />
+              <OwnerDisplay 
+                label="Risk Owner" 
+                role={riskOwnerRole} 
+                contact={riskOwnerContact} 
+                partner={riskPartner} 
+                icon={AlertTriangle} 
+                color="text-orange-600" 
+              />
             </CardContent>
           </Card>
 

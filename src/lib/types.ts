@@ -316,6 +316,7 @@ export interface Resource {
   systemOwnerRoleId?: string; 
   riskOwnerRoleId?: string; 
   externalOwnerContactId?: string; 
+  riskOwnerContactId?: string;
   operatorId: string;
   riskOwner: string;
   dataOwner: string;

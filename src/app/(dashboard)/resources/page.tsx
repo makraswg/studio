@@ -72,6 +72,7 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export default function ResourcesPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -99,9 +100,16 @@ export default function ResourcesPage() {
   const [hasPersonalData, setHasPersonalData] = useState(false);
   const [isDataRepository, setIsDataRepository] = useState(false);
   const [dataLocation, setDataLocation] = useState('');
+  
+  // Hybrid Owner States
+  const [systemOwnerType, setSystemOwnerType] = useState<'internal' | 'external'>('internal');
   const [systemOwnerRoleId, setSystemOwnerRoleId] = useState('');
-  const [riskOwnerRoleId, setRiskOwnerRoleId] = useState('');
   const [externalOwnerContactId, setExternalOwnerContactId] = useState('');
+  
+  const [riskOwnerType, setRiskOwnerType] = useState<'internal' | 'external'>('internal');
+  const [riskOwnerRoleId, setRiskOwnerRoleId] = useState('');
+  const [riskOwnerContactId, setRiskOwnerContactId] = useState('');
+
   const [notes, setNotes] = useState('');
   const [url, setUrl] = useState('');
 
@@ -117,7 +125,6 @@ export default function ResourcesPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Inheritance Suggestion Logic
   const suggestedCompliance = useMemo(() => {
     if (!selectedResource || !processes || !versions || !features || !featureLinks) return null;
 
@@ -178,9 +185,12 @@ export default function ResourcesPage() {
     setHasPersonalData(false);
     setIsDataRepository(false);
     setDataLocation('');
+    setSystemOwnerType('internal');
     setSystemOwnerRoleId('');
-    setRiskOwnerRoleId('');
     setExternalOwnerContactId('');
+    setRiskOwnerType('internal');
+    setRiskOwnerRoleId('');
+    setRiskOwnerContactId('');
     setNotes('');
     setUrl('');
   };
@@ -210,9 +220,10 @@ export default function ResourcesPage() {
       hasPersonalData,
       isDataRepository,
       dataLocation,
-      systemOwnerRoleId: systemOwnerRoleId === 'none' ? undefined : systemOwnerRoleId,
-      riskOwnerRoleId: riskOwnerRoleId === 'none' ? undefined : riskOwnerRoleId,
-      externalOwnerContactId: externalOwnerContactId === 'none' ? undefined : externalOwnerContactId,
+      systemOwnerRoleId: systemOwnerType === 'internal' && systemOwnerRoleId !== 'none' ? systemOwnerRoleId : undefined,
+      externalOwnerContactId: systemOwnerType === 'external' && externalOwnerContactId !== 'none' ? externalOwnerContactId : undefined,
+      riskOwnerRoleId: riskOwnerType === 'internal' && riskOwnerRoleId !== 'none' ? riskOwnerRoleId : undefined,
+      riskOwnerContactId: riskOwnerType === 'external' && riskOwnerContactId !== 'none' ? riskOwnerContactId : undefined,
       notes,
       url,
       status: selectedResource?.status || 'active',
@@ -246,9 +257,15 @@ export default function ResourcesPage() {
     setHasPersonalData(!!res.hasPersonalData);
     setIsDataRepository(!!res.isDataRepository);
     setDataLocation(res.dataLocation || '');
+    
+    setSystemOwnerType(res.externalOwnerContactId ? 'external' : 'internal');
     setSystemOwnerRoleId(res.systemOwnerRoleId || 'none');
-    setRiskOwnerRoleId(res.riskOwnerRoleId || 'none');
     setExternalOwnerContactId(res.externalOwnerContactId || 'none');
+    
+    setRiskOwnerType(res.riskOwnerContactId ? 'external' : 'internal');
+    setRiskOwnerRoleId(res.riskOwnerRoleId || 'none');
+    setRiskOwnerContactId(res.riskOwnerContactId || 'none');
+
     setNotes(res.notes || '');
     setUrl(res.url || '');
     setIsDialogOpen(true);
@@ -277,6 +294,28 @@ export default function ResourcesPage() {
   }, [resources, search, activeTenantId, showArchived, assetTypeFilter]);
 
   if (!mounted) return null;
+
+  const PartnerContactSelect = ({ value, onValueChange }: { value: string, onValueChange: (val: string) => void }) => (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center gap-2">
+          <Badge className="bg-indigo-600 text-white border-none rounded-full h-3.5 px-1 text-[6px] font-black">EXTERN</Badge>
+          <SelectValue placeholder="Partner wählen..." />
+        </div>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">Kein externer Support</SelectItem>
+        {partners?.map(p => (
+          <div key={p.id}>
+            <div className="px-2 py-1.5 text-[8px] font-black uppercase text-slate-400 bg-slate-50">{p.name}</div>
+            {contacts?.filter(c => c.partnerId === p.id).map(contact => (
+              <SelectItem key={contact.id} value={contact.id} className="pl-4">{contact.name} ({contact.email})</SelectItem>
+            ))}
+          </div>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 
   return (
     <div className="space-y-6 pb-10">
@@ -339,13 +378,14 @@ export default function ResourcesPage() {
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Anwendung / Asset</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Integrität (CIA)</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Verantwortung (Role)</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">System Owner</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredResources.map((res) => {
-                const ownerRole = jobs?.find(j => j.id === res.systemOwnerRoleId);
+                const internalOwner = jobs?.find(j => j.id === res.systemOwnerRoleId);
+                const externalOwner = contacts?.find(c => c.id === res.externalOwnerContactId);
                 return (
                   <TableRow key={res.id} className={cn("group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer", res.status === 'archived' && "opacity-60")} onClick={() => router.push(`/resources/${res.id}`)}>
                     <TableCell className="py-4 px-6">
@@ -369,9 +409,14 @@ export default function ResourcesPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {ownerRole ? (
+                      {externalOwner ? (
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-indigo-600 text-white border-none rounded-full h-3.5 px-1 text-[6px] font-black uppercase">EXTERN</Badge>
+                          <span className="text-[10px] font-bold text-slate-600">{externalOwner.name}</span>
+                        </div>
+                      ) : internalOwner ? (
                         <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                          <Briefcase className="w-3.5 h-3.5 text-primary opacity-50" /> {ownerRole.name}
+                          <Briefcase className="w-3.5 h-3.5 text-primary opacity-50" /> {internalOwner.name}
                         </div>
                       ) : (
                         <span className="text-[10px] text-slate-300 italic">Nicht zugewiesen</span>
@@ -524,55 +569,81 @@ export default function ResourcesPage() {
 
                 <TabsContent value="admin" className="mt-0 space-y-10">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div className="space-y-6">
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">System Owner (Internal Role)</Label>
-                        <Select value={systemOwnerRoleId} onValueChange={setSystemOwnerRoleId}>
-                          <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Keine Rolle zugewiesen</SelectItem>
-                            {jobs?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                    {/* System Owner Section */}
+                    <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <UserCircle className="w-4 h-4 text-primary" />
+                        <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">System Owner</h4>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Risk Owner (Internal Role)</Label>
-                        <Select value={riskOwnerRoleId} onValueChange={setRiskOwnerRoleId}>
-                          <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Keine Rolle zugewiesen</SelectItem>
-                            {jobs?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                      
+                      <div className="space-y-4">
+                        <RadioGroup value={systemOwnerType} onValueChange={(v: any) => setSystemOwnerType(v)} className="grid grid-cols-2 gap-2">
+                          <div className={cn("flex items-center space-x-2 border p-3 rounded-xl cursor-pointer transition-all", systemOwnerType === 'internal' && "border-primary bg-primary/5")}>
+                            <RadioGroupItem value="internal" id="sys-int" />
+                            <Label htmlFor="sys-int" className="text-[10px] font-bold uppercase cursor-pointer">Intern (Job)</Label>
+                          </div>
+                          <div className={cn("flex items-center space-x-2 border p-3 rounded-xl cursor-pointer transition-all", systemOwnerType === 'external' && "border-indigo-600 bg-indigo-50/50")}>
+                            <RadioGroupItem value="external" id="sys-ext" />
+                            <Label htmlFor="sys-ext" className="text-[10px] font-bold uppercase cursor-pointer">Extern (Partner)</Label>
+                          </div>
+                        </RadioGroup>
+
+                        {systemOwnerType === 'internal' ? (
+                          <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                            <Label className="text-[9px] font-black uppercase text-slate-400">Interne Stelle auswählen</Label>
+                            <Select value={systemOwnerRoleId} onValueChange={setSystemOwnerRoleId}>
+                              <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Keine Rolle zugewiesen</SelectItem>
+                                {jobs?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ) : (
+                          <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                            <Label className="text-[9px] font-black uppercase text-slate-400">Externen Kontakt auswählen</Label>
+                            <PartnerContactSelect value={externalOwnerContactId} onValueChange={setExternalOwnerContactId} />
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="p-6 bg-slate-100 rounded-2xl border border-slate-200 space-y-6 shadow-inner">
-                      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
-                        <Building2 className="w-4 h-4 text-indigo-600" />
-                        <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Externer Dienstleister (Partner)</h4>
+                    {/* Risk Owner Section */}
+                    <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <ShieldAlert className="w-4 h-4 text-orange-600" />
+                        <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Risk Owner</h4>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-[9px] font-black uppercase text-slate-400 ml-1">Externer Ansprechpartner</Label>
-                        <Select value={externalOwnerContactId} onValueChange={setExternalOwnerContactId}>
-                          <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm">
-                            <div className="flex items-center gap-2">
-                              <Badge className="bg-indigo-600 text-white border-none rounded-full h-3.5 px-1 text-[6px] font-black">EXTERN</Badge>
-                              <SelectValue placeholder="Partner wählen..." />
-                            </div>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Kein externer Support</SelectItem>
-                            {partners?.map(p => (
-                              <div key={p.id}>
-                                <div className="px-2 py-1.5 text-[8px] font-black uppercase text-slate-400 bg-slate-50">{p.name}</div>
-                                {contacts?.filter(c => c.partnerId === p.id).map(contact => (
-                                  <SelectItem key={contact.id} value={contact.id} className="pl-4">{contact.name} ({contact.email})</SelectItem>
-                                ))}
-                              </div>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                      
+                      <div className="space-y-4">
+                        <RadioGroup value={riskOwnerType} onValueChange={(v: any) => setRiskOwnerType(v)} className="grid grid-cols-2 gap-2">
+                          <div className={cn("flex items-center space-x-2 border p-3 rounded-xl cursor-pointer transition-all", riskOwnerType === 'internal' && "border-orange-600 bg-orange-50/50")}>
+                            <RadioGroupItem value="internal" id="risk-int" />
+                            <Label htmlFor="risk-int" className="text-[10px] font-bold uppercase cursor-pointer">Intern (Job)</Label>
+                          </div>
+                          <div className={cn("flex items-center space-x-2 border p-3 rounded-xl cursor-pointer transition-all", riskOwnerType === 'external' && "border-indigo-600 bg-indigo-50/50")}>
+                            <RadioGroupItem value="external" id="risk-ext" />
+                            <Label htmlFor="risk-ext" className="text-[10px] font-bold uppercase cursor-pointer">Extern (Partner)</Label>
+                          </div>
+                        </RadioGroup>
+
+                        {riskOwnerType === 'internal' ? (
+                          <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                            <Label className="text-[9px] font-black uppercase text-slate-400">Interne Stelle auswählen</Label>
+                            <Select value={riskOwnerRoleId} onValueChange={setRiskOwnerRoleId}>
+                              <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Keine Rolle zugewiesen</SelectItem>
+                                {jobs?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ) : (
+                          <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                            <Label className="text-[9px] font-black uppercase text-slate-400">Externen Kontakt auswählen</Label>
+                            <PartnerContactSelect value={riskOwnerContactId} onValueChange={setRiskOwnerContactId} />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -582,7 +653,7 @@ export default function ResourcesPage() {
 
             <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
               <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button>
-              <Button size="sm" onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-12 h-11 bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-95 gap-2 uppercase">
+              <Button size="sm" onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-95 gap-2 uppercase">
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern
               </Button>
             </DialogFooter>

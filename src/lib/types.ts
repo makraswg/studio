@@ -327,6 +327,7 @@ export interface Resource {
   isSpof: boolean | number;
   systemOwnerRoleId?: string; 
   riskOwnerRoleId?: string; 
+  externalOwnerPartnerId?: string;
   externalOwnerContactId?: string; 
   externalOwnerAreaId?: string;
   operatorId: string;

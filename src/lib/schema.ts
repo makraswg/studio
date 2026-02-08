@@ -377,6 +377,7 @@ export const appSchema: AppSchema = {
       isSpof: 'BOOLEAN DEFAULT FALSE',
       systemOwnerRoleId: 'VARCHAR(255)',
       riskOwnerRoleId: 'VARCHAR(255)',
+      externalOwnerPartnerId: 'VARCHAR(255)',
       externalOwnerContactId: 'VARCHAR(255)',
       externalOwnerAreaId: 'VARCHAR(255)',
       operatorId: 'VARCHAR(255)',

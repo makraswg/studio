@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -42,7 +43,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Process, ProcessVersion, ProcessNode, Risk, RiskMeasure, ProcessingActivity, Feature, JobTitle, ServicePartner, ServicePartnerContact, FeatureProcessStep, ServicePartnerArea } from '@/lib/types';
+import { Resource, Process, ProcessVersion, ProcessNode, Risk, RiskMeasure, ProcessingActivity, Feature, JobTitle, ServicePartner, ServicePartnerContact, FeatureProcessStep, ServicePartnerArea, Department } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -71,6 +72,7 @@ export default function ResourceDetailPage() {
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
   const { data: features } = usePluggableCollection<Feature>('features');
   const { data: jobs } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: featureLinks } = usePluggableCollection<FeatureProcessStep>('feature_process_steps');
   const { data: partners } = usePluggableCollection<ServicePartner>('servicePartners');
   const { data: contacts } = usePluggableCollection<ServicePartnerContact>('servicePartnerContacts');
@@ -80,13 +82,17 @@ export default function ResourceDetailPage() {
 
   const resource = useMemo(() => resources?.find(r => r.id === id), [resources, id]);
   
+  // Resolved Internal System Owner
   const systemOwnerRole = useMemo(() => jobs?.find(j => j.id === resource?.systemOwnerRoleId), [jobs, resource]);
-  const systemOwnerContact = useMemo(() => contacts?.find(c => c.id === resource?.externalOwnerContactId), [contacts, resource]);
-  const systemOwnerArea = useMemo(() => areas?.find(a => a.id === resource?.externalOwnerAreaId), [areas, resource]);
-  const systemPartner = useMemo(() => partners?.find(p => p.id === (systemOwnerContact?.partnerId || systemOwnerArea?.partnerId)), [partners, systemOwnerContact, systemOwnerArea]);
+  const systemOwnerDept = useMemo(() => departments?.find(d => d.id === systemOwnerRole?.departmentId), [departments, systemOwnerRole]);
 
-  // Risk Owner is always internal role
+  // Resolved External System Owner
+  const systemOwnerPartner = useMemo(() => partners?.find(p => p.id === resource?.externalOwnerPartnerId), [partners, resource]);
+  const systemOwnerArea = useMemo(() => areas?.find(a => a.id === resource?.externalOwnerAreaId), [areas, resource]);
+
+  // Resolved Internal Risk Owner
   const riskOwnerRole = useMemo(() => jobs?.find(j => j.id === resource?.riskOwnerRoleId), [jobs, resource]);
+  const riskOwnerDept = useMemo(() => departments?.find(d => d.id === riskOwnerRole?.departmentId), [departments, riskOwnerRole]);
 
   const impactAnalysis = useMemo(() => {
     if (!resource || !processes || !versions) return { processes: [], vvts: [], features: [] };
@@ -185,42 +191,6 @@ export default function ResourceDetailPage() {
     return <div className="p-20 text-center space-y-4"><AlertTriangle className="w-12 h-12 text-amber-500 mx-auto" /><h2 className="text-xl font-headline font-bold text-slate-900">Ressource nicht gefunden</h2><Button onClick={() => router.push('/resources')}>Zurück zum Katalog</Button></div>;
   }
 
-  const OwnerDisplay = ({ role, contact, area, partner, label, icon: Icon, color }: any) => (
-    <div className="space-y-1">
-      <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">{label}</p>
-      {contact || area ? (
-        <div className="space-y-3 p-4 rounded-xl bg-indigo-50 border border-indigo-100 shadow-inner">
-          <div className="flex items-center gap-2">
-            <Badge className="bg-indigo-600 text-white border-none rounded-full h-3 px-1 text-[6px] font-black uppercase tracking-widest">EXTERN</Badge>
-            <p className="text-[10px] font-black uppercase text-indigo-900 truncate">{partner?.name || 'Partner'}</p>
-          </div>
-          
-          {contact && (
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                <Icon className={cn("w-4 h-4", color)} /> {contact.name}
-              </div>
-              <p className="text-[9px] text-slate-500 flex items-center gap-1.5 ml-6"><Mail className="w-3 h-3" /> {contact.email}</p>
-            </div>
-          )}
-
-          {area && (
-            <div className="flex items-center gap-2 pt-1 border-t border-indigo-100/50">
-              <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
-              <p className="text-[10px] font-bold text-indigo-700 uppercase tracking-tight">{area.name}</p>
-            </div>
-          )}
-        </div>
-      ) : role ? (
-        <div className="flex items-center gap-2 text-slate-900 font-bold text-sm p-1">
-          <Icon className={cn("w-4 h-4", color)} /> {role.name}
-        </div>
-      ) : (
-        <p className="text-sm text-slate-300 italic font-medium p-1">Nicht zugewiesen</p>
-      )}
-    </div>
-  );
-
   return (
     <div className="space-y-6 pb-20">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
@@ -271,21 +241,48 @@ export default function ResourceDetailPage() {
               <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Verantwortung & Ownership</CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-8">
-              <OwnerDisplay 
-                label="System Owner" 
-                role={systemOwnerRole} 
-                contact={systemOwnerContact} 
-                area={systemOwnerArea}
-                partner={systemPartner} 
-                icon={Briefcase} 
-                color="text-primary" 
-              />
-              <OwnerDisplay 
-                label="Risk Owner (Intern)" 
-                role={riskOwnerRole} 
-                icon={ShieldAlert} 
-                color="text-orange-600" 
-              />
+              {/* System Owner Display */}
+              <div className="space-y-1">
+                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">System Owner</p>
+                {systemOwnerPartner ? (
+                  <div className="space-y-3 p-4 rounded-xl bg-indigo-50 border border-indigo-100 shadow-inner">
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-indigo-600 text-white border-none rounded-full h-3 px-1 text-[6px] font-black uppercase tracking-widest">EXTERN</Badge>
+                      <p className="text-[10px] font-black uppercase text-indigo-900 truncate">{systemOwnerPartner.name}</p>
+                    </div>
+                    {systemOwnerArea && (
+                      <div className="flex items-center gap-2 pt-1 border-t border-indigo-100/50">
+                        <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
+                        <p className="text-[10px] font-bold text-indigo-700 uppercase tracking-tight">{systemOwnerArea.name}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : systemOwnerRole ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                      <Briefcase className="w-4 h-4 text-primary" /> {systemOwnerRole.name}
+                    </div>
+                    {systemOwnerDept && <p className="text-[9px] text-slate-400 font-bold uppercase pl-6">{systemOwnerDept.name}</p>}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-300 italic font-medium p-1">Nicht zugewiesen</p>
+                )}
+              </div>
+
+              {/* Risk Owner Display */}
+              <div className="space-y-1">
+                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Risk Owner (Intern)</p>
+                {riskOwnerRole ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                      <ShieldAlert className="w-4 h-4 text-orange-600" /> {riskOwnerRole.name}
+                    </div>
+                    {riskOwnerDept && <p className="text-[9px] text-slate-400 font-bold uppercase pl-6">{riskOwnerDept.name}</p>}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-300 italic font-medium p-1">Nicht zugewiesen</p>
+                )}
+              </div>
             </CardContent>
           </Card>
 

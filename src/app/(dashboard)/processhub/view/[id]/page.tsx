@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -202,7 +201,7 @@ export default function ProcessDetailViewPage() {
     const role = jobTitles?.find(j => j.id === roleId);
     if (!role) return roleId;
     const dept = departments?.find(d => d.id === role.departmentId);
-    return dept ? `${dept.name} - ${role.name}` : role.name;
+    return dept ? `${dept.name} — ${role.name}` : role.name;
   };
 
   const currentVvt = useMemo(() => vvts?.find(v => v.id === currentProcess?.vvtId), [vvts, currentProcess]);

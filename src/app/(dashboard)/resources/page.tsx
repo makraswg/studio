@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -99,12 +98,22 @@ export default function ResourcesPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
+  const sortedRoles = useMemo(() => {
+    if (!jobTitles || !departmentsData) return [];
+    return [...jobTitles].sort((a, b) => {
+      const deptA = departmentsData.find(d => d.id === a.departmentId)?.name || '';
+      const deptB = departmentsData.find(d => d.id === b.departmentId)?.name || '';
+      if (deptA !== deptB) return deptA.localeCompare(deptB);
+      return a.name.localeCompare(b.name);
+    });
+  }, [jobTitles, departmentsData]);
+
   const getFullRoleName = (roleId?: string) => {
     if (!roleId || roleId === 'none') return '---';
     const role = jobTitles?.find(j => j.id === roleId);
     if (!role) return roleId;
     const dept = departmentsData?.find(d => d.id === role.departmentId);
-    return dept ? `${dept.name} - ${role.name}` : role.name;
+    return dept ? `${dept.name} — ${role.name}` : role.name;
   };
 
   const getTenantSlug = (id?: string | null) => {
@@ -196,7 +205,7 @@ export default function ResourcesPage() {
       const res = await saveResourceAction(resourceData, dataSource, user?.email || 'system');
       if (res.success) {
         toast({ title: selectedResource ? "Ressource aktualisiert" : "Ressource registriert" });
-        setIsAddOpen(false);
+        setIsDialogOpen(false);
         resetForm();
         refresh();
       }
@@ -472,7 +481,18 @@ export default function ResourcesPage() {
                           <div className={cn("flex items-center space-x-2 border p-3 rounded-xl cursor-pointer", systemOwnerType === 'external' && "border-indigo-600 bg-indigo-50/50")}><RadioGroupItem value="external" id="sys-ext" /><Label htmlFor="sys-ext" className="text-[10px] font-bold uppercase cursor-pointer">Extern</Label></div>
                         </RadioGroup>
                         {systemOwnerType === 'internal' ? (
-                          <div className="space-y-2 animate-in fade-in"><Label className="text-[9px] font-black uppercase text-slate-400">Interne Rolle</Label><Select value={systemOwnerRoleId} onValueChange={setSystemOwnerRoleId}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent><SelectItem value="none">Keine</SelectItem>{jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => <SelectItem key={job.id} value={job.id}>{getFullRoleName(job.id)}</SelectItem>)}</SelectContent></Select></div>
+                          <div className="space-y-2 animate-in fade-in">
+                            <Label className="text-[9px] font-black uppercase text-slate-400">Interne Rolle</Label>
+                            <Select value={systemOwnerRoleId} onValueChange={setSystemOwnerRoleId}>
+                              <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Keine</SelectItem>
+                                {sortedRoles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => (
+                                  <SelectItem key={job.id} value={job.id}>{getFullRoleName(job.id)}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         ) : (
                           <div className="space-y-2 animate-in fade-in"><Label className="text-[9px] font-black uppercase text-slate-400">Externer Partner/Bereich</Label><Select value={externalRefId} onValueChange={setExternalRefId}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger><SelectContent><SelectItem value="none">Keine</SelectItem>{partners?.map(p => <SelectGroup key={p.id}><SelectLabel className="text-[8px] font-black uppercase py-1 bg-slate-50/50">{p.name}</SelectLabel><SelectItem value={`p:${p.id}`}>{p.name} (Zentrale)</SelectItem>{areas?.filter(a => a.partnerId === p.id).map(area => <SelectItem key={area.id} value={`a:${area.id}`} className="pl-6">{area.name}</SelectItem>)}</SelectGroup>)}</SelectContent></Select></div>
                         )}
@@ -487,13 +507,24 @@ export default function ResourcesPage() {
                     </div>
                     <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6 md:col-span-2">
                       <div className="flex items-center gap-2 border-b border-slate-100 pb-3"><ShieldAlert className="w-4 h-4 text-orange-600" /><h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Risk Owner (Intern)</h4></div>
-                      <div className="space-y-2"><Label className="text-[9px] font-black uppercase text-slate-400">Verantwortliche interne Rolle</Label><Select value={riskOwnerRoleId} onValueChange={setRiskOwnerRoleId}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent><SelectItem value="none">Keine</SelectItem>{jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => <SelectItem key={job.id} value={job.id}>{getFullRoleName(job.id)}</SelectItem>)}</SelectContent></Select></div>
+                      <div className="space-y-2">
+                        <Label className="text-[9px] font-black uppercase text-slate-400">Verantwortliche interne Rolle</Label>
+                        <Select value={riskOwnerRoleId} onValueChange={setRiskOwnerRoleId}>
+                          <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Keine</SelectItem>
+                            {sortedRoles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => (
+                              <SelectItem key={job.id} value={job.id}>{getFullRoleName(job.id)}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
               </div>
             </ScrollArea>
-            <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2"><Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] h-11 uppercase">Abbrechen</Button><Button size="sm" onClick={handleSave} disabled={isSaving || !name} className="rounded-xl h-11 px-12 bg-primary hover:bg-primary/90 text-white font-bold text-[10px] uppercase shadow-lg gap-2">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern</Button></DialogFooter>
+            <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2"><Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] h-11 uppercase">Abbrechen</Button><Button size="sm" onClick={handleSave} disabled={isSaving} className="rounded-xl h-11 px-12 bg-primary hover:bg-primary/90 text-white font-bold text-[10px] uppercase shadow-lg gap-2">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern</Button></DialogFooter>
           </Tabs>
         </DialogContent>
       </Dialog>

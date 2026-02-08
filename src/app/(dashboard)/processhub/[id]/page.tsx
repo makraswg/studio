@@ -39,7 +39,8 @@ import {
   ArrowRightCircle,
   X,
   ClipboardCheck,
-  Layers
+  Layers,
+  ShieldAlert
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -172,15 +173,15 @@ export default function ProcessDesignerPage() {
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
   const { data: versions, refresh: refreshVersion } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: allFeatures } = usePluggableCollection<Feature>('features');
   const { data: mediaFiles, refresh: refreshMedia } = usePluggableCollection<MediaFile>('media');
   const { data: featureLinks, refresh: refreshFeatureLinks } = usePluggableCollection<any>('feature_process_steps');
   const { data: tasks, refresh: refreshTasks } = usePluggableCollection<Task>('tasks');
   const { data: pUsers } = usePluggableCollection<PlatformUser>('platformUsers');
-  const { data: departments } = usePluggableCollection<Department>('departments');
-  const { data: regulatoryOptions } = usePluggableCollection<RegulatoryOption>('regulatory_options');
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
+  const { data: regulatoryOptions } = usePluggableCollection<RegulatoryOption>('regulatory_options');
   const { data: subjectGroups } = usePluggableCollection<DataSubjectGroup>('dataSubjectGroups');
   const { data: dataCategories } = usePluggableCollection<DataCategory>('dataCategories');
   
@@ -196,6 +197,16 @@ export default function ProcessDesignerPage() {
     mediaFiles?.filter(m => m.entityId === id && m.subEntityId === selectedNodeId) || [],
     [mediaFiles, id, selectedNodeId]
   );
+
+  const sortedRoles = useMemo(() => {
+    if (!jobTitles || !departments) return [];
+    return [...jobTitles].sort((a, b) => {
+      const deptA = departments.find(d => d.id === a.departmentId)?.name || '';
+      const deptB = departments.find(d => d.id === b.departmentId)?.name || '';
+      if (deptA !== deptB) return deptA.localeCompare(deptB);
+      return a.name.localeCompare(b.name);
+    });
+  }, [jobTitles, departments]);
 
   useEffect(() => {
     if (currentProcess) {
@@ -366,7 +377,7 @@ export default function ProcessDesignerPage() {
     if (!currentVersion || !user) return;
     setIsCommitting(true);
     try {
-      const res = await commitProcessVersionAction(currentVersion.process_id, currentVersion.version, user.email || user.id, dataSource);
+      const res = await commitProcessVersionAction(currentProcess.id, currentVersion.version, user.email || user.id, dataSource);
       if (res.success) {
         toast({ title: "Version gespeichert" });
         refreshVersion();
@@ -513,7 +524,7 @@ export default function ProcessDesignerPage() {
     const role = jobTitles?.find(j => j.id === roleId);
     if (!role) return roleId;
     const dept = departments?.find(d => d.id === role.departmentId);
-    return dept ? `${dept.name} - ${role.name}` : role.name;
+    return dept ? `${dept.name} — ${role.name}` : role.name;
   };
 
   if (!mounted) return null;
@@ -632,7 +643,7 @@ export default function ProcessDesignerPage() {
                           <SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">Nicht zugewiesen</SelectItem>
-                            {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(role => (
+                            {sortedRoles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(role => (
                               <SelectItem key={role.id} value={role.id}>{getFullRoleName(role.id)}</SelectItem>
                             ))}
                           </SelectContent>
@@ -737,7 +748,7 @@ export default function ProcessDesignerPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{node.title}</p>
-                          {node.description && <p className="text-[9px] text-slate-400 truncate mt-0.5">{node.description}</p>}
+                          {node.description && <p className="text-[9px] text-slate-400 truncate mt-0.5">{node.description.substring(0, 40)}...</p>}
                           <div className="flex items-center gap-2 mt-1">
                             {node.resourceIds?.length > 0 && <span className="text-[7px] text-indigo-600 font-black uppercase">{node.resourceIds.length} Sys</span>}
                             {nodeFeats > 0 && <span className="text-[7px] text-sky-600 font-black uppercase">{nodeFeats} Dat</span>}
@@ -858,7 +869,7 @@ export default function ProcessDesignerPage() {
                         <Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}>
                           <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
                           <SelectContent>
-                            {jobTitles?.map(role => (
+                            {sortedRoles?.map(role => (
                               <SelectItem key={role.id} value={role.id}>{getFullRoleName(role.id)}</SelectItem>
                             ))}
                           </SelectContent>

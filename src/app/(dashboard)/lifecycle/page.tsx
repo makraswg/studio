@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -132,12 +131,30 @@ export default function LifecyclePage() {
   const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   const { data: jobs } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: departments } = usePluggableCollection<Department>('departments');
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const isSuperAdmin = user?.role === 'superAdmin';
+
+  const sortedJobs = useMemo(() => {
+    if (!jobs || !departments) return [];
+    return [...jobs].sort((a, b) => {
+      const deptA = departments.find(d => d.id === a.departmentId)?.name || '';
+      const deptB = departments.find(d => d.id === b.departmentId)?.name || '';
+      if (deptA !== deptB) return deptA.localeCompare(deptB);
+      return a.name.localeCompare(b.name);
+    });
+  }, [jobs, departments]);
+
+  const getFullRoleName = (jobId: string) => {
+    const job = jobs?.find(j => j.id === jobId);
+    if (!job) return jobId;
+    const dept = departments?.find(d => d.id === job.departmentId);
+    return dept ? `${dept.name} — ${job.name}` : job.name;
+  };
 
   const getTenantSlug = (id?: string | null) => {
     if (!id || id === 'all' || id === 'global') return 'global';
@@ -437,9 +454,9 @@ export default function LifecyclePage() {
                               <SelectValue placeholder="Rolle wählen..." />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl">
-                              {jobs?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => (
+                              {sortedJobs?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => (
                                 <SelectItem key={job.id} value={job.id} className="text-xs font-bold">
-                                  {job.name}
+                                  {getFullRoleName(job.id)}
                                 </SelectItem>
                               ))}
                             </SelectContent>

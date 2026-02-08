@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -24,7 +23,7 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { DataStore, JobTitle } from '@/lib/types';
+import { DataStore, JobTitle, Department } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +42,17 @@ export default function DataStoresSettingsPage() {
 
   const { data: dataStores, refresh, isLoading } = usePluggableCollection<DataStore>('dataStores');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: departments } = usePluggableCollection<Department>('departments');
+
+  const sortedRoles = useMemo(() => {
+    if (!jobTitles || !departments) return [];
+    return [...jobTitles].sort((a, b) => {
+      const deptA = departments.find(d => d.id === a.departmentId)?.name || '';
+      const deptB = departments.find(d => d.id === b.departmentId)?.name || '';
+      if (deptA !== deptB) return deptA.localeCompare(deptB);
+      return a.name.localeCompare(b.name);
+    });
+  }, [jobTitles, departments]);
 
   const handleAddStore = async () => {
     if (!newName) return;
@@ -94,6 +104,13 @@ export default function DataStoresSettingsPage() {
     });
   }, [dataStores, search, showArchived]);
 
+  const getFullRoleName = (roleId: string) => {
+    const role = jobTitles?.find(j => j.id === roleId);
+    if (!role) return roleId;
+    const dept = departments?.find(d => d.id === role.departmentId);
+    return dept ? `${dept.name} — ${role.name}` : role.name;
+  };
+
   return (
     <div className="space-y-10">
       <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
@@ -125,8 +142,8 @@ export default function DataStoresSettingsPage() {
                       <SelectValue placeholder="Rolle wählen..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => (
-                        <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>
+                      {sortedRoles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => (
+                        <SelectItem key={j.id} value={j.id}>{getFullRoleName(j.id)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -172,7 +189,7 @@ export default function DataStoresSettingsPage() {
                             <div>
                               <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{ds.name}</p>
                               <div className="flex items-center gap-2 mt-0.5">
-                                {role && <Badge variant="outline" className="text-[8px] font-black uppercase h-4 px-1.5 gap-1"><Briefcase className="w-2 h-2" /> {role.name}</Badge>}
+                                {role && <Badge variant="outline" className="text-[8px] font-black uppercase h-4 px-1.5 gap-1"><Briefcase className="w-2 h-2" /> {getFullRoleName(role.id)}</Badge>}
                                 <p className="text-[10px] text-slate-400 italic truncate max-w-sm">{ds.description || 'Keine Beschreibung'}</p>
                               </div>
                             </div>

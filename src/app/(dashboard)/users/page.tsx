@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -106,8 +105,18 @@ export default function UsersPage() {
     const job = jobTitles?.find(j => j.name === roleName && j.tenantId === roleTenantId);
     if (!job) return roleName;
     const dept = departmentsData?.find((d: any) => d.id === job.departmentId);
-    return dept ? `${dept.name} - ${job.name}` : job.name;
+    return dept ? `${dept.name} — ${job.name}` : job.name;
   };
+
+  const sortedRoles = useMemo(() => {
+    if (!jobTitles || !departmentsData) return [];
+    return [...jobTitles].sort((a, b) => {
+      const deptA = departmentsData.find(d => d.id === a.departmentId)?.name || '';
+      const deptB = departmentsData.find(d => d.id === b.departmentId)?.name || '';
+      if (deptA !== deptB) return deptA.localeCompare(deptB);
+      return a.name.localeCompare(b.name);
+    });
+  }, [jobTitles, departmentsData]);
 
   const calculateDrift = (user: any) => {
     if (!user || !entitlements || !assignments) return { hasDrift: false, missing: [], extra: [], integrity: 100 };
@@ -234,7 +243,7 @@ export default function UsersPage() {
           <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 active:scale-95" onClick={() => exportUsersExcel(filteredUsers, tenants || [])}>
             <Download className="w-3.5 h-3.5 mr-2" /> Excel
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-sm active:scale-95" onClick={() => { resetForm(); setIsAddOpen(true); }}>
+          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-sm active:scale-95 transition-all" onClick={() => { resetForm(); setIsAddOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> Benutzer anlegen
           </Button>
         </div>
@@ -300,7 +309,9 @@ export default function UsersPage() {
                         </div>
                         <div>
                           <div className="font-bold text-sm text-slate-800">{u.displayName}</div>
-                          <div className="text-[10px] text-slate-400 font-medium">{u.email}</div>
+                          <div className="text-[10px] text-slate-400 font-medium flex items-center gap-1.5 mt-0.5">
+                            <Mail className="w-3 h-3" /> {u.email}
+                          </div>
                         </div>
                       </div>
                     </TableCell>
@@ -398,7 +409,7 @@ export default function UsersPage() {
               <Select value={userTitle} onValueChange={setUserTitle}>
                 <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
                 <SelectContent>
-                  {jobTitles?.filter((j: any) => tenantId === '' || tenantId === 'all' || j.tenantId === tenantId).map((j: any) => (
+                  {sortedRoles?.filter((j: any) => tenantId === '' || tenantId === 'all' || j.tenantId === tenantId).map((j: any) => (
                     <SelectItem key={j.id} value={j.name}>{getFullRoleName(j.name, j.tenantId)}</SelectItem>
                   ))}
                 </SelectContent>

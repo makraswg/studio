@@ -32,7 +32,8 @@ import {
   FileCheck,
   ChevronRight,
   CornerDownRight,
-  Split
+  Split,
+  X
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -67,6 +68,7 @@ import { toast } from '@/hooks/use-toast';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 
 function RiskDashboardContent() {
   const router = useRouter();
@@ -104,6 +106,16 @@ function RiskDashboardContent() {
   const [owner, setOwner] = useState('');
   const [status, setStatus] = useState<Risk['status']>('active');
   const [hazardId, setHazardId] = useState('');
+
+  // Quick Measure States
+  const [isQuickMeasureOpen, setIsQuickMeasureOpen] = useState(false);
+  const [isSavingMeasure, setIsSavingMeasure] = useState(false);
+  const [qmTitle, setQmTitle] = useState('');
+  const [qmDesc, setQmDesc] = useState('');
+  const [qmOwner, setQmOwner] = useState('');
+  const [qmDueDate, setQmDueDate] = useState('');
+  const [qmIsTom, setQmIsTom] = useState(false);
+  const [qmTomCategory, setQmTomCategory] = useState<RiskMeasure['tomCategory']>('Zugriffskontrolle');
 
   // Catalog Browser State (Quick Add Measure)
   const [isCatalogLoading, setIsCatalogLoading] = useState(false);
@@ -280,6 +292,37 @@ function RiskDashboardContent() {
     }
   };
 
+  const handleSaveQuickMeasure = async () => {
+    if (!qmTitle || !selectedRisk) return;
+    setIsSavingMeasure(true);
+    const id = `msr-q-${Math.random().toString(36).substring(2, 7)}`;
+    const data: RiskMeasure = {
+      id,
+      riskIds: [selectedRisk.id],
+      resourceIds: selectedRisk.assetId ? [selectedRisk.assetId] : [],
+      title: qmTitle,
+      description: qmDesc,
+      owner: qmOwner || user?.displayName || 'N/A',
+      dueDate: qmDueDate,
+      status: 'planned',
+      effectiveness: 3,
+      isTom: qmIsTom,
+      tomCategory: qmIsTom ? qmTomCategory : undefined
+    };
+
+    try {
+      const res = await saveCollectionRecord('riskMeasures', id, data, dataSource);
+      if (res.success) {
+        toast({ title: "Maßnahme erstellt" });
+        setIsQuickMeasureOpen(false);
+        setQmTitle(''); setQmDesc('');
+        refreshMeasures();
+      }
+    } finally {
+      setIsSavingMeasure(false);
+    }
+  };
+
   const resetForm = () => {
     setSelectedRisk(null);
     setTitle('');
@@ -316,6 +359,14 @@ function RiskDashboardContent() {
     setTaskTitle(`Maßnahme für Risiko: ${risk.title}`);
     setTaskDesc(`Detaillierte Klärung und Absicherung für das Risiko-Szenario.`);
     setIsTaskDialogOpen(true);
+  };
+
+  const openQuickMeasure = (risk: Risk) => {
+    setSelectedRisk(risk);
+    setQmTitle(`Kontrolle: ${risk.title}`);
+    setQmOwner(risk.owner || user?.displayName || '');
+    setQmDueDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+    setIsQuickMeasureOpen(true);
   };
 
   const applyAiSuggestions = (s: any) => {
@@ -385,6 +436,7 @@ function RiskDashboardContent() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
                   <DropdownMenuItem onSelect={() => openEdit(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-primary" /> Bearbeiten</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => openQuickMeasure(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold text-emerald-600"><FileCheck className="w-3.5 h-3.5" /> Maßnahme hinzufügen</DropdownMenuItem>
                   {!isSub && (
                     <DropdownMenuItem onSelect={() => { resetForm(); setParentId(risk.id); setIsRiskDialogOpen(true); }} className="rounded-lg py-2 gap-2 text-xs font-bold text-blue-600"><Split className="w-3.5 h-3.5" /> Sub-Risiko hinzufügen</DropdownMenuItem>
                   )}
@@ -655,7 +707,7 @@ function RiskDashboardContent() {
                           {isCatalogLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Library className="w-3.5 h-3.5 mr-2" />} BSI Katalog-Vorschläge
                         </Button>
                       )}
-                      <Button size="sm" className="h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[9px] uppercase tracking-widest shadow-lg" onClick={() => router.push('/risks/measures')}>
+                      <Button size="sm" className="h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[9px] uppercase tracking-widest shadow-lg" onClick={() => setIsQuickMeasureOpen(true)}>
                         <Plus className="w-3.5 h-3.5 mr-2" /> Maßnahme planen
                       </Button>
                     </div>
@@ -720,12 +772,75 @@ function RiskDashboardContent() {
                 </TabsContent>
               </div>
             </ScrollArea>
-          </Tabs>
 
-          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setIsRiskDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 tracking-widest text-slate-400 hover:bg-white transition-all">Abbrechen</Button>
-            <Button size="sm" onClick={handleSaveRisk} disabled={isSaving || !title} className="w-full sm:w-auto rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-accent hover:bg-accent/90 text-white shadow-lg transition-all active:scale-95 gap-2">
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Risiko speichern
+            <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setIsRiskDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 tracking-widest text-slate-400 hover:bg-white transition-all">Abbrechen</Button>
+              <Button size="sm" onClick={handleSaveRisk} disabled={isSaving || !title} className="w-full sm:w-auto rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-accent hover:bg-accent/90 text-white shadow-lg transition-all active:scale-95 gap-2">
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Risiko speichern
+              </Button>
+            </DialogFooter>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Measure Creation Dialog */}
+      <Dialog open={isQuickMeasureOpen} onOpenChange={setIsQuickMeasureOpen}>
+        <DialogContent className="max-w-2xl w-[95vw] rounded-xl p-0 overflow-hidden border-none shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-emerald-600 text-white shrink-0 pr-10">
+            <div className="flex items-center gap-5">
+              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-white border border-white/10 shadow-sm">
+                <FileCheck className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Maßnahme planen</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/60 font-bold uppercase tracking-widest mt-0.5">Direkter Bezug zu Risiko: {selectedRisk?.title}</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <div className="p-8 space-y-8">
+              <div className="space-y-2">
+                <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Titel der Maßnahme</Label>
+                <Input value={qmTitle} onChange={e => setQmTitle(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200" placeholder="z.B. Einführung von MFA..." />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortlicher</Label>
+                  <Input value={qmOwner} onChange={e => setQmOwner(e.target.value)} className="rounded-xl h-11 border-slate-200" placeholder="Name..." />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Frist</Label>
+                  <Input type="date" value={qmDueDate} onChange={e => setQmDueDate(e.target.value)} className="rounded-xl h-11 border-slate-200" />
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] font-bold uppercase text-emerald-800">DSGVO Relevanz (TOM)</Label>
+                  <p className="text-[8px] text-emerald-600 font-bold uppercase">Maßnahme nach Art. 32</p>
+                </div>
+                <Switch checked={qmIsTom} onCheckedChange={setQmIsTom} className="data-[state=checked]:bg-emerald-600" />
+              </div>
+              {qmIsTom && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">TOM-Kategorie</Label>
+                  <Select value={qmTomCategory} onValueChange={(v:any) => setQmTomCategory(v)}>
+                    <SelectTrigger className="rounded-xl h-11"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {['Zugriffskontrolle', 'Zutrittskontrolle', 'Weitergabekontrolle', 'Verschlüsselung', 'Verfügbarkeitskontrolle', 'Trennungskontrolle'].map(c => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Beschreibung</Label>
+                <Textarea value={qmDesc} onChange={e => setQmDesc(e.target.value)} className="rounded-2xl min-h-[100px] text-xs font-medium" placeholder="Wie soll die Maßnahme umgesetzt werden?" />
+              </div>
+            </div>
+          </ScrollArea>
+          <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col-reverse sm:flex-row gap-2">
+            <Button variant="ghost" onClick={() => setIsQuickMeasureOpen(false)} className="rounded-xl font-bold text-[10px] uppercase tracking-widest">Abbrechen</Button>
+            <Button onClick={handleSaveQuickMeasure} disabled={isSavingMeasure || !qmTitle} className="rounded-xl font-bold text-[10px] uppercase tracking-widest px-12 h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg">
+              {isSavingMeasure ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Maßnahme speichern
             </Button>
           </DialogFooter>
         </DialogContent>

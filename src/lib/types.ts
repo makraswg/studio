@@ -246,6 +246,10 @@ export interface Feature {
   purpose: string;
   criticality: 'low' | 'medium' | 'high';
   criticalityScore: number;
+  // CIA Requirements
+  confidentialityReq?: 'low' | 'medium' | 'high';
+  integrityReq?: 'low' | 'medium' | 'high';
+  availabilityReq?: 'low' | 'medium' | 'high';
   // Matrix Criteria
   matrixFinancial: boolean | number;
   matrixLegal: boolean | number;

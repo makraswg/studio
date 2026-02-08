@@ -145,6 +145,10 @@ export const appSchema: AppSchema = {
       purpose: 'TEXT',
       criticality: 'VARCHAR(20) DEFAULT "low"',
       criticalityScore: 'INT DEFAULT 0',
+      // CIA Requirements
+      confidentialityReq: 'VARCHAR(20) DEFAULT "low"',
+      integrityReq: 'VARCHAR(20) DEFAULT "low"',
+      availabilityReq: 'VARCHAR(20) DEFAULT "low"',
       // Matrix Criteria
       matrixFinancial: 'BOOLEAN DEFAULT FALSE',
       matrixLegal: 'BOOLEAN DEFAULT FALSE',

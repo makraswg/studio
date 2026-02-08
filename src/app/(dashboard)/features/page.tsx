@@ -30,7 +30,8 @@ import {
   XCircle,
   AlertTriangle,
   HardDrive,
-  Database
+  Database,
+  Info
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -66,6 +67,7 @@ import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function FeaturesOverviewPage() {
   const router = useRouter();
@@ -95,6 +97,11 @@ export default function FeaturesOverviewPage() {
   const [validFrom, setValidFrom] = useState('');
   const [validUntil, setValidUntil] = useState('');
   const [changeReason, setChangeReason] = useState('');
+
+  // CIA State
+  const [confidentialityReq, setConfidentialityReq] = useState<Feature['confidentialityReq']>('low');
+  const [integrityReq, setIntegrityReq] = useState<Feature['integrityReq']>('low');
+  const [availabilityReq, setAvailabilityReq] = useState<Feature['availabilityReq']>('low');
 
   // Matrix State
   const [matrixFinancial, setMatrixFinancial] = useState(false);
@@ -160,6 +167,10 @@ export default function FeaturesOverviewPage() {
       validFrom,
       validUntil,
       changeReason,
+      // CIA
+      confidentialityReq,
+      integrityReq,
+      availabilityReq,
       // Matrix
       matrixFinancial,
       matrixLegal,
@@ -201,6 +212,9 @@ export default function FeaturesOverviewPage() {
     setValidFrom('');
     setValidUntil('');
     setChangeReason('');
+    setConfidentialityReq('low');
+    setIntegrityReq('low');
+    setAvailabilityReq('low');
     setMatrixFinancial(false);
     setMatrixLegal(false);
     setMatrixExternal(false);
@@ -224,6 +238,9 @@ export default function FeaturesOverviewPage() {
     setValidFrom(f.validFrom || '');
     setValidUntil(f.validUntil || '');
     setChangeReason(f.changeReason || '');
+    setConfidentialityReq(f.confidentialityReq || 'low');
+    setIntegrityReq(f.integrityReq || 'low');
+    setAvailabilityReq(f.availabilityReq || 'low');
     setMatrixFinancial(!!f.matrixFinancial);
     setMatrixLegal(!!f.matrixLegal);
     setMatrixExternal(!!f.matrixExternal);
@@ -434,176 +451,236 @@ export default function FeaturesOverviewPage() {
             </div>
           </DialogHeader>
           
-          <ScrollArea className="flex-1 bg-slate-50/30">
-            <div className="p-8 space-y-10">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2 md:col-span-2">
-                  <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung / Code</Label>
-                  <Input value={name} onChange={e => setName(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white shadow-sm" placeholder="z.B. DAT_001 - Kundennummer" />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Status</Label>
-                  <Select value={status} onValueChange={(v: any) => setStatus(v)}>
-                    <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Aktiv</SelectItem>
-                      <SelectItem value="in_preparation">In Vorbereitung</SelectItem>
-                      <SelectItem value="open_questions">Offene Fragen</SelectItem>
-                      <SelectItem value="archived">Archiv</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
+            <div className="px-6 border-b shrink-0 bg-white">
+              <TabsList className="h-12 bg-transparent gap-8 p-0">
+                <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Stammdaten</TabsTrigger>
+                <TabsTrigger value="matrix" className="rounded-none border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-accent transition-all">Kritikalitäts-Matrix</TabsTrigger>
+                <TabsTrigger value="cia" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600 transition-all">Schutzbedarf (CIA)</TabsTrigger>
+              </TabsList>
+            </div>
 
-                <div className="space-y-2">
-                  <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Träger</Label>
-                  <Select value={carrier} onValueChange={(v: any) => setCarrier(v)}>
-                    <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="wirtschaftseinheit">Wirtschaftseinheit</SelectItem>
-                      <SelectItem value="objekt">Objekt</SelectItem>
-                      <SelectItem value="verwaltungseinheit">Verwaltungseinheit</SelectItem>
-                      <SelectItem value="mietvertrag">Mietvertrag</SelectItem>
-                      <SelectItem value="geschaeftspartner">Geschäftspartner</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="p-6 bg-white border rounded-2xl md:col-span-2 shadow-sm space-y-6">
-                  <div className="flex items-center gap-2 border-b pb-3">
-                    <Activity className="w-4 h-4 text-primary" />
-                    <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Kritikalitäts-Punktematrix</h4>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <Checkbox id="mat-fin" checked={matrixFinancial} onCheckedChange={(v: any) => setMatrixFinancial(!!v)} />
-                        <Label htmlFor="mat-fin" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt finanziell (z. B. Abrechnung)</Label>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Checkbox id="mat-leg" checked={matrixLegal} onCheckedChange={(v: any) => setMatrixLegal(!!v)} />
-                        <Label htmlFor="mat-leg" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt vertraglich oder rechtlich</Label>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Checkbox id="mat-ext" checked={matrixExternal} onCheckedChange={(v: any) => setMatrixExternal(!!v)} />
-                        <Label htmlFor="mat-ext" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt extern (Kunde, Partner, Behörde)</Label>
-                      </div>
+            <ScrollArea className="flex-1 bg-slate-50/30">
+              <div className="p-8 space-y-10">
+                <TabsContent value="base" className="mt-0 space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2 md:col-span-2">
+                      <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung / Code</Label>
+                      <Input value={name} onChange={e => setName(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white shadow-sm" placeholder="z.B. DAT_001 - Kundennummer" />
                     </div>
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <Checkbox id="mat-hard" checked={matrixHardToCorrect} onCheckedChange={(v: any) => setMatrixHardToCorrect(!!v)} />
-                        <Label htmlFor="mat-hard" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler ist nicht leicht korrigierbar</Label>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Checkbox id="mat-auto" checked={matrixAutomatedDecision} onCheckedChange={(v: any) => setMatrixAutomatedDecision(!!v)} />
-                        <Label htmlFor="mat-auto" className="text-[11px] font-bold leading-tight cursor-pointer">Daten fließen in automatisierte Entscheidungen</Label>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Checkbox id="mat-plan" checked={matrixPlanning} onCheckedChange={(v: any) => setMatrixPlanning(!!v)} />
-                        <Label htmlFor="mat-plan" className="text-[11px] font-bold leading-tight cursor-pointer">Daten fließen in langfristige Planung</Label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <p className="text-[10px] font-bold uppercase text-slate-400">Resultierender Score:</p>
-                      <Badge className="bg-primary text-white rounded-md font-black">{currentScore} Punkte</Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-[10px] font-bold uppercase text-slate-400">Einstufung:</p>
-                      <Badge className={cn(
-                        "rounded-full font-black uppercase text-[9px] px-3",
-                        currentLevel === 'high' ? "bg-red-50 text-red-600" : currentLevel === 'medium' ? "bg-orange-50 text-orange-600" : "bg-emerald-50 text-emerald-600"
-                      )}>{currentLevel}</Badge>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 bg-white border rounded-2xl md:col-span-2 shadow-sm space-y-6">
-                  <div className="flex items-center gap-2 border-b pb-3">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Verantwortung & Ablage</h4>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    
                     <div className="space-y-2">
-                      <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortliche Abteilung</Label>
-                      <Select value={deptId} onValueChange={setDeptId}>
-                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Abteilung wählen..." /></SelectTrigger>
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Status</Label>
+                      <Select value={status} onValueChange={(v: any) => setStatus(v)}>
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => (
-                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                          ))}
+                          <SelectItem value="active">Aktiv</SelectItem>
+                          <SelectItem value="in_preparation">In Vorbereitung</SelectItem>
+                          <SelectItem value="open_questions">Offene Fragen</SelectItem>
+                          <SelectItem value="archived">Archiv</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Daten-Eigner (Owner)</Label>
-                      <Select value={ownerId} onValueChange={setOwnerId}>
-                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                      <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Träger</Label>
+                      <Select value={carrier} onValueChange={(v: any) => setCarrier(v)}>
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => (
-                            <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>
-                          ))}
+                          <SelectItem value="wirtschaftseinheit">Wirtschaftseinheit</SelectItem>
+                          <SelectItem value="objekt">Objekt</SelectItem>
+                          <SelectItem value="verwaltungseinheit">Verwaltungseinheit</SelectItem>
+                          <SelectItem value="mietvertrag">Mietvertrag</SelectItem>
+                          <SelectItem value="geschaeftspartner">Geschäftspartner</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="p-6 bg-white border rounded-2xl md:col-span-2 shadow-sm space-y-6">
+                      <div className="flex items-center gap-2 border-b pb-3">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Verantwortung & Ablage</h4>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortliche Abteilung</Label>
+                          <Select value={deptId} onValueChange={setDeptId}>
+                            <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Abteilung wählen..." /></SelectTrigger>
+                            <SelectContent>
+                              {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => (
+                                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Daten-Eigner (Owner)</Label>
+                          <Select value={ownerId} onValueChange={setOwnerId}>
+                            <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                            <SelectContent>
+                              {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => (
+                                <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                          <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Ablageort (Daten-Repository)</Label>
+                          <Select value={dataStoreId} onValueChange={setDataStoreId}>
+                            <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white">
+                              <div className="flex items-center gap-2">
+                                <Database className="w-3.5 h-3.5 text-slate-400" />
+                                <SelectValue placeholder="Repository wählen..." />
+                              </div>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Kein spezifischer Ablageort</SelectItem>
+                              {repositoryResources.map(res => (
+                                <SelectItem key={res.id} value={res.id}>{res.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-white border rounded-2xl md:col-span-2 shadow-sm">
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] font-bold uppercase text-slate-900">Compliance-relevant</Label>
+                        <p className="text-[8px] text-slate-400 uppercase font-black">Audit Fokus</p>
+                      </div>
+                      <Switch checked={!!isComplianceRelevant} onCheckedChange={setIsComplianceRelevant} />
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
-                      <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Ablageort (Daten-Repository)</Label>
-                      <Select value={dataStoreId} onValueChange={setDataStoreId}>
-                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white">
-                          <div className="flex items-center gap-2">
-                            <Database className="w-3.5 h-3.5 text-slate-400" />
-                            <SelectValue placeholder="Repository wählen..." />
-                          </div>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Kein spezifischer Ablageort</SelectItem>
-                          {repositoryResources.map(res => (
-                            <SelectItem key={res.id} value={res.id}>{res.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Datenbeschreibung</Label>
+                      <Textarea value={description} onChange={e => setDescription(e.target.value)} className="rounded-2xl min-h-[80px] p-4 text-xs font-medium bg-white" placeholder="Fachliche Definition der Daten..." />
                     </div>
                   </div>
-                </div>
+                </TabsContent>
 
-                <div className="flex items-center justify-between p-4 bg-white border rounded-2xl md:col-span-2 shadow-sm">
-                  <div className="space-y-0.5">
-                    <Label className="text-[10px] font-bold uppercase text-slate-900">Compliance-relevant</Label>
-                    <p className="text-[8px] text-slate-400 uppercase font-black">Audit Fokus</p>
+                <TabsContent value="matrix" className="mt-0 space-y-8">
+                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
+                    <div className="flex items-center gap-2 border-b pb-3">
+                      <Activity className="w-4 h-4 text-accent" />
+                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Kritikalitäts-Punktematrix</h4>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <Checkbox id="mat-fin" checked={matrixFinancial as boolean} onCheckedChange={(v: any) => setMatrixFinancial(!!v)} />
+                          <Label htmlFor="mat-fin" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt finanziell (z. B. Abrechnung)</Label>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Checkbox id="mat-leg" checked={matrixLegal as boolean} onCheckedChange={(v: any) => setMatrixLegal(!!v)} />
+                          <Label htmlFor="mat-leg" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt vertraglich oder rechtlich</Label>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Checkbox id="mat-ext" checked={matrixExternal as boolean} onCheckedChange={(v: any) => setMatrixExternal(!!v)} />
+                          <Label htmlFor="mat-ext" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt extern (Kunde, Partner, Behörde)</Label>
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <Checkbox id="mat-hard" checked={matrixHardToCorrect as boolean} onCheckedChange={(v: any) => setMatrixHardToCorrect(!!v)} />
+                          <Label htmlFor="mat-hard" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler ist nicht leicht korrigierbar</Label>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Checkbox id="mat-auto" checked={matrixAutomatedDecision as boolean} onCheckedChange={(v: any) => setMatrixAutomatedDecision(!!v)} />
+                          <Label htmlFor="mat-auto" className="text-[11px] font-bold leading-tight cursor-pointer">Daten fließen in automatisierte Entscheidungen</Label>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Checkbox id="mat-plan" checked={matrixPlanning as boolean} onCheckedChange={(v: any) => setMatrixPlanning(!!v)} />
+                          <Label htmlFor="mat-plan" className="text-[11px] font-bold leading-tight cursor-pointer">Daten fließen in langfristige Planung</Label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Resultierender Score:</p>
+                        <Badge className="bg-accent text-white rounded-md font-black">{currentScore} Punkte</Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Einstufung:</p>
+                        <Badge className={cn(
+                          "rounded-full font-black uppercase text-[9px] px-3 border-none",
+                          currentLevel === 'high' ? "bg-red-50 text-red-600" : currentLevel === 'medium' ? "bg-orange-50 text-orange-600" : "bg-emerald-50 text-emerald-600"
+                        )}>{currentLevel}</Badge>
+                      </div>
+                    </div>
                   </div>
-                  <Switch checked={!!isComplianceRelevant} onCheckedChange={setIsComplianceRelevant} />
-                </div>
+                </TabsContent>
 
-                <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Datenbeschreibung</Label>
-                  <Textarea value={description} onChange={e => setDescription(e.target.value)} className="rounded-2xl min-h-[80px] p-4 text-xs font-medium bg-white" placeholder="Fachliche Definition der Daten..." />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zweck & Nutzung</Label>
-                  <Textarea value={purpose} onChange={e => setPurpose(e.target.value)} className="rounded-2xl min-h-[80px] p-4 text-xs font-medium bg-white" placeholder="Warum werden diese Daten erhoben?" />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Pflegehinweise / Datenqualität</Label>
-                  <Textarea value={maintenanceNotes} onChange={e => setMaintenanceNotes(e.target.value)} className="rounded-2xl min-h-[80px] p-4 text-xs font-medium bg-white border-primary/10" placeholder="Hinweise zur Sicherung der Datenqualität..." />
-                </div>
+                <TabsContent value="cia" className="mt-0 space-y-8">
+                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-8">
+                    <div className="flex items-center gap-2 border-b pb-3">
+                      <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Schutzbedarf der Daten (CIA)</h4>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="w-3.5 h-3.5 text-slate-400 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs p-3 text-[10px] leading-relaxed">
+                            Definieren Sie hier den inhärenten Schutzbedarf dieses Datenobjekts. 
+                            IT-Systeme erben diese Werte automatisch nach dem Maximum-Prinzip.
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Vertraulichkeit</Label>
+                        <Select value={confidentialityReq} onValueChange={(v:any) => setConfidentialityReq(v)}>
+                          <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low" className="text-[10px] font-bold uppercase">LOW</SelectItem>
+                            <SelectItem value="medium" className="text-[10px] font-bold uppercase text-orange-600">MEDIUM</SelectItem>
+                            <SelectItem value="high" className="text-[10px] font-bold uppercase text-red-600">HIGH</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Integrität</Label>
+                        <Select value={integrityReq} onValueChange={(v:any) => setIntegrityReq(v)}>
+                          <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low" className="text-[10px] font-bold uppercase">LOW</SelectItem>
+                            <SelectItem value="medium" className="text-[10px] font-bold uppercase text-orange-600">MEDIUM</SelectItem>
+                            <SelectItem value="high" className="text-[10px] font-bold uppercase text-red-600">HIGH</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verfügbarkeit</Label>
+                        <Select value={availabilityReq} onValueChange={(v:any) => setAvailabilityReq(v)}>
+                          <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low" className="text-[10px] font-bold uppercase">LOW</SelectItem>
+                            <SelectItem value="medium" className="text-[10px] font-bold uppercase text-orange-600">MEDIUM</SelectItem>
+                            <SelectItem value="high" className="text-[10px] font-bold uppercase text-red-600">HIGH</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
               </div>
-            </div>
-          </ScrollArea>
+            </ScrollArea>
 
-          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 tracking-widest text-slate-400 hover:bg-white">Abbrechen</Button>
-            <Button size="sm" onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-95 gap-2">
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 tracking-widest text-slate-400 hover:bg-white">Abbrechen</Button>
+              <Button size="sm" onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-95 gap-2">
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern
+              </Button>
+            </DialogFooter>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>

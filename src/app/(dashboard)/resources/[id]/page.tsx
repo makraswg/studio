@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -25,7 +26,9 @@ import {
   Scale,
   Settings2,
   Clock,
-  BadgeCheck
+  BadgeCheck,
+  Zap,
+  ArrowUp
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,15 +41,21 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { saveResourceAction } from '@/app/actions/resource-actions';
+import { toast } from '@/hooks/use-toast';
+import { usePlatformAuth } from '@/context/auth-context';
 
 export default function ResourceDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { activeTenantId } = useSettings();
+  const { user } = usePlatformAuth();
+  const { activeTenantId, dataSource } = useSettings();
   const [mounted, setMounted] = useState(false);
+  const [isInheriting, setIsInheriting] = useState(false);
 
   // Data
-  const { data: resources, isLoading: isResLoading } = usePluggableCollection<Resource>('resources');
+  const { data: resources, isLoading: isResLoading, refresh: refreshRes } = usePluggableCollection<Resource>('resources');
   const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
   const { data: risks } = usePluggableCollection<Risk>('risks');
@@ -72,7 +81,7 @@ export default function ResourceDetailPage() {
     const affectedVvts = vvts?.filter(v => vvtIds.has(v.id)) || [];
 
     // 3. Welche Datenobjekte (Features) werden in diesen Prozessen verarbeitet?
-    // (Vereinfachte Logik: Alle Features des Mandanten, die dem Repository zugeordnet sind)
+    // (Inkludiert Features, die dieses System explizit als dataStoreId nutzen)
     const linkedFeatures = features?.filter(f => f.dataStoreId === resource.id) || [];
 
     return { processes: affectedProcesses, vvts: affectedVvts, features: linkedFeatures };
@@ -85,6 +94,69 @@ export default function ResourceDetailPage() {
     const maxScore = resRisks.length > 0 ? Math.max(...resRisks.map(r => r.impact * r.probability)) : 0;
     return { risks: resRisks, measures: resMeasures, maxScore };
   }, [resource, risks, measures]);
+
+  // Inheritance Logic (Maximum Principle)
+  const effectiveInheritance = useMemo(() => {
+    if (!impactAnalysis.features || impactAnalysis.features.length === 0) return null;
+    
+    const rankMap = { 'low': 1, 'medium': 2, 'high': 3 };
+    const revRankMap = { 1: 'low', 2: 'medium', 3: 'high' } as const;
+
+    let maxCrit = 1;
+    let maxC = 1;
+    let maxI = 1;
+    let maxA = 1;
+
+    impactAnalysis.features.forEach(f => {
+      maxCrit = Math.max(maxCrit, rankMap[f.criticality] || 1);
+      maxC = Math.max(maxC, rankMap[f.confidentialityReq || 'low'] || 1);
+      maxI = Math.max(maxI, rankMap[f.integrityReq || 'low'] || 1);
+      maxA = Math.max(maxA, rankMap[f.availabilityReq || 'low'] || 1);
+    });
+
+    return {
+      criticality: revRankMap[maxCrit as 1|2|3],
+      confidentiality: revRankMap[maxC as 1|2|3],
+      integrity: revRankMap[maxI as 1|2|3],
+      availability: revRankMap[maxA as 1|2|3]
+    };
+  }, [impactAnalysis.features]);
+
+  const hasInheritanceMismatch = useMemo(() => {
+    if (!resource || !effectiveInheritance) return false;
+    const rankMap = { 'low': 1, 'medium': 2, 'high': 3 };
+    
+    const isUnderCrit = rankMap[resource.criticality] < rankMap[effectiveInheritance.criticality];
+    const isUnderC = rankMap[resource.confidentialityReq] < rankMap[effectiveInheritance.confidentiality];
+    const isUnderI = rankMap[resource.integrityReq] < rankMap[effectiveInheritance.integrity];
+    const isUnderA = rankMap[resource.availabilityReq] < rankMap[effectiveInheritance.availability];
+
+    return isUnderCrit || isUnderC || isUnderI || isUnderA;
+  }, [resource, effectiveInheritance]);
+
+  const handleApplyInheritance = async () => {
+    if (!resource || !effectiveInheritance) return;
+    setIsInheriting(true);
+    
+    const updatedResource: Resource = {
+      ...resource,
+      criticality: effectiveInheritance.criticality,
+      confidentialityReq: effectiveInheritance.confidentiality,
+      integrityReq: effectiveInheritance.integrity,
+      availabilityReq: effectiveInheritance.availability,
+      notes: (resource.notes || '') + `\n[Auto-Sync] Schutzbedarf am ${new Date().toLocaleDateString()} von Daten geerbt.`
+    };
+
+    try {
+      const res = await saveResourceAction(updatedResource, dataSource, user?.email || 'system');
+      if (res.success) {
+        toast({ title: "Schutzbedarf aktualisiert", description: "Werte wurden erfolgreich von den Datenobjekten übernommen." });
+        refreshRes();
+      }
+    } finally {
+      setIsInheriting(false);
+    }
+  };
 
   if (!mounted) return null;
 
@@ -124,6 +196,22 @@ export default function ResourceDetailPage() {
         </div>
       </header>
 
+      {hasInheritanceMismatch && (
+        <Alert className="bg-amber-50 border-amber-200 text-amber-900 rounded-2xl shadow-sm animate-in fade-in slide-in-from-top-4">
+          <Zap className="h-5 w-5 text-amber-600" />
+          <AlertTitle className="font-bold text-sm">Schutzbedarfs-Mismatch erkannt!</AlertTitle>
+          <AlertDescription className="text-xs mt-1 leading-relaxed">
+            Die Sensibilität der auf diesem System gespeicherten Daten (Features) ist höher als die aktuelle Einstufung der Ressource. 
+            Empfohlene Kritikalität basierend auf Datenlast: <strong className="uppercase">{effectiveInheritance?.criticality}</strong>.
+            <div className="mt-3">
+              <Button size="sm" onClick={handleApplyInheritance} disabled={isInheriting} className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] uppercase h-8 px-4 rounded-lg shadow-md shadow-amber-200 gap-2 transition-all">
+                {isInheriting ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowUp className="w-3 h-3" />} Schutzbedarf anheben
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left Sidebar: Key Metrics */}
         <aside className="lg:col-span-1 space-y-4">
@@ -135,15 +223,15 @@ export default function ResourceDetailPage() {
               <div className="grid grid-cols-3 gap-2">
                 <div className="p-3 bg-slate-50 rounded-xl border flex flex-col items-center justify-center gap-1">
                   <span className="text-[8px] font-black uppercase text-slate-400">V</span>
-                  <Badge variant="outline" className="text-[10px] font-bold border-none uppercase">{resource.confidentialityReq}</Badge>
+                  <Badge variant="outline" className={cn("text-[10px] font-bold border-none uppercase", effectiveInheritance && resource.confidentialityReq !== effectiveInheritance.confidentiality && "text-amber-600")}>{resource.confidentialityReq}</Badge>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border flex flex-col items-center justify-center gap-1">
                   <span className="text-[8px] font-black uppercase text-slate-400">I</span>
-                  <Badge variant="outline" className="text-[10px] font-bold border-none uppercase">{resource.integrityReq}</Badge>
+                  <Badge variant="outline" className={cn("text-[10px] font-bold border-none uppercase", effectiveInheritance && resource.integrityReq !== effectiveInheritance.integrity && "text-amber-600")}>{resource.integrityReq}</Badge>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border flex flex-col items-center justify-center gap-1">
                   <span className="text-[8px] font-black uppercase text-slate-400">A</span>
-                  <Badge variant="outline" className="text-[10px] font-bold border-none uppercase">{resource.availabilityReq}</Badge>
+                  <Badge variant="outline" className={cn("text-[10px] font-bold border-none uppercase", effectiveInheritance && resource.availabilityReq !== effectiveInheritance.availability && "text-amber-600")}>{resource.availabilityReq}</Badge>
                 </div>
               </div>
 
@@ -153,7 +241,7 @@ export default function ResourceDetailPage() {
                 <div className="space-y-1">
                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Kritikalität</p>
                   <div className={cn(
-                    "p-3 rounded-xl border flex items-center justify-between font-black text-xs uppercase",
+                    "p-3 rounded-xl border flex items-center justify-between font-black text-xs uppercase shadow-inner",
                     resource.criticality === 'high' ? "bg-red-50 border-red-100 text-red-700" : "bg-emerald-50 border-emerald-100 text-emerald-700"
                   )}>
                     {resource.criticality} <ShieldAlert className="w-4 h-4" />
@@ -268,36 +356,37 @@ export default function ResourceDetailPage() {
                 </Card>
               </div>
 
-              {resource.isDataRepository && (
-                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                  <CardHeader className="bg-indigo-900 text-white p-6">
-                    <div className="flex items-center gap-4">
-                      <Database className="w-6 h-6 text-primary" />
-                      <div>
-                        <CardTitle className="text-base font-headline font-bold uppercase">Gehostete Datenobjekte</CardTitle>
-                        <CardDescription className="text-[10px] font-bold text-slate-400 uppercase">Inhalte dieses Repositories</CardDescription>
-                      </div>
+              <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
+                <CardHeader className={cn("text-white p-6 transition-colors", resource.isDataRepository ? "bg-indigo-900" : "bg-slate-900")}>
+                  <div className="flex items-center gap-4">
+                    <Database className="w-6 h-6 text-primary" />
+                    <div>
+                      <CardTitle className="text-base font-headline font-bold uppercase">Gehostete Datenobjekte</CardTitle>
+                      <CardDescription className="text-[10px] font-bold text-slate-400 uppercase">Inhalte und Sensibilität der verarbeiteten Daten</CardDescription>
                     </div>
-                  </CardHeader>
-                  <CardContent className="p-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                      {impactAnalysis.features.map(f => (
-                        <div key={f.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between group hover:border-indigo-300 transition-all cursor-pointer" onClick={() => router.push(`/features/${f.id}`)}>
-                          <div className="flex items-center gap-2">
-                            <Tag className="w-3.5 h-3.5 text-indigo-400" />
-                            <span className="text-[11px] font-bold text-slate-700">{f.name}</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {impactAnalysis.features.map(f => (
+                      <div key={f.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between group hover:border-indigo-300 transition-all cursor-pointer shadow-sm" onClick={() => router.push(`/features/${f.id}`)}>
+                        <div className="flex items-center gap-2">
+                          <Tag className="w-3.5 h-3.5 text-indigo-400" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-slate-700 truncate">{f.name}</p>
+                            <p className="text-[7px] font-black uppercase text-slate-400">CIA: {f.confidentialityReq?.charAt(0) || 'L'}{f.integrityReq?.charAt(0) || 'L'}{f.availabilityReq?.charAt(0) || 'L'}</p>
                           </div>
-                          <Badge className={cn(
-                            "text-[7px] font-black h-4 border-none",
-                            f.criticality === 'high' ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"
-                          )}>{f.criticality.toUpperCase()}</Badge>
                         </div>
-                      ))}
-                      {impactAnalysis.features.length === 0 && <p className="col-span-full text-center py-10 text-xs text-slate-400 italic font-medium uppercase tracking-widest">Keine Datenobjekte verknüpft</p>}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                        <Badge className={cn(
+                          "text-[7px] font-black h-4 border-none",
+                          f.criticality === 'high' ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"
+                        )}>{f.criticality.toUpperCase()}</Badge>
+                      </div>
+                    ))}
+                    {impactAnalysis.features.length === 0 && <p className="col-span-full text-center py-10 text-xs text-slate-400 italic font-medium uppercase tracking-widest">Keine Datenobjekte verknüpft</p>}
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="risks" className="space-y-8 animate-in fade-in duration-500">
@@ -315,7 +404,7 @@ export default function ResourceDetailPage() {
                           <div className="flex items-center gap-3">
                             <Badge className={cn(
                               "h-6 w-8 justify-center rounded-md font-black text-[10px] border-none",
-                              (r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : "bg-orange-600 text-white"
+                              (r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white"
                             )}>{r.impact * r.probability}</Badge>
                             <span className="text-[11px] font-bold text-slate-800">{r.title}</span>
                           </div>

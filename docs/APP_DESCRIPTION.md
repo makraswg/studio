@@ -19,6 +19,7 @@ Die Sensibilität eines IT-Systems leitet sich dabei zwingend aus den darauf ges
 *   **Asset-Detailtiefe**: Detailseiten für Ressourcen inklusive Impact-Analyse (Reverse-Lookup).
 *   **Daten-basierte Kritikalitäts-Vererbung**: Automatisierte CIA-Einstufung von IT-Systemen basierend auf der Datenlast (Features).
 *   **Blueprint-Provisionierung & Jira-Gateway**: Automatisierte Zuweisungserstellung im Lifecycle-Hub basierend auf Stellenprofilen inklusive detaillierter Jira-Ticketerstellung für die IT.
+*   **LDAP-Drift-Detection**: Warnung, wenn die Gruppenmitgliedschaften im AD nicht mehr mit den Blueprints im Hub übereinstimmen.
 
 ---
 
@@ -27,7 +28,6 @@ Die Sensibilität eines IT-Systems leitet sich dabei zwingend aus den darauf ges
 ### Phase 1: Lifecycle & Intelligence
 *Zweck: Automatisierung der operativen Abläufe und proaktive Qualitätskontrolle.*
 
-*   **Aufgabe 1.1: LDAP-Drift-Detection**: Warnung, wenn die Gruppenmitgliedschaften im AD nicht mehr mit den Blueprints im Hub übereinstimmen.
 *   **Aufgabe 1.2: KI-Compliance-Validator**: KI-Check, ob die manuell gesetzten Schutzbedarfe der Ressource mit der tatsächlichen Datenlast und der Unternehmensbeschreibung korrelieren.
 *   **Aufgabe 1.3: Dry-Run Preview**: Vorschau der Auswirkungen eines Sync-Laufs vor der tatsächlichen Änderung der Datenbank.
 

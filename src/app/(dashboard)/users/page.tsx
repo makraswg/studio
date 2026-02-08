@@ -23,7 +23,12 @@ import {
   Filter,
   UserPlus,
   Mail,
-  Info
+  Info,
+  ShieldAlert,
+  ShieldCheck,
+  AlertTriangle,
+  Zap,
+  CheckCircle2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -58,6 +63,7 @@ import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { exportUsersExcel } from '@/lib/export-utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function UsersPage() {
   const db = useFirestore();
@@ -76,10 +82,13 @@ export default function UsersPage() {
   const [tenantId, setTenantId] = useState('');
   const [userTitle, setUserTitle] = useState('');
 
-  const [activeStatusFilter, setActiveStatusFilter] = useState<'all' | 'active' | 'disabled'>('all');
+  const [activeStatusFilter, setActiveStatusFilter] = useState<'all' | 'active' | 'disabled' | 'drift'>('all');
 
   const { data: users, isLoading, refresh: refreshUsers } = usePluggableCollection<any>('users');
   const { data: tenants } = usePluggableCollection<any>('tenants');
+  const { data: assignments } = usePluggableCollection<any>('assignments');
+  const { data: entitlements } = usePluggableCollection<any>('entitlements');
+  const { data: jobTitles } = usePluggableCollection<any>('jobTitles');
   const { refresh: refreshAudit } = usePluggableCollection<any>('auditEvents');
 
   useEffect(() => { setMounted(true); }, []);
@@ -88,6 +97,39 @@ export default function UsersPage() {
     if (!id || id === 'null' || id === 'undefined') return '—';
     const tenant = tenants?.find((t: any) => t.id === id);
     return tenant ? tenant.slug : id;
+  };
+
+  /**
+   * Berechnet den LDAP-Drift für einen Benutzer.
+   */
+  const calculateDrift = (user: any) => {
+    if (!user || !entitlements || !assignments) return { hasDrift: false, missing: [], extra: [], integrity: 100 };
+
+    const userAssignments = assignments.filter((a: any) => a.userId === user.id && a.status === 'active');
+    const assignedEntitlementIds = userAssignments.map((a: any) => a.entitlementId);
+    
+    // Blueprint Rollen einbeziehen
+    const job = jobTitles?.find((j: any) => j.name === user.title && j.tenantId === user.tenantId);
+    const blueprintIds = job?.entitlementIds || [];
+    
+    const targetEntitlementIds = Array.from(new Set([...assignedEntitlementIds, ...blueprintIds]));
+    const targetGroups = targetEntitlementIds
+      .map(eid => entitlements.find((e: any) => e.id === eid)?.externalMapping)
+      .filter(Boolean) as string[];
+
+    const actualGroups = user.adGroups || [];
+
+    const missing = targetGroups.filter(g => !actualGroups.includes(g));
+    const extra = actualGroups.filter((g: string) => {
+      // Prüfen, ob die Gruppe überhaupt vom Hub verwaltet wird
+      const isManaged = entitlements.some((e: any) => e.externalMapping === g);
+      return isManaged && !targetGroups.includes(g);
+    });
+
+    const hasDrift = missing.length > 0 || extra.length > 0;
+    const integrity = Math.max(0, 100 - (missing.length * 10) - (extra.length * 20));
+
+    return { hasDrift, missing, extra, integrity };
   };
 
   const handleSaveUser = async () => {
@@ -154,82 +196,21 @@ export default function UsersPage() {
       if (activeTenantId !== 'all' && user.tenantId !== activeTenantId) return false;
       const matchesSearch = (user.displayName || '').toLowerCase().includes(search.toLowerCase()) || (user.email || '').toLowerCase().includes(search.toLowerCase());
       if (!matchesSearch) return false;
+      
       const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
       if (activeStatusFilter === 'active' && !isEnabled) return false;
       if (activeStatusFilter === 'disabled' && isEnabled) return false;
+      
+      if (activeStatusFilter === 'drift') {
+        const drift = calculateDrift(user);
+        if (!drift.hasDrift) return false;
+      }
+
       return true;
     });
-  }, [users, search, activeTenantId, activeStatusFilter]);
+  }, [users, search, activeTenantId, activeStatusFilter, assignments, entitlements, jobTitles]);
 
   if (!mounted) return null;
-
-  // Render variables to avoid JSX parsing issues with deep ternary nesting
-  let tableBody;
-  if (isLoading) {
-    tableBody = (
-      <div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-20" /></div>
-    );
-  } else {
-    tableBody = (
-      <Table>
-        <TableHeader className="bg-slate-50/50">
-          <TableRow className="hover:bg-transparent border-b">
-            <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Identität</TableHead>
-            <TableHead className="font-bold text-[11px] text-slate-400">Mandant</TableHead>
-            <TableHead className="font-bold text-[11px] text-slate-400">Abteilung</TableHead>
-            <TableHead className="font-bold text-[11px] text-slate-400">Status</TableHead>
-            <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredUsers?.map((user: any) => {
-            const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
-            return (
-              <TableRow key={user.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0">
-                <TableCell className="py-4 px-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center text-primary font-bold text-xs">
-                      {user.displayName?.charAt(0)}
-                    </div>
-                    <div>
-                      <div className="font-bold text-sm text-slate-800">{user.displayName}</div>
-                      <div className="text-[10px] text-slate-400 font-medium">{user.email}</div>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="rounded-full text-[8px] font-bold border-slate-200 text-slate-500 px-2 h-5">
-                    {getTenantSlug(user.tenantId)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <span className="text-[10px] font-bold text-slate-600">{user.department || '—'}</span>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={cn("text-[8px] font-bold rounded-full border-none px-2 h-5", isEnabled ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600")}>
-                    {isEnabled ? "Aktiv" : "Inaktiv"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right px-6">
-                  <div className="flex justify-end items-center gap-1.5">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => openEdit(user)}>
-                      <Pencil className="w-3.5 h-3.5 text-slate-400" />
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56 rounded-lg p-1 shadow-xl border">
-                        <DropdownMenuItem onSelect={() => openEdit(user)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    );
-  }
 
   return (
     <div className="space-y-6 pb-10">
@@ -266,23 +247,134 @@ export default function UsersPage() {
         </div>
         
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-md border border-slate-200 dark:border-slate-700 h-9 shrink-0">
-          {['all', 'active', 'disabled'].map(f => (
+          {[
+            { id: 'all', label: 'Alle' },
+            { id: 'active', label: 'Aktiv' },
+            { id: 'disabled', label: 'Inaktiv' },
+            { id: 'drift', label: 'AD Drift ⚡' }
+          ].map(f => (
             <button 
-              key={f} 
+              key={f.id} 
               className={cn(
                 "px-4 h-full text-[9px] font-bold rounded-sm transition-all whitespace-nowrap",
-                activeStatusFilter === f ? "bg-white dark:bg-slate-700 text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+                activeStatusFilter === f.id ? "bg-white dark:bg-slate-700 text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
               )}
-              onClick={() => setActiveStatusFilter(f as any)}
+              onClick={() => setActiveStatusFilter(f.id as any)}
             >
-              {f === 'all' ? 'Alle' : f === 'active' ? 'Aktiv' : f === 'disabled' ? 'Inaktiv' : f}
+              {f.label}
             </button>
           ))}
         </div>
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
-        {tableBody}
+        {isLoading ? (
+          <div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-20" /></div>
+        ) : (
+          <Table>
+            <TableHeader className="bg-slate-50/50">
+              <TableRow className="hover:bg-transparent border-b">
+                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Identität</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Mandant</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Integrität (Soll/Ist)</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Status</TableHead>
+                <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredUsers?.map((u: any) => {
+                const isEnabled = u.enabled === true || u.enabled === 1 || u.enabled === "1";
+                const drift = calculateDrift(u);
+                
+                return (
+                  <TableRow key={u.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0">
+                    <TableCell className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center text-primary font-bold text-xs border">
+                          {u.displayName?.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="font-bold text-sm text-slate-800">{u.displayName}</div>
+                          <div className="text-[10px] text-slate-400 font-medium">{u.email}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="rounded-full text-[8px] font-bold border-slate-200 text-slate-500 px-2 h-5">
+                        {getTenantSlug(u.tenantId)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-24 space-y-1">
+                          <div className="flex justify-between text-[8px] font-black uppercase text-slate-400">
+                            <span>AD Integrity</span>
+                            <span className={drift.integrity === 100 ? "text-emerald-600" : "text-amber-600"}>{drift.integrity}%</span>
+                          </div>
+                          <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div className={cn("h-full transition-all", drift.integrity === 100 ? "bg-emerald-500" : "bg-amber-500")} style={{ width: `${drift.integrity}%` }} />
+                          </div>
+                        </div>
+                        <TooltipProvider>
+                          {drift.hasDrift && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="p-1 rounded-md bg-amber-50 text-amber-600 border border-amber-100 cursor-help animate-pulse">
+                                  <ShieldAlert className="w-3.5 h-3.5" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-[250px] p-3 bg-slate-900 text-white rounded-xl border-none shadow-2xl">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-2">Sync Abweichung erkannt</p>
+                                <div className="space-y-2">
+                                  {drift.missing.length > 0 && (
+                                    <div className="space-y-1">
+                                      <p className="text-[8px] font-bold uppercase text-slate-400">Fehlt in AD:</p>
+                                      {drift.missing.map(g => <p key={g} className="text-[9px] font-mono text-red-300">- {g}</p>)}
+                                    </div>
+                                  )}
+                                  {drift.extra.length > 0 && (
+                                    <div className="space-y-1">
+                                      <p className="text-[8px] font-bold uppercase text-slate-400">Unautorisiert in AD:</p>
+                                      {drift.extra.map(g => <p key={g} className="text-[9px] font-mono text-amber-300">- {g}</p>)}
+                                    </div>
+                                  )}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          {!drift.hasDrift && (
+                            <div className="p-1 rounded-md bg-emerald-50 text-emerald-600 opacity-40">
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                            </div>
+                          )}
+                        </TooltipProvider>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={cn("text-[8px] font-bold rounded-full border-none px-2 h-5", isEnabled ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600")}>
+                        {isEnabled ? "Aktiv" : "Inaktiv"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right px-6">
+                      <div className="flex justify-end items-center gap-1.5">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => openEdit(u)}>
+                          <Pencil className="w-3.5 h-3.5 text-slate-400" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56 rounded-lg p-1 shadow-xl border">
+                            <DropdownMenuItem onSelect={() => openEdit(u)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
+                            <DropdownMenuItem className="text-indigo-600 rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => router.push(`/reviews?search=${u.displayName}`)}><Zap className="w-3.5 h-3.5" /> Review anstoßen</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsAddOpen}>

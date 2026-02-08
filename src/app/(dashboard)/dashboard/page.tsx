@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -33,7 +32,8 @@ import {
   ClipboardList,
   Target,
   Clock,
-  LayoutDashboard
+  LayoutDashboard,
+  ShieldX
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -85,6 +85,7 @@ export default function DashboardPage() {
   const { data: risks, isLoading: risksLoading } = usePluggableCollection<any>('risks');
   const { data: tenants } = usePluggableCollection<any>('tenants');
   const { data: features } = usePluggableCollection<any>('features');
+  const { data: jobTitles } = usePluggableCollection<any>('jobTitles');
 
   useEffect(() => {
     setMounted(true);
@@ -103,6 +104,33 @@ export default function DashboardPage() {
     return { users: fUsers, resources: fResources, assignments: fAssignments, risks: fRisks, features: fFeatures };
   }, [users, resources, assignments, risks, features, activeTenantId]);
 
+  const driftStats = useMemo(() => {
+    if (!users || !entitlements || !assignments) return { driftUsersCount: 0 };
+    
+    let driftCount = 0;
+    filteredData.users.forEach((u: any) => {
+      const userAssignments = assignments.filter((a: any) => a.userId === u.id && a.status === 'active');
+      const assignedIds = userAssignments.map((a: any) => a.entitlementId);
+      const job = jobTitles?.find((j: any) => j.name === u.title && j.tenantId === u.tenantId);
+      const targetIds = Array.from(new Set([...assignedIds, ...(job?.entitlementIds || [])]));
+      
+      const targetGroups = targetIds
+        .map(eid => entitlements.find((e: any) => e.id === eid)?.externalMapping)
+        .filter(Boolean) as string[];
+
+      const actualGroups = u.adGroups || [];
+      const missing = targetGroups.filter(g => !actualGroups.includes(g));
+      const extra = actualGroups.filter((g: string) => {
+        const isManaged = entitlements.some((e: any) => e.externalMapping === g);
+        return isManaged && !targetGroups.includes(g);
+      });
+
+      if (missing.length > 0 || extra.length > 0) driftCount++;
+    });
+
+    return { driftUsersCount: driftCount };
+  }, [filteredData.users, entitlements, assignments, jobTitles]);
+
   const riskPieData = useMemo(() => {
     if (!filteredData.risks) return [];
     const low = filteredData.risks.filter((r: any) => (r.impact * r.probability) < 8).length;
@@ -118,6 +146,20 @@ export default function DashboardPage() {
 
   const prioritizedTasks = useMemo(() => {
     const tasks = [];
+
+    // Drift Detection Task
+    if (driftStats.driftUsersCount > 0) {
+      tasks.push({
+        id: 'task-drift',
+        title: 'AD/LDAP Drift korrigieren',
+        desc: `${driftStats.driftUsersCount} Benutzer haben unautorisierte oder fehlende Rechte im Netzwerk.`,
+        icon: ShieldX,
+        color: 'text-amber-600',
+        bg: 'bg-amber-50',
+        href: '/users?drift=true'
+      });
+    }
+
     const overdue = filteredData.assignments.filter(a => a.status === 'active' && a.validUntil && new Date(a.validUntil) < new Date());
     if (overdue.length > 0) {
       tasks.push({
@@ -154,8 +196,8 @@ export default function DashboardPage() {
         href: '/reviews'
       });
     }
-    return tasks.slice(0, 3);
-  }, [filteredData]);
+    return tasks.slice(0, 4);
+  }, [filteredData, driftStats]);
 
   if (!mounted) return null;
 

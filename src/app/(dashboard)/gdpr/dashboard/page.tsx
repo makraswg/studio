@@ -24,7 +24,9 @@ import {
   FileText,
   Zap,
   Info,
-  BrainCircuit
+  BrainCircuit,
+  Clock,
+  ChevronRight
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -277,7 +279,7 @@ export default function PolicyHubDashboard() {
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{act.responsibleDepartment}</span>
                         <div className="flex gap-1">
-                            {act.gaps.map((g, idx) => (
+                            {(act as any).gaps.map((g: string, idx: number) => (
                                 <Badge key={idx} variant="outline" className="text-[7px] font-black h-3.5 border-red-100 text-red-600 bg-red-50/50 uppercase">{g}</Badge>
                             ))}
                         </div>

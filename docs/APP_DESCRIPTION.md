@@ -1,4 +1,4 @@
-# AccessHub - Master Backlog & Strategisches Manifest (V2.6)
+# AccessHub - Master Backlog & Strategisches Manifest (V2.7)
 
 **Rolle**: Dieses Dokument ist das zentrale Steuerungs-Instrument. Es spiegelt den aktuellen Stand nach der GRC-Integration wider.
 
@@ -20,6 +20,7 @@ Die Sensibilität eines IT-Systems leitet sich dabei zwingend aus den darauf ges
 *   **Daten-basierte Kritikalitäts-Vererbung**: Automatisierte CIA-Einstufung von IT-Systemen basierend auf der Datenlast (Features).
 *   **Blueprint-Provisionierung & Jira-Gateway**: Automatisierte Zuweisungserstellung im Lifecycle-Hub basierend auf Stellenprofilen inklusive detaillierter Jira-Ticketerstellung für die IT.
 *   **LDAP-Drift-Detection**: Warnung, wenn die Gruppenmitgliedschaften im AD nicht mehr mit den Blueprints im Hub übereinstimmen.
+*   **Compliance-Health Dashboard**: Ein globales Widget, das zeigt: "Wie viel Prozent meiner TOMs sind aktuell effektiv?". (Resilience Score).
 
 ---
 
@@ -34,7 +35,6 @@ Die Sensibilität eines IT-Systems leitet sich dabei zwingend aus den darauf ges
 ### Phase 2: Monitoring & Resilience
 *Zweck: Echtzeit-Überwachung der Compliance-Gesundheit.*
 
-*   **Aufgabe 2.1: Compliance-Health Dashboard**: Ein globales Widget, das zeigt: "Wie viel Prozent meiner TOMs sind aktuell effektiv?".
 *   **Aufgabe 2.2: Automatisierte Rezertifizierungs-Trigger**: Automatisches Starten von Access-Reviews, wenn ein Mitarbeiter die Stelle (und damit den Blueprint) wechselt.
 
 ---

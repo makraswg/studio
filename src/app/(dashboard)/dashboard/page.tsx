@@ -33,14 +33,22 @@ import {
   Target,
   Clock,
   LayoutDashboard,
-  ShieldX
+  ShieldX,
+  Gauge,
+  BarChart4,
+  CheckSquare
 } from 'lucide-react';
 import { 
   PieChart, 
   Pie, 
   Cell, 
   ResponsiveContainer, 
-  Tooltip as RechartsTooltip 
+  Tooltip as RechartsTooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -81,28 +89,70 @@ export default function DashboardPage() {
   const { data: resources, isLoading: resourcesLoading } = usePluggableCollection<any>('resources');
   const { data: entitlements } = usePluggableCollection<any>('entitlements');
   const { data: assignments, isLoading: assignmentsLoading } = usePluggableCollection<any>('assignments');
-  const { data: auditLogs, isLoading: auditLoading } = usePluggableCollection<any>('auditEvents');
   const { data: risks, isLoading: risksLoading } = usePluggableCollection<any>('risks');
+  const { data: measures, isLoading: measuresLoading } = usePluggableCollection<any>('riskMeasures');
   const { data: tenants } = usePluggableCollection<any>('tenants');
   const { data: features } = usePluggableCollection<any>('features');
   const { data: jobTitles } = usePluggableCollection<any>('jobTitles');
+  const { data: depts } = usePluggableCollection<any>('departments');
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const filteredData = useMemo(() => {
-    if (!users || !resources || !assignments) return { users: [], resources: [], assignments: [], risks: [], features: [] };
+    if (!users || !resources || !assignments) return { users: [], resources: [], assignments: [], risks: [], features: [], measures: [] };
     
     const fUsers = activeTenantId === 'all' ? users : users.filter((u: any) => u.tenantId === activeTenantId);
     const fResources = activeTenantId === 'all' ? resources : resources.filter((r: any) => r.tenantId === activeTenantId || r.tenantId === 'global' || !r.tenantId);
-    const fRisks = risks?.filter((r: any) => activeTenantId === 'all' || r.tenantId === activeTenantId) || [];
-    const fFeatures = features?.filter((f: any) => activeTenantId === 'all' || f.tenantId === activeTenantId) || [];
+    const fRisks = (risks || []).filter((r: any) => activeTenantId === 'all' || r.tenantId === activeTenantId);
+    const fFeatures = (features || []).filter((f: any) => activeTenantId === 'all' || f.tenantId === activeTenantId);
     const userIds = new Set(fUsers.map((u: any) => u.id));
     const fAssignments = assignments.filter((a: any) => userIds.has(a.userId));
+    const fMeasures = (measures || []).filter((m: any) => {
+        if (activeTenantId === 'all') return true;
+        // Measures are linked to risks, we filter by their risk's tenantId if possible or assume global
+        return true; 
+    });
 
-    return { users: fUsers, resources: fResources, assignments: fAssignments, risks: fRisks, features: fFeatures };
-  }, [users, resources, assignments, risks, features, activeTenantId]);
+    return { users: fUsers, resources: fResources, assignments: fAssignments, risks: fRisks, features: fFeatures, measures: fMeasures };
+  }, [users, resources, assignments, risks, features, measures, activeTenantId]);
+
+  const complianceHealth = useMemo(() => {
+    if (!filteredData.measures || !filteredData.risks) return { resilienceScore: 0, riskCoverage: 0, deptRanking: [] };
+
+    // 1. Resilience Score: Effective Measures / Total Measures
+    const effectiveMeasures = filteredData.measures.filter((m: any) => m.isEffective).length;
+    const totalMeasures = filteredData.measures.length || 1;
+    const resilienceScore = Math.floor((effectiveMeasures * 100) / totalMeasures);
+
+    // 2. Risk Coverage: High risks with at least one effective measure
+    const highRisks = filteredData.risks.filter((r: any) => (r.impact * r.probability) >= 15);
+    const highRisksCount = highRisks.length || 1;
+    const coveredHighRisks = highRisks.filter((r: any) => {
+        return filteredData.measures.some((m: any) => m.riskIds?.includes(r.id) && m.isEffective);
+    }).length;
+    const riskCoverage = Math.floor((coveredHighRisks * 100) / highRisksCount);
+
+    // 3. Dept Ranking: Based on Review Status of Assignments
+    const deptStats = (depts || []).filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map((d: any) => {
+        const deptUsers = filteredData.users.filter((u: any) => u.department === d.name);
+        const deptUserIds = new Set(deptUsers.map((u: any) => u.id));
+        const deptAssignments = filteredData.assignments.filter((a: any) => deptUserIds.has(a.userId) && a.status === 'active');
+        
+        const total = deptAssignments.length;
+        const reviewed = deptAssignments.filter((a: any) => !!a.lastReviewedAt).length;
+        const score = total > 0 ? Math.floor((reviewed * 100) / total) : 100;
+
+        return {
+            name: d.name,
+            score: score,
+            count: total
+        };
+    }).sort((a, b) => b.score - a.score).slice(0, 5);
+
+    return { resilienceScore, riskCoverage, deptRanking: deptStats };
+  }, [filteredData, depts, activeTenantId]);
 
   const driftStats = useMemo(() => {
     if (!users || !entitlements || !assignments) return { driftUsersCount: 0 };
@@ -281,6 +331,94 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Resilience Overview - Top Level Gauges */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="rounded-2xl border-none shadow-xl bg-slate-900 text-white overflow-hidden relative group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/20 transition-all" />
+            <CardContent className="p-8 space-y-6 relative z-10">
+                <div className="flex items-center justify-between">
+                    <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shadow-lg">
+                        <ShieldCheck className="w-6 h-6 text-white" />
+                    </div>
+                    <Badge variant="outline" className="text-primary border-primary/30 font-black text-[9px] uppercase tracking-widest bg-primary/5">Platform Health</Badge>
+                </div>
+                <div className="space-y-1">
+                    <h3 className="text-3xl font-headline font-black tracking-tight">Resilience Score</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Gesamt-Sicherheitszustand</p>
+                </div>
+                <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between text-sm font-black">
+                        <span className="text-slate-400 uppercase text-[10px]">Maßnahmen-Effektivität</span>
+                        <span className="text-primary">{complianceHealth.resilienceScore}%</span>
+                    </div>
+                    <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                        <div 
+                            className="h-full bg-primary transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(41,171,226,0.5)]" 
+                            style={{ width: `${complianceHealth.resilienceScore}%` }} 
+                        />
+                    </div>
+                    <div className="flex items-center gap-2 mt-4 text-[10px] text-slate-400 italic">
+                        <Zap className="w-3.5 h-3.5 text-primary fill-current" />
+                        Basis: {filteredData.measures.filter(m => m.isEffective).length} wirksame von {filteredData.measures.length} TOMs.
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden group">
+            <CardContent className="p-8 space-y-6">
+                <div className="flex items-center justify-between">
+                    <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center border border-orange-100 shadow-sm group-hover:scale-110 transition-transform">
+                        <Target className="w-6 h-6" />
+                    </div>
+                    <Badge className="bg-orange-50 text-orange-700 border-none rounded-full text-[8px] font-black uppercase h-5 px-3">High Risk Monitor</Badge>
+                </div>
+                <div className="space-y-1">
+                    <h3 className="text-3xl font-headline font-black text-slate-900 dark:text-white">{complianceHealth.riskCoverage}%</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Risk Coverage Level</p>
+                </div>
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between text-[10px] font-black uppercase text-slate-500">
+                        <span>Absicherung Hochrisiken</span>
+                        <span className="text-orange-600">Level {Math.ceil(complianceHealth.riskCoverage / 20)}</span>
+                    </div>
+                    <Progress value={complianceHealth.riskCoverage} className="h-1.5 bg-slate-50" />
+                    <p className="text-[9px] text-slate-400 leading-relaxed font-medium">
+                        Zeigt an, wie viele kritische Bedrohungen durch mindestens eine wirksame technische Maßnahme gemindert werden.
+                    </p>
+                </div>
+            </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+            <CardHeader className="bg-slate-50/50 p-4 border-b">
+                <CardTitle className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                    <BarChart4 className="w-3.5 h-3.5" /> Department Review Integrity
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+                {complianceHealth.deptRanking.map((dept, idx) => (
+                    <div key={dept.name} className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[10px] font-bold">
+                            <div className="flex items-center gap-2">
+                                <span className="w-4 text-slate-300 font-black italic">#{idx+1}</span>
+                                <span className="text-slate-700 truncate max-w-[120px]">{dept.name}</span>
+                            </div>
+                            <span className={cn(
+                                "font-black",
+                                dept.score > 80 ? "text-emerald-600" : dept.score > 50 ? "text-primary" : "text-red-600"
+                            )}>{dept.score}%</span>
+                        </div>
+                        <Progress value={dept.score} className="h-1 rounded-full bg-slate-50" />
+                    </div>
+                ))}
+                {complianceHealth.deptRanking.length === 0 && (
+                    <div className="py-10 text-center opacity-30 text-[10px] font-bold uppercase">Keine Daten verfügbar</div>
+                )}
+            </CardContent>
+        </Card>
+      </div>
+
       {/* Main Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard id="stat-users" title="Benutzer" value={filteredData.users.length} icon={Users} label="Identitäten" color="text-blue-500" bg="bg-blue-50" loading={usersLoading} trend={2.4} help="Anzahl aller registrierten Mitarbeiter im System." />
@@ -299,10 +437,10 @@ export default function DashboardPage() {
               </div>
               <div>
                 <CardTitle className="text-sm font-headline font-bold">Action Center</CardTitle>
-                <p className="text-[10px] font-bold text-slate-400">Was heute zu tun ist</p>
+                <p className="text-[10px] font-bold text-slate-400">Prio-Liste für Governance Ops</p>
               </div>
             </div>
-            <Badge className="bg-primary/10 text-primary border-none rounded-none text-[8px] font-bold h-4 px-1.5">Priority High</Badge>
+            <Badge className="bg-primary/10 text-primary border-none rounded-none text-[8px] font-black h-4 px-1.5 uppercase">Audit Focus</Badge>
           </CardHeader>
           <CardContent className="p-6 space-y-3">
             {prioritizedTasks.length === 0 ? (
@@ -311,7 +449,7 @@ export default function DashboardPage() {
                 <p className="text-[10px] font-bold">Alle Workflows sind aktuell</p>
               </div>
             ) : prioritizedTasks.map((task) => (
-              <div key={task.id} className="group flex items-center justify-between p-4 bg-slate-50/50 border border-slate-100 rounded-lg hover:bg-slate-50 hover:border-primary/20 transition-all cursor-pointer" onClick={() => router.push(task.href)}>
+              <div key={task.id} className="group flex items-center justify-between p-4 bg-slate-50/50 border border-slate-100 rounded-lg hover:bg-slate-50 hover:border-primary/20 transition-all cursor-pointer shadow-sm" onClick={() => router.push(task.href)}>
                 <div className="flex items-center gap-4">
                   <div className={cn("w-10 h-10 rounded-md flex items-center justify-center shadow-sm", task.bg, task.color)}>
                     <task.icon className="w-5 h-5" />
@@ -332,7 +470,7 @@ export default function DashboardPage() {
         {/* RISK PIE */}
         <Card className="border shadow-sm bg-white dark:bg-slate-900 rounded-xl overflow-hidden flex flex-col">
           <CardHeader className="border-b py-4 px-6 bg-slate-50/50">
-            <CardTitle className="text-xs font-headline font-bold">Risiko-Verteilung</CardTitle>
+            <CardTitle className="text-xs font-headline font-bold text-slate-800 uppercase tracking-widest">Risiko-Verteilung</CardTitle>
           </CardHeader>
           <CardContent className="p-6 flex-1 flex flex-col items-center justify-center">
             <div className="h-[180px] w-full relative">
@@ -351,7 +489,7 @@ export default function DashboardPage() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-[10px] font-bold text-slate-400">Scan</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase">Analysis</span>
               </div>
             </div>
             <div className="w-full space-y-1.5 mt-4">
@@ -363,9 +501,9 @@ export default function DashboardPage() {
                 >
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-[10px] font-bold text-slate-500">{item.name}</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">{item.name}</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{item.value}</span>
+                  <span className="text-xs font-black text-slate-800 dark:text-slate-100">{item.value}</span>
                 </div>
               ))}
             </div>

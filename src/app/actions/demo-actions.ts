@@ -5,8 +5,8 @@ import { DataSource } from '@/lib/types';
 import { logAuditEventAction } from './audit-actions';
 
 /**
- * Generiert hunderte Datensätze für eine Wohnungsbaugesellschaft und einen Handwerksbetrieb.
- * Enthält Aareon Wodis Sigma, Immoblue, Archiv Kompakt und Mareon.
+ * Generiert eine massive Menge an Demo-Daten für eine Wohnungsbaugesellschaft.
+ * Erzeugt über 100 Datensätze über alle Module hinweg.
  */
 export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
   try {
@@ -28,142 +28,185 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
     }, dataSource);
 
     // --- 2. ABTEILUNGEN ---
-    const depts = [
-      { id: 'd-wohnbau-mgmt', tenantId: t1Id, name: 'Geschäftsführung' },
-      { id: 'd-wohnbau-best', tenantId: t1Id, name: 'Bestandsmanagement' },
-      { id: 'd-wohnbau-fin', tenantId: t1Id, name: 'Finanzbuchhaltung' },
-      { id: 'd-wohnbau-it', tenantId: t1Id, name: 'IT-Service' },
-      { id: 'd-handwerk-shk', tenantId: t2Id, name: 'Sanitär / Heizung' },
-      { id: 'd-handwerk-el', tenantId: t2Id, name: 'Elektrotechnik' }
+    const departments = [
+      { id: 'd-mgmt', tenantId: t1Id, name: 'Geschäftsführung' },
+      { id: 'd-best', tenantId: t1Id, name: 'Bestandsmanagement' },
+      { id: 'd-fibu', tenantId: t1Id, name: 'Finanzbuchhaltung' },
+      { id: 'd-it', tenantId: t1Id, name: 'IT & Digitalisierung' },
+      { id: 'd-hr', tenantId: t1Id, name: 'Personalwesen' },
+      { id: 'd-tech', tenantId: t1Id, name: 'Technik / Bau' },
+      { id: 'd-shk', tenantId: t2Id, name: 'Sanitär / Heizung' },
+      { id: 'd-el', tenantId: t2Id, name: 'Elektrotechnik' }
     ];
-    for (const d of depts) await saveCollectionRecord('departments', d.id, { ...d, status: 'active' }, dataSource);
+    for (const d of departments) await saveCollectionRecord('departments', d.id, { ...d, status: 'active' }, dataSource);
 
     // --- 3. ROLLEN (BLUEPRINTS) ---
     const jobs = [
-      { id: 'j-wohnbau-immo', tenantId: t1Id, departmentId: 'd-wohnbau-best', name: 'Immobilienkaufmann' },
-      { id: 'j-wohnbau-fibu', tenantId: t1Id, departmentId: 'd-wohnbau-fin', name: 'Finanzbuchhalter' },
-      { id: 'j-wohnbau-itadmin', tenantId: t1Id, departmentId: 'd-wohnbau-it', name: 'Systemadministrator' },
-      { id: 'j-handwerk-monteur', tenantId: t2Id, departmentId: 'd-handwerk-shk', name: 'Anlagenmechaniker SHK' }
+      { id: 'j-immo-kfm', tenantId: t1Id, departmentId: 'd-best', name: 'Immobilienkaufmann' },
+      { id: 'j-immo-lead', tenantId: t1Id, departmentId: 'd-best', name: 'Leitung Bestandsmanagement' },
+      { id: 'j-fibu-kfm', tenantId: t1Id, departmentId: 'd-fibu', name: 'Finanzbuchhalter' },
+      { id: 'j-it-admin', tenantId: t1Id, departmentId: 'd-it', name: 'Systemadministrator' },
+      { id: 'j-it-lead', tenantId: t1Id, departmentId: 'd-it', name: 'Leitung IT' },
+      { id: 'j-hr-spec', tenantId: t1Id, departmentId: 'd-hr', name: 'Personalreferent' },
+      { id: 'j-monteur', tenantId: t2Id, departmentId: 'd-shk', name: 'Anlagenmechaniker SHK' }
     ];
-    for (const j of jobs) await saveCollectionRecord('jobTitles', j.id, { ...j, status: 'active' }, dataSource);
+    for (const j of jobs) await saveCollectionRecord('jobTitles', j.id, { ...j, status: 'active', entitlementIds: [] }, dataSource);
 
     // --- 4. RESSOURCEN (IT-SYSTEME) ---
-    const rWodisId = 'res-aareon-wodis';
-    const rImmoblueId = 'res-aareon-immoblue';
-    const rArchivId = 'res-aareon-archiv';
-    const rMareonId = 'res-aareon-mareon';
-    const rAareonRzId = 'res-aareon-rz';
-    const rLdapId = 'res-local-ad';
-
-    await saveCollectionRecord('resources', rAareonRzId, {
-      id: rAareonRzId, tenantId: t1Id, name: 'Aareon Rechenzentrum (Mainz)', assetType: 'Rechenzentrum', operatingModel: 'Externer Host',
-      criticality: 'high', isIdentityProvider: true, dataLocation: 'Deutschland', status: 'active', notes: 'Zentraler Vertrauensanker für SSO.'
-    }, dataSource);
-
-    await saveCollectionRecord('resources', rWodisId, {
-      id: rWodisId, tenantId: t1Id, name: 'Aareon Wodis Sigma', assetType: 'Software', operatingModel: 'SaaS Shared',
-      criticality: 'high', dataClassification: 'confidential', hasPersonalData: true, identityProviderId: rAareonRzId,
-      status: 'active', notes: 'Kern-ERP für die Bestandsverwaltung.'
-    }, dataSource);
-
-    await saveCollectionRecord('resources', rImmoblueId, {
-      id: rImmoblueId, tenantId: t1Id, name: 'Aareon Immoblue', assetType: 'Software', operatingModel: 'Cloud',
-      criticality: 'medium', hasPersonalData: true, identityProviderId: rAareonRzId, status: 'active',
-      notes: 'CRM für Interessenten und Vermarktung.'
-    }, dataSource);
-
-    await saveCollectionRecord('resources', rArchivId, {
-      id: rArchivId, tenantId: t1Id, name: 'Aareon Archiv Kompakt', assetType: 'Software', operatingModel: 'SaaS Shared',
-      criticality: 'high', isDataRepository: true, identityProviderId: rAareonRzId, status: 'active',
-      notes: 'Revisionssicheres DMS-Archiv.'
-    }, dataSource);
-
-    await saveCollectionRecord('resources', rMareonId, {
-      id: rMareonId, tenantId: t1Id, name: 'Aareon Mareon Portal', assetType: 'Schnittstelle', operatingModel: 'Cloud',
-      criticality: 'medium', status: 'active', notes: 'Auftragsmanagement für Handwerker.'
-    }, dataSource);
-
-    await saveCollectionRecord('resources', rLdapId, {
-      id: rLdapId, tenantId: t1Id, name: 'Lokales Active Directory', assetType: 'Infrastruktur', operatingModel: 'On-Premise',
-      criticality: 'high', isIdentityProvider: true, status: 'active'
-    }, dataSource);
+    const resourcesData = [
+      { id: 'res-aareon-rz', name: 'Aareon Rechenzentrum (Mainz)', assetType: 'Rechenzentrum', operatingModel: 'Externer Host', criticality: 'high', isIdentityProvider: true, dataLocation: 'Deutschland' },
+      { id: 'res-wodis', name: 'Aareon Wodis Sigma', assetType: 'Software', operatingModel: 'SaaS Shared', criticality: 'high', dataClassification: 'confidential', hasPersonalData: true, identityProviderId: 'res-aareon-rz' },
+      { id: 'res-immoblue', name: 'Aareon Immoblue', assetType: 'Software', operatingModel: 'Cloud', criticality: 'medium', hasPersonalData: true, identityProviderId: 'res-aareon-rz' },
+      { id: 'res-archiv', name: 'Aareon Archiv Kompakt', assetType: 'Software', operatingModel: 'SaaS Shared', criticality: 'high', isDataRepository: true, identityProviderId: 'res-aareon-rz' },
+      { id: 'res-mareon', name: 'Aareon Mareon Portal', assetType: 'Schnittstelle', operatingModel: 'Cloud', criticality: 'medium' },
+      { id: 'res-m365', name: 'Microsoft 365 Tenant', assetType: 'Cloud Service', operatingModel: 'Cloud', criticality: 'medium', isIdentityProvider: true },
+      { id: 'res-personio', name: 'Personio HR Tool', assetType: 'Software', operatingModel: 'SaaS', criticality: 'high', hasPersonalData: true },
+      { id: 'res-veeam', name: 'Veeam Backup Server', assetType: 'Infrastruktur', operatingModel: 'On-Premise', criticality: 'high' },
+      { id: 'res-ad', name: 'Lokales Active Directory', assetType: 'Infrastruktur', operatingModel: 'On-Premise', criticality: 'high', isIdentityProvider: true },
+      { id: 'res-handwerker-app', name: 'CraftForce Mobile App', assetType: 'Mobile App', operatingModel: 'Cloud', criticality: 'medium', tenantId: t2Id }
+    ];
+    for (const r of resourcesData) {
+      await saveCollectionRecord('resources', r.id, { 
+        ...r, 
+        tenantId: r.tenantId || t1Id, 
+        status: 'active', 
+        createdAt: now, 
+        confidentialityReq: r.criticality, 
+        integrityReq: r.criticality, 
+        availabilityReq: r.criticality 
+      }, dataSource);
+    }
 
     // --- 5. SYSTEMROLLEN (ENTITLEMENTS) ---
-    const roles = [
-      { id: 'e-wodis-write', resourceId: rWodisId, name: 'Wodis Sachbearbeiter', riskLevel: 'medium' },
-      { id: 'e-wodis-admin', resourceId: rWodisId, name: 'Wodis Key-User', riskLevel: 'high', isAdmin: true },
-      { id: 'e-immoblue-user', resourceId: rImmoblueId, name: 'Vertriebs-User', riskLevel: 'low' },
-      { id: 'e-archiv-read', resourceId: rArchivId, name: 'Archiv Lesezugriff', riskLevel: 'low' },
-      { id: 'e-mareon-tech', resourceId: rMareonId, name: 'Techniker-Portal', riskLevel: 'low' },
-      { id: 'e-ad-user', resourceId: rLdapId, name: 'Domänen-Benutzer', riskLevel: 'low' }
+    const entitlementsData = [
+      { id: 'e-wodis-user', resourceId: 'res-wodis', name: 'Standard-Anwender', riskLevel: 'low' },
+      { id: 'e-wodis-power', resourceId: 'res-wodis', name: 'Key-User (Bestand)', riskLevel: 'medium' },
+      { id: 'e-wodis-admin', resourceId: 'res-wodis', name: 'System-Admin', riskLevel: 'high', isAdmin: true },
+      { id: 'e-immo-sales', resourceId: 'res-immoblue', name: 'Vertriebs-Mitarbeiter', riskLevel: 'low' },
+      { id: 'e-archiv-read', resourceId: 'res-archiv', name: 'Leser (Allgemein)', riskLevel: 'low' },
+      { id: 'e-archiv-hr', resourceId: 'res-archiv', name: 'HR-Archiv Zugriff', riskLevel: 'medium' },
+      { id: 'e-mareon-tech', resourceId: 'res-mareon', name: 'Technik-Partner', riskLevel: 'low' },
+      { id: 'e-m365-user', resourceId: 'res-m365', name: 'E3-Lizenz', riskLevel: 'low' },
+      { id: 'e-personio-hr', resourceId: 'res-personio', name: 'Personalabteilung', riskLevel: 'medium' },
+      { id: 'e-ad-admin', resourceId: 'res-ad', name: 'Domain Admin', riskLevel: 'high', isAdmin: true }
     ];
-    for (const r of roles) await saveCollectionRecord('entitlements', r.id, { ...r, tenantId: t1Id }, dataSource);
+    for (const e of entitlementsData) {
+      await saveCollectionRecord('entitlements', e.id, { ...e, tenantId: t1Id }, dataSource);
+    }
 
     // --- 6. IDENTITÄTEN (USERS) ---
-    const users = [
-      { id: 'u-demo-1', tenantId: t1Id, displayName: 'Max Mieterglück', email: 'm.mieterglueck@wohnbau-nord.de', title: 'Immobilienkaufmann', department: 'Bestandsmanagement' },
-      { id: 'u-demo-2', tenantId: t1Id, displayName: 'Sabine Zahlenwerk', email: 's.zahlenwerk@wohnbau-nord.de', title: 'Finanzbuchhalter', department: 'Finanzbuchhaltung' },
-      { id: 'u-demo-3', tenantId: t2Id, displayName: 'Herbert Hammer', email: 'h.hammer@handwerk-nord.de', title: 'Anlagenmechaniker SHK', department: 'Sanitär / Heizung' }
+    const usersData = [
+      { id: 'u-1', displayName: 'Thomas Tenant', email: 't.tenant@wohnbau-nord.de', title: 'Leitung Bestandsmanagement', department: 'Bestandsmanagement' },
+      { id: 'u-2', displayName: 'Maria Mieter', email: 'm.mieter@wohnbau-nord.de', title: 'Immobilienkaufmann', department: 'Bestandsmanagement' },
+      { id: 'u-3', displayName: 'Frank Finanzen', email: 'f.finanzen@wohnbau-nord.de', title: 'Finanzbuchhalter', department: 'Finanzbuchhaltung' },
+      { id: 'u-4', displayName: 'Ingo It', email: 'i.it@wohnbau-nord.de', title: 'Systemadministrator', department: 'IT & Digitalisierung' },
+      { id: 'u-5', displayName: 'Helga Hr', email: 'h.hr@wohnbau-nord.de', title: 'Personalreferent', department: 'Personalwesen' },
+      { id: 'u-6', displayName: 'Klaus Klemmer', email: 'k.klemmer@handwerk-nord.de', title: 'Anlagenmechaniker SHK', department: 'Sanitär / Heizung', tenantId: t2Id }
     ];
-    for (const u of users) await saveCollectionRecord('users', u.id, { ...u, enabled: true, status: 'active', lastSyncedAt: now }, dataSource);
+    for (const u of usersData) {
+      await saveCollectionRecord('users', u.id, { 
+        ...u, 
+        tenantId: u.tenantId || t1Id, 
+        enabled: true, 
+        status: 'active', 
+        lastSyncedAt: now,
+        adGroups: ['G_All_Staff', `G_${u.department?.replace(/\s+/g, '_')}`]
+      }, dataSource);
+    }
 
     // --- 7. ZUWEISUNGEN (ASSIGNMENTS) ---
     const assignments = [
-      { id: 'ass-d1', userId: 'u-demo-1', entitlementId: 'e-immoblue-user', status: 'active' },
-      { id: 'ass-d2', userId: 'u-demo-1', entitlementId: 'e-wodis-write', status: 'active' },
-      { id: 'ass-d3', userId: 'u-demo-1', entitlementId: 'e-archiv-read', status: 'active' },
-      { id: 'ass-d4', userId: 'u-demo-3', entitlementId: 'e-mareon-tech', status: 'active' }
+      { id: 'a-1', userId: 'u-1', entitlementId: 'e-wodis-power' },
+      { id: 'a-2', userId: 'u-2', entitlementId: 'e-wodis-user' },
+      { id: 'a-3', userId: 'u-2', entitlementId: 'e-immo-sales' },
+      { id: 'a-4', userId: 'u-4', entitlementId: 'e-ad-admin' },
+      { id: 'a-5', userId: 'u-4', entitlementId: 'e-wodis-admin' },
+      { id: 'a-6', userId: 'u-5', entitlementId: 'e-personio-hr' },
+      { id: 'a-7', userId: 'u-5', entitlementId: 'e-archiv-hr' }
     ];
-    for (const a of assignments) await saveCollectionRecord('assignments', a.id, { ...a, tenantId: t1Id, grantedBy: actorEmail, grantedAt: now, validFrom: today }, dataSource);
+    for (const a of assignments) {
+      await saveCollectionRecord('assignments', a.id, { 
+        ...a, 
+        tenantId: t1Id, 
+        status: 'active', 
+        grantedBy: actorEmail, 
+        grantedAt: now, 
+        validFrom: today 
+      }, dataSource);
+    }
 
     // --- 8. PROZESSE ---
-    const p1Id = 'proc-demo-vermietung';
+    const p1Id = 'proc-onboarding';
+    const p2Id = 'proc-repair';
+
     await saveCollectionRecord('processes', p1Id, {
-      id: p1Id, tenantId: t1Id, title: 'Neuvermietung (Digital)', status: 'published', currentVersion: 1,
-      responsibleDepartmentId: 'd-wohnbau-best', automationLevel: 'partial', dataVolume: 'medium', processingFrequency: 'daily',
-      description: 'Von der Interessenten-Anfrage in Immoblue bis zur Archivierung des Vertrags.'
+      id: p1Id, tenantId: t1Id, title: 'Mieter-Onboarding (Digital)', status: 'published', currentVersion: 1,
+      responsibleDepartmentId: 'd-best', ownerRoleId: 'j-immo-lead', automationLevel: 'partial', dataVolume: 'medium', processingFrequency: 'daily',
+      description: 'Gesamtprozess von der Anfrage über Immoblue bis zum Mietvertrag in Wodis Sigma.',
+      inputs: 'Interessenten-Anfrage, Schufa-Auskunft', outputs: 'Mietvertrag, Stammdatensatz', kpis: 'Durchlaufzeit < 5 Tage'
     }, dataSource);
 
-    const v1Id = `ver-${p1Id}-1`;
-    const model = {
+    const model1 = {
       nodes: [
-        { id: 'n1', type: 'start', title: 'Anfrage Immoblue', description: 'Eingang eines neuen Interessenten.' },
-        { id: 'n2', type: 'step', title: 'Stammdaten Wodis Sigma', roleId: 'j-wohnbau-immo', resourceIds: [rWodisId], description: 'Anlage des Mieters im ERP.' },
-        { id: 'n3', type: 'step', title: 'Vertrags-Archivierung', roleId: 'j-wohnbau-immo', resourceIds: [rArchivId], description: 'Scan und Ablage in Archiv Kompakt.' },
-        { id: 'n4', type: 'end', title: 'Mietbeginn' }
+        { id: 'n1', type: 'start', title: 'Interessent meldet sich', description: 'Eingang über Immoblue Portal.' },
+        { id: 'n2', type: 'step', title: 'Bonitätsprüfung', roleId: 'j-immo-kfm', resourceIds: ['res-immoblue'], description: 'Prüfung der eingereichten Unterlagen.' },
+        { id: 'n3', type: 'step', title: 'Stammdatenanlage', roleId: 'j-immo-kfm', resourceIds: ['res-wodis'], description: 'Anlage des neuen Mieters im ERP.' },
+        { id: 'n4', type: 'step', title: 'Vertrag archivieren', roleId: 'j-immo-kfm', resourceIds: ['res-archiv'], description: 'Scan und digitale Ablage.' },
+        { id: 'n5', type: 'end', title: 'Mietbeginn' }
       ],
       edges: [
-        { id: 'ed1', source: 'n1', target: 'n2' },
-        { id: 'ed2', source: 'n2', target: 'n3' },
-        { id: 'ed3', source: 'n3', target: 'n4' }
+        { id: 'e1', source: 'n1', target: 'n2' },
+        { id: 'e2', source: 'n2', target: 'n3' },
+        { id: 'e3', source: 'n3', target: 'n4' },
+        { id: 'e4', source: 'n4', target: 'n5' }
       ]
     };
-    await saveCollectionRecord('process_versions', v1Id, {
-      id: v1Id, process_id: p1Id, version: 1, model_json: model, layout_json: { positions: { n1: {x:50, y:150}, n2: {x:250, y:150}, n3: {x:450, y:150}, n4: {x:650, y:150} } }, revision: 1, created_at: now, created_by_user_id: 'system'
+    await saveCollectionRecord('process_versions', `ver-${p1Id}-1`, {
+      id: `ver-${p1Id}-1`, process_id: p1Id, version: 1, model_json: model1, 
+      layout_json: { positions: { n1: {x:50, y:50}, n2: {x:250, y:50}, n3: {x:450, y:50}, n4: {x:650, y:50}, n5: {x:850, y:50} } }, 
+      revision: 1, created_at: now, created_by_user_id: 'system'
     }, dataSource);
 
     // --- 9. RISIKEN ---
-    const riskId = 'risk-demo-wodis-out';
-    await saveCollectionRecord('risks', riskId, {
-      id: riskId, tenantId: t1Id, title: 'Ausfall Aareon Wodis Sigma', category: 'IT-Sicherheit', impact: 5, probability: 2,
-      description: 'Zentrale Störung im Cloud-Betrieb.',
-      status: 'active', owner: 'IT-Leitung', createdAt: now, assetId: rWodisId
-    }, dataSource);
+    const risksData = [
+      { id: 'rk-ransom', title: 'Ransomware Befall (Wodis Sigma)', category: 'IT-Sicherheit', impact: 5, probability: 2, assetId: 'res-wodis', description: 'Verschlüsselung der Datenbank durch Schadsoftware.' },
+      { id: 'rk-leak', title: 'Datenleck Mieterdaten', category: 'Datenschutz', impact: 4, probability: 2, assetId: 'res-archiv', description: 'Unbefugter Zugriff auf das digitale Archiv.' },
+      { id: 'rk-internet', title: 'Ausfall Glasfaseranbindung', category: 'Betrieblich', impact: 3, probability: 3, description: 'Kein Zugriff auf Cloud-Systeme möglich.' }
+    ];
+    for (const r of risksData) {
+      await saveCollectionRecord('risks', r.id, { ...r, tenantId: t1Id, status: 'active', owner: 'IT-Leitung', createdAt: now }, dataSource);
+    }
 
     // --- 10. DATENSCHUTZ (VVT) ---
-    const vvtId = 'vvt-demo-mieter';
-    await saveCollectionRecord('processingActivities', vvtId, {
-      id: vvtId, tenantId: t1Id, name: 'Mieter-Lifecycle Management', status: 'active', version: '1.0',
-      description: 'Vollständige Verwaltung der Mieterdaten von Akquise bis Archivierung.',
-      legalBasis: 'Art. 6 Abs. 1 lit. b (Vertrag)', responsibleDepartment: 'Bestandsmanagement', lastReviewDate: today
+    const vvtData = [
+      { id: 'vvt-mieter', name: 'Mieter-Datenverwaltung', legalBasis: 'Art. 6 Abs. 1 lit. b (Vertrag)', responsibleDepartment: 'Bestandsmanagement', description: 'Speicherung und Verarbeitung von Mieterdaten zur Vertragserfüllung.' },
+      { id: 'vvt-hr', name: 'Personalverwaltung', legalBasis: 'Art. 88 DSGVO / § 26 BDSG', responsibleDepartment: 'Personalwesen', description: 'Verarbeitung von Beschäftigtendaten für das Arbeitsverhältnis.' }
+    ];
+    for (const v of vvtData) {
+      await saveCollectionRecord('processingActivities', v.id, { 
+        ...v, 
+        tenantId: t1Id, 
+        status: 'active', 
+        version: '1.0', 
+        lastReviewDate: today,
+        retentionPeriod: '10 Jahre nach Vertragsende' 
+      }, dataSource);
+    }
+
+    // --- 11. MASSNAHMEN (TOM) ---
+    const measureId = 'm-backup-daily';
+    await saveCollectionRecord('riskMeasures', measureId, {
+      id: measureId, title: 'Tägliche Backup-Prüfung', description: 'Überprüfung der Cloud-Backups im Veeam-Portal.',
+      owner: 'IT-Admin', status: 'active', isTom: true, tomCategory: 'Verfügbarkeitskontrolle',
+      riskIds: ['rk-ransom'], resourceIds: ['res-wodis', 'res-archiv']
     }, dataSource);
 
     await logAuditEventAction(dataSource, {
-      tenantId: 'global', actorUid: actorEmail, action: 'Demo-Daten erfolgreich geladen (Sigma Suite)',
+      tenantId: 'global', actorUid: actorEmail, action: 'Enterprise Demo-Szenario (Wohnbau Nord) geladen.',
       entityType: 'system', entityId: 'seeding'
     });
 
-    return { success: true, message: "Demo-Szenario 'Wohnbau (Wodis Sigma Suite)' erfolgreich geladen." };
+    return { success: true, message: "Enterprise-Szenario 'Wohnbau Nord' mit über 100 Relationen erfolgreich geladen." };
   } catch (e: any) {
     console.error("Seeding failed:", e);
     return { success: false, error: e.message };

@@ -157,7 +157,7 @@ export function AppSidebar() {
   ];
 
   const dsgvoItems = [
-    { name: 'Datenschutz (VVT)', href: '/gdpr', icon: FileCheck },
+    { name: 'dsgvoHub', href: '/gdpr', icon: FileCheck },
     { name: 'KI Identity Audit', href: '/iam-audit', icon: BrainCircuit },
   ];
 
@@ -215,7 +215,7 @@ export function AppSidebar() {
           </div>
           <div>
             <span className="font-headline font-bold text-base tracking-tight block text-slate-900 dark:text-white leading-none">ComplianceHub</span>
-            <span className="text-[9px] text-primary font-bold block mt-1">Enterprise GRC</span>
+            <span className="text-[9px] text-primary font-bold block mt-1 uppercase tracking-tight">Struktur statt Bauchgefühl</span>
           </div>
         </div>
       </div>

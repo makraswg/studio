@@ -25,7 +25,8 @@ import {
   Info,
   Save,
   HelpCircle,
-  FileEdit
+  FileEdit,
+  ShieldAlert
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -68,6 +69,7 @@ export default function FeaturesOverviewPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [carrierFilter, setCarrierFilter] = useState('all');
+  const [complianceOnly, setComplianceOnly] = useState(false);
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -190,10 +192,11 @@ export default function FeaturesOverviewPage() {
       const matchesTenant = activeTenantId === 'all' || f.tenantId === activeTenantId;
       const matchesStatus = statusFilter === 'all' || f.status === statusFilter;
       const matchesCarrier = carrierFilter === 'all' || f.carrier === carrierFilter;
+      const matchesCompliance = !complianceOnly || !!f.isComplianceRelevant;
       const matchesSearch = f.name.toLowerCase().includes(search.toLowerCase()) || f.code.toLowerCase().includes(search.toLowerCase());
-      return matchesTenant && matchesStatus && matchesCarrier && matchesSearch;
+      return matchesTenant && matchesStatus && matchesCarrier && matchesSearch && matchesCompliance;
     });
-  }, [features, search, statusFilter, carrierFilter, activeTenantId]);
+  }, [features, search, statusFilter, carrierFilter, activeTenantId, complianceOnly]);
 
   if (!mounted) return null;
 
@@ -253,6 +256,11 @@ export default function FeaturesOverviewPage() {
             </SelectContent>
           </Select>
         </div>
+        <div className="flex items-center gap-2 px-3 h-9 border rounded-md bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 shrink-0">
+          <ShieldAlert className={cn("w-3.5 h-3.5", complianceOnly ? "text-emerald-600" : "text-slate-400")} />
+          <Label htmlFor="compliance-only" className="text-[10px] font-bold cursor-pointer text-slate-500 whitespace-nowrap">Audit Fokus</Label>
+          <Switch id="compliance-only" checked={complianceOnly} onCheckedChange={setComplianceOnly} className="scale-75" />
+        </div>
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
@@ -286,7 +294,10 @@ export default function FeaturesOverviewPage() {
                           <Tag className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
-                          <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{f.name}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{f.name}</div>
+                            {f.isComplianceRelevant && <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />}
+                          </div>
                           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{f.code}</p>
                         </div>
                       </div>

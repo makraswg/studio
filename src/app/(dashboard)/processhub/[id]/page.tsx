@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -75,6 +76,7 @@ import { Separator } from '@/components/ui/separator';
 /**
  * Erzeugt BPMN 2.0 MX-XML für draw.io Integration mit fachlichen Standards.
  * Fokus: Hoch-kontrastreiche Bauplan-Optik, orthogonale Linien, XOR-Gateways.
+ * Linienführung: Orthogonal und um Objekte herum (jettySize=auto).
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -114,13 +116,8 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
         w = 140; h = 70;
     }
     
-    // Node label handling
     const displayValue = node.type === 'decision' ? label : node.title;
-    
     xml += `<mxCell id="${nodeSafeId}" value="${displayValue}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
-    
-    // For decisions, add title as a separate label if needed or use the value. 
-    // In BPMN gateways usually have text next to them.
   });
 
   edges.forEach((edge, idx) => {
@@ -128,7 +125,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     const sourceId = String(edge.source);
     const targetId = String(edge.target);
     if (nodes.some(n => String(n.id) === sourceId) && nodes.some(n => String(n.id) === targetId)) {
-      // Orthogonale Kanten für BPMN 2.0 Standard - Verhindert Überlappung
+      // Orthogonale Kanten für BPMN 2.0 Standard - jettySize=auto sorgt für Umleitung um Objekte
       xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;fontColor=#000000;endArrow=block;endFill=1;curved=0;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });

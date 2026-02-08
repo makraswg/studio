@@ -14,58 +14,66 @@ Dieses Dokument beschreibt den Ausführungspfad für die strikte funktionale Tre
 Bevor die UI angepasst wird, muss das Backend die neuen Relationen unterstützen.
 
 1. **Update `processingActivities` (VVT):**
-   - Hinzufügen: `jointController` (Boolean/Text), `dataProcessorId` (Referenz), `receiverCategories` (Text), `thirdCountryTransfer` (Boolean), `targetCountry` (Text), `transferMechanism` (Enum: SCC, BCR, etc.).
-   - Entfernen: Direkte System-IDs (diese werden künftig über den Workflow Hub vererbt).
+   - **Neu:** `jointController` (Boolean/Text), `dataProcessorId` (Referenz), `receiverCategories` (Text), `thirdCountryTransfer` (Boolean), `targetCountry` (Text), `transferMechanism` (Enum: SCC, BCR, etc.).
+   - **Entfernen:** Direkte System-IDs (diese werden künftig über den Workflow Hub vererbt).
+   - **Seite:** `/settings/dsgvo` (Basisdaten) und `/gdpr` (Dialog).
 
 2. **Update `processes` (Workflow):**
-   - Hinzufügen: `vvtId` (Referenz auf VVT-Eintrag), `automationLevel` (Enum), `dataVolume` (Enum), `processingFrequency` (Enum).
-   - Verknüpfung: Sicherstellen, dass jeder Prozess einem VVT-Eintrag zugeordnet werden kann.
+   - **Neu:** `vvtId` (Referenz auf VVT-Eintrag), `automationLevel` (Enum), `dataVolume` (Enum), `processingFrequency` (Enum).
+   - **Verknüpfung:** Jeder operative Prozess wird einem VVT-Zweck zugeordnet.
+   - **Seite:** `/processhub` (Übersicht) und `/processhub/[id]` (Stammdaten-Tab).
 
 3. **Update `entitlements` (Access):**
-   - Hinzufügen: `vvtId` (Optionaler Link für direkte Art-30-Relevanz).
+   - **Neu:** `vvtId` (Optionaler Link für direkte Art-30-Relevanz einer Rolle).
+   - **Seite:** `/roles` (Bearbeitungsdialog).
 
 4. **Update `risks` (Risk):**
-   - Hinzufügen: `vvtId` (Direkte Kopplung für Datenschutz-Folgenabschätzung/DSFA).
+   - **Neu:** `vvtId` (Direkte Kopplung für Datenschutz-Folgenabschätzung/DSFA).
+   - **Seite:** `/risks` (Risiko-Dialog).
 
 ---
 
 ## 🛠️ Phase 2: Policy Hub Refactoring (VVT-Kern)
-Fokus auf rechtliche Steuerung.
+Fokus auf rechtliche Steuerung und Art. 30 Dokumentation.
 
-- **UI-Anpassung:** Überarbeitung des VVT-Dialogs. Entfernung technischer IT-Details.
-- **Neu:** Implementierung der Drittland-Abfrage und der logischen Empfängerkategorien.
-- **Reporting:** Anpassung des Art. 30 Exports (PDF/Excel), sodass er Daten aus dem referenzierten Workflow Hub (Systeme) automatisch mitzieht.
+- **UI-Anpassung:** Überarbeitung des VVT-Dialogs (`/gdpr`). Alle Felder für IT-Systeme werden entfernt. Stattdessen wird angezeigt: "Zugeordnete Prozesse (Workflow Hub)".
+- **Pflege:** Nur noch Zweck, Rechtsgrundlage, Betroffenenkategorien und Drittland-Details.
+- **Reporting:** Der Art. 30 Export (PDF/Excel) wird so angepasst, dass er die im Workflow Hub verknüpften Systeme automatisch als "Verarbeitende Systeme" auflistet (Referenz-Lookup).
 
 ---
 
 ## ⚙️ Phase 3: Workflow Hub Erweiterung (Die technische Realität)
-Fokus auf prozessuale Abbildung.
+Der Workflow Hub wird zum technischen Lieferanten für das VVT.
 
-- **Metadata-Update:** Prozesse erhalten Felder für Automatisierungsgrad und Volumen.
-- **System-Verknüpfung:** Die Zuordnung von IT-Ressourcen erfolgt ausschließlich hier.
-- **Vererbung:** Wenn ein Prozess mit VVT-ID "X" verknüpft ist, gelten alle hier genutzten Ressourcen automatisch als "verarbeitende Systeme" für das VVT.
+- **Pflege:** Die Zuordnung von IT-Ressourcen zu Tätigkeiten erfolgt ausschließlich über Prozesse.
+- **Logik:** Wenn ein Prozess mit der VVT-ID "Kundenverwaltung" verknüpft ist, gelten alle im Prozess genutzten IT-Ressourcen (Ressourcenkatalog) als technische Basis für dieses VVT.
+- **Metadaten:** Hinzufügen von Feldern für Automatisierungsgrad und Datenvolumen im Prozess-Stammblatt (`/processhub/[id]`).
 
 ---
 
 ## 🔐 Phase 4: Access Hub Operationalisierung
-Fokus auf "Audit-Readiness".
+Hier wird sichtbar, wer die Daten aus dem VVT tatsächlich "berühren" darf.
 
-- **Rollen-Mapping:** Möglichkeit, eine Rolle (JobTitle) direkt einer Verarbeitungstätigkeit (VVT) zuzuordnen.
-- **Compliance-View:** "Wer hat Zugriff auf Daten aus VVT-Eintrag XY?" – Implementierung eines Filters im Benutzerverzeichnis, der über die Kette *User -> Rolle -> VVT* auflöst.
+- **Rollen-Mapping:** In `/roles` kann eine Berechtigung direkt einer VVT-Tätigkeit zugeordnet werden.
+- **Compliance-View:** Implementierung eines Filters im Benutzerverzeichnis (`/users`), der anzeigt: "Zeige alle User, die Zugriff auf Daten aus VVT 'Personalabrechnung' haben".
+- **Auflösung:** Kette: *User -> Rolle -> Zuweisung -> VVT*.
 
 ---
 
 ## ⚠️ Phase 5: Risk Hub Automatisierung
-Fokus auf dynamische Kontrolle.
+Dynamische Risiko-Steuerung basierend auf VVT-Attributen.
 
-- **Trigger-Logik:** Wenn im VVT "Besondere Kategorien" (Art. 9) oder "Drittland" gewählt wird -> Automatische Erstellung einer Aufgabe/Risiko im Risk Hub.
-- **Kontroll-Mapping:** Verknüpfung von TOMs (Maßnahmen) mit VVT-Einträgen zur Nachweisführung der Angemessenheit.
+- **Trigger-Logik:** Wenn im Policy Hub (VVT) "Besondere Kategorien" (Art. 9) oder "Drittlandübermittlung" aktiviert wird, erstellt das System automatisch eine Aufgabe im Risk Hub zur Prüfung der DSFA-Pflicht.
+- **Kontroll-Mapping:** Verknüpfung von TOMs (Maßnahmen) in `/risks/measures` direkt mit VVT-Einträgen zur Nachweisführung der Angemessenheit nach Art. 32 DSGVO.
 
 ---
 
 ## 🗺️ Phase 6: Visual Governance (Data Map)
-- **Graph-Update:** Die Daten-Landkarte muss die neue Hierarchie (VVT -> Prozess -> Ressource -> Rolle) visuell abbilden.
-- **Impact-Visualisierung:** "Was passiert rechtlich (VVT), wenn dieses technische System (Ressource) ausfällt?"
+Die Daten-Landkarte (`/settings/data-map`) wird zum Steuerungs-Instrument.
+
+- **Graph-Update:** Visualisierung der Hierarchie:
+  `VVT (Zweck) --> Prozess (Ablauf) --> Ressource (System) --> Rolle (Zugriff) --> User`.
+- **Impact-Analyse:** "Was passiert rechtlich (VVT), wenn dieses technische System (Ressource) ausfällt oder kompromittiert wird?"
 
 ---
-*Status: In Planung. Nächster Schritt: Schema-Migration (Phase 1).*
+*Status: Strategische Planung abgeschlossen. Nächster Schritt: Schema-Migration (Phase 1).*

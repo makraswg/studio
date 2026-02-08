@@ -118,8 +118,8 @@ function RiskDashboardContent() {
 
   // Form State
   const [title, setTitle] = useState('');
-  const [assetId, setAssetId] = useState('');
-  const [processId, setProcessId] = useState('');
+  const [assetId, setAssetId] = useState('none');
+  const [processId, setProcessId] = useState('none');
   const [parentId, setParentId] = useState('none');
   const [category, setCategory] = useState('IT-Sicherheit');
   const [impact, setImpact] = useState('3');
@@ -198,6 +198,15 @@ function RiskDashboardContent() {
     if (!allMeasures || !selectedRisk) return [];
     return allMeasures.filter(m => m.riskIds?.includes(selectedRisk.id));
   }, [allMeasures, selectedRisk]);
+
+  const applyAiSuggestions = (s: any) => {
+    if (s.title) setTitle(s.title);
+    if (s.description) setDescription(s.description);
+    if (s.category) setCategory(s.category);
+    if (s.impact) setImpact(String(s.impact));
+    if (s.probability) setProbability(String(s.probability));
+    toast({ title: "KI-Vorschläge übernommen" });
+  };
 
   const handleSaveRisk = async () => {
     if (!title) {
@@ -435,8 +444,8 @@ function RiskDashboardContent() {
   const resetForm = () => {
     setSelectedRisk(null);
     setTitle('');
-    setAssetId('');
-    setProcessId('');
+    setAssetId('none');
+    setProcessId('none');
     setParentId('none');
     setCategory('IT-Sicherheit');
     setImpact('3');
@@ -589,6 +598,8 @@ function RiskDashboardContent() {
       </>
     );
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-6 pb-10">
@@ -1221,7 +1232,7 @@ function RiskDashboardContent() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Priorität</Label>
-                  <Select value={taskPriority} onValueChange={(v: any) => setPriority(v)}>
+                  <Select value={taskPriority} onValueChange={(v: any) => setTaskPriority(v)}>
                     <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                     <SelectContent className="rounded-xl">
                       <SelectItem value="low" className="text-xs font-bold">Niedrig</SelectItem>

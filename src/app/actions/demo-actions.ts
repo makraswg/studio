@@ -28,7 +28,7 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
     }, dataSource);
 
     // --- 2. ABTEILUNGEN ---
-    const deptsData = [
+    const departmentsData = [
       { id: 'd-mgmt', tenantId: t1Id, name: 'Geschäftsführung' },
       { id: 'd-best', tenantId: t1Id, name: 'Bestandsmanagement' },
       { id: 'd-fibu', tenantId: t1Id, name: 'Finanzbuchhaltung' },
@@ -40,7 +40,7 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       { id: 'd-shk', tenantId: t2Id, name: 'Sanitär / Heizung' },
       { id: 'd-el', tenantId: t2Id, name: 'Elektrotechnik' }
     ];
-    for (const d of deptsData) await saveCollectionRecord('departments', d.id, { ...d, status: 'active' }, dataSource);
+    for (const d of departmentsData) await saveCollectionRecord('departments', d.id, { ...d, status: 'active' }, dataSource);
 
     // --- 3. ROLLEN (BLUEPRINTS) ---
     const jobsData = [
@@ -153,7 +153,10 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
           { id: 'e1', source: 'start', target: 'step1' },
           { id: 'e2', source: 'step1', target: 'step2' },
           { id: 'e3', source: 'step2', target: 'end' }
-        ]
+        ],
+        roles: [],
+        isoFields: {},
+        customFields: {}
       };
       await saveCollectionRecord('process_versions', `ver-${pId}-1`, {
         id: `ver-${pId}-1`, process_id: pId, version: 1, model_json: model, 
@@ -163,13 +166,13 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
     }
 
     // --- 8. RISIKEN (BSI BASIS) ---
-    const risksData = [
+    const demoRisks = [
       { id: 'rk-bsi-1', title: 'G 0.14: Designfehler (Architektur)', category: 'IT-Sicherheit', impact: 4, probability: 2, hazardId: 'haz-bsi-g014' },
       { id: 'rk-bsi-2', title: 'G 0.19: Offenlegung Informationen', category: 'Datenschutz', impact: 5, probability: 3, assetId: 'res-wodis' },
       { id: 'rk-bsi-3', title: 'G 0.25: Ausfall von Geräten', category: 'Betrieblich', impact: 3, probability: 4, assetId: 'res-sql-cluster' },
       { id: 'rk-bsi-4', title: 'G 0.45: Datenverlust', category: 'IT-Sicherheit', impact: 5, probability: 2, assetId: 'res-archiv' }
     ];
-    for (const r of risksData) {
+    for (const r of demoRisks) {
       await saveCollectionRecord('risks', r.id, { ...r, tenantId: t1Id, status: 'active', owner: 'CISO', createdAt: now }, dataSource);
     }
 

@@ -133,6 +133,7 @@ export interface ProcessNode {
   title: string;
   description?: string;
   roleId?: string; 
+  resourceIds?: string[];
   checklist?: string[];
   tips?: string;
   errors?: string;

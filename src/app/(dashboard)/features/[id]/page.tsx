@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -37,7 +38,8 @@ import {
   Target,
   MessageSquare,
   Save,
-  CalendarDays
+  CalendarDays,
+  Server
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -47,7 +49,7 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { 
   Feature, FeatureLink, FeatureDependency, Process, Resource, Risk, RiskMeasure, 
-  Department, JobTitle, FeatureProcessLink, UsageTypeOption, ProcessVersion, Task, PlatformUser, FeatureProcessStep
+  Department, JobTitle, FeatureProcessLink, UsageTypeOption, ProcessVersion, Task, PlatformUser, FeatureProcessStep, ProcessNode
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -97,6 +99,7 @@ export default function FeatureDetailPage() {
   const { data: usageTypes } = usePluggableCollection<UsageTypeOption>('usage_type_options');
   const { data: tasks, refresh: refreshTasks } = usePluggableCollection<Task>('tasks');
   const { data: pUsers } = usePluggableCollection<PlatformUser>('platformUsers');
+  const { data: allResources } = usePluggableCollection<Resource>('resources');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -104,6 +107,21 @@ export default function FeatureDetailPage() {
   const relatedProcLinks = useMemo(() => processLinks?.filter((l: any) => l.featureId === id) || [], [processLinks, id]);
   const relatedLinks = useMemo(() => links?.filter(l => l.featureId === id) || [], [links, id]);
   const relatedTasks = useMemo(() => tasks?.filter(t => t.entityId === id && t.entityType === 'feature') || [], [tasks, id]);
+
+  const indirectResources = useMemo(() => {
+    if (!relatedProcLinks || !versions || !allResources) return [];
+    const resourceIds = new Set<string>();
+    
+    relatedProcLinks.forEach((link: any) => {
+      const ver = versions.find(v => v.process_id === link.processId);
+      const node = ver?.model_json?.nodes?.find((n: ProcessNode) => n.id === link.nodeId);
+      if (node?.resourceIds) {
+        node.resourceIds.forEach(rid => resourceIds.add(rid));
+      }
+    });
+
+    return Array.from(resourceIds).map(rid => allResources.find(r => r.id === rid)).filter(Boolean);
+  }, [relatedProcLinks, versions, allResources]);
 
   const linkedRisks = useMemo(() => relatedLinks.filter(l => l.targetType === 'risk').map(l => risks?.find(r => r.id === l.targetId)).filter(Boolean), [relatedLinks, risks]);
   
@@ -215,10 +233,10 @@ export default function FeatureDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50" onClick={() => setIsTaskDialogOpen(true)}>
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm" onClick={() => setIsTaskDialogOpen(true)}>
             <ClipboardList className="w-3.5 h-3.5 mr-2" /> Aufgabe erstellen
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20">
+          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all active:scale-95">
             <Zap className="w-3.5 h-3.5 mr-2" /> KI Audit
           </Button>
         </div>
@@ -231,7 +249,7 @@ export default function FeatureDetailPage() {
               <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Verantwortung & Kritikalität</CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
-              <div className="space-y-4 p-4 bg-slate-50/50 rounded-xl border border-slate-100">
+              <div className="space-y-4 p-4 bg-slate-50/50 rounded-xl border border-slate-100 shadow-inner">
                 <div className="space-y-1">
                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Verantwortliche Abteilung</p>
                   <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
@@ -268,25 +286,22 @@ export default function FeatureDetailPage() {
 
           <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
             <CardHeader className="bg-indigo-50/50 border-b p-4 px-6">
-              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Aktive Aufgaben</CardTitle>
+              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Indirekte System-Abhängigkeiten</CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
-              {relatedTasks.filter(t => t.status !== 'done').map(t => (
-                <div key={t.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:border-indigo-300 transition-all shadow-sm" onClick={() => router.push('/tasks')}>
-                  <p className="text-[11px] font-bold text-slate-800 line-clamp-1">{t.title}</p>
-                  <div className="flex items-center justify-between mt-1.5">
-                    <Badge className={cn(
-                      "border-none rounded-full text-[7px] font-black px-1.5 h-3.5",
-                      t.priority === 'critical' ? "bg-red-600 text-white" : "bg-indigo-600 text-white"
-                    )}>{t.status}</Badge>
-                    <span className="text-[8px] font-bold text-slate-400 italic">{t.dueDate || 'Keine Frist'}</span>
+              {indirectResources.map(res => (
+                <div key={res?.id} className="p-3 bg-white rounded-xl border border-slate-100 flex items-center justify-between shadow-sm hover:border-indigo-300 transition-all cursor-pointer" onClick={() => router.push(`/resources?search=${res?.name}`)}>
+                  <div className="flex items-center gap-2">
+                    <Server className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="text-[11px] font-bold text-slate-700">{res?.name}</span>
                   </div>
+                  <Badge variant="outline" className="text-[7px] font-black uppercase h-4 border-slate-100 bg-slate-50">{res?.assetType}</Badge>
                 </div>
               ))}
-              {relatedTasks.filter(t => t.status !== 'done').length === 0 && (
+              {indirectResources.length === 0 && (
                 <div className="text-center py-6 opacity-30">
-                  <CheckCircle className="w-8 h-8 mx-auto mb-2" />
-                  <p className="text-[9px] font-bold uppercase">Keine offenen Tasks</p>
+                  <Server className="w-8 h-8 mx-auto mb-2" />
+                  <p className="text-[9px] font-bold uppercase">Keine Systembezüge</p>
                 </div>
               )}
             </CardContent>
@@ -295,7 +310,7 @@ export default function FeatureDetailPage() {
 
         <div className="lg:col-span-3">
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="bg-slate-100 p-1 h-11 rounded-xl border w-full justify-start gap-1">
+            <TabsList className="bg-slate-100 p-1 h-11 rounded-xl border w-full justify-start gap-1 shadow-inner">
               <TabsTrigger value="overview" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><Info className="w-3.5 h-3.5" /> Überblick</TabsTrigger>
               <TabsTrigger value="context" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><GitBranch className="w-3.5 h-3.5" /> Prozess-Kontext</TabsTrigger>
               <TabsTrigger value="tasks" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><ClipboardList className="w-3.5 h-3.5" /> Aufgaben ({relatedTasks.length})</TabsTrigger>
@@ -313,7 +328,7 @@ export default function FeatureDetailPage() {
                 <CardContent className="p-8 space-y-8">
                   <div className="space-y-3">
                     <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Beschreibung</Label>
-                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800">{feature.description || 'Keine fachliche Beschreibung hinterlegt.'}</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">{feature.description || 'Keine fachliche Beschreibung hinterlegt.'}</p>
                   </div>
                   <div className="space-y-3">
                     <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Zweck der Erfassung</Label>
@@ -350,9 +365,9 @@ export default function FeatureDetailPage() {
                               <p className="text-xs font-black uppercase text-slate-400 tracking-widest">{proc?.title || 'Prozess'}</p>
                               <p className="text-sm font-bold text-slate-800 truncate">{node?.title || 'Unbekannter Schritt'}</p>
                               <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="outline" className="text-[8px] font-black uppercase border-indigo-100 text-indigo-600">{link.usageType}</Badge>
+                                <Badge variant="outline" className="text-[8px] font-black uppercase border-indigo-100 text-indigo-600 shadow-sm">{link.usageType}</Badge>
                                 <Badge className={cn(
-                                  "text-[8px] font-black uppercase border-none",
+                                  "text-[8px] font-black uppercase border-none shadow-sm",
                                   link.criticality === 'high' ? "bg-red-50 text-red-600" : link.criticality === 'medium' ? "bg-orange-50 text-orange-600" : "bg-emerald-50 text-emerald-600"
                                 )}>{link.criticality}</Badge>
                               </div>
@@ -365,7 +380,7 @@ export default function FeatureDetailPage() {
                       );
                     })}
 
-                    <div className="p-6 border-2 border-dashed rounded-2xl bg-slate-50/50 space-y-4">
+                    <div className="p-6 border-2 border-dashed rounded-2xl bg-slate-50/50 space-y-4 shadow-inner">
                       <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Arbeitsschritt verknüpfen</p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
@@ -407,7 +422,7 @@ export default function FeatureDetailPage() {
                           </Select>
                         </div>
                       </div>
-                      <Button className="w-full rounded-xl h-10 font-bold text-xs gap-2 shadow-lg" onClick={handleLinkProcess} disabled={isLinking || !selectedProcessId || !selectedNodeId || !selectedUsageType}>
+                      <Button className="w-full rounded-xl h-10 font-bold text-xs gap-2 shadow-lg transition-all active:scale-95" onClick={handleLinkProcess} disabled={isLinking || !selectedProcessId || !selectedNodeId || !selectedUsageType}>
                         {isLinking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Verknüpfung erstellen
                       </Button>
                     </div>
@@ -426,7 +441,7 @@ export default function FeatureDetailPage() {
                       <CardDescription className="text-[10px] font-bold uppercase tracking-widest">Maßnahmen und Klärungsbedarfe</CardDescription>
                     </div>
                   </div>
-                  <Button size="sm" variant="outline" className="h-8 rounded-lg text-[10px] font-black uppercase gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50" onClick={() => setIsTaskDialogOpen(true)}>
+                  <Button size="sm" variant="outline" className="h-8 rounded-lg text-[10px] font-black uppercase gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm" onClick={() => setIsTaskDialogOpen(true)}>
                     <Plus className="w-3.5 h-3.5" /> Neue Aufgabe
                   </Button>
                 </CardHeader>
@@ -444,7 +459,7 @@ export default function FeatureDetailPage() {
                           <div>
                             <p className="text-sm font-bold text-slate-800">{t.title}</p>
                             <div className="flex items-center gap-2 mt-0.5">
-                              <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 border-slate-200">{t.status.toUpperCase()}</Badge>
+                              <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 border-slate-200 shadow-sm">{t.status.toUpperCase()}</Badge>
                               <span className="text-[9px] text-slate-400 font-medium">Priorität: {t.priority}</span>
                             </div>
                           </div>
@@ -453,7 +468,7 @@ export default function FeatureDetailPage() {
                       </div>
                     ))}
                     {relatedTasks.length === 0 && (
-                      <div className="py-12 text-center border-2 border-dashed rounded-2xl opacity-30">
+                      <div className="py-12 text-center border-2 border-dashed rounded-2xl opacity-30 shadow-inner">
                         <CheckCircle className="w-10 h-10 mx-auto mb-3" />
                         <p className="text-xs font-bold uppercase">Keine Aufgaben verknüpft</p>
                       </div>
@@ -474,7 +489,7 @@ export default function FeatureDetailPage() {
                         <p className="text-[10px] text-primary font-bold uppercase tracking-widest">Risikobewertung im Kontext der Merkmalsnutzung</p>
                       </div>
                     </div>
-                    <Badge className="bg-white/10 text-white border-none rounded-full px-3 h-6 text-[10px] font-black uppercase tracking-widest">Active Analysis</Badge>
+                    <Badge className="bg-white/10 text-white border-none rounded-full px-3 h-6 text-[10px] font-black uppercase tracking-widest shadow-sm">Active Analysis</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="p-8 space-y-10">
@@ -485,9 +500,9 @@ export default function FeatureDetailPage() {
                       </h4>
                       <div className="space-y-3">
                         {linkedRisks.map(r => (
-                          <div key={r?.id} className="flex items-center justify-between p-3 bg-white dark:bg-slate-950 rounded-xl border border-red-100 dark:border-red-900/30 shadow-sm">
+                          <div key={r?.id} className="flex items-center justify-between p-3 bg-white dark:bg-slate-950 rounded-xl border border-red-100 dark:border-red-900/30 shadow-sm transition-all hover:border-red-300">
                             <div className="flex items-center gap-3">
-                              <Badge className="bg-red-600 text-white border-none rounded-md text-[9px] font-black h-5 px-2">{r?.impact * r?.probability}</Badge>
+                              <Badge className="bg-red-600 text-white border-none rounded-md text-[9px] font-black h-5 px-2 shadow-sm">{r?.impact * r?.probability}</Badge>
                               <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{r?.title}</span>
                             </div>
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => router.push(`/risks?search=${r?.title}`)}><ExternalLink className="w-3.5 h-3.5" /></Button>
@@ -505,10 +520,10 @@ export default function FeatureDetailPage() {
                         {mitigatingMeasures.map(m => (
                           <div key={m?.id} className="flex items-center justify-between p-3 bg-white dark:bg-slate-950 rounded-xl border border-emerald-100 dark:border-emerald-900/30 shadow-sm">
                             <div className="flex items-center gap-3">
-                              <div className="w-6 h-6 rounded-md bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" /></div>
+                              <div className="w-6 h-6 rounded-md bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-600 shadow-inner"><CheckCircle2 className="w-3.5 h-3.5" /></div>
                               <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[180px]">{m?.title}</span>
                             </div>
-                            <Badge variant="outline" className="text-[8px] font-black uppercase text-emerald-600 border-emerald-100">{m?.status}</Badge>
+                            <Badge variant="outline" className="text-[8px] font-black uppercase text-emerald-600 border-emerald-100 shadow-sm">{m?.status}</Badge>
                           </div>
                         ))}
                         {mitigatingMeasures.length === 0 && <p className="text-[11px] text-slate-500 italic">Keine aktiven Kontrollen für dieses Merkmal.</p>}
@@ -522,7 +537,7 @@ export default function FeatureDetailPage() {
         </div>
       </div>
 
-      {/* Task Creation Dialog - FIXED LAYOUT to match tasks/page.tsx */}
+      {/* Task Creation Dialog */}
       <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
         <DialogContent className="max-w-2xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
@@ -541,7 +556,7 @@ export default function FeatureDetailPage() {
             <div className="p-6 md:p-8 space-y-8">
               <div className="space-y-2">
                 <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Titel der Aufgabe</Label>
-                <Input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white" placeholder="z.B. Datenqualität im Prozess prüfen..." />
+                <Input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white shadow-sm" placeholder="z.B. Datenqualität im Prozess prüfen..." />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -556,7 +571,7 @@ export default function FeatureDetailPage() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Deadline</Label>
-                  <Input type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-white" />
+                  <Input type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-white shadow-sm" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Priorität</Label>
@@ -574,13 +589,13 @@ export default function FeatureDetailPage() {
 
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Anweisungen / Details</Label>
-                <Textarea value={taskDesc} onChange={e => setTaskDesc(e.target.value)} className="rounded-2xl min-h-[100px] text-xs font-medium border-slate-200 bg-slate-50/30 p-4 leading-relaxed" placeholder="Beschreiben Sie die fachliche Anforderung..." />
+                <Textarea value={taskDesc} onChange={e => setTaskDesc(e.target.value)} className="rounded-2xl min-h-[100px] text-xs font-medium border-slate-200 bg-slate-50/30 p-4 leading-relaxed shadow-inner" placeholder="Beschreiben Sie die fachliche Anforderung..." />
               </div>
             </div>
           </ScrollArea>
 
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
-            <Button variant="ghost" onClick={() => setIsTaskDialogOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 text-slate-400 hover:bg-white uppercase tracking-widest">Abbrechen</Button>
+            <Button variant="ghost" onClick={() => setIsTaskDialogOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 text-slate-400 hover:bg-white uppercase tracking-widest transition-all">Abbrechen</Button>
             <Button onClick={handleCreateTask} disabled={isSavingTask || !taskTitle || !taskAssigneeId} className="rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 gap-2 uppercase active:scale-95 transition-all">
               {isSavingTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Aufgabe erstellen
             </Button>

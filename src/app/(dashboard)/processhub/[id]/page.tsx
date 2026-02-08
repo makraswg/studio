@@ -57,7 +57,10 @@ import {
   FileText,
   Upload,
   Eye,
-  FileSearch
+  FileSearch,
+  Server,
+  Layers,
+  Database
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -77,12 +80,13 @@ import { saveMediaAction, deleteMediaAction, getMediaConfigAction } from '@/app/
 import { runOcrAction } from '@/ai/flows/ocr-flow';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation, ProcessEdge, ProcessVersion, Department, RegulatoryOption, Feature, FeatureProcessStep, MediaFile } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation, ProcessEdge, ProcessVersion, Department, RegulatoryOption, Feature, FeatureProcessStep, MediaFile, Resource } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -168,10 +172,9 @@ export default function ProcessDesignerPage() {
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
-  const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false);
   
   const [localNodeEdits, setLocalNodeEdits] = useState({ 
-    id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '', type: 'step', targetProcessId: '', customFields: {} as Record<string, string>
+    id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '', type: 'step', targetProcessId: '', resourceIds: [] as string[], customFields: {} as Record<string, string>
   });
 
   // Media States
@@ -181,32 +184,16 @@ export default function ProcessDesignerPage() {
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
   const { data: versions, refresh: refreshVersion } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
-  const { data: allFeatures } = usePluggableCollection<Feature>('features');
-  const { data: featureLinks, refresh: refreshFeatLinks } = usePluggableCollection<any>('feature_process_steps');
+  const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: mediaFiles, refresh: refreshMedia } = usePluggableCollection<MediaFile>('media');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
   
-  const selectedNodeFeatures = useMemo(() => 
-    featureLinks?.filter((l: any) => l.processId === id && l.nodeId === selectedNodeId) || [], 
-    [featureLinks, id, selectedNodeId]
-  );
-
   const selectedNodeMedia = useMemo(() => 
     mediaFiles?.filter(m => m.entityId === id && m.subEntityId === selectedNodeId) || [],
     [mediaFiles, id, selectedNodeId]
   );
-
-  const [metaTitle, setMetaTitle] = useState('');
-  const [metaDesc, setMetaDesc] = useState('');
-
-  useEffect(() => {
-    if (currentProcess) {
-      setMetaTitle(currentProcess.title || '');
-      setMetaDesc(currentProcess.description || '');
-    }
-  }, [currentProcess?.id]);
 
   useEffect(() => {
     if (selectedNodeId && currentVersion) {
@@ -216,6 +203,7 @@ export default function ProcessDesignerPage() {
           id: node.id,
           title: node.title || '',
           roleId: node.roleId || '',
+          resourceIds: node.resourceIds || [],
           description: node.description || '',
           checklist: (node.checklist || []).join('\n'),
           tips: node.tips || '',
@@ -227,23 +215,6 @@ export default function ProcessDesignerPage() {
       }
     }
   }, [selectedNodeId, currentVersion]);
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (isResizingLeft.current) setLeftWidth(Math.max(300, Math.min(600, e.clientX)));
-  }, []);
-
-  const stopResizing = useCallback(() => {
-    isResizingLeft.current = false;
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', stopResizing);
-  }, [handleMouseMove]);
-
-  const startResizeLeft = useCallback(() => {
-    if (isMobile) return;
-    isResizingLeft.current = true;
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', stopResizing);
-  }, [handleMouseMove, stopResizing, isMobile]);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -355,11 +326,45 @@ export default function ProcessDesignerPage() {
     const nodes = currentVersion.model_json.nodes || [];
     const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : nodes[nodes.length - 1];
     
-    const ops: ProcessOperation[] = [{ type: 'ADD_NODE', payload: { node: { id: newId, type, title: titles[type] } } }];
+    // Inheritance logic: copy resources from predecessor if available
+    const initialResources = predecessor?.resourceIds || [];
+
+    const ops: ProcessOperation[] = [{ type: 'ADD_NODE', payload: { node: { id: newId, type, title: titles[type], resourceIds: initialResources } } }];
     if (predecessor) {
       ops.push({ type: 'ADD_EDGE', payload: { edge: { id: `edge-${Date.now()}`, source: predecessor.id, target: newId } } });
     }
     handleApplyOps(ops).then(s => { if(s) { setSelectedNodeId(newId); setIsStepDialogOpen(true); } });
+  };
+
+  const handleSaveNodeEdits = async () => {
+    if (!selectedNodeId) return;
+    const ops: ProcessOperation[] = [{
+      type: 'UPDATE_NODE',
+      payload: {
+        nodeId: selectedNodeId,
+        patch: {
+          title: localNodeEdits.title,
+          roleId: localNodeEdits.roleId,
+          resourceIds: localNodeEdits.resourceIds,
+          description: localNodeEdits.description,
+          checklist: localNodeEdits.checklist.split('\n').filter(l => l.trim() !== '')
+        }
+      }
+    }];
+    const success = await handleApplyOps(ops);
+    if (success) {
+      toast({ title: "Schritt aktualisiert" });
+      setIsStepDialogOpen(false);
+    }
+  };
+
+  const toggleResource = (resId: string) => {
+    setLocalNodeEdits(prev => ({
+      ...prev,
+      resourceIds: prev.resourceIds.includes(resId) 
+        ? prev.resourceIds.filter(id => id !== resId) 
+        : [...prev.resourceIds, resId]
+    }));
   };
 
   if (!mounted) return null;
@@ -422,6 +427,7 @@ export default function ProcessDesignerPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[11px] font-bold text-slate-800 truncate">{node.title}</p>
+                          {node.resourceIds?.length > 0 && <p className="text-[8px] text-primary font-black uppercase mt-0.5">{node.resourceIds.length} Ressourcen</p>}
                         </div>
                       </div>
                     );
@@ -472,7 +478,7 @@ export default function ProcessDesignerPage() {
         </main>
       </div>
 
-      {/* Node Dialog with Media Support */}
+      {/* Node Dialog with Media & Resource Support */}
       <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
         <DialogContent className="max-w-4xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[90vh]">
           <DialogHeader className="p-6 bg-white border-b pr-10">
@@ -489,83 +495,116 @@ export default function ProcessDesignerPage() {
           <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
             <TabsList className="bg-slate-50 border-b h-11 px-6 justify-start rounded-none gap-6">
               <TabsTrigger value="base" className="text-[10px] font-bold uppercase gap-2">Stammdaten</TabsTrigger>
-              <TabsTrigger value="media" className="text-[10px] font-bold uppercase gap-2"><FileStack className="w-3.5 h-3.5" /> Anhänge & Belege</TabsTrigger>
+              <TabsTrigger value="resources" className="text-[10px] font-bold uppercase gap-2"><Server className="w-3.5 h-3.5" /> IT-Ressourcen</TabsTrigger>
+              <TabsTrigger value="media" className="text-[10px] font-bold uppercase gap-2"><FileStack className="w-3.5 h-3.5" /> Anhänge</TabsTrigger>
               <TabsTrigger value="details" className="text-[10px] font-bold uppercase gap-2">Tätigkeit</TabsTrigger>
             </TabsList>
-            <ScrollArea className="flex-1 p-8">
-              <TabsContent value="base" className="mt-0 space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Bezeichnung</Label><Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 font-bold rounded-xl" /></div>
-                  <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortliche Stelle</Label><Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent>{jobTitles?.map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}</SelectContent></Select></div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="media" className="mt-0 space-y-8">
-                <div className="p-10 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-100 transition-all cursor-pointer relative">
-                  <div className={cn("w-14 h-14 bg-white rounded-xl flex items-center justify-center shadow-md border", isUploading && "animate-pulse")}>
-                    {isUploading ? <Loader2 className="w-6 h-6 animate-spin text-primary" /> : <Upload className="w-6 h-6 text-slate-400" />}
+            <ScrollArea className="flex-1">
+              <div className="p-8 space-y-10">
+                <TabsContent value="base" className="mt-0 space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Bezeichnung</Label><Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 font-bold rounded-xl" /></div>
+                    <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortliche Stelle</Label><Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent>{jobTitles?.map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}</SelectContent></Select></div>
                   </div>
-                  <div className="text-center">
-                    <p className="text-xs font-bold text-slate-800">Dateien per Drag & Drop oder Klick hochladen</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Bilder oder PDF (Max. 5MB)</p>
-                  </div>
-                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileUpload} disabled={isUploading} />
-                </div>
+                </TabsContent>
 
-                {isOcring && (
-                  <div className="flex items-center gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-xl animate-pulse">
-                    <BrainCircuit className="w-5 h-5 text-indigo-600" />
-                    <span className="text-[10px] font-black uppercase text-indigo-700 tracking-widest">KI OCR analysiert PDF-Inhalte...</span>
+                <TabsContent value="resources" className="mt-0 space-y-6">
+                  <div className="flex items-center gap-3 border-b pb-4">
+                    <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center border border-indigo-100"><Server className="w-4 h-4" /></div>
+                    <div>
+                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">IT-Systemunterstützung</h4>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">Welche Anwendungen werden in diesem Schritt genutzt?</p>
+                    </div>
                   </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {selectedNodeMedia.map(file => (
-                    <div key={file.id} className="group relative rounded-2xl border bg-white overflow-hidden shadow-sm hover:border-primary/30 transition-all">
-                      {file.fileType.startsWith('image/') ? (
-                        <img src={file.fileUrl} alt={file.fileName} className="w-full aspect-video object-cover" />
-                      ) : (
-                        <div className="w-full aspect-video bg-slate-50 flex flex-col items-center justify-center gap-2">
-                          <FileText className="w-10 h-10 text-slate-300" />
-                          <Badge variant="outline" className="bg-white border-slate-200 text-[8px] font-black">PDF DOCUMENT</Badge>
-                        </div>
-                      )}
-                      <div className="p-3 flex items-center justify-between border-t bg-white">
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-bold text-slate-800 truncate">{file.fileName}</p>
-                          {file.ocrText && <p className="text-[8px] text-emerald-600 font-black uppercase flex items-center gap-1"><Zap className="w-2.5 h-2.5 fill-current" /> OCR Indexiert</p>}
-                        </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                          {file.ocrText && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-600"><FileSearch className="w-3.5 h-3.5" /></Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-[250px] p-2 text-[9px] font-medium leading-relaxed bg-slate-900 border-none rounded-lg text-white">
-                                  {file.ocrText.substring(0, 200)}...
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => deleteMediaAction(file.id, file.tenantId, user?.email || 'admin', dataSource).then(() => refreshMedia())}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {resources?.filter(r => r.status !== 'archived').map(res => (
+                      <div 
+                        key={res.id} 
+                        className={cn(
+                          "p-3 border rounded-xl flex items-center gap-3 cursor-pointer transition-all shadow-sm group",
+                          localNodeEdits.resourceIds.includes(res.id) ? "border-indigo-500 bg-indigo-50/20 ring-2 ring-indigo-500/10" : "bg-white border-slate-100 hover:border-slate-300"
+                        )}
+                        onClick={() => toggleResource(res.id)}
+                      >
+                        <Checkbox checked={localNodeEdits.resourceIds.includes(res.id)} className="rounded-md" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-bold text-slate-800 truncate group-hover:text-indigo-700 transition-colors">{res.name}</p>
+                          <p className="text-[8px] text-slate-400 font-black uppercase">{res.assetType}</p>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </TabsContent>
+                    ))}
+                  </div>
+                </TabsContent>
 
-              <TabsContent value="details" className="mt-0 space-y-8">
-                <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Tätigkeitsbeschreibung</Label><Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} className="text-xs min-h-[120px] rounded-xl" /></div>
-              </TabsContent>
+                <TabsContent value="media" className="mt-0 space-y-8">
+                  <div className="p-10 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-100 transition-all cursor-pointer relative">
+                    <div className={cn("w-14 h-14 bg-white rounded-xl flex items-center justify-center shadow-md border", isUploading && "animate-pulse")}>
+                      {isUploading ? <Loader2 className="w-6 h-6 animate-spin text-primary" /> : <Upload className="w-6 h-6 text-slate-400" />}
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs font-bold text-slate-800">Dateien per Drag & Drop oder Klick hochladen</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Bilder oder PDF (Max. 5MB)</p>
+                    </div>
+                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileUpload} disabled={isUploading} />
+                  </div>
+
+                  {isOcring && (
+                    <div className="flex items-center gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-xl animate-pulse">
+                      <BrainCircuit className="w-5 h-5 text-indigo-600" />
+                      <span className="text-[10px] font-black uppercase text-indigo-700 tracking-widest">KI OCR analysiert PDF-Inhalte...</span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {selectedNodeMedia.map(file => (
+                      <div key={file.id} className="group relative rounded-2xl border bg-white overflow-hidden shadow-sm hover:border-primary/30 transition-all">
+                        {file.fileType.startsWith('image/') ? (
+                          <img src={file.fileUrl} alt={file.fileName} className="w-full aspect-video object-cover" />
+                        ) : (
+                          <div className="w-full aspect-video bg-slate-50 flex flex-col items-center justify-center gap-2">
+                            <FileText className="w-10 h-10 text-slate-300" />
+                            <Badge variant="outline" className="bg-white border-slate-200 text-[8px] font-black">PDF DOCUMENT</Badge>
+                          </div>
+                        )}
+                        <div className="p-3 flex items-center justify-between border-t bg-white">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold text-slate-800 truncate">{file.fileName}</p>
+                            {file.ocrText && <p className="text-[8px] text-emerald-600 font-black uppercase flex items-center gap-1"><Zap className="w-2.5 h-2.5 fill-current" /> OCR Indexiert</p>}
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                            {file.ocrText && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-600"><FileSearch className="w-3.5 h-3.5" /></Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-[250px] p-2 text-[9px] font-medium leading-relaxed bg-slate-900 border-none rounded-lg text-white">
+                                    {file.ocrText.substring(0, 200)}...
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => deleteMediaAction(file.id, file.tenantId, user?.email || 'admin', dataSource).then(() => refreshMedia())}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="details" className="mt-0 space-y-8">
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Tätigkeitsbeschreibung</Label><Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} className="text-xs min-h-[120px] rounded-xl" /></div>
+                </TabsContent>
+              </div>
             </ScrollArea>
           </Tabs>
           <DialogFooter className="p-4 bg-slate-50 border-t flex items-center justify-between">
-            <Button variant="outline" size="sm" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6">Abbrechen</Button>
-            <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 bg-primary text-white shadow-lg">Speichern</Button>
+            <Button variant="outline" size="sm" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs">Abbrechen</Button>
+            <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 bg-primary text-white shadow-lg font-bold text-xs gap-2">
+              <Save className="w-4 h-4" /> Speichern
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -47,7 +47,8 @@ import {
   Zap,
   CheckCircle2,
   HelpCircle,
-  Target
+  Target,
+  Server
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -55,7 +56,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, ProcessNode, Tenant, Department, RegulatoryOption, Feature } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, ProcessNode, Tenant, Department, RegulatoryOption, Feature, Resource } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -129,18 +130,17 @@ export default function ProcessDetailViewPage() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mounted, setMounted] = useState(false);
   const [viewMode, setViewMode] = useState<'diagram' | 'guide'>('guide');
-  const [isExporting, setIsExporting] = useState(false);
   const [selectedVersionNum, setSelectedVersionNum] = useState<number | null>(null);
 
   const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: departments } = usePluggableCollection<Department>('departments');
-  const { data: regulatoryOptions } = usePluggableCollection<RegulatoryOption>('regulatory_options');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   const { data: auditLogs } = usePluggableCollection<any>('auditEvents');
   const { data: featureLinks } = usePluggableCollection<any>('feature_process_steps');
   const { data: allFeatures } = usePluggableCollection<Feature>('features');
+  const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: media } = usePluggableCollection<any>('media');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
@@ -161,13 +161,21 @@ export default function ProcessDetailViewPage() {
     return featureIds.map(fid => allFeatures?.find(f => f.id === fid)).filter(Boolean);
   }, [featureLinks, id, allFeatures]);
 
+  const processResources = useMemo(() => {
+    if (!activeVersion) return [];
+    const resourceIds = new Set<string>();
+    activeVersion.model_json.nodes.forEach((n: ProcessNode) => {
+      if (n.resourceIds) n.resourceIds.forEach(rid => resourceIds.add(rid));
+    });
+    return Array.from(resourceIds).map(rid => resources?.find(r => r.id === rid)).filter(Boolean);
+  }, [activeVersion, resources]);
+
   const maturity = useMemo(() => {
     if (!currentProcess || !activeVersion) return null;
     const pMedia = media?.filter((m: any) => m.entityId === id).length || 0;
     return calculateProcessMaturity(currentProcess, activeVersion, pMedia);
   }, [currentProcess, activeVersion, media, id]);
 
-  const currentTenant = useMemo(() => tenants?.find(t => t.id === currentProcess?.tenantId), [tenants, currentProcess]);
   const currentDept = useMemo(() => departments?.find(d => d.id === currentProcess?.responsibleDepartmentId), [departments, currentProcess]);
   
   const processAudit = useMemo(() => 
@@ -219,7 +227,7 @@ export default function ProcessDetailViewPage() {
             <Button variant={viewMode === 'diagram' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('diagram')}><Network className="w-3.5 h-3.5 mr-1.5" /> Visuell</Button>
             <Button variant={viewMode === 'guide' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('guide')}><ListChecks className="w-3.5 h-3.5 mr-1.5" /> Leitfaden</Button>
           </div>
-          <Button variant="outline" className="rounded-xl h-10 px-6 font-bold text-xs border-slate-200 gap-2" onClick={() => router.push(`/processhub/${id}`)}><FileEdit className="w-4 h-4" /> Designer</Button>
+          <Button variant="outline" className="rounded-xl h-10 px-6 font-bold text-xs border-slate-200 gap-2 shadow-sm" onClick={() => router.push(`/processhub/${id}`)}><FileEdit className="w-4 h-4" /> Designer</Button>
         </div>
       </header>
 
@@ -290,6 +298,19 @@ export default function ProcessDetailViewPage() {
               </section>
 
               <section className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 border-b pb-2 flex items-center gap-2"><Server className="w-3.5 h-3.5" /> IT-Systemunterstützung</h3>
+                <div className="space-y-2">
+                  {processResources.map((res: any) => (
+                    <div key={res.id} className="p-3 bg-white border border-slate-100 rounded-xl shadow-sm flex items-center justify-between group cursor-pointer hover:border-indigo-300 transition-all" onClick={() => router.push(`/resources?search=${res.name}`)}>
+                      <span className="text-[11px] font-bold text-slate-700">{res.name}</span>
+                      <Badge variant="outline" className="text-[7px] font-black uppercase h-4 px-1">{res.assetType}</Badge>
+                    </div>
+                  ))}
+                  {processResources.length === 0 && <p className="text-[10px] text-slate-300 italic px-1">Keine IT-Ressourcen zugeordnet</p>}
+                </div>
+              </section>
+
+              <section className="space-y-4">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2"><Tag className="w-3.5 h-3.5" /> Verarbeitete Merkmale</h3>
                 <div className="space-y-2">
                   {processFeatures.map((f: any) => (
@@ -330,31 +351,51 @@ export default function ProcessDetailViewPage() {
                   {activeVersion?.model_json?.nodes?.map((node: ProcessNode, i: number) => {
                     const role = jobTitles?.find(j => j.id === node.roleId);
                     const nodeLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id);
+                    const nodeResources = resources?.filter(r => node.resourceIds?.includes(r.id));
+                    
                     return (
                       <div key={node.id} className="relative z-10 pl-16">
-                        <div className={cn("absolute left-0 w-12 h-12 rounded-2xl flex items-center justify-center border shadow-sm", node.type === 'start' ? "bg-white border-slate-900" : "bg-white border-slate-200")}>
+                        <div className={cn("absolute left-0 w-12 h-12 rounded-2xl flex items-center justify-center border shadow-sm", node.type === 'start' ? "bg-white border-slate-900 text-slate-900" : "bg-white border-slate-200 text-slate-400")}>
                           <span className="font-headline font-bold text-lg">{i + 1}</span>
                         </div>
-                        <Card className="rounded-2xl border shadow-sm overflow-hidden group">
+                        <Card className="rounded-2xl border shadow-sm overflow-hidden group hover:border-primary/20 transition-all">
                           <CardHeader className="p-6 bg-white border-b flex flex-row items-center justify-between">
                             <div>
                               <h3 className="font-headline font-bold text-base text-slate-900 uppercase">{node.title}</h3>
-                              {role && <div className="flex items-center gap-2 text-[10px] font-bold text-primary mt-1"><Briefcase className="w-3.5 h-3.5" /> {role.name}</div>}
+                              <div className="flex flex-wrap gap-3 mt-1.5">
+                                {role && <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-primary"><Briefcase className="w-3.5 h-3.5" /> {role.name}</div>}
+                                {nodeResources && nodeResources.length > 0 && (
+                                  <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-indigo-600"><Server className="w-3.5 h-3.5" /> {nodeResources.length} Systeme</div>
+                                )}
+                              </div>
                             </div>
                           </CardHeader>
                           <CardContent className="p-6 space-y-6">
                             {node.description && <p className="text-sm text-slate-700 leading-relaxed">{node.description}</p>}
-                            {nodeLinks && nodeLinks.length > 0 && (
-                              <div className="pt-4 border-t border-slate-50 space-y-2">
-                                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Merkmale in diesem Schritt</Label>
-                                <div className="flex flex-wrap gap-2">
-                                  {nodeLinks.map((l: any) => {
-                                    const f = allFeatures?.find(feat => feat.id === l.featureId);
-                                    return <Badge key={l.id} variant="outline" className="bg-primary/5 text-primary border-primary/10 text-[9px] font-bold h-6 px-2">{f?.name || 'Merkmal'}</Badge>;
-                                  })}
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-50">
+                              {nodeLinks && nodeLinks.length > 0 && (
+                                <div className="space-y-2">
+                                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Merkmale</Label>
+                                  <div className="flex flex-wrap gap-2">
+                                    {nodeLinks.map((l: any) => {
+                                      const f = allFeatures?.find(feat => feat.id === l.featureId);
+                                      return <Badge key={l.id} variant="outline" className="bg-primary/5 text-primary border-primary/10 text-[9px] font-bold h-6 px-2">{f?.name || 'Merkmal'}</Badge>;
+                                    })}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
+                              )}
+                              {nodeResources && nodeResources.length > 0 && (
+                                <div className="space-y-2">
+                                  <Label className="text-[9px] font-black uppercase text-indigo-400 tracking-widest">Systeme</Label>
+                                  <div className="flex flex-wrap gap-2">
+                                    {nodeResources.map(r => (
+                                      <Badge key={r.id} variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[9px] font-bold h-6 px-2">{r.name}</Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </CardContent>
                         </Card>
                       </div>

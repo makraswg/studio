@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -181,7 +182,7 @@ export default function ServicePartnerSettingsPage() {
           <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="bg-slate-50/50 border-b p-4">
               <div className="relative group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-indigo-600" />
                 <Input placeholder="Partner suchen..." value={search} onChange={e => setSearch(e.target.value)} className="h-9 pl-9 text-xs rounded-lg bg-white" />
               </div>
             </CardHeader>
@@ -193,7 +194,7 @@ export default function ServicePartnerSettingsPage() {
                       key={p.id} 
                       className={cn(
                         "p-4 cursor-pointer transition-all hover:bg-slate-50 flex items-center justify-between group",
-                        selectedPartner?.id === p.id ? "bg-indigo-50/50 border-l-4 border-l-indigo-600" : "bg-white"
+                        selectedPartner?.id === p.id ? "bg-indigo-50/50 border-l-4 border-l-indigo-600" : "bg-white dark:bg-slate-900"
                       )}
                       onClick={() => setSelectedPartner(p)}
                     >
@@ -218,7 +219,7 @@ export default function ServicePartnerSettingsPage() {
             <div className="space-y-6 animate-in fade-in slide-in-from-right-2">
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div className="space-y-1">
-                  <h2 className="text-2xl font-headline font-black text-slate-900 uppercase tracking-tight">{selectedPartner.name}</h2>
+                  <h2 className="text-2xl font-headline font-black text-slate-900 dark:text-white uppercase tracking-tight">{selectedPartner.name}</h2>
                   <div className="flex items-center gap-3">
                     <Badge variant="outline" className="bg-white border-slate-200 text-[10px] font-bold uppercase">{selectedPartner.industry}</Badge>
                     {selectedPartner.website && (
@@ -233,8 +234,8 @@ export default function ServicePartnerSettingsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Contacts Section */}
-                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                  <CardHeader className="bg-slate-50/50 border-b p-4 px-6 flex flex-row items-center justify-between">
+                <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+                  <CardHeader className="bg-slate-50/50 dark:bg-slate-800/50 border-b p-4 px-6 flex flex-row items-center justify-between">
                     <CardTitle className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
                       <Users className="w-3.5 h-3.5" /> Ansprechpartner
                     </CardTitle>
@@ -242,9 +243,9 @@ export default function ServicePartnerSettingsPage() {
                   </CardHeader>
                   <CardContent className="p-4 space-y-2">
                     {contacts?.filter(c => c.partnerId === selectedPartner.id).map(contact => (
-                      <div key={contact.id} className="p-3 bg-white border border-slate-100 rounded-xl shadow-sm group hover:border-primary/20 transition-all flex items-center justify-between">
+                      <div key={contact.id} className="p-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl shadow-sm group hover:border-primary/20 transition-all flex items-center justify-between">
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-800">{contact.name}</p>
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{contact.name}</p>
                           <p className="text-[9px] text-slate-400 font-medium truncate italic">{contact.email}</p>
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
@@ -260,8 +261,8 @@ export default function ServicePartnerSettingsPage() {
                 </Card>
 
                 {/* Areas Section */}
-                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                  <CardHeader className="bg-slate-50/50 border-b p-4 px-6 flex flex-row items-center justify-between">
+                <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+                  <CardHeader className="bg-slate-50/50 dark:bg-slate-800/50 border-b p-4 px-6 flex flex-row items-center justify-between">
                     <CardTitle className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
                       <Briefcase className="w-3.5 h-3.5" /> Fachbereiche
                     </CardTitle>
@@ -269,9 +270,9 @@ export default function ServicePartnerSettingsPage() {
                   </CardHeader>
                   <CardContent className="p-4 space-y-2">
                     {areas?.filter(a => a.partnerId === selectedPartner.id).map(area => (
-                      <div key={area.id} className="p-3 bg-white border border-slate-100 rounded-xl shadow-sm group hover:border-emerald-200 transition-all flex items-center justify-between">
+                      <div key={area.id} className="p-3 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl shadow-sm group hover:border-emerald-200 transition-all flex items-center justify-between">
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-800">{area.name}</p>
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{area.name}</p>
                           <p className="text-[9px] text-slate-400 truncate font-medium">{area.description || 'Keine Details'}</p>
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">

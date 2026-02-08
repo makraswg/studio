@@ -81,7 +81,6 @@ export const appSchema: AppSchema = {
       authSource: 'VARCHAR(20) DEFAULT "local"',
     },
   },
-  // Task Management
   tasks: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -92,7 +91,7 @@ export const appSchema: AppSchema = {
       priority: 'VARCHAR(50) DEFAULT "medium"',
       assigneeId: 'VARCHAR(255)',
       creatorId: 'VARCHAR(255)',
-      entityType: 'VARCHAR(50)', // feature, process, risk, measure, resource, role
+      entityType: 'VARCHAR(50)', 
       entityId: 'VARCHAR(255)',
       dueDate: 'VARCHAR(50)',
       createdAt: 'VARCHAR(50) NOT NULL',
@@ -109,7 +108,6 @@ export const appSchema: AppSchema = {
       createdAt: 'VARCHAR(50) NOT NULL',
     }
   },
-  // Media Management
   media: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -129,11 +127,10 @@ export const appSchema: AppSchema = {
   media_configs: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
-      allowedTypes: 'TEXT', // JSON array
-      maxFileSize: 'BIGINT DEFAULT 5242880', // 5MB default
+      allowedTypes: 'TEXT', 
+      maxFileSize: 'BIGINT DEFAULT 5242880', 
     }
   },
-  // Feature Management Tables
   features: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -145,18 +142,15 @@ export const appSchema: AppSchema = {
       purpose: 'TEXT',
       criticality: 'VARCHAR(20) DEFAULT "low"',
       criticalityScore: 'INT DEFAULT 0',
-      // CIA Requirements
       confidentialityReq: 'VARCHAR(20) DEFAULT "low"',
       integrityReq: 'VARCHAR(20) DEFAULT "low"',
       availabilityReq: 'VARCHAR(20) DEFAULT "low"',
-      // Matrix Criteria
       matrixFinancial: 'BOOLEAN DEFAULT FALSE',
       matrixLegal: 'BOOLEAN DEFAULT FALSE',
       matrixExternal: 'BOOLEAN DEFAULT FALSE',
       matrixHardToCorrect: 'BOOLEAN DEFAULT FALSE',
       matrixAutomatedDecision: 'BOOLEAN DEFAULT FALSE',
       matrixPlanning: 'BOOLEAN DEFAULT FALSE',
-      
       isComplianceRelevant: 'BOOLEAN DEFAULT FALSE',
       deptId: 'VARCHAR(255) NOT NULL',
       ownerId: 'VARCHAR(255)',
@@ -197,17 +191,16 @@ export const appSchema: AppSchema = {
       impact: 'TEXT',
     }
   },
-  // ProcessHub Tables
   processes: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
       responsibleDepartmentId: 'VARCHAR(255)',
-      vvtId: 'VARCHAR(255)', // Reference to VVT
+      vvtId: 'VARCHAR(255)', 
       title: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
       openQuestions: 'TEXT',
-      regulatoryFramework: 'TEXT', // Stored as JSON array or comma-sep
+      regulatoryFramework: 'TEXT', 
       status: 'VARCHAR(50) DEFAULT "draft"',
       ownerUserId: 'VARCHAR(255)',
       currentVersion: 'INT DEFAULT 1',
@@ -320,7 +313,6 @@ export const appSchema: AppSchema = {
       created_at: 'VARCHAR(50)',
     }
   },
-  // End ProcessHub Tables
   dataSubjectGroups: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -450,16 +442,22 @@ export const appSchema: AppSchema = {
       notes: 'TEXT',
       isTom: 'BOOLEAN DEFAULT FALSE',
       tomCategory: 'VARCHAR(100)',
-      art32Mapping: 'TEXT',
-      gdprProtectionGoals: 'TEXT',
-      vvtIds: 'TEXT',
-      dataCategories: 'TEXT',
-      isArt9Relevant: 'BOOLEAN DEFAULT FALSE',
+    },
+  },
+  riskControls: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      measureId: 'VARCHAR(255) NOT NULL',
+      title: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      owner: 'VARCHAR(255)',
+      status: 'VARCHAR(50) DEFAULT "scheduled"',
       isEffective: 'BOOLEAN DEFAULT FALSE',
       checkType: 'VARCHAR(50)',
       lastCheckDate: 'VARCHAR(50)',
+      nextCheckDate: 'VARCHAR(50)',
       evidenceDetails: 'TEXT'
-    },
+    }
   },
   processingActivities: {
     columns: {
@@ -478,7 +476,6 @@ export const appSchema: AppSchema = {
       status: 'VARCHAR(50) DEFAULT "active"',
       lastReviewDate: 'VARCHAR(50)',
       resourceIds: 'TEXT',
-      // New columns for Step 1 Phase 1
       jointController: 'BOOLEAN DEFAULT FALSE',
       jointControllerDetails: 'TEXT',
       dataProcessorId: 'VARCHAR(255)',

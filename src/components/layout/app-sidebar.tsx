@@ -152,7 +152,8 @@ export function AppSidebar() {
   const riskItems = [
     { name: 'Risikoinventar', href: '/risks', icon: BarChart3 },
     { name: 'Gefährdungskatalog', href: '/risks/catalog', icon: Library },
-    { name: 'Maßnahmen & Kontrollen', href: '/risks/measures', icon: ClipboardCheck },
+    { name: 'Maßnahmenplan', href: '/risks/measures', icon: ClipboardList },
+    { name: 'Kontroll-Monitoring', href: '/risks/controls', icon: ShieldCheck },
     { name: 'Berichte & Analyse', href: '/risks/reports', icon: PieChart },
   ];
 
@@ -305,7 +306,7 @@ export function AppSidebar() {
       </div>
 
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-        <DialogContent className="rounded-xl max-w-sm border-none shadow-2xl p-0 overflow-hidden bg-white">
+        <DialogContent className="rounded-xl max-sm border-none shadow-2xl p-0 overflow-hidden bg-white">
           <DialogHeader className="p-6 bg-slate-50 border-b">
             <div className="flex items-center gap-3">
               <Lock className="w-6 h-6 text-primary" />

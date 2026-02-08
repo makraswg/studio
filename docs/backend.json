@@ -95,14 +95,24 @@
         "owner": { "type": "string" },
         "dueDate": { "type": "string" },
         "status": { "type": "string" },
-        "effectiveness": { "type": "number" },
-        "isTom": { "type": "boolean" },
+        "isTom": { "type": "boolean" }
+      },
+      "required": ["id", "title"]
+    },
+    "RiskControl": {
+      "title": "RiskControl",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "measureId": { "type": "string" },
+        "title": { "type": "string" },
+        "owner": { "type": "string" },
+        "status": { "type": "string" },
         "isEffective": { "type": "boolean" },
-        "checkType": { "type": "string" },
         "lastCheckDate": { "type": "string" },
         "evidenceDetails": { "type": "string" }
       },
-      "required": ["id", "title"]
+      "required": ["id", "measureId", "title"]
     }
   },
   "auth": {
@@ -116,7 +126,8 @@
       { "path": "entitlements/{entitlementId}", "definition": { "schema": { "$ref": "#/backend/entities/Entitlement" } } },
       { "path": "assignments/{assignmentId}", "definition": { "schema": { "$ref": "#/backend/entities/Assignment" } } },
       { "path": "risks/{riskId}", "definition": { "schema": { "$ref": "#/backend/entities/Risk" } } },
-      { "path": "riskMeasures/{measureId}", "definition": { "schema": { "$ref": "#/backend/entities/RiskMeasure" } } }
+      { "path": "riskMeasures/{measureId}", "definition": { "schema": { "$ref": "#/backend/entities/RiskMeasure" } } },
+      { "path": "riskControls/{controlId}", "definition": { "schema": { "$ref": "#/backend/entities/RiskControl" } } }
     ]
   }
 }

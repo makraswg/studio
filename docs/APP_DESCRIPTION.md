@@ -1,4 +1,5 @@
-# AccessHub - Master Backlog & Strategisches Manifest (V2.7)
+
+# AccessHub - Master Backlog & Strategisches Manifest (V2.8)
 
 **Rolle**: Dieses Dokument ist das zentrale Steuerungs-Instrument. Es spiegelt den aktuellen Stand nach der GRC-Integration wider.
 
@@ -6,21 +7,20 @@
 
 ## 🎯 Die Vision: "Integrierte Resilienz"
 AccessHub vernetzt alle Governance-Disziplinen. Ein Risiko ist kein einsamer Eintrag, sondern der Startpunkt einer Kette:
-`Risiko -> Kontrolle (TOM) -> IT-System -> Geschäftsprozess -> DSGVO-Zweck`.
+`Risiko -> Maßnahme -> Kontrolle (TOM) -> IT-System -> Geschäftsprozess -> DSGVO-Zweck`.
 Die Sensibilität eines IT-Systems leitet sich dabei zwingend aus den darauf gespeicherten Daten (Features) ab.
 
 ---
 
 ## ✅ Abgeschlossene Meilensteine (Audit-Safe)
 *   **GRC-Kern-Vernetzung**: Vollständige Koppelung von Risiken, Maßnahmen, Prozessen und VVTs.
-*   **Grafische Landkarte**: Die "Golden Chain" Visualisierung aller Abhängigkeiten.
 *   **RBAC-Blueprint**: Stellenbeschreibungen sind direkt mit Standard-Berechtigungen verknüpft.
-*   **KI-Audit & Advisor**: Automatisierte Prüfung von Identitäten und Risikoszenarien.
 *   **Asset-Detailtiefe**: Detailseiten für Ressourcen inklusive Impact-Analyse (Reverse-Lookup).
 *   **Daten-basierte Kritikalitäts-Vererbung**: Automatisierte CIA-Einstufung von IT-Systemen basierend auf der Datenlast (Features).
-*   **Blueprint-Provisionierung & Jira-Gateway**: Automatisierte Zuweisungserstellung im Lifecycle-Hub basierend auf Stellenprofilen inklusive detaillierter Jira-Ticketerstellung für die IT.
-*   **LDAP-Drift-Detection**: Warnung, wenn die Gruppenmitgliedschaften im AD nicht mehr mit den Blueprints im Hub übereinstimmen.
-*   **Compliance-Health Dashboard**: Ein globales Widget, das zeigt: "Wie viel Prozent meiner TOMs sind aktuell effektiv?". (Resilience Score).
+*   **Blueprint-Provisionierung & Jira-Gateway**: Automatisierte Ticketerstellung inklusive detaillierter Rollen-Auflistung.
+*   **LDAP-Drift-Detection**: Warnung, wenn die Gruppenmitgliedschaften im AD nicht mehr mit den Blueprints übereinstimmen.
+*   **Compliance-Health Dashboard**: Globaler Resilience Score basierend auf Kontroll-Wirksamkeit.
+*   **Separation of Concerns (Risk)**: Trennung von Maßnahmen (Pläne) und Kontrollen (operative Prüfungen).
 
 ---
 

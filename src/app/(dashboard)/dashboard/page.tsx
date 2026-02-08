@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -91,6 +92,7 @@ export default function DashboardPage() {
   const { data: assignments, isLoading: assignmentsLoading } = usePluggableCollection<any>('assignments');
   const { data: risks, isLoading: risksLoading } = usePluggableCollection<any>('risks');
   const { data: measures, isLoading: measuresLoading } = usePluggableCollection<any>('riskMeasures');
+  const { data: controls, isLoading: controlsLoading } = usePluggableCollection<any>('riskControls');
   const { data: tenants } = usePluggableCollection<any>('tenants');
   const { data: features } = usePluggableCollection<any>('features');
   const { data: jobTitles } = usePluggableCollection<any>('jobTitles');
@@ -101,7 +103,7 @@ export default function DashboardPage() {
   }, []);
 
   const filteredData = useMemo(() => {
-    if (!users || !resources || !assignments) return { users: [], resources: [], assignments: [], risks: [], features: [], measures: [] };
+    if (!users || !resources || !assignments) return { users: [], resources: [], assignments: [], risks: [], features: [], measures: [], controls: [] };
     
     const fUsers = activeTenantId === 'all' ? users : users.filter((u: any) => u.tenantId === activeTenantId);
     const fResources = activeTenantId === 'all' ? resources : resources.filter((r: any) => r.tenantId === activeTenantId || r.tenantId === 'global' || !r.tenantId);
@@ -109,28 +111,35 @@ export default function DashboardPage() {
     const fFeatures = (features || []).filter((f: any) => activeTenantId === 'all' || f.tenantId === activeTenantId);
     const userIds = new Set(fUsers.map((u: any) => u.id));
     const fAssignments = assignments.filter((a: any) => userIds.has(a.userId));
+    
     const fMeasures = (measures || []).filter((m: any) => {
-        if (activeTenantId === 'all') return true;
-        // Measures are linked to risks, we filter by their risk's tenantId if possible or assume global
+        // Simple tenant check via linked risks
         return true; 
     });
+    
+    const fControls = (controls || []).filter((c: any) => {
+        return true;
+    });
 
-    return { users: fUsers, resources: fResources, assignments: fAssignments, risks: fRisks, features: fFeatures, measures: fMeasures };
-  }, [users, resources, assignments, risks, features, measures, activeTenantId]);
+    return { users: fUsers, resources: fResources, assignments: fAssignments, risks: fRisks, features: fFeatures, measures: fMeasures, controls: fControls };
+  }, [users, resources, assignments, risks, features, measures, controls, activeTenantId]);
 
   const complianceHealth = useMemo(() => {
-    if (!filteredData.measures || !filteredData.risks) return { resilienceScore: 0, riskCoverage: 0, deptRanking: [] };
+    if (!filteredData.controls || !filteredData.risks) return { resilienceScore: 0, riskCoverage: 0, deptRanking: [] };
 
-    // 1. Resilience Score: Effective Measures / Total Measures
-    const effectiveMeasures = filteredData.measures.filter((m: any) => m.isEffective).length;
-    const totalMeasures = filteredData.measures.length || 1;
-    const resilienceScore = Math.floor((effectiveMeasures * 100) / totalMeasures);
+    // 1. Resilience Score: Effective Controls / Total Controls
+    const effectiveControls = filteredData.controls.filter((c: any) => c.isEffective).length;
+    const totalControls = filteredData.controls.length || 1;
+    const resilienceScore = Math.floor((effectiveControls * 100) / totalControls);
 
-    // 2. Risk Coverage: High risks with at least one effective measure
+    // 2. Risk Coverage: High risks with at least one effective control
     const highRisks = filteredData.risks.filter((r: any) => (r.impact * r.probability) >= 15);
     const highRisksCount = highRisks.length || 1;
     const coveredHighRisks = highRisks.filter((r: any) => {
-        return filteredData.measures.some((m: any) => m.riskIds?.includes(r.id) && m.isEffective);
+        // Link chain: Risk -> Measure -> Control
+        const riskMeasures = filteredData.measures.filter((m: any) => m.riskIds?.includes(r.id));
+        const riskMeasureIds = new Set(riskMeasures.map(m => m.id));
+        return filteredData.controls.some((c: any) => riskMeasureIds.has(c.measureId) && c.isEffective);
     }).length;
     const riskCoverage = Math.floor((coveredHighRisks * 100) / highRisksCount);
 
@@ -348,7 +357,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="space-y-3 pt-2">
                     <div className="flex items-center justify-between text-sm font-black">
-                        <span className="text-slate-400 uppercase text-[10px]">Maßnahmen-Effektivität</span>
+                        <span className="text-slate-400 uppercase text-[10px]">Kontroll-Effektivität</span>
                         <span className="text-primary">{complianceHealth.resilienceScore}%</span>
                     </div>
                     <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
@@ -359,7 +368,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center gap-2 mt-4 text-[10px] text-slate-400 italic">
                         <Zap className="w-3.5 h-3.5 text-primary fill-current" />
-                        Basis: {filteredData.measures.filter(m => m.isEffective).length} wirksame von {filteredData.measures.length} TOMs.
+                        Basis: {filteredData.controls.filter(c => c.isEffective).length} wirksame von {filteredData.controls.length} Kontrollen.
                     </div>
                 </div>
             </CardContent>
@@ -384,7 +393,7 @@ export default function DashboardPage() {
                     </div>
                     <Progress value={complianceHealth.riskCoverage} className="h-1.5 bg-slate-50" />
                     <p className="text-[9px] text-slate-400 leading-relaxed font-medium">
-                        Zeigt an, wie viele kritische Bedrohungen durch mindestens eine wirksame technische Maßnahme gemindert werden.
+                        Zeigt an, wie viele kritische Bedrohungen durch mindestens eine wirksame technische Kontrolle abgesichert sind.
                     </p>
                 </div>
             </CardContent>

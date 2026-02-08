@@ -412,11 +412,19 @@ export interface RiskMeasure {
   notes?: string;
   isTom?: boolean | number;
   tomCategory?: 'Zugriffskontrolle' | 'Zutrittskontrolle' | 'Weitergabekontrolle' | 'Verschlüsselung' | 'Verfügbarkeitskontrolle' | 'Trennungskontrolle' | 'Belastbarkeit' | 'Wiederherstellbarkeit';
-  art32Mapping?: string[];
-  gdprProtectionGoals?: string[];
-  isEffective?: boolean | number;
-  checkType?: 'Audit' | 'Test' | 'Review';
+}
+
+export interface RiskControl {
+  id: string;
+  measureId: string;
+  title: string;
+  description?: string;
+  owner: string;
+  status: 'scheduled' | 'active' | 'completed' | 'on_hold';
+  isEffective: boolean | number;
+  checkType: 'Audit' | 'Test' | 'Review';
   lastCheckDate?: string;
+  nextCheckDate?: string;
   evidenceDetails?: string;
 }
 

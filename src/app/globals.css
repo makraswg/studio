@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -102,4 +103,9 @@
 /* Form-Elemente */
 input, select, textarea {
   @apply focus:ring-1 focus:ring-primary/30 transition-all !important;
+}
+
+/* Font styles */
+.font-script {
+  font-family: 'Dancing Script', cursive;
 }

@@ -33,7 +33,8 @@ import {
   Workflow,
   Zap,
   Briefcase,
-  AlertTriangle
+  AlertTriangle,
+  Building2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -121,7 +122,6 @@ export default function ResourcesPage() {
     if (!selectedResource || !processes || !versions || !features || !featureLinks) return null;
 
     const resId = selectedResource.id;
-    // 1. Find all processes where this resource is used
     const affectedProcessIds = new Set<string>();
     versions.forEach(v => {
       if (v.model_json.nodes.some(n => n.resourceIds?.includes(resId))) {
@@ -129,7 +129,6 @@ export default function ResourcesPage() {
       }
     });
 
-    // 2. Find all data objects (features) processed in these processes
     const processedFeatureIds = new Set<string>();
     featureLinks.forEach(link => {
       if (affectedProcessIds.has(link.processId)) {
@@ -139,7 +138,6 @@ export default function ResourcesPage() {
 
     if (processedFeatureIds.size === 0) return null;
 
-    // 3. Apply Maximum Principle
     const relevantFeatures = features.filter(f => processedFeatureIds.has(f.id));
     const rankMap = { 'low': 1, 'medium': 2, 'high': 3 };
     const classRankMap = { 'public': 1, 'internal': 2, 'confidential': 3, 'strictly_confidential': 4 };

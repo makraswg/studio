@@ -250,7 +250,7 @@ export async function importJiraAssetsAction(
         tenantId: targetTenantId,
         name: obj.name,
         status: 'active',
-        assetType: 'Software', // Default, kann später gemappt werden
+        assetType: 'Software', 
         category: 'Fachanwendung',
         operatingModel: 'Cloud',
         criticality: 'medium',
@@ -260,12 +260,15 @@ export async function importJiraAssetsAction(
         availabilityReq: 'medium',
         hasPersonalData: false,
         hasSpecialCategoryData: false,
+        isDataRepository: false,
         affectedGroups: [],
-        processingPurpose: 'Importiert aus Jira Assets',
         dataLocation: 'Jira Cloud',
         url: '#',
         notes: `Jira Object Key: ${obj.label || obj.name}`,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        operatorId: '',
+        riskOwner: '',
+        dataOwner: ''
       };
 
       const res = await saveCollectionRecord('resources', resourceId, resourceData, dataSource);

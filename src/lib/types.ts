@@ -320,6 +320,8 @@ export interface Resource {
   hasPersonalData: boolean | number;
   hasSpecialCategoryData: boolean | number;
   isDataRepository: boolean | number;
+  isIdentityProvider: boolean | number;
+  identityProviderId?: string;
   affectedGroups: string[];
   dataLocation: string;
   isInternetExposed: boolean | number;

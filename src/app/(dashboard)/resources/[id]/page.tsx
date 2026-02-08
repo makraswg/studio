@@ -39,7 +39,10 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Save
+  Save,
+  Fingerprint,
+  KeyRound,
+  ShieldX
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -117,6 +120,13 @@ export default function ResourceDetailPage() {
   // Resolved Internal Risk Owner
   const riskOwnerRole = useMemo(() => jobs?.find(j => j.id === resource?.riskOwnerRoleId), [jobs, resource]);
   const riskOwnerDept = useMemo(() => departments?.find(d => d.id === riskOwnerRole?.departmentId), [departments, riskOwnerRole]);
+
+  // Resolved Identity Provider
+  const identityProvider = useMemo(() => {
+    if (!resource?.identityProviderId) return null;
+    if (resource.identityProviderId === resource.id) return resource;
+    return resources?.find(r => r.id === resource.identityProviderId);
+  }, [resource, resources]);
 
   const impactAnalysis = useMemo(() => {
     if (!resource || !processes || !versions) return { processes: [], vvts: [], features: [] };
@@ -352,6 +362,31 @@ export default function ResourceDetailPage() {
                   </div>
                 ) : (
                   <p className="text-sm text-slate-300 italic font-medium p-1">Nicht zugewiesen</p>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Identity Provider Display */}
+              <div className="space-y-1">
+                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Authentifizierung (IdP)</p>
+                {identityProvider ? (
+                  <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 shadow-inner space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Fingerprint className="w-4 h-4 text-blue-600" />
+                      <p className="text-xs font-bold text-blue-900">{identityProvider.name}</p>
+                    </div>
+                    {identityProvider.id === resource.id ? (
+                      <Badge className="bg-blue-600 text-white border-none rounded-full h-3.5 px-1.5 text-[7px] font-black uppercase">Root Provider</Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-white border-blue-200 text-[7px] font-bold uppercase text-blue-600">Referenzierter IdP</Badge>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-1">
+                    <KeyRound className="w-4 h-4 text-slate-300" />
+                    <p className="text-sm text-slate-400 italic">Direkte Anmeldung</p>
+                  </div>
                 )}
               </div>
             </CardContent>

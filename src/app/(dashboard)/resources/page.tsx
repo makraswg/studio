@@ -34,7 +34,9 @@ import {
   Zap,
   Briefcase,
   AlertTriangle,
-  Building2
+  Building2,
+  Fingerprint,
+  KeyRound
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -98,6 +100,8 @@ export default function ResourcesPage() {
   const [availabilityReq, setAvailabilityReq] = useState<Resource['availabilityReq']>('medium');
   const [hasPersonalData, setHasPersonalData] = useState(false);
   const [isDataRepository, setIsDataRepository] = useState(false);
+  const [isIdentityProvider, setIsIdentityProvider] = useState(false);
+  const [identityProviderId, setIdentityProviderId] = useState('none');
   const [dataLocation, setDataLocation] = useState('');
   
   // System Owner
@@ -179,6 +183,10 @@ export default function ResourcesPage() {
     };
   }, [selectedResource, processes, versions, features, featureLinks]);
 
+  const identityProviders = useMemo(() => {
+    return resources?.filter(r => r.isIdentityProvider === true || r.isIdentityProvider === 1) || [];
+  }, [resources]);
+
   const resetForm = () => {
     setSelectedResource(null);
     setName('');
@@ -192,6 +200,8 @@ export default function ResourcesPage() {
     setAvailabilityReq('medium');
     setHasPersonalData(false);
     setIsDataRepository(false);
+    setIsIdentityProvider(false);
+    setIdentityProviderId('none');
     setDataLocation('');
     setSystemOwnerType('internal');
     setSystemOwnerRoleId('');
@@ -235,6 +245,8 @@ export default function ResourcesPage() {
       availabilityReq,
       hasPersonalData,
       isDataRepository,
+      isIdentityProvider,
+      identityProviderId: identityProviderId === 'none' ? undefined : (identityProviderId === 'self' ? (selectedResource?.id || 'self') : identityProviderId),
       dataLocation,
       systemOwnerRoleId: systemOwnerType === 'internal' && systemOwnerRoleId !== 'none' ? systemOwnerRoleId : undefined,
       externalOwnerPartnerId: systemOwnerType === 'external' ? externalOwnerPartnerId : undefined,
@@ -248,7 +260,7 @@ export default function ResourcesPage() {
       riskOwner: '',
       dataOwner: '',
       mfaType: 'none',
-      authMethod: 'direct'
+      authMethod: identityProviderId === 'none' ? 'direct' : 'idp'
     } as Resource;
 
     try {
@@ -277,6 +289,11 @@ export default function ResourcesPage() {
     setAvailabilityReq(res.availabilityReq || 'medium');
     setHasPersonalData(!!res.hasPersonalData);
     setIsDataRepository(!!res.isDataRepository);
+    setIsIdentityProvider(!!res.isIdentityProvider);
+    
+    if (res.identityProviderId === res.id) setIdentityProviderId('self');
+    else setIdentityProviderId(res.identityProviderId || 'none');
+
     setDataLocation(res.dataLocation || '');
     
     const hasExternal = !!(res.externalOwnerPartnerId || res.externalOwnerAreaId);
@@ -292,16 +309,6 @@ export default function ResourcesPage() {
     setNotes(res.notes || '');
     setUrl(res.url || '');
     setIsDialogOpen(true);
-  };
-
-  const applyInheritance = () => {
-    if (!suggestedCompliance) return;
-    setConfidentialityReq(suggestedCompliance.confidentiality);
-    setIntegrityReq(suggestedCompliance.integrity);
-    setAvailabilityReq(suggestedCompliance.availability);
-    setCriticality(suggestedCompliance.criticality);
-    setDataClassification(suggestedCompliance.classification);
-    toast({ title: "Vererbungs-Vorschlag übernommen" });
   };
 
   const filteredResources = useMemo(() => {
@@ -399,7 +406,29 @@ export default function ResourcesPage() {
                           <Server className="w-4 h-4" />
                         </div>
                         <div>
-                          <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{res.name}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{res.name}</div>
+                            {(res.isIdentityProvider === true || res.isIdentityProvider === 1) && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Fingerprint className="w-3.5 h-3.5 text-blue-600" />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="text-[10px] font-bold">Identitätsanbieter (IdP)</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                            {(res.isDataRepository === true || res.isDataRepository === 1) && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Database className="w-3.5 h-3.5 text-indigo-600" />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="text-[10px] font-bold">Datenmanagement Quelle</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
                           <div className="text-[9px] text-slate-400 font-bold uppercase">{res.assetType} • {res.operatingModel}</div>
                         </div>
                       </div>
@@ -475,11 +504,11 @@ export default function ResourcesPage() {
           </DialogHeader>
           
           <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
-            <div className="px-6 bg-white border-b shrink-0">
+            <div className="px-6 border-b shrink-0 bg-white">
               <TabsList className="h-12 bg-transparent gap-8 p-0">
                 <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Basisdaten</TabsTrigger>
                 <TabsTrigger value="governance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600 transition-all">Vererbung & Schutzbedarf</TabsTrigger>
-                <TabsTrigger value="admin" className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-slate-900 transition-all">Verantwortung</TabsTrigger>
+                <TabsTrigger value="admin" className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-slate-900 transition-all">Verantwortung & Auth</TabsTrigger>
               </TabsList>
             </div>
 
@@ -508,6 +537,29 @@ export default function ResourcesPage() {
                           {operatingModelOptions?.filter(o => o.enabled).map(o => <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="p-6 bg-white border rounded-2xl md:col-span-2 shadow-sm space-y-6">
+                      <div className="flex items-center gap-2 border-b pb-3">
+                        <Database className="w-4 h-4 text-indigo-600" />
+                        <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Governance Rollen</h4>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border">
+                          <div className="space-y-0.5">
+                            <Label className="text-[10px] font-bold uppercase text-slate-900">Datenmanagement Quelle</Label>
+                            <p className="text-[8px] text-slate-400 uppercase font-black">Feature Repository</p>
+                          </div>
+                          <Switch checked={isDataRepository} onCheckedChange={setIsDataRepository} />
+                        </div>
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border">
+                          <div className="space-y-0.5">
+                            <Label className="text-[10px] font-bold uppercase text-slate-900">Identitätsanbieter (IdP)</Label>
+                            <p className="text-[8px] text-slate-400 uppercase font-black">Authentifizierungs-Quelle</p>
+                          </div>
+                          <Switch checked={isIdentityProvider} onCheckedChange={setIsIdentityProvider} />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
@@ -607,7 +659,7 @@ export default function ResourcesPage() {
 
                         {systemOwnerType === 'internal' ? (
                           <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                            <Label className="text-[9px] font-black uppercase text-slate-400">Interne Stelle auswählen</Label>
+                            <Label className="text-[9px] font-black uppercase text-slate-400">Interne Rolle auswählen</Label>
                             <Select value={systemOwnerRoleId} onValueChange={setSystemOwnerRoleId}>
                               <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
                               <SelectContent>
@@ -651,16 +703,47 @@ export default function ResourcesPage() {
                       </div>
                     </div>
 
-                    {/* Risk Owner Section (ALWAYS INTERNAL) */}
+                    {/* Authentication Section (Phase 5) */}
                     <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <KeyRound className="w-4 h-4 text-blue-600" />
+                        <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Identitätsanbieter (Auth)</h4>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-[9px] font-black uppercase text-slate-400">Anmeldung erfolgt über</Label>
+                          <Select value={identityProviderId} onValueChange={setIdentityProviderId}>
+                            <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm">
+                              <SelectValue placeholder="IdP wählen..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none" className="text-xs italic">Eigenständige Anmeldung / Lokal</SelectItem>
+                              <SelectItem value="self" className="text-xs font-bold text-blue-600">Dieses System ist der IdP</SelectItem>
+                              {identityProviders.filter(idp => idp.id !== selectedResource?.id).map(idp => (
+                                <SelectItem key={idp.id} value={idp.id} className="text-xs">
+                                  {idp.name} (Zentraler IdP)
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 flex items-start gap-3">
+                          <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                          <p className="text-[9px] text-blue-800 leading-relaxed italic">Wählen Sie einen Identitätsanbieter aus, um SSO-Ketten oder LDAP-Abhängigkeiten zu dokumentieren.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Risk Owner Section (ALWAYS INTERNAL) */}
+                    <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6 md:col-span-2">
                       <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
                         <ShieldAlert className="w-4 h-4 text-orange-600" />
                         <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Risk Owner (Intern)</h4>
                       </div>
                       
-                      <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <Label className="text-[9px] font-black uppercase text-slate-400">Verantwortliche interne Stelle</Label>
+                          <Label className="text-[9px] font-black uppercase text-slate-400">Verantwortliche interne Rolle</Label>
                           <Select value={riskOwnerRoleId} onValueChange={setRiskOwnerRoleId}>
                             <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
                             <SelectContent>
@@ -675,7 +758,7 @@ export default function ResourcesPage() {
                         </div>
                         <div className="p-4 bg-orange-50/50 rounded-xl border border-orange-100 flex items-start gap-3">
                           <Info className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
-                          <p className="text-[9px] text-orange-800 leading-relaxed italic">Risk Ownership muss laut Governance-Richtlinie immer intern verankert sein.</p>
+                          <p className="text-[9px] text-orange-800 leading-relaxed italic">Die Rechenschaftspflicht für Risiken muss laut GRC-Vorgabe immer intern verankert sein.</p>
                         </div>
                       </div>
                     </div>

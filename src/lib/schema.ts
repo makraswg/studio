@@ -370,6 +370,8 @@ export const appSchema: AppSchema = {
       hasPersonalData: 'BOOLEAN DEFAULT FALSE',
       hasSpecialCategoryData: 'BOOLEAN DEFAULT FALSE',
       isDataRepository: 'BOOLEAN DEFAULT FALSE',
+      isIdentityProvider: 'BOOLEAN DEFAULT FALSE',
+      identityProviderId: 'VARCHAR(255)',
       affectedGroups: 'TEXT',
       dataLocation: 'VARCHAR(255)',
       isInternetExposed: 'BOOLEAN DEFAULT FALSE',

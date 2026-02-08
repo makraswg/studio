@@ -35,7 +35,11 @@ import {
   ArrowDown,
   Info,
   Search,
-  Briefcase
+  Briefcase,
+  ArrowLeftCircle,
+  ArrowRightCircle,
+  X,
+  ClipboardCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -754,7 +758,7 @@ export default function ProcessDesignerPage() {
               <div className="px-6 py-3 border-b bg-white flex items-center justify-between shrink-0">
                 <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Offene Punkte</h4>
                 <Button variant="ghost" size="sm" className="h-7 text-[9px] font-bold text-primary gap-1" onClick={() => { setTaskTitle(''); setIsTaskDialogOpen(true); }}>
-                  <Plus className="w-3.5 h-3.5" /> Hinzufügen
+                  <PlusCircle className="w-3.5 h-3.5" /> Hinzufügen
                 </Button>
               </div>
               <ScrollArea className="flex-1 bg-slate-50/30">
@@ -807,7 +811,7 @@ export default function ProcessDesignerPage() {
           )}
           <div className="fixed bottom-6 right-6 z-50">
             <AiFormAssistant 
-              formType="process" 
+              formType="gdpr" 
               currentData={{ title: metaTitle, description: metaDesc, inputs: metaInputs, outputs: metaOutputs, kpis: metaKpis }} 
               onApply={(s) => { if (s.title) setMetaTitle(s.title); if (s.description) setMetaDesc(s.description); toast({ title: "KI-Vorschläge übernommen" }); }} 
             />

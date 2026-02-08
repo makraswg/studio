@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -6,7 +7,6 @@ import {
   ClipboardCheck, 
   Plus, 
   Search, 
-  Clock, 
   User as UserIcon, 
   CheckCircle2, 
   MoreHorizontal,
@@ -17,17 +17,12 @@ import {
   ShieldCheck,
   Save,
   Info,
-  CalendarCheck,
-  ShieldAlert,
-  Zap,
+  BadgeCheck,
   Target,
   Layers,
   Eye,
-  Settings2,
-  FileCheck
+  ClipboardList
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -60,11 +55,11 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AiFormAssistant } from '@/components/ai/form-assistant';
 
 function RiskMeasuresContent() {
   const { dataSource, activeTenantId } = useSettings();
   const { user: platformUser } = usePlatformAuth();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
@@ -113,13 +108,16 @@ function RiskMeasuresContent() {
       effectiveness: selectedMeasure?.effectiveness || 3
     };
 
-    const res = await saveCollectionRecord('riskMeasures', id, data, dataSource);
-    if (res.success) {
-      toast({ title: "Maßnahme gespeichert" });
-      setIsDialogOpen(false);
-      refresh();
+    try {
+      const res = await saveCollectionRecord('riskMeasures', id, data, dataSource);
+      if (res.success) {
+        toast({ title: selectedMeasure ? "Maßnahme aktualisiert" : "Maßnahme gespeichert" });
+        setIsDialogOpen(false);
+        refresh();
+      }
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   };
 
   const openEdit = (m: RiskMeasure) => {
@@ -157,6 +155,13 @@ function RiskMeasuresContent() {
     setSelectedResourceIds([]);
   };
 
+  const applyAiSuggestions = (s: any) => {
+    if (s.title) setTitle(s.title);
+    if (s.description) setDesc(s.description);
+    if (s.tomCategory) setTomCategory(s.tomCategory);
+    toast({ title: "KI-Vorschläge übernommen" });
+  };
+
   if (!mounted) return null;
 
   return (
@@ -182,7 +187,6 @@ function RiskMeasuresContent() {
         </div>
       </div>
 
-      {/* Compact Filtering Pattern */}
       <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
         <div className="relative flex-1 group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-emerald-600 transition-colors" />
@@ -268,7 +272,7 @@ function RiskMeasuresContent() {
                     </TableCell>
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => router.push(`/risks/measures/${m.id}`)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => router.push(`/risks/measures/${m.id}`)}>
                           <Eye className="w-3.5 h-3.5 text-primary" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => openEdit(m)}>
@@ -297,18 +301,20 @@ function RiskMeasuresContent() {
         </div>
       </div>
 
-      {/* Modern Measure Editor Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-2xl p-0 overflow-hidden flex flex-col shadow-2xl border-none">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">
-            <div className="flex items-center gap-5">
-              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg">
-                <FileCheck className="w-6 h-6" />
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-5">
+                <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg">
+                  <FileCheck className="w-6 h-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">{selectedMeasure ? 'Maßnahme aktualisieren' : 'Neue Maßnahme planen'}</DialogTitle>
+                  <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Technisch-organisatorische Maßnahme (TOM)</DialogDescription>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">{selectedMeasure ? 'Maßnahme aktualisieren' : 'Neue Maßnahme planen'}</DialogTitle>
-                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Technisch-organisatorische Maßnahme (TOM)</DialogDescription>
-              </div>
+              <AiFormAssistant formType="measure" currentData={{ title, description, owner, status }} onApply={applyAiSuggestions} />
             </div>
           </DialogHeader>
           

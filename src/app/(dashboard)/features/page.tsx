@@ -19,14 +19,12 @@ import {
   Activity,
   Archive,
   RotateCcw,
-  CheckCircle2,
-  AlertTriangle,
-  Zap,
-  Info,
+  ShieldAlert,
   Save,
-  HelpCircle,
+  Briefcase,
   FileEdit,
-  ShieldAlert
+  Layers,
+  ArrowUpRight
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -56,10 +54,11 @@ import { useSettings } from '@/context/settings-context';
 import { saveFeatureAction, deleteFeatureAction } from '@/app/actions/feature-actions';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { Feature, Department, JobTitle, PlatformUser } from '@/lib/types';
+import { Feature, Department, JobTitle } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
+import { Separator } from '@/components/ui/separator';
 
 export default function FeaturesOverviewPage() {
   const router = useRouter();
@@ -76,13 +75,11 @@ export default function FeaturesOverviewPage() {
   const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null);
 
   // Form State
-  const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [status, setStatus] = useState<Feature['status']>('active');
   const [carrier, setCarrier] = useState<Feature['carrier']>('objekt');
   const [description, setDescription] = useState('');
   const [purpose, setPurpose] = useState('');
-  const [criticality, setCriticality] = useState<Feature['criticality']>('medium');
   const [isComplianceRelevant, setIsComplianceRelevant] = useState(false);
   const [deptId, setDeptId] = useState('');
   const [ownerId, setOwnerId] = useState('');
@@ -98,7 +95,7 @@ export default function FeaturesOverviewPage() {
   useEffect(() => { setMounted(true); }, []);
 
   const handleSave = async () => {
-    if (!code || !name || !deptId || !carrier) {
+    if (!name || !deptId || !carrier) {
       toast({ variant: "destructive", title: "Fehler", description: "Bitte füllen Sie alle Pflichtfelder aus." });
       return;
     }
@@ -110,13 +107,11 @@ export default function FeaturesOverviewPage() {
       ...selectedFeature,
       id: selectedFeature?.id || '',
       tenantId: targetTenantId,
-      code,
       name,
       status,
       carrier,
       description,
       purpose,
-      criticality,
       isComplianceRelevant,
       deptId,
       ownerId,
@@ -126,7 +121,7 @@ export default function FeaturesOverviewPage() {
       changeReason,
       createdAt: selectedFeature?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    };
+    } as Feature;
 
     try {
       const res = await saveFeatureAction(featureData, dataSource, user?.email || 'system');
@@ -143,13 +138,11 @@ export default function FeaturesOverviewPage() {
 
   const resetForm = () => {
     setSelectedFeature(null);
-    setCode('');
     setName('');
     setStatus('active');
     setCarrier('objekt');
     setDescription('');
     setPurpose('');
-    setCriticality('medium');
     setIsComplianceRelevant(false);
     setDeptId('');
     setOwnerId('');
@@ -161,13 +154,11 @@ export default function FeaturesOverviewPage() {
 
   const openEdit = (f: Feature) => {
     setSelectedFeature(f);
-    setCode(f.code);
     setName(f.name);
     setStatus(f.status);
     setCarrier(f.carrier);
     setDescription(f.description);
     setPurpose(f.purpose);
-    setCriticality(f.criticality);
     setIsComplianceRelevant(!!f.isComplianceRelevant);
     setDeptId(f.deptId);
     setOwnerId(f.ownerId || '');
@@ -193,7 +184,7 @@ export default function FeaturesOverviewPage() {
       const matchesStatus = statusFilter === 'all' || f.status === statusFilter;
       const matchesCarrier = carrierFilter === 'all' || f.carrier === carrierFilter;
       const matchesCompliance = !complianceOnly || !!f.isComplianceRelevant;
-      const matchesSearch = f.name.toLowerCase().includes(search.toLowerCase()) || f.code.toLowerCase().includes(search.toLowerCase());
+      const matchesSearch = f.name.toLowerCase().includes(search.toLowerCase());
       return matchesTenant && matchesStatus && matchesCarrier && matchesSearch && matchesCompliance;
     });
   }, [features, search, statusFilter, carrierFilter, activeTenantId, complianceOnly]);
@@ -222,7 +213,7 @@ export default function FeaturesOverviewPage() {
         <div className="relative flex-1 group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
           <Input 
-            placeholder="Nach Name oder Code suchen..." 
+            placeholder="Nach Bezeichnung suchen..." 
             className="pl-9 h-9 rounded-md border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none text-xs"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -273,16 +264,17 @@ export default function FeaturesOverviewPage() {
           <Table>
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent border-b">
-                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Merkmal / Code</TableHead>
+                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Merkmal (Bezeichnung/Code)</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Träger</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Verantwortung</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">Score</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">Gesamt-Score</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredFeatures.map((f) => {
                 const dept = departments?.find(d => d.id === f.deptId);
+                const role = jobTitles?.find(j => j.id === f.ownerId);
                 return (
                   <TableRow key={f.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/features/${f.id}`)}>
                     <TableCell className="py-4 px-6">
@@ -298,7 +290,7 @@ export default function FeaturesOverviewPage() {
                             <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{f.name}</div>
                             {f.isComplianceRelevant && <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />}
                           </div>
-                          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{f.code}</p>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{f.carrier}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -308,15 +300,22 @@ export default function FeaturesOverviewPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                        <Building2 className="w-3.5 h-3.5 text-slate-300" /> {dept?.name || '---'}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                          <Building2 className="w-3 h-3 text-slate-300" /> {dept?.name || '---'}
+                        </div>
+                        {role && (
+                          <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 italic">
+                            <Briefcase className="w-3 h-3 text-slate-300" /> {role.name}
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge className={cn(
                         "rounded-md font-bold text-[9px] h-5 px-2 border-none shadow-sm",
                         f.criticality === 'high' ? "bg-red-50 text-red-600" : f.criticality === 'medium' ? "bg-orange-50 text-orange-600" : "bg-emerald-50 text-emerald-600"
-                      )}>{f.criticality.toUpperCase()}</Badge>
+                      )}>{f.criticality?.toUpperCase()}</Badge>
                     </TableCell>
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end items-center gap-1.5">
@@ -366,7 +365,7 @@ export default function FeaturesOverviewPage() {
               </div>
               <AiFormAssistant 
                 formType="gdpr" 
-                currentData={{ code, name, description, purpose, maintenanceNotes }} 
+                currentData={{ name, description, purpose, maintenanceNotes }} 
                 onApply={applyAiSuggestions} 
               />
             </div>
@@ -375,13 +374,9 @@ export default function FeaturesOverviewPage() {
           <ScrollArea className="flex-1 bg-slate-50/30">
             <div className="p-8 space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Merkmalscode</Label>
-                  <Input value={code} onChange={e => setCode(e.target.value)} className="rounded-xl h-11 font-mono text-xs border-slate-200 bg-white" placeholder="z.B. MERK_001" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung</Label>
-                  <Input value={name} onChange={e => setName(e.target.value)} className="rounded-xl h-11 text-sm font-bold border-slate-200 bg-white" placeholder="Name des Merkmals..." />
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung / Code</Label>
+                  <Input value={name} onChange={e => setName(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white shadow-sm" placeholder="z.B. MERK_001 - Mietbeginn" />
                 </div>
                 
                 <div className="space-y-2">
@@ -411,53 +406,45 @@ export default function FeaturesOverviewPage() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Organisationseinheit</Label>
-                  <Select value={deptId} onValueChange={setDeptId}>
-                    <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Abteilung wählen..." /></SelectTrigger>
-                    <SelectContent>
-                      {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => (
-                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Fachlicher Owner (Rolle)</Label>
-                  <Select value={ownerId} onValueChange={setOwnerId}>
-                    <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-                    <SelectContent>
-                      {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => (
-                        <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="p-6 bg-white border rounded-2xl md:col-span-2 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400">Kritikalität</Label>
-                    <div className="flex items-center gap-4">
-                      <span className="text-[10px] font-bold text-slate-300">Niedrig</span>
-                      <Select value={criticality} onValueChange={(v: any) => setCriticality(v)}>
-                        <SelectTrigger className="flex-1 rounded-lg h-9"><SelectValue /></SelectTrigger>
+                <div className="p-6 bg-white border rounded-2xl md:col-span-2 shadow-sm space-y-6">
+                  <div className="flex items-center gap-2 border-b pb-3">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Zuständigkeit & Verantwortung</h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortliche Abteilung</Label>
+                      <Select value={deptId} onValueChange={setDeptId}>
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Abteilung wählen..." /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="low">Niedrig</SelectItem>
-                          <SelectItem value="medium">Mittel</SelectItem>
-                          <SelectItem value="high">Hoch</SelectItem>
+                          {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => (
+                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
-                      <span className="text-[10px] font-bold text-slate-300">Hoch</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortliche Rolle (Owner)</Label>
+                      <Select value={ownerId} onValueChange={setOwnerId}>
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                        <SelectContent>
+                          {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => (
+                            <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-dashed">
-                    <div className="space-y-0.5">
-                      <Label className="text-[10px] font-bold uppercase text-slate-900">Compliance-relevant</Label>
-                      <p className="text-[8px] text-slate-400 uppercase font-black">Audit Fokus</p>
-                    </div>
-                    <Switch checked={!!isComplianceRelevant} onCheckedChange={setIsComplianceRelevant} />
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-white border rounded-2xl md:col-span-2 shadow-sm">
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] font-bold uppercase text-slate-900">Compliance-relevant</Label>
+                    <p className="text-[8px] text-slate-400 uppercase font-black">Audit Fokus</p>
                   </div>
+                  <Switch checked={!!isComplianceRelevant} onCheckedChange={setIsComplianceRelevant} />
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
@@ -467,12 +454,12 @@ export default function FeaturesOverviewPage() {
 
                 <div className="space-y-2 md:col-span-2">
                   <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zweck & Datennutzung</Label>
-                  <Textarea value={purpose} onChange={e => setPurpose(e.target.value)} className="rounded-2xl min-h-[80px] p-4 text-xs font-medium bg-white" placeholder="Warum wird dieses Merkmal gepflegt? In welchen Systemen/Reports?" />
+                  <Textarea value={purpose} onChange={e => setPurpose(e.target.value)} className="rounded-2xl min-h-[80px] p-4 text-xs font-medium bg-white" placeholder="Warum wird dieses Merkmal gepflegt?" />
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
                   <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Pflegehinweise / Datenqualität</Label>
-                  <Textarea value={maintenanceNotes} onChange={e => setMaintenanceNotes(e.target.value)} className="rounded-2xl min-h-[80px] p-4 text-xs font-medium bg-white border-primary/10" placeholder="Hinweise zur manuellen oder technischen Pflege..." />
+                  <Textarea value={maintenanceNotes} onChange={e => setMaintenanceNotes(e.target.value)} className="rounded-2xl min-h-[80px] p-4 text-xs font-medium bg-white border-primary/10" placeholder="Hinweise zur Pflege..." />
                 </div>
               </div>
             </div>

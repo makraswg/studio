@@ -75,7 +75,6 @@ export const appSchema: AppSchema = {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
-      code: 'VARCHAR(100) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
       status: 'VARCHAR(50) DEFAULT "active"',
       carrier: 'VARCHAR(50) NOT NULL',
@@ -91,6 +90,15 @@ export const appSchema: AppSchema = {
       changeReason: 'TEXT',
       createdAt: 'VARCHAR(50) NOT NULL',
       updatedAt: 'VARCHAR(50) NOT NULL',
+    }
+  },
+  feature_processes: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      featureId: 'VARCHAR(255) NOT NULL',
+      processId: 'VARCHAR(255) NOT NULL',
+      usageType: 'VARCHAR(100)',
+      criticality: 'VARCHAR(20) DEFAULT "low"',
     }
   },
   feature_links: {
@@ -170,6 +178,14 @@ export const appSchema: AppSchema = {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255)',
+      name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      enabled: 'BOOLEAN DEFAULT TRUE',
+    }
+  },
+  usage_type_options: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
       name: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
       enabled: 'BOOLEAN DEFAULT TRUE',

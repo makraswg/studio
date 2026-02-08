@@ -167,25 +167,39 @@ export interface RegulatoryOption {
   enabled: boolean | number;
 }
 
+export interface UsageTypeOption {
+  id: string;
+  name: string;
+  description?: string;
+  enabled: boolean | number;
+}
+
 export interface Feature {
   id: string;
   tenantId: string;
-  code: string;
-  name: string;
+  name: string; // Unified name/code
   status: 'active' | 'in_preparation' | 'open_questions' | 'archived';
   carrier: 'wirtschaftseinheit' | 'objekt' | 'verwaltungseinheit' | 'mietvertrag' | 'geschaeftspartner';
   description: string;
   purpose: string;
-  criticality: 'low' | 'medium' | 'high';
+  criticality: 'low' | 'medium' | 'high'; // Derived overall criticality
   isComplianceRelevant: boolean | number;
-  deptId: string;
-  ownerId?: string; // Reference to JobTitle or PlatformUser
+  deptId: string; // Responsible Department
+  ownerId?: string; // Responsible Role (JobTitle)
   maintenanceNotes?: string;
   validFrom?: string;
   validUntil?: string;
   changeReason?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface FeatureProcessLink {
+  id: string;
+  featureId: string;
+  processId: string;
+  usageType: string; // e.g. "Schreibend", "Lesend"
+  criticality: 'low' | 'medium' | 'high';
 }
 
 export interface FeatureLink {

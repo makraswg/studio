@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -56,6 +55,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveFeatureAction, deleteFeatureAction } from '@/app/actions/feature-actions';
@@ -187,7 +187,7 @@ export default function FeaturesOverviewPage() {
     try {
       const res = await saveFeatureAction(featureData, dataSource, user?.email || 'system');
       if (res.success) {
-        toast({ title: selectedFeature ? "Datenobjekt aktualisiert" : "Datenobjekt angelegt" });
+        toast({ title: f.name ? "Datenobjekt aktualisiert" : "Datenobjekt angelegt" });
         setIsDialogOpen(false);
         resetForm();
         refresh();

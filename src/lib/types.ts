@@ -521,6 +521,7 @@ export interface DataCategory {
   tenantId: string;
   name: string;
   status: 'active' | 'archived';
+  isGdprRelevant?: boolean | number;
 }
 
 export interface UiConfig {

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -12,7 +13,9 @@ import {
   Layers, 
   Trash2,
   AlertTriangle,
-  Loader2
+  Loader2,
+  ShieldCheck,
+  Shield
 } from 'lucide-react';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
@@ -33,12 +36,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { logAuditEventAction } from '@/app/actions/audit-actions';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 export default function DsgvoSettingsPage() {
   const { dataSource, activeTenantId } = useSettings();
   const { user } = usePlatformAuth();
   const [newGroupName, setNewGroupName] = useState('');
   const [newCatName, setNewCatName] = useState('');
+  const [isGdprRelevant, setIsGdprRelevant] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<{ id: string, type: 'dataSubjectGroups' | 'dataCategories', label: string } | null>(null);
@@ -71,10 +77,12 @@ export default function DsgvoSettingsPage() {
       id, 
       name: newCatName, 
       tenantId: activeTenantId === 'all' ? 't1' : activeTenantId,
-      status: 'active'
+      status: 'active',
+      isGdprRelevant: isGdprRelevant
     };
     await saveCollectionRecord('dataCategories', id, data, dataSource);
     setNewCatName('');
+    setIsGdprRelevant(false);
     refreshCats();
     toast({ title: "Kategorie hinzugefügt" });
   };
@@ -159,21 +167,34 @@ export default function DsgvoSettingsPage() {
         <Card className="rounded-none border shadow-none flex flex-col h-[500px]">
           <CardHeader className="bg-muted/10 border-b py-4">
             <CardTitle className="text-[10px] font-bold uppercase flex items-center gap-2">
-              <Layers className="w-4 h-4 text-blue-600" /> Datenkategorien (DSGVO)
+              <Layers className="w-4 h-4 text-blue-600" /> Datenkategorien (Typen)
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6 space-y-4 flex-1 flex flex-col min-h-0">
             {!showArchived && (
-              <div className="flex gap-2 shrink-0">
-                <Input placeholder="z.B. Stammdaten" value={newCatName} onChange={e => setNewCatName(e.target.value)} className="rounded-none h-9" />
-                <Button onClick={handleCreateCat} className="rounded-none h-9"><Plus className="w-4 h-4" /></Button>
+              <div className="space-y-3 shrink-0 p-3 bg-slate-50 border rounded-lg">
+                <div className="flex gap-2">
+                  <Input placeholder="z.B. Stammdaten" value={newCatName} onChange={e => setNewCatName(e.target.value)} className="rounded-none h-9 bg-white" />
+                  <Button onClick={handleCreateCat} className="rounded-none h-9"><Plus className="w-4 h-4" /></Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox id="gdpr-relevant" checked={isGdprRelevant} onCheckedChange={(v) => setIsGdprRelevant(!!v)} />
+                  <Label htmlFor="gdpr-relevant" className="text-[10px] font-bold text-emerald-700 uppercase cursor-pointer flex items-center gap-1.5">
+                    <ShieldCheck className="w-3 h-3" /> DSGVO Relevant
+                  </Label>
+                </div>
               </div>
             )}
             <ScrollArea className="flex-1 border bg-slate-50 p-2">
               <div className="space-y-1">
                 {dataCategories?.filter(c => showArchived ? c.status === 'archived' : c.status !== 'archived').map(c => (
                   <div key={c.id} className="flex items-center justify-between p-2 bg-white border group">
-                    <span className={cn("text-xs font-bold", c.status === 'archived' && "line-through text-muted-foreground")}>{c.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-xs font-bold", c.status === 'archived' && "line-through text-muted-foreground")}>{c.name}</span>
+                      {c.isGdprRelevant && (
+                        <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-full h-4 px-1.5 text-[7px] font-black uppercase">DSGVO</Badge>
+                      )}
+                    </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleStatus('dataCategories', c)}>
                         {c.status === 'active' ? <Archive className="w-3.5 h-3.5 text-muted-foreground" /> : <RotateCcw className="w-3.5 h-3.5 text-emerald-600" />}

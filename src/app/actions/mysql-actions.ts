@@ -93,7 +93,7 @@ function normalizeRecord(item: any, tableName: string) {
     'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
     'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
     'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti',
-    'isComplianceRelevant', 'isDataRepository'
+    'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant'
   ];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
@@ -173,7 +173,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
       'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
       'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti',
-      'isComplianceRelevant', 'isDataRepository'
+      'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant'
     ];
     boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
     

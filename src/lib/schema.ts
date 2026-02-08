@@ -326,6 +326,7 @@ export const appSchema: AppSchema = {
       tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
       status: 'VARCHAR(20) DEFAULT "active"',
+      isGdprRelevant: 'BOOLEAN DEFAULT FALSE',
     }
   },
   users: {

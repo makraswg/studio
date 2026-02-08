@@ -165,7 +165,7 @@ export default function GdprPage() {
             <FileCheck className="w-6 h-6" />
           </div>
           <div>
-            <Badge className="mb-1 rounded-full px-2 py-0 bg-emerald-100 text-emerald-700 text-[9px] font-bold border-none uppercase tracking-wider">Compliance Hub</Badge>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-emerald-100 text-emerald-700 text-[9px] font-bold border-none uppercase tracking-wider">Policy Hub</Badge>
             <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Verarbeitungsverzeichnis</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Dokumentation der Verarbeitungstätigkeiten gemäß Art. 30 DSGVO.</p>
           </div>

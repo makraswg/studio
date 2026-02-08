@@ -118,7 +118,7 @@ export default function LoginPage() {
         <div className="text-center">
           <h1 className="text-3xl font-headline font-bold tracking-tight text-slate-900 dark:text-white">ComplianceHub</h1>
           <div className="mt-2 relative inline-block group">
-            <p className="text-xl font-script text-primary -rotate-2 transition-transform duration-300 group-hover:rotate-0">
+            <p className="text-xl font-script text-primary transition-transform duration-300">
               Struktur statt Bauchgefühl
             </p>
             <svg className="absolute -bottom-2.5 left-0 w-full h-3 text-primary/30" viewBox="0 0 100 10" preserveAspectRatio="none">

@@ -155,8 +155,8 @@ export function AppSidebar() {
     { name: 'Berichte & Analyse', href: '/risks/reports', icon: PieChart },
   ];
 
-  const dsgvoItems = [
-    { name: 'dsgvoHub', href: '/gdpr', icon: FileCheck },
+  const policyHubItems = [
+    { name: 'PolicyHub', href: '/gdpr', icon: FileCheck },
     { name: 'KI Identity Audit', href: '/iam-audit', icon: BrainCircuit },
   ];
 
@@ -215,7 +215,7 @@ export function AppSidebar() {
           <div>
             <span className="font-headline font-bold text-base tracking-tight block text-slate-900 dark:text-white leading-none">ComplianceHub</span>
             <div className="mt-1.5 relative inline-block group cursor-default">
-              <span className="text-[11px] text-primary font-script block -rotate-2 group-hover:rotate-0 transition-transform duration-300">
+              <span className="text-[11px] text-primary font-script block transition-transform duration-300">
                 Struktur statt Bauchgefühl
               </span>
               <svg className="absolute -bottom-1.5 left-0 w-full h-1.5 text-primary/30" viewBox="0 0 100 10" preserveAspectRatio="none">
@@ -246,8 +246,8 @@ export function AppSidebar() {
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">dsgvoHub</p>
-            {dsgvoItems.map((item) => <NavLink key={item.name} item={item} activeColor="bg-emerald-600" />)}
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">PolicyHub</p>
+            {policyHubItems.map((item) => <NavLink key={item.name} item={item} activeColor="bg-emerald-600" />)}
           </div>
 
           <div className="space-y-1">

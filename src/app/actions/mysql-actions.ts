@@ -73,7 +73,8 @@ function normalizeRecord(item: any, tableName: string) {
     process_ops: ['ops_json'],
     ai_sessions: ['context_json'],
     ai_messages: ['structured_json'],
-    platformRoles: ['permissions']
+    platformRoles: ['permissions'],
+    processes: ['regulatoryFramework']
   };
 
   if (jsonFields[tableName]) {
@@ -93,7 +94,7 @@ function normalizeRecord(item: any, tableName: string) {
     'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
     'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
     'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti',
-    'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant'
+    'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant', 'jointController', 'thirdCountryTransfer'
   ];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
@@ -157,7 +158,8 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       process_ops: ['ops_json'],
       ai_sessions: ['context_json'],
       ai_messages: ['structured_json'],
-      platformRoles: ['permissions']
+      platformRoles: ['permissions'],
+      processes: ['regulatoryFramework']
     };
 
     if (jsonFields[tableName]) {
@@ -173,7 +175,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
       'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
       'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti',
-      'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant'
+      'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant', 'jointController', 'thirdCountryTransfer'
     ];
     boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
     

@@ -198,6 +198,7 @@ export const appSchema: AppSchema = {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
       responsibleDepartmentId: 'VARCHAR(255)',
+      vvtId: 'VARCHAR(255)', // Reference to VVT
       title: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
       openQuestions: 'TEXT',
@@ -206,6 +207,9 @@ export const appSchema: AppSchema = {
       ownerUserId: 'VARCHAR(255)',
       currentVersion: 'INT DEFAULT 1',
       publishedVersion: 'INT',
+      automationLevel: 'VARCHAR(50)',
+      dataVolume: 'VARCHAR(50)',
+      processingFrequency: 'VARCHAR(50)',
       createdAt: 'VARCHAR(50)',
       updatedAt: 'VARCHAR(50)',
       tags: 'TEXT',
@@ -468,7 +472,15 @@ export const appSchema: AppSchema = {
       retentionPeriod: 'VARCHAR(255)',
       status: 'VARCHAR(50) DEFAULT "active"',
       lastReviewDate: 'VARCHAR(50)',
-      resourceIds: 'TEXT'
+      resourceIds: 'TEXT',
+      // New columns for Step 1 Phase 1
+      jointController: 'BOOLEAN DEFAULT FALSE',
+      jointControllerDetails: 'TEXT',
+      dataProcessorId: 'VARCHAR(255)',
+      receiverCategoriesDetails: 'TEXT',
+      thirdCountryTransfer: 'BOOLEAN DEFAULT FALSE',
+      targetCountry: 'VARCHAR(255)',
+      transferMechanism: 'VARCHAR(50)'
     }
   },
   resources: {

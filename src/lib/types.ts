@@ -173,6 +173,7 @@ export interface Process {
   id: string;
   tenantId: string;
   responsibleDepartmentId?: string;
+  vvtId?: string; // Link to VVT
   title: string;
   description?: string;
   openQuestions?: string; 
@@ -181,6 +182,9 @@ export interface Process {
   ownerUserId: string;
   currentVersion: number;
   publishedVersion?: number;
+  automationLevel?: 'manual' | 'partial' | 'full';
+  dataVolume?: 'low' | 'medium' | 'high';
+  processingFrequency?: 'daily' | 'weekly' | 'monthly' | 'on_demand';
   tags?: string;
   createdAt: string;
   updatedAt: string;
@@ -352,6 +356,14 @@ export interface ProcessingActivity {
   status: 'draft' | 'active' | 'archived';
   lastReviewDate: string;
   resourceIds?: string[];
+  // New Step 1 Phase 1 fields
+  jointController?: boolean | number;
+  jointControllerDetails?: string;
+  dataProcessorId?: string;
+  receiverCategoriesDetails?: string;
+  thirdCountryTransfer?: boolean | number;
+  targetCountry?: string;
+  transferMechanism?: 'SCC' | 'BCR' | 'Adequacy' | 'None';
 }
 
 export interface Risk {
@@ -394,7 +406,7 @@ export interface RiskMeasure {
   effectiveness: number;
   notes?: string;
   isTom?: boolean | number;
-  tomCategory?: 'Zugriffskontrolle' | 'Zutrittskontrolle' | 'Weitergabekontrolle' | 'Verschlüsselung';
+  tomCategory?: 'Zugriffskontrolle' | 'Zutrittskontrolle' | 'Weitergabekontrolle' | 'Verschlüsselung' | 'Verfügbarkeitskontrolle' | 'Trennungskontrolle' | 'Belastbarkeit' | 'Wiederherstellbarkeit';
   art32Mapping?: string[];
   gdprProtectionGoals?: string[];
   isEffective?: boolean | number;

@@ -92,7 +92,7 @@ export function AppSidebar() {
   const { logout, user: platformUser } = usePlatformAuth();
 
   const [mounted, setMounted] = useState(false);
-  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [isPasswordDialogOpen, useStatePasswordDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
@@ -124,6 +124,10 @@ export function AppSidebar() {
     } finally {
       setIsUpdatingPassword(false);
     }
+  };
+
+  const setIsPasswordDialogOpen = (open: boolean) => {
+    useStatePasswordDialogOpen(open);
   };
 
   const coreItems = [
@@ -159,7 +163,8 @@ export function AppSidebar() {
   ];
 
   const policyHubItems = [
-    { name: 'PolicyHub', href: '/gdpr', icon: FileCheck },
+    { name: 'Dashboard', href: '/gdpr/dashboard', icon: LayoutDashboard },
+    { name: 'VVT Register', href: '/gdpr', icon: FileCheck },
     { name: 'KI Identity Audit', href: '/iam-audit', icon: BrainCircuit },
   ];
 

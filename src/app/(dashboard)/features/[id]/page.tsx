@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -408,7 +407,7 @@ export default function FeatureDetailPage() {
                         </div>
                         <div className="space-y-1.5">
                           <Label required className="text-[9px] font-black uppercase text-slate-400">2. Arbeitsschritt wählen</Label>
-                          <Select value={selectedNodeId} onValueChange={setNodeId} disabled={!selectedProcessId}>
+                          <Select value={selectedNodeId} onValueChange={setSelectedNodeId} disabled={!selectedProcessId}>
                             <SelectTrigger className="rounded-xl h-10 border-slate-200 bg-white"><SelectValue placeholder="Schritt..." /></SelectTrigger>
                             <SelectContent>
                               {currentProcessNodes.map(n => <SelectItem key={n.id} value={n.id}>{n.title}</SelectItem>)}

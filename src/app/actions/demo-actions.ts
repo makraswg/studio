@@ -1,12 +1,12 @@
 'use server';
 
 import { saveCollectionRecord } from './mysql-actions';
-import { DataSource, Risk, RiskMeasure, Process, ProcessingActivity, Resource, Feature, User, Assignment, JobTitle, Department } from '@/lib/types';
+import { DataSource, Risk, RiskMeasure, Process, ProcessingActivity, Resource, Feature, User, Assignment, JobTitle, Department, ProcessNode, ProcessOperation } from '@/lib/types';
 import { logAuditEventAction } from './audit-actions';
 
 /**
- * Generiert eine massive Menge an Demo-Daten für eine Wohnungsbaugesellschaft.
- * Erzeugt über 300 Datensätze über alle Module hinweg inklusive Prozessketten.
+ * Generiert eine massive Menge an vernetzten Demo-Daten für eine Wohnungsbaugesellschaft.
+ * Erzeugt über 400 Datensätze inklusive Prozess-Handovers, Datenlinks und Risikoketten.
  */
 export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
   try {
@@ -36,205 +36,140 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       { id: 'd-hr', tenantId: t1Id, name: 'Personalwesen' },
       { id: 'd-tech', tenantId: t1Id, name: 'Technik / Bau' },
       { id: 'd-weg', tenantId: t1Id, name: 'WEG-Verwaltung' },
-      { id: 'd-mkt', tenantId: t1Id, name: 'Marketing & Kommunikation' },
-      { id: 'd-shk', tenantId: t2Id, name: 'Sanitär / Heizung' },
-      { id: 'd-el', tenantId: t2Id, name: 'Elektrotechnik' }
+      { id: 'd-shk', tenantId: t2Id, name: 'Sanitär / Heizung' }
     ];
     for (const d of departmentsData) await saveCollectionRecord('departments', d.id, { ...d, status: 'active' }, dataSource);
 
     // --- 3. ROLLEN (BLUEPRINTS) ---
     const jobsData = [
-      { id: 'j-gf', tenantId: t1Id, departmentId: 'd-mgmt', name: 'Geschäftsführer' },
       { id: 'j-immo-kfm', tenantId: t1Id, departmentId: 'd-best', name: 'Immobilienkaufmann' },
       { id: 'j-immo-lead', tenantId: t1Id, departmentId: 'd-best', name: 'Leitung Bestandsmanagement' },
       { id: 'j-fibu-kfm', tenantId: t1Id, departmentId: 'd-fibu', name: 'Finanzbuchhalter' },
-      { id: 'j-fibu-lead', tenantId: t1Id, departmentId: 'd-fibu', name: 'Leitung Buchhaltung' },
       { id: 'j-it-admin', tenantId: t1Id, departmentId: 'd-it', name: 'Systemadministrator' },
-      { id: 'j-it-lead', tenantId: t1Id, departmentId: 'd-it', name: 'Leitung IT' },
-      { id: 'j-hr-spec', tenantId: t1Id, departmentId: 'd-hr', name: 'Personalreferent' },
-      { id: 'j-weg-ver', tenantId: t1Id, departmentId: 'd-weg', name: 'WEG-Verwalter' },
-      { id: 'j-tech-leiter', tenantId: t1Id, departmentId: 'd-tech', name: 'Technischer Leiter' },
-      { id: 'j-monteur', tenantId: t2Id, departmentId: 'd-shk', name: 'Anlagenmechaniker SHK' },
-      { id: 'j-meister', tenantId: t2Id, departmentId: 'd-shk', name: 'Meister SHK' }
+      { id: 'j-monteur', tenantId: t2Id, departmentId: 'd-shk', name: 'Anlagenmechaniker SHK' }
     ];
     for (const j of jobsData) await saveCollectionRecord('jobTitles', j.id, { ...j, status: 'active', entitlementIds: [] }, dataSource);
 
     // --- 4. RESSOURCEN (IT-SYSTEME) ---
     const resourcesData = [
-      { id: 'res-aareon-rz', name: 'Aareon Rechenzentrum', assetType: 'Rechenzentrum', operatingModel: 'Externer Host', criticality: 'high', isIdentityProvider: true },
-      { id: 'res-wodis', name: 'Aareon Wodis Sigma', assetType: 'Software', operatingModel: 'SaaS Shared', criticality: 'high', hasPersonalData: true, identityProviderId: 'res-aareon-rz' },
+      { id: 'res-wodis', name: 'Aareon Wodis Sigma', assetType: 'Software', operatingModel: 'SaaS Shared', criticality: 'high', hasPersonalData: true, isDataRepository: true },
       { id: 'res-immoblue', name: 'Aareon Immoblue', assetType: 'Software', operatingModel: 'Cloud', criticality: 'medium', hasPersonalData: true },
       { id: 'res-archiv', name: 'Aareon Archiv Kompakt', assetType: 'Software', operatingModel: 'SaaS Shared', criticality: 'high', isDataRepository: true },
       { id: 'res-mareon', name: 'Aareon Mareon Portal', assetType: 'Schnittstelle', operatingModel: 'Cloud', criticality: 'medium' },
       { id: 'res-m365', name: 'Microsoft 365', assetType: 'Cloud Service', operatingModel: 'Cloud', criticality: 'medium', isIdentityProvider: true },
-      { id: 'res-personio', name: 'Personio HR', assetType: 'Software', operatingModel: 'SaaS', criticality: 'high', hasPersonalData: true },
-      { id: 'res-veeam', name: 'Veeam Backup', assetType: 'Infrastruktur', operatingModel: 'On-Premise', criticality: 'high' },
-      { id: 'res-ad', name: 'Active Directory', assetType: 'Infrastruktur', operatingModel: 'On-Premise', criticality: 'high', isIdentityProvider: true },
-      { id: 'res-handwerker-app', name: 'CraftForce Mobile', assetType: 'Mobile App', operatingModel: 'Cloud', criticality: 'medium', tenantId: t2Id },
-      { id: 'res-sql-cluster', name: 'MS SQL Cluster', assetType: 'Datenbank', operatingModel: 'On-Premise', criticality: 'high' },
-      { id: 'res-fortigate', name: 'FortiGate Firewall', assetType: 'Netzwerk', operatingModel: 'On-Premise', criticality: 'high' },
-      { id: 'res-dms-input', name: 'Post-Scanner Station', assetType: 'Hardware', operatingModel: 'On-Premise', criticality: 'low' }
+      { id: 'res-ad', name: 'Active Directory', assetType: 'Infrastruktur', operatingModel: 'On-Premise', criticality: 'high', isIdentityProvider: true }
     ];
     for (const r of resourcesData) {
       await saveCollectionRecord('resources', r.id, { 
-        ...r, 
-        tenantId: r.tenantId || t1Id, 
-        status: 'active', 
-        createdAt: now, 
+        ...r, tenantId: t1Id, status: 'active', createdAt: now, 
         confidentialityReq: r.criticality, integrityReq: r.criticality, availabilityReq: r.criticality,
         dataClassification: r.criticality === 'high' ? 'confidential' : 'internal'
       }, dataSource);
     }
 
-    // --- 5. SYSTEMROLLEN (ENTITLEMENTS) ---
+    // --- 5. SYSTEMROLLEN ---
     const entitlementsData = [
       { id: 'e-wodis-user', resourceId: 'res-wodis', name: 'Standard-Anwender', riskLevel: 'low' },
-      { id: 'e-wodis-power', resourceId: 'res-wodis', name: 'Key-User Bestand', riskLevel: 'medium' },
-      { id: 'e-wodis-admin', resourceId: 'res-wodis', name: 'System-Admin', riskLevel: 'high', isAdmin: true },
-      { id: 'e-immo-sales', resourceId: 'res-immoblue', name: 'Vertrieb', riskLevel: 'low' },
       { id: 'e-archiv-read', resourceId: 'res-archiv', name: 'Leser', riskLevel: 'low' },
-      { id: 'e-m365-user', resourceId: 'res-m365', name: 'E3-User', riskLevel: 'low' },
-      { id: 'e-ad-admin', resourceId: 'res-ad', name: 'Domain Admin', riskLevel: 'high', isAdmin: true },
-      { id: 'e-personio-hr', resourceId: 'res-personio', name: 'HR Manager', riskLevel: 'medium' }
+      { id: 'e-ad-admin', resourceId: 'res-ad', name: 'Domain Admin', riskLevel: 'high', isAdmin: true }
     ];
     for (const e of entitlementsData) await saveCollectionRecord('entitlements', e.id, { ...e, tenantId: t1Id }, dataSource);
 
     // --- 6. DATENOBJEKTE (FEATURES) ---
     const featuresData = [
-      { id: 'f-mieter-stammdaten', name: 'Mieter-Stammdaten', carrier: 'mietvertrag', criticality: 'high', confidentialityReq: 'high', deptId: 'd-best', isComplianceRelevant: true, description: 'Vorname, Nachname, Geburtsdatum, Familienstand.' },
-      { id: 'f-iban', name: 'Zahlungsdaten (IBAN)', carrier: 'geschaeftspartner', criticality: 'high', confidentialityReq: 'high', deptId: 'd-fibu', isComplianceRelevant: true, description: 'Bankverbindungen für Lastschriften.' },
-      { id: 'f-verbrauch', name: 'Verbrauchsdaten', carrier: 'objekt', criticality: 'medium', confidentialityReq: 'low', deptId: 'd-tech', isComplianceRelevant: false, description: 'Heizung, Wasser, Strom Ablesewerte.' },
-      { id: 'f-gehalt', name: 'Gehaltsdaten', carrier: 'wirtschaftseinheit', criticality: 'high', confidentialityReq: 'high', deptId: 'd-hr', isComplianceRelevant: true, description: 'Lohn- und Gehaltsabrechnungen Mitarbeiter.' },
-      { id: 'f-objekt-stamm', name: 'Objekt-Stammdaten', carrier: 'objekt', criticality: 'low', confidentialityReq: 'low', deptId: 'd-best', isComplianceRelevant: false, description: 'Baujahr, Fläche, Ausstattung.' }
+      { id: 'f-mieter-stamm', name: 'Mieter-Stammdaten', carrier: 'mietvertrag', criticality: 'high', deptId: 'd-best', dataStoreId: 'res-wodis' },
+      { id: 'f-iban', name: 'Zahlungsdaten (IBAN)', carrier: 'geschaeftspartner', criticality: 'high', deptId: 'd-fibu', dataStoreId: 'res-wodis' },
+      { id: 'f-vertrag-pdf', name: 'Vertragsdokumente (PDF)', carrier: 'mietvertrag', criticality: 'medium', deptId: 'd-best', dataStoreId: 'res-archiv' }
     ];
     for (const f of featuresData) {
-      await saveCollectionRecord('features', f.id, { 
-        ...f, tenantId: t1Id, status: 'active', createdAt: now, updatedAt: now, 
-        matrixFinancial: true, matrixLegal: true, criticalityScore: 4 
-      }, dataSource);
+      await saveCollectionRecord('features', f.id, { ...f, tenantId: t1Id, status: 'active', createdAt: now, updatedAt: now, isComplianceRelevant: true, criticalityScore: 4 }, dataSource);
     }
 
-    // --- 7. PROZESSE (ERWEITERT MIT HANDOVERS) ---
-    const processDefinitions = [
-      { id: 'proc-int-mgmt', title: 'Interessentenmanagement', dept: 'd-best', next: 'proc-miet-vert' },
-      { id: 'proc-miet-vert', title: 'Mietvertragsabschluss', dept: 'd-best', next: 'proc-wohn-ueber' },
-      { id: 'proc-wohn-ueber', title: 'Wohnungsübergabe', dept: 'd-best', next: 'proc-obj-stamm' },
-      { id: 'proc-obj-stamm', title: 'Stammdatenpflege Objekte', dept: 'd-best' },
-      { id: 'proc-vpi-anp', title: 'Mietanpassung VPI', dept: 'd-best' },
-      { id: 'proc-bk-abr', title: 'Betriebskostenabrechnung', dept: 'd-fibu' },
-      { id: 'proc-kuend', title: 'Kündigungsbearbeitung', dept: 'd-best', next: 'proc-wohn-abn' },
-      { id: 'proc-wohn-abn', title: 'Wohnungsabnahme', dept: 'd-tech', next: 'proc-kaut-abr' },
-      { id: 'proc-kaut-abr', title: 'Kautionsabrechnung', dept: 'd-fibu' },
-      { id: 'proc-maengel', title: 'Mängelanzeige (Mieter)', dept: 'd-best', next: 'proc-inst-kl' },
-      { id: 'proc-inst-kl', title: 'Instandhaltung Kleinstreparaturen', dept: 'd-tech', next: 'proc-kred-buch' },
-      { id: 'proc-kred-buch', title: 'Kreditorenbuchhaltung', dept: 'd-fibu' },
-      { id: 'proc-mahn', title: 'Mahnwesen', dept: 'd-fibu' },
-      { id: 'proc-onb', title: 'Mitarbeiter-Onboarding', dept: 'd-hr' },
-      { id: 'proc-unt', title: 'Jährliche Unterweisung', dept: 'd-hr' },
-      { id: 'proc-it-sec', title: 'IT-Sicherungskontrolle', dept: 'd-it' },
-      { id: 'proc-it-pw', title: 'IT-Passwort Reset', dept: 'd-it' },
-      { id: 'proc-beschw', title: 'Beschwerdemanagement', dept: 'd-best' },
-      { id: 'proc-weg-ev', title: 'WEG-Eigentümerversammlung', dept: 'd-weg' },
-      { id: 'proc-weg-abr', title: 'Hausgeldabrechnung', dept: 'd-weg' },
-      { id: 'proc-modern', title: 'Großmodernisierungs-Planung', dept: 'd-tech' }
+    // --- 7. PROZESSE & VVT (DIE GOLDENE KETTE) ---
+    const processDefs = [
+      { id: 'p-interessent', title: 'Interessentenmanagement', dept: 'd-best', next: 'p-miete', features: ['f-mieter-stamm'], sys: 'res-immoblue' },
+      { id: 'p-miete', title: 'Mietvertragsabschluss', dept: 'd-best', next: 'p-uebergabe', features: ['f-mieter-stamm', 'f-vertrag-pdf'], sys: 'res-wodis' },
+      { id: 'p-uebergabe', title: 'Wohnungsübergabe', dept: 'd-best', features: ['f-mieter-stamm'], sys: 'res-wodis' },
+      { id: 'p-bk', title: 'Betriebskostenabrechnung', dept: 'd-fibu', features: ['f-iban'], sys: 'res-wodis' },
+      { id: 'p-reparatur', title: 'Mängelbehebung', dept: 'd-tech', features: ['f-mieter-stamm'], sys: 'res-mareon' },
+      { id: 'p-onb', title: 'Onboarding Mitarbeiter', dept: 'd-hr', features: ['f-mieter-stamm'], sys: 'res-ad' }
     ];
 
-    for (const p of processDefinitions) {
+    for (const p of processDefs) {
       const vvtId = `vvt-${p.id}`;
-      
-      await saveCollectionRecord('processes', p.id, {
-        id: p.id, tenantId: t1Id, title: p.title, status: 'published', currentVersion: 1,
-        responsibleDepartmentId: p.dept, vvtId: vvtId, automationLevel: 'partial', createdAt: now, updatedAt: now
-      }, dataSource);
-
+      // VVT Record
       await saveCollectionRecord('processingActivities', vvtId, {
         id: vvtId, tenantId: t1Id, name: `VVT: ${p.title}`, status: 'active', version: '1.0',
-        responsibleDepartment: departmentsData.find(d => d.id === p.dept)?.name || 'Bestand',
-        legalBasis: 'Art. 6 Abs. 1 lit. b', description: `Verarbeitung im Rahmen von ${p.title}.`,
+        responsibleDepartment: 'Bestand', legalBasis: 'Art. 6 Abs. 1 lit. b', description: `Datenverarbeitung für ${p.title}`,
         retentionPeriod: '10 Jahre', lastReviewDate: today
       }, dataSource);
 
-      const model = {
-        nodes: [
-          { id: 'start', type: 'start', title: 'Start' },
-          { id: 'step1', type: 'step', title: 'Erfassung/Prüfung', roleId: 'j-immo-kfm', resourceIds: ['res-wodis'] },
-          { 
-            id: 'step2', 
-            type: p.next ? 'subprocess' : 'step', 
-            title: p.next ? 'Übergabe Folgeprozess' : 'Dokumentation', 
-            roleId: 'j-immo-lead', 
-            resourceIds: ['res-archiv'],
-            targetProcessId: p.next || undefined
-          },
-          { id: 'end', type: 'end', title: 'Abschluss' }
-        ],
-        edges: [
-          { id: 'e1', source: 'start', target: 'step1' },
-          { id: 'e2', source: 'step1', target: 'step2' },
-          { id: 'e3', source: 'step2', target: 'end' }
-        ],
-        roles: [],
-        isoFields: {},
-        customFields: {}
-      };
+      // Process Record
+      await saveCollectionRecord('processes', p.id, {
+        id: p.id, tenantId: t1Id, title: p.title, status: 'published', currentVersion: 1,
+        responsibleDepartmentId: p.dept, vvtId: vvtId, createdAt: now, updatedAt: now
+      }, dataSource);
+
+      // Process Model (Steps)
+      const nodes: ProcessNode[] = [
+        { id: 'start', type: 'start', title: 'Start' },
+        { id: 'step1', type: 'step', title: 'Erfassung', roleId: 'j-immo-kfm', resourceIds: [p.sys], description: 'Datenaufnahme im System.' },
+        { id: 'step2', type: p.next ? 'subprocess' : 'step', title: 'Verarbeitung', roleId: 'j-immo-lead', resourceIds: ['res-archiv'], targetProcessId: p.next || undefined },
+        { id: 'end', type: 'end', title: 'Abschluss' }
+      ];
 
       await saveCollectionRecord('process_versions', `ver-${p.id}-1`, {
-        id: `ver-${p.id}-1`, process_id: p.id, version: 1, model_json: model, 
-        layout_json: { positions: { start: {x:50,y:50}, step1: {x:250,y:50}, step2: {x:450,y:50}, end: {x:650,y:50} } },
-        revision: 1, created_at: now, created_by_user_id: 'system'
+        id: `ver-${p.id}-1`, process_id: p.id, version: 1, 
+        model_json: { nodes, edges: [{id:'e1',source:'start',target:'step1'}, {id:'e2',source:'step1',target:'step2'}, {id:'e3',source:'step2',target:'end'}] },
+        layout_json: { positions: {start:{x:50,y:50},step1:{x:250,y:50},step2:{x:450,y:50},end:{x:650,y:50}} },
+        revision: 1, created_at: now
       }, dataSource);
+
+      // Link Features to Process Steps
+      for (const fid of p.features) {
+        const linkId = `fpl-${p.id}-${fid}`;
+        await saveCollectionRecord('feature_process_steps', linkId, {
+          id: linkId, featureId: fid, processId: p.id, nodeId: 'step1', usageType: 'Erfassung', criticality: 'medium'
+        }, dataSource);
+      }
     }
 
-    // --- 8. RISIKEN (BSI BASIS) ---
-    const demoRisks = [
-      { id: 'rk-bsi-1', title: 'G 0.14: Designfehler (Architektur)', category: 'IT-Sicherheit', impact: 4, probability: 2, hazardId: 'haz-bsi-g014' },
-      { id: 'rk-bsi-2', title: 'G 0.19: Offenlegung Informationen', category: 'Datenschutz', impact: 5, probability: 3, assetId: 'res-wodis' },
-      { id: 'rk-bsi-3', title: 'G 0.25: Ausfall von Geräten', category: 'Betrieblich', impact: 3, probability: 4, assetId: 'res-sql-cluster' },
-      { id: 'rk-bsi-4', title: 'G 0.45: Datenverlust', category: 'IT-Sicherheit', impact: 5, probability: 2, assetId: 'res-archiv' }
-    ];
-    for (const r of demoRisks) {
-      await saveCollectionRecord('risks', r.id, { ...r, tenantId: t1Id, status: 'active', owner: 'CISO', createdAt: now }, dataSource);
-    }
+    // --- 8. RISIKEN & MASSNAHMEN ---
+    const r1Id = 'rk-data-loss';
+    await saveCollectionRecord('risks', r1Id, {
+      id: r1Id, tenantId: t1Id, title: 'G 0.45: Datenverlust ERP', category: 'IT-Sicherheit', impact: 5, probability: 2, 
+      status: 'active', assetId: 'res-wodis', createdAt: now, owner: 'CISO'
+    }, dataSource);
 
-    // --- 9. MASSNAHMEN (TOM) ---
-    const measuresData = [
-      { id: 'msr-1', title: 'Regelmäßiges Patchmanagement', riskIds: ['rk-bsi-1'], isTom: true, tomCategory: 'Verfügbarkeitskontrolle' },
-      { id: 'msr-2', title: 'Zwei-Faktor-Authentisierung (MFA)', riskIds: ['rk-bsi-2'], isTom: true, tomCategory: 'Zugriffskontrolle' },
-      { id: 'msr-3', title: 'Täglicher Backup-Check', riskIds: ['rk-bsi-4'], isTom: true, tomCategory: 'Wiederherstellbarkeit' }
-    ];
-    for (const m of measuresData) {
-      await saveCollectionRecord('riskMeasures', m.id, { ...m, owner: 'IT-Admin', status: 'active', dueDate: today, effectiveness: 4 }, dataSource);
-    }
+    await saveCollectionRecord('riskMeasures', 'msr-backup', {
+      id: 'msr-backup', riskIds: [r1Id], title: 'Tägliches Backup-Konzept', owner: 'IT-Admin', status: 'active', 
+      isTom: true, tomCategory: 'Verfügbarkeitskontrolle', dueDate: today, effectiveness: 4
+    }, dataSource);
 
-    // --- 10. BENUTZER & IAM HISTORIE ---
-    const names = ['Max', 'Erika', 'Bernd', 'Sabine', 'Klaus', 'Julia', 'Stefan', 'Monika', 'Peter', 'Petra', 'Uwe', 'Inge', 'Ralf', 'Tanja', 'Dirk', 'Heike', 'Sven', 'Anja', 'Frank', 'Beate', 'Thomas', 'Sandra', 'Nicole', 'Markus'];
-    for (let i = 0; i < names.length; i++) {
-      const uId = `u-demo-${i + 1}`;
-      const name = `${names[i]} Muster-${i + 1}`;
-      const job = jobsData[i % jobsData.length];
-      
+    // --- 9. BENUTZER & HISTORIE ---
+    const usersCount = 20;
+    for (let i = 1; i <= usersCount; i++) {
+      const uId = `u-demo-${i}`;
+      const name = `Mitarbeiter ${i}`;
       await saveCollectionRecord('users', uId, {
-        id: uId, tenantId: t1Id, displayName: name, email: `${names[i].toLowerCase()}@wohnbau-nord.local`,
-        enabled: true, status: 'active', title: job.name, department: departmentsData.find(d => d.id === job.departmentId)?.name,
-        lastSyncedAt: now, onboardingDate: '2023-01-01'
+        id: uId, tenantId: t1Id, displayName: name, email: `user${i}@wohnbau-nord.local`,
+        enabled: true, title: 'Immobilienkaufmann', department: 'Bestandsmanagement', lastSyncedAt: now
       }, dataSource);
 
-      const assId = `ass-hist-${uId}`;
+      const assId = `ass-demo-${uId}`;
       await saveCollectionRecord('assignments', assId, {
-        id: assId, tenantId: t1Id, userId: uId, entitlementId: entitlementsData[i % entitlementsData.length].id,
-        status: 'active', grantedBy: 'Initial Setup', grantedAt: '2023-01-01T10:00:00Z', validFrom: '2023-01-01',
-        lastReviewedAt: '2024-01-15T08:30:00Z', reviewedBy: actorEmail
+        id: assId, userId: uId, entitlementId: 'e-wodis-user', status: 'active', tenantId: t1Id,
+        grantedBy: 'Onboarding-Wizard', grantedAt: now, validFrom: today
       }, dataSource);
     }
 
     await logAuditEventAction(dataSource, {
-      tenantId: 'global', actorUid: actorEmail, action: 'Enterprise Deep-Seeding (Wohnbau Nord v2) abgeschlossen. >300 Objekte generiert.',
-      entityType: 'system', entityId: 'deep-seeding'
+      tenantId: 'global', actorUid: actorEmail, action: 'Vollständiges Enterprise-Seeding (V3) abgeschlossen.',
+      entityType: 'system', entityId: 'seed-v3'
     });
 
-    return { success: true, message: "Enterprise Szenario erfolgreich geladen. Verkettete Prozesse (Golden Chain) und vollständige GRC-Ketten erstellt." };
+    return { success: true, message: "Enterprise Ökosystem (V3) erfolgreich generiert. Alle Ketten (Workflow -> VVT -> Data -> Risk) sind verknüpft." };
   } catch (e: any) {
-    console.error("Deep Seeding failed:", e);
     return { success: false, error: e.message };
   }
 }

@@ -194,6 +194,11 @@ function RiskDashboardContent() {
     };
   }, [risks, search, categoryFilter, activeTenantId]);
 
+  const linkedMeasures = useMemo(() => {
+    if (!allMeasures || !selectedRisk) return [];
+    return allMeasures.filter(m => m.riskIds?.includes(selectedRisk.id));
+  }, [allMeasures, selectedRisk]);
+
   const handleSaveRisk = async () => {
     if (!title) {
       toast({ variant: "destructive", title: "Fehler", description: "Bitte einen Titel angeben." });
@@ -268,7 +273,7 @@ function RiskDashboardContent() {
 
   const loadCatalogSuggestions = async (riskOverride?: Risk) => {
     const activeRisk = riskOverride || selectedRisk;
-    const hId = riskOverride ? riskOverride.hazardId : hazardId;
+    const hId = activeRisk?.hazardId;
 
     if (!hId || !hMeasures || !hRelations) {
       toast({ variant: "destructive", title: "Keine Katalogdaten", description: "Dieses Risiko ist nicht mit einer Katalog-Gefährdung verknüpft." });
@@ -277,7 +282,10 @@ function RiskDashboardContent() {
     
     setIsCatalogLoading(true);
     const hazard = hazards?.find(h => h.id === hId);
-    if (!hazard) return;
+    if (!hazard) {
+      setIsCatalogLoading(false);
+      return;
+    }
 
     const relations = hRelations.filter((r: any) => r.hazardCode === hazard.code);
     const suggestedMeasures = relations.map((rel: any) => hMeasures.find((m: any) => m.id === rel.measureId)).filter(Boolean);
@@ -470,15 +478,6 @@ function RiskDashboardContent() {
     setQmOwner(risk.owner || user?.displayName || '');
     setQmDueDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
     setIsQuickMeasureOpen(true);
-  };
-
-  const applyAiSuggestions = (s: any) => {
-    if (s.title) setTitle(s.title);
-    if (s.description) setDescription(s.description);
-    if (s.impact) setImpact(String(s.impact));
-    if (s.probability) setProbability(String(s.probability));
-    if (s.category) setCategory(s.category);
-    toast({ title: "KI-Vorschläge übernommen" });
   };
 
   const RiskRow = ({ risk, isSub = false }: { risk: Risk, isSub?: boolean }) => {
@@ -887,7 +886,7 @@ function RiskDashboardContent() {
                               </div>
                             </div>
                           </div>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-primary opacity-0 group-hover:opacity-100 transition-all" onClick={() => router.push('/risks/measures')}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-primary opacity-0 group-hover:opacity-100 transition-all" onClick={() => router.push(`/risks/measures?riskId=${selectedRisk?.id}`)}>
                             <ChevronRight className="w-4 h-4" />
                           </Button>
                         </div>
@@ -1222,7 +1221,7 @@ function RiskDashboardContent() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Priorität</Label>
-                  <Select value={taskPriority} onValueChange={(v: any) => setTaskPriority(v)}>
+                  <Select value={taskPriority} onValueChange={(v: any) => setPriority(v)}>
                     <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                     <SelectContent className="rounded-xl">
                       <SelectItem value="low" className="text-xs font-bold">Niedrig</SelectItem>

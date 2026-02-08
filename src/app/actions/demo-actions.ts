@@ -6,6 +6,7 @@ import { logAuditEventAction } from './audit-actions';
 
 /**
  * Generiert hunderte Datensätze für eine Wohnungsbaugesellschaft und einen Handwerksbetrieb.
+ * Enthält Aareon Wodis Sigma, Immoblue, Archiv Kompakt und Mareon.
  */
 export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
   try {
@@ -18,12 +19,12 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
 
     await saveCollectionRecord('tenants', t1Id, {
       id: t1Id, name: 'Wohnbau Nord GmbH', slug: 'wohnbau-nord', status: 'active', region: 'EU-DSGVO', createdAt: now,
-      companyDescription: 'Mittelständische Wohnungsbaugesellschaft mit ca. 5.000 Wohneinheiten. Fokus auf Mietverwaltung und soziale Stadtentwicklung. Nutzt Aareon Wodis als Kern-ERP.'
+      companyDescription: 'Mittelständische Wohnungsbaugesellschaft mit ca. 5.000 Wohneinheiten. Fokus auf Mietverwaltung und soziale Stadtentwicklung. Nutzt die Aareon Produktfamilie als Kern-Infrastruktur.'
     }, dataSource);
 
     await saveCollectionRecord('tenants', t2Id, {
       id: t2Id, name: 'Service-Handwerk Nord GmbH', slug: 'handwerk-nord', status: 'active', region: 'EU-DSGVO', createdAt: now,
-      companyDescription: 'Tochtergesellschaft für Instandhaltung und Modernisierung. 40 Mitarbeiter im Außeneinsatz.'
+      companyDescription: 'Tochtergesellschaft für Instandhaltung und Modernisierung. Kommuniziert via Mareon-Schnittstelle mit der Muttergesellschaft.'
     }, dataSource);
 
     // --- 2. ABTEILUNGEN ---
@@ -48,19 +49,38 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
 
     // --- 4. RESSOURCEN (IT-SYSTEME) ---
     const rWodisId = 'res-aareon-wodis';
-    const rOfficeId = 'res-ms-office';
+    const rImmoblueId = 'res-aareon-immoblue';
+    const rArchivId = 'res-aareon-archiv';
+    const rMareonId = 'res-aareon-mareon';
     const rAareonRzId = 'res-aareon-rz';
     const rLdapId = 'res-local-ad';
 
     await saveCollectionRecord('resources', rAareonRzId, {
       id: rAareonRzId, tenantId: t1Id, name: 'Aareon Rechenzentrum (Mainz)', assetType: 'Rechenzentrum', operatingModel: 'Externer Host',
-      criticality: 'high', isIdentityProvider: true, dataLocation: 'Deutschland', status: 'active', notes: 'Primärer Hosting-Partner'
+      criticality: 'high', isIdentityProvider: true, dataLocation: 'Deutschland', status: 'active', notes: 'Zentraler Vertrauensanker für SSO.'
     }, dataSource);
 
     await saveCollectionRecord('resources', rWodisId, {
-      id: rWodisId, tenantId: t1Id, name: 'Aareon Wodis Yuneo', assetType: 'Software', operatingModel: 'SaaS Shared',
+      id: rWodisId, tenantId: t1Id, name: 'Aareon Wodis Sigma', assetType: 'Software', operatingModel: 'SaaS Shared',
       criticality: 'high', dataClassification: 'confidential', hasPersonalData: true, identityProviderId: rAareonRzId,
-      status: 'active', notes: 'Zentrales ERP für Mieterdaten und Buchhaltung.'
+      status: 'active', notes: 'Kern-ERP für die Bestandsverwaltung.'
+    }, dataSource);
+
+    await saveCollectionRecord('resources', rImmoblueId, {
+      id: rImmoblueId, tenantId: t1Id, name: 'Aareon Immoblue', assetType: 'Software', operatingModel: 'Cloud',
+      criticality: 'medium', hasPersonalData: true, identityProviderId: rAareonRzId, status: 'active',
+      notes: 'CRM für Interessenten und Vermarktung.'
+    }, dataSource);
+
+    await saveCollectionRecord('resources', rArchivId, {
+      id: rArchivId, tenantId: t1Id, name: 'Aareon Archiv Kompakt', assetType: 'Software', operatingModel: 'SaaS Shared',
+      criticality: 'high', isDataRepository: true, identityProviderId: rAareonRzId, status: 'active',
+      notes: 'Revisionssicheres DMS-Archiv.'
+    }, dataSource);
+
+    await saveCollectionRecord('resources', rMareonId, {
+      id: rMareonId, tenantId: t1Id, name: 'Aareon Mareon Portal', assetType: 'Schnittstelle', operatingModel: 'Cloud',
+      criticality: 'medium', status: 'active', notes: 'Auftragsmanagement für Handwerker.'
     }, dataSource);
 
     await saveCollectionRecord('resources', rLdapId, {
@@ -70,9 +90,11 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
 
     // --- 5. SYSTEMROLLEN (ENTITLEMENTS) ---
     const roles = [
-      { id: 'e-wodis-read', resourceId: rWodisId, name: 'Wodis Lesezugriff', riskLevel: 'low' },
       { id: 'e-wodis-write', resourceId: rWodisId, name: 'Wodis Sachbearbeiter', riskLevel: 'medium' },
-      { id: 'e-wodis-admin', resourceId: rWodisId, name: 'Wodis Administrator', riskLevel: 'high', isAdmin: true },
+      { id: 'e-wodis-admin', resourceId: rWodisId, name: 'Wodis Key-User', riskLevel: 'high', isAdmin: true },
+      { id: 'e-immoblue-user', resourceId: rImmoblueId, name: 'Vertriebs-User', riskLevel: 'low' },
+      { id: 'e-archiv-read', resourceId: rArchivId, name: 'Archiv Lesezugriff', riskLevel: 'low' },
+      { id: 'e-mareon-tech', resourceId: rMareonId, name: 'Techniker-Portal', riskLevel: 'low' },
       { id: 'e-ad-user', resourceId: rLdapId, name: 'Domänen-Benutzer', riskLevel: 'low' }
     ];
     for (const r of roles) await saveCollectionRecord('entitlements', r.id, { ...r, tenantId: t1Id }, dataSource);
@@ -87,32 +109,33 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
 
     // --- 7. ZUWEISUNGEN (ASSIGNMENTS) ---
     const assignments = [
-      { id: 'ass-d1', userId: 'u-demo-1', entitlementId: 'e-wodis-write', status: 'active' },
-      { id: 'ass-d2', userId: 'u-demo-1', entitlementId: 'e-ad-user', status: 'active' },
-      { id: 'ass-d3', userId: 'u-demo-2', entitlementId: 'e-wodis-write', status: 'active' }
+      { id: 'ass-d1', userId: 'u-demo-1', entitlementId: 'e-immoblue-user', status: 'active' },
+      { id: 'ass-d2', userId: 'u-demo-1', entitlementId: 'e-wodis-write', status: 'active' },
+      { id: 'ass-d3', userId: 'u-demo-1', entitlementId: 'e-archiv-read', status: 'active' },
+      { id: 'ass-d4', userId: 'u-demo-3', entitlementId: 'e-mareon-tech', status: 'active' }
     ];
     for (const a of assignments) await saveCollectionRecord('assignments', a.id, { ...a, tenantId: t1Id, grantedBy: actorEmail, grantedAt: now, validFrom: today }, dataSource);
 
     // --- 8. PROZESSE ---
     const p1Id = 'proc-demo-vermietung';
     await saveCollectionRecord('processes', p1Id, {
-      id: p1Id, tenantId: t1Id, title: 'Neuvermietung & Mietvertragsabschluss', status: 'published', currentVersion: 1,
+      id: p1Id, tenantId: t1Id, title: 'Neuvermietung (Digital)', status: 'published', currentVersion: 1,
       responsibleDepartmentId: 'd-wohnbau-best', automationLevel: 'partial', dataVolume: 'medium', processingFrequency: 'daily',
-      description: 'Standardisierter Prozess von der Interessenten-Anfrage bis zur Schlüsselübergabe.'
+      description: 'Von der Interessenten-Anfrage in Immoblue bis zur Archivierung des Vertrags.'
     }, dataSource);
 
     const v1Id = `ver-${p1Id}-1`;
     const model = {
       nodes: [
-        { id: 'n1', type: 'start', title: 'Anfrage-Eingang', checklist: ['Bonität prüfen', 'Schufa-Auskunft'] },
-        { id: 'n2', type: 'step', title: 'Wodis Stammdatenpflege', roleId: 'j-wohnbau-immo', resourceIds: [rWodisId], description: 'Erfassung des Mieters in Wodis Yuneo.' },
-        { id: 'n3', type: 'decision', title: 'Vertrag genehmigt?' },
+        { id: 'n1', type: 'start', title: 'Anfrage Immoblue', description: 'Eingang eines neuen Interessenten.' },
+        { id: 'n2', type: 'step', title: 'Stammdaten Wodis Sigma', roleId: 'j-wohnbau-immo', resourceIds: [rWodisId], description: 'Anlage des Mieters im ERP.' },
+        { id: 'n3', type: 'step', title: 'Vertrags-Archivierung', roleId: 'j-wohnbau-immo', resourceIds: [rArchivId], description: 'Scan und Ablage in Archiv Kompakt.' },
         { id: 'n4', type: 'end', title: 'Mietbeginn' }
       ],
       edges: [
         { id: 'ed1', source: 'n1', target: 'n2' },
         { id: 'ed2', source: 'n2', target: 'n3' },
-        { id: 'ed3', source: 'n3', target: 'n4', label: 'Ja' }
+        { id: 'ed3', source: 'n3', target: 'n4' }
       ]
     };
     await saveCollectionRecord('process_versions', v1Id, {
@@ -122,25 +145,25 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
     // --- 9. RISIKEN ---
     const riskId = 'risk-demo-wodis-out';
     await saveCollectionRecord('risks', riskId, {
-      id: riskId, tenantId: t1Id, title: 'Totalausfall Aareon Wodis ERP', category: 'IT-Sicherheit', impact: 5, probability: 2,
-      description: 'Durch eine Störung im Aareon RZ oder der Anbindung ist kein Zugriff auf Mieterdaten möglich. Stillstand im Bestandsmanagement.',
+      id: riskId, tenantId: t1Id, title: 'Ausfall Aareon Wodis Sigma', category: 'IT-Sicherheit', impact: 5, probability: 2,
+      description: 'Zentrale Störung im Cloud-Betrieb.',
       status: 'active', owner: 'IT-Leitung', createdAt: now, assetId: rWodisId
     }, dataSource);
 
     // --- 10. DATENSCHUTZ (VVT) ---
     const vvtId = 'vvt-demo-mieter';
     await saveCollectionRecord('processingActivities', vvtId, {
-      id: vvtId, tenantId: t1Id, name: 'Mietvertragsverwaltung & Mieterbetreuung', status: 'active', version: '1.0',
-      description: 'Verarbeitung von Stammdaten, Bankverbindungen und Verbrauchsdaten zur Erfüllung des Mietvertrags.',
+      id: vvtId, tenantId: t1Id, name: 'Mieter-Lifecycle Management', status: 'active', version: '1.0',
+      description: 'Vollständige Verwaltung der Mieterdaten von Akquise bis Archivierung.',
       legalBasis: 'Art. 6 Abs. 1 lit. b (Vertrag)', responsibleDepartment: 'Bestandsmanagement', lastReviewDate: today
     }, dataSource);
 
     await logAuditEventAction(dataSource, {
-      tenantId: 'global', actorUid: actorEmail, action: 'Demo-Daten erfolgreich geladen (Szenario Wohnungsbau)',
+      tenantId: 'global', actorUid: actorEmail, action: 'Demo-Daten erfolgreich geladen (Sigma Suite)',
       entityType: 'system', entityId: 'seeding'
     });
 
-    return { success: true, message: "Demo-Szenario 'Wohnungsbau & Handwerk' erfolgreich geladen." };
+    return { success: true, message: "Demo-Szenario 'Wohnbau (Wodis Sigma Suite)' erfolgreich geladen." };
   } catch (e: any) {
     console.error("Seeding failed:", e);
     return { success: false, error: e.message };

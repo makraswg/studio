@@ -14,7 +14,7 @@ import {
   Database,
   Save as SaveIcon
 } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
+import Switch from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -187,7 +187,7 @@ export default function SyncSettingsPage() {
                 <TableHead className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Letzter Lauf</TableHead>
                 <TableHead className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Status</TableHead>
                 <TableHead className="text-right px-6"></TableHead>
-              </TableRow>
+              </TableRow
             </TableHeader>
             <TableBody>
               {[ 

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
@@ -11,20 +10,17 @@ import {
   Activity, 
   RefreshCw, 
   ChevronRight,
-  ClipboardList,
-  Maximize2,
+  ListChecks,
+  Network,
   ExternalLink,
   Info,
   Briefcase,
   Building2,
   CheckCircle,
-  Network,
   Eye,
   Lock,
-  ListChecks,
   AlertTriangle,
   Lightbulb,
-  ArrowDown,
   GitBranch,
   ArrowRight,
   Shield,
@@ -32,30 +28,21 @@ import {
   Clock,
   User as UserIcon,
   Layers,
-  ChevronDown,
-  ArrowUpRight,
-  Split,
   FileText,
   FileEdit,
   ArrowRightCircle,
   Tag,
   Zap,
   CheckCircle2,
-  HelpCircle,
   Target,
   Server,
   AlertCircle,
-  TrendingUp,
   FileCheck,
-  Save,
   UserCircle,
   ArrowUp,
   ClipboardCheck,
   Link as LinkIcon,
   ArrowLeftRight,
-  CornerRightDown,
-  ArrowBigRightDash,
-  Monitor,
   ShieldAlert
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -68,7 +55,7 @@ import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, Process
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -191,6 +178,15 @@ export default function ProcessDetailViewPage() {
     return calculateProcessMaturity(currentProcess, activeVersion, pMedia);
   }, [currentProcess, activeVersion, media, id]);
 
+  const processResources = useMemo(() => {
+    if (!activeVersion || !resources) return [];
+    const resourceIds = new Set<string>();
+    activeVersion.model_json.nodes.forEach((n: ProcessNode) => {
+      n.resourceIds?.forEach(rid => resourceIds.add(rid));
+    });
+    return Array.from(resourceIds).map(rid => resources.find(r => r.id === rid)).filter(Boolean);
+  }, [activeVersion, resources]);
+
   const getFullRoleName = (roleId?: string) => {
     if (!roleId) return '---';
     const role = jobTitles?.find(j => j.id === roleId);
@@ -214,9 +210,6 @@ export default function ProcessDetailViewPage() {
     }
   };
 
-  /**
-   * Calculates the SVG paths between connected nodes.
-   */
   const updateFlowLines = useCallback(() => {
     if (!activeNodeId || !activeVersion || viewMode !== 'guide' || !containerRef.current) {
       setConnectionPaths([]);
@@ -228,7 +221,7 @@ export default function ProcessDetailViewPage() {
     if (!sourceEl) return;
 
     const sourceRect = sourceEl.getBoundingClientRect();
-    const sourceMidX = sourceRect.left - containerRect.left + 5; // Left edge anchor
+    const sourceMidX = sourceRect.left - containerRect.left + 5; 
     const sourceMidY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
 
     const edges = activeVersion.model_json.edges || [];
@@ -246,7 +239,6 @@ export default function ProcessDetailViewPage() {
         const targetMidX = targetRect.left - containerRect.left + 5;
         const targetMidY = targetRect.top - containerRect.top + (targetRect.height / 2);
 
-        // Cubic Bezier curve for "not straight" look
         const cp1x = sourceMidX - 100;
         const cp1y = sourceMidY;
         const cp2x = targetMidX - 100;
@@ -477,7 +469,6 @@ export default function ProcessDetailViewPage() {
             </ScrollArea>
           ) : (
             <div className="flex-1 flex flex-col min-h-0 relative" ref={containerRef}>
-              {/* SVG Layer for Flow Lines */}
               <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
                 <defs>
                   <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
@@ -527,7 +518,6 @@ export default function ProcessDetailViewPage() {
 
                       return (
                         <div key={node.id} className="relative z-10 pl-12" id={node.id}>
-                          {/* Timeline Node Indicator */}
                           <div className={cn(
                             "absolute left-0 w-10 h-10 rounded-xl flex items-center justify-center border-4 border-slate-50 shadow-sm z-20 transition-all cursor-pointer",
                             isActive ? "scale-125 ring-4 ring-primary/20" : "hover:scale-110",
@@ -541,7 +531,6 @@ export default function ProcessDetailViewPage() {
                              <span className="font-headline font-black text-sm">{i + 1}</span>}
                           </div>
 
-                          {/* Inbound Flow Indication */}
                           {predecessors.length > 0 && (
                             <div className="flex gap-1.5 mb-2 ml-1">
                               {predecessors.map((p, idx) => (
@@ -603,7 +592,6 @@ export default function ProcessDetailViewPage() {
                             
                             <CardContent className="p-0">
                               <div className="grid grid-cols-1 md:grid-cols-10 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-                                {/* Action Column */}
                                 <div className="md:col-span-7 p-5 space-y-6">
                                   {node.description && <p className="text-xs text-slate-600 leading-relaxed font-medium bg-slate-50/50 p-3 rounded-xl border border-dashed border-slate-200">{node.description}</p>}
                                   
@@ -626,9 +614,7 @@ export default function ProcessDetailViewPage() {
                                   )}
                                 </div>
 
-                                {/* Context Column (Compact) */}
                                 <div className="md:col-span-3 p-5 space-y-6 bg-slate-50/30">
-                                  {/* Expertise & Data */}
                                   <div className="space-y-4">
                                     {(node.tips || node.errors) && (
                                       <div className="space-y-2">
@@ -675,7 +661,6 @@ export default function ProcessDetailViewPage() {
                                 </div>
                               </div>
 
-                              {/* Outbound Footer */}
                               {successors.length > 0 && (
                                 <div className="bg-slate-50/80 p-3 border-t flex flex-wrap justify-center gap-2">
                                   {successors.map((s, idx) => (

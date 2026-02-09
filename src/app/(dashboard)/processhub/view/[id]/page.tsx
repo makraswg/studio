@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
@@ -6,11 +5,12 @@ import { useParams, useRouter } from 'next/navigation';
 import { 
   Workflow, 
   ChevronLeft, 
+  ChevronRight,
+  ChevronDown,
   Loader2, 
   ShieldCheck,
   Activity, 
   RefreshCw, 
-  ChevronRight,
   ListChecks,
   Network,
   ExternalLink,
@@ -393,8 +393,7 @@ export default function ProcessDetailViewPage() {
                   <h3 className="font-headline font-black text-sm md:text-base text-slate-900 uppercase tracking-tight truncate">{node.title}</h3>
                   <Badge variant="outline" className={cn(
                     "text-[8px] font-black h-4 px-1.5 border-none shadow-none uppercase",
-                    node.type === 'decision' ? "bg-amber-100 text-amber-700" : 
-                    node.type === 'subprocess' ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500"
+                    node.type === 'decision' ? 'Entscheidung' : node.type === 'step' ? 'Prozessschritt' : node.type
                   )}>{node.type === 'decision' ? 'Entscheidung' : node.type === 'step' ? 'Prozessschritt' : node.type}</Badge>
                 </div>
                 <div className="flex flex-wrap gap-2 items-center">

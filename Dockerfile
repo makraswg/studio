@@ -22,6 +22,7 @@ ENV NEXT_TELEMETRY_DISABLED 1
 # Erstelle den public Ordner falls er fehlt (für den Build-Schritt)
 RUN mkdir -p public
 
+# Force rebuild by adding a comment
 RUN npm run build
 
 # Stage 3: Runner

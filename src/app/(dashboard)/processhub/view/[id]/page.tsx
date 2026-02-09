@@ -52,7 +52,9 @@ import {
   Circle,
   PlayCircle,
   StopCircle,
-  HelpCircle
+  HelpCircle,
+  MoreHorizontal,
+  Split
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -136,7 +138,7 @@ export default function ProcessDetailViewPage() {
   
   // Interactive Flow States
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
-  const [connectionPaths, setConnectionPaths] = useState<{ path: string, highlight: boolean }[]>([]);
+  const [connectionPaths, setConnectionPaths] = useState<{ path: string, highlight: boolean, label?: string }[]>([]);
 
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
@@ -148,8 +150,6 @@ export default function ProcessDetailViewPage() {
   const { data: allRisks } = usePluggableCollection<Risk>('risks');
   const { data: media } = usePluggableCollection<any>('media');
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
-  const { data: subjectGroups } = usePluggableCollection<DataSubjectGroup>('dataSubjectGroups');
-  const { data: dataCategories } = usePluggableCollection<DataCategory>('dataCategories');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const currentDept = useMemo(() => 
@@ -197,12 +197,17 @@ export default function ProcessDetailViewPage() {
     return Array.from(resourceIds).map(rid => resources.find(r => r.id === rid)).filter(Boolean);
   }, [activeVersion, resources]);
 
-  const structuredLevels = useMemo(() => {
+  /**
+   * Calculates structural levels for the BPMN-style grid.
+   * Assigns level (row) and column index to each node based on logical flow.
+   */
+  const structuredGrid = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
     const edges = activeVersion.model_json.edges || [];
     
     const nodeToLevel: Record<string, number> = {};
+    const nodeToColumn: Record<string, number> = {};
     
     // 1. Initial leveling (Topological inspired)
     nodes.forEach(node => {
@@ -224,17 +229,20 @@ export default function ProcessDetailViewPage() {
         if (srcLevel !== undefined) {
           const targetLevel = srcLevel + 1;
           if (nodeToLevel[edge.target] === undefined || nodeToLevel[edge.target] < targetLevel) {
-            if (targetLevel < nodes.length) {
-              nodeToLevel[edge.target] = targetLevel;
-              changed = true;
-            }
+            nodeToLevel[edge.target] = targetLevel;
+            changed = true;
           }
         }
       });
     }
 
+    // 2. Column Assignment for Branching
+    const levelCounts: Record<number, number> = {};
     nodes.forEach(node => {
-      if (nodeToLevel[node.id] === undefined) nodeToLevel[node.id] = 0;
+      const l = nodeToLevel[node.id] || 0;
+      if (levelCounts[l] === undefined) levelCounts[l] = 0;
+      nodeToColumn[node.id] = levelCounts[l];
+      levelCounts[l]++;
     });
 
     const levelGroups: Record<number, ProcessNode[]> = {};
@@ -271,14 +279,14 @@ export default function ProcessDetailViewPage() {
   };
 
   const updateFlowLines = useCallback(() => {
-    if (!activeVersion || viewMode !== 'guide' || guideSubMode !== 'list' || !containerRef.current) {
+    if (!activeVersion || viewMode !== 'guide' || !containerRef.current) {
       setConnectionPaths([]);
       return;
     }
 
     const containerRect = containerRef.current.getBoundingClientRect();
     const edges = activeVersion.model_json.edges || [];
-    const newPaths: { path: string, highlight: boolean }[] = [];
+    const newPaths: { path: string, highlight: boolean, label?: string }[] = [];
 
     edges.forEach(edge => {
       const sourceEl = document.getElementById(`card-${edge.source}`);
@@ -288,24 +296,20 @@ export default function ProcessDetailViewPage() {
         const sourceRect = sourceEl.getBoundingClientRect();
         const targetRect = targetEl.getBoundingClientRect();
 
-        const sourceMidX = sourceRect.left - containerRect.left + 5; 
-        const sourceMidY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
-        const targetMidX = targetRect.left - containerRect.left + 5;
-        const targetMidY = targetRect.top - containerRect.top + (targetRect.height / 2);
+        const sX = sourceRect.left - containerRect.left + (sourceRect.width / 2);
+        const sY = sourceRect.top - containerRect.top + sourceRect.height;
+        const tX = targetRect.left - containerRect.left + (targetRect.width / 2);
+        const tY = targetRect.top - containerRect.top;
 
-        const cp1x = sourceMidX - 120;
-        const cp1y = sourceMidY;
-        const cp2x = targetMidX - 120;
-        const cp2y = targetMidY;
-
-        const path = `M ${sourceMidX} ${sourceMidY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${targetMidX} ${targetMidY}`;
-        const isHighlighted = activeNodeId === edge.source || activeNodeId === edge.target;
-        newPaths.push({ path, highlight: isHighlighted });
+        // Straight or slightly curved vertical path
+        const path = `M ${sX} ${sY} L ${sX} ${sY + 20} L ${tX} ${tY - 20} L ${tX} ${tY}`;
+        const isHighlighted = activeNodeId === edge.source || activeNodeId === edge.target || !activeNodeId;
+        newPaths.push({ path, highlight: isHighlighted, label: edge.label });
       }
     });
 
     setConnectionPaths(newPaths);
-  }, [activeNodeId, activeVersion, viewMode, guideSubMode]);
+  }, [activeNodeId, activeVersion, viewMode]);
 
   useEffect(() => {
     setMounted(true);
@@ -315,7 +319,7 @@ export default function ProcessDetailViewPage() {
 
   useLayoutEffect(() => {
     updateFlowLines();
-  }, [activeNodeId, activeVersion, updateFlowLines]);
+  }, [activeNodeId, activeVersion, viewMode, guideSubMode, updateFlowLines]);
 
   const syncDiagram = useCallback(() => {
     if (!iframeRef.current || !activeVersion || viewMode !== 'diagram') return;
@@ -341,7 +345,6 @@ export default function ProcessDetailViewPage() {
 
   const BpmnNode = ({ node, index, isActive }: { node: ProcessNode, index: number, isActive: boolean }) => {
     const roleName = getFullRoleName(node.roleId);
-    const nodeLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id);
     const nodeResources = resources?.filter(r => node.resourceIds?.includes(r.id));
     
     const successors = activeVersion.model_json.edges
@@ -354,10 +357,9 @@ export default function ProcessDetailViewPage() {
 
     const targetProc = node.targetProcessId ? processes?.find(p => p.id === node.targetProcessId) : null;
 
-    // Semantic BPMN Shapes
     if (node.type === 'start') {
       return (
-        <div className="flex flex-col items-center gap-2 group cursor-pointer" onClick={() => setActiveNodeId(isActive ? null : node.id)}>
+        <div id={`card-${node.id}`} className="flex flex-col items-center gap-2 group cursor-pointer" onClick={() => setActiveNodeId(isActive ? null : node.id)}>
           <div className={cn(
             "w-12 h-12 rounded-full border-2 border-emerald-500 bg-white flex items-center justify-center transition-all shadow-md group-hover:scale-110",
             isActive && "ring-4 ring-emerald-500/20 bg-emerald-50"
@@ -371,7 +373,7 @@ export default function ProcessDetailViewPage() {
 
     if (node.type === 'end') {
       return (
-        <div className="flex flex-col items-center gap-2 group cursor-pointer" onClick={() => setActiveNodeId(isActive ? null : node.id)}>
+        <div id={`card-${node.id}`} className="flex flex-col items-center gap-2 group cursor-pointer" onClick={() => setActiveNodeId(isActive ? null : node.id)}>
           <div className={cn(
             "w-12 h-12 rounded-full border-4 border-red-600 bg-white flex items-center justify-center transition-all shadow-md group-hover:scale-110",
             isActive && "ring-4 ring-red-600/20 bg-red-50"
@@ -385,7 +387,7 @@ export default function ProcessDetailViewPage() {
 
     if (node.type === 'decision') {
       return (
-        <div className="flex flex-col items-center gap-4 group cursor-pointer" onClick={() => setActiveNodeId(isActive ? null : node.id)}>
+        <div id={`card-${node.id}`} className="flex flex-col items-center gap-4 group cursor-pointer" onClick={() => setActiveNodeId(isActive ? null : node.id)}>
           <div className={cn(
             "w-16 h-16 bg-white border-2 border-amber-500 rotate-45 flex items-center justify-center transition-all shadow-lg group-hover:scale-105",
             isActive && "ring-4 ring-amber-500/20 bg-amber-50"
@@ -396,17 +398,14 @@ export default function ProcessDetailViewPage() {
           </div>
           <div className="text-center space-y-1">
             <span className="text-[11px] font-black uppercase text-amber-700 block tracking-tight leading-none px-2">{node.title}</span>
-            {successors.map((s, idx) => (
-              <Badge key={idx} variant="outline" className="bg-white text-[8px] font-black uppercase border-amber-200 text-amber-600 h-4 px-1">{s.edge.label || 'Weg'}</Badge>
-            ))}
           </div>
         </div>
       );
     }
 
-    // Standard Step or Subprocess
     return (
       <Card 
+        id={`card-${node.id}`}
         className={cn(
           "w-full max-w-sm rounded-xl border shadow-md overflow-hidden transition-all bg-white group cursor-pointer",
           isActive ? "ring-4 ring-primary/20 border-primary shadow-xl" : "hover:border-primary/30",
@@ -455,22 +454,6 @@ export default function ProcessDetailViewPage() {
             <Button size="sm" variant="outline" className="w-full h-7 rounded-lg text-[8px] font-black uppercase border-indigo-200 text-indigo-700 bg-indigo-50/50 hover:bg-indigo-50 transition-all gap-1" onClick={(e) => { e.stopPropagation(); router.push(`/processhub/view/${node.targetProcessId}`); }}>
               <ExternalLink className="w-2.5 h-2.5" /> Referenz: {targetProc.title}
             </Button>
-          )}
-
-          {successors.length > 0 && (
-            <div className="flex flex-wrap gap-1 pt-2 border-t mt-2">
-              {successors.map((s, idx) => (
-                <Button 
-                  key={idx} 
-                  variant="ghost" 
-                  className="h-6 rounded-md px-2 border bg-white shadow-sm gap-1 hover:bg-slate-50 transition-all"
-                  onClick={(e) => { e.stopPropagation(); document.getElementById(s.node?.id || '')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setActiveNodeId(s.node?.id || null); }}
-                >
-                  <span className="text-[8px] font-black uppercase text-slate-400">{s.node?.title}</span>
-                  <ArrowRightCircle className="w-2.5 h-2.5 text-slate-300" />
-                </Button>
-              ))}
-            </div>
           )}
         </CardContent>
       </Card>
@@ -597,7 +580,7 @@ export default function ProcessDetailViewPage() {
               className="h-8 rounded-lg text-[9px] font-black uppercase px-3"
               onClick={() => setGuideSubMode('structured')}
             >
-              <LayoutGrid className="w-3.5 h-3.5 mr-1.5" /> Struktur
+              <LayoutGrid className="w-3.5 h-3.5 mr-1.5" /> Struktur (BPMN)
             </Button>
           </div>
 
@@ -682,110 +665,61 @@ export default function ProcessDetailViewPage() {
           ) : (
             <div className="flex-1 flex flex-col min-h-0 relative" ref={containerRef}>
               <ScrollArea className="flex-1">
-                {guideSubMode === 'list' ? (
-                  <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32 relative">
-                    <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
-                      <defs>
-                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                          <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary/40" />
-                        </marker>
-                      </defs>
-                      {connectionPaths.map((pathObj, i) => (
+                <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-24 pb-64 relative">
+                  {/* Global Flow Lines SVG Overlay */}
+                  <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
+                    <defs>
+                      <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-slate-400" />
+                      </marker>
+                    </defs>
+                    {connectionPaths.map((pathObj, i) => (
+                      <g key={i}>
                         <path 
-                          key={i} 
                           d={pathObj.path} 
                           fill="none" 
                           stroke="currentColor" 
-                          strokeWidth={pathObj.highlight ? "3" : "1.5"} 
-                          strokeDasharray={pathObj.highlight ? "0" : "4 2"}
+                          strokeWidth="2" 
                           className={cn(
                             "transition-all duration-500",
                             pathObj.highlight ? "text-primary opacity-60" : "text-slate-300 opacity-10"
                           )}
-                          markerEnd={pathObj.highlight ? "url(#arrowhead)" : ""}
+                          markerEnd="url(#arrowhead)"
                         />
-                      ))}
-                    </svg>
-
-                    <div className="space-y-12 relative">
-                      <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-200 z-0" />
-                      {activeVersion?.model_json?.nodes?.map((node: ProcessNode, i: number) => (
-                        <div key={node.id} className={cn("relative z-10 pl-12")} id={node.id}>
-                          <div className={cn(
-                            "absolute left-0 w-10 h-10 rounded-xl flex items-center justify-center border-4 border-slate-50 shadow-sm z-20 transition-all cursor-pointer",
-                            activeNodeId === node.id ? "scale-125 ring-4 ring-primary/20" : "hover:scale-110",
-                            node.type === 'start' ? "bg-emerald-500 text-white" : 
-                            node.type === 'end' ? "bg-red-500 text-white" : 
-                            node.type === 'decision' ? "bg-amber-500 text-white" : "bg-white text-slate-900 border-slate-200"
-                          )} onClick={() => setActiveNodeId(activeNodeId === node.id ? null : node.id)}>
-                            {node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
-                             node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> :
-                             node.type === 'decision' ? <GitBranch className="w-5 h-5" /> :
-                             <span className="font-headline font-black text-sm">{i + 1}</span>}
-                          </div>
-                          
-                          <Card 
-                            id={`card-${node.id}`}
-                            className={cn(
-                              "rounded-2xl border shadow-sm overflow-hidden group transition-all bg-white duration-300",
-                              activeNodeId === node.id ? "ring-2 ring-primary border-primary/40 shadow-xl" : "hover:border-primary/20"
-                            )}
-                            onClick={() => setActiveNodeId(activeNodeId === node.id ? null : node.id)}
+                        {pathObj.label && pathObj.highlight && (
+                          <text 
+                            className="text-[8px] font-black uppercase fill-slate-400"
+                            dy="-5"
                           >
-                            <CardHeader className="p-4 bg-white border-b flex flex-row items-center justify-between">
-                              <div className="min-w-0 flex-1">
-                                <h3 className="font-headline font-black text-base text-slate-900 uppercase truncate">{node.title}</h3>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge variant="outline" className="bg-primary/5 text-primary border-none text-[8px] font-black h-4 px-1.5 uppercase">{getFullRoleName(node.roleId)}</Badge>
-                                  {node.resourceIds?.map(rid => (
-                                    <Badge key={rid} variant="outline" className="text-[7px] font-bold text-slate-400 border-slate-100 h-4 px-1">{resources?.find(r => r.id === rid)?.name}</Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            </CardHeader>
-                            <CardContent className="p-4 space-y-4">
-                              {node.description && <p className="text-xs text-slate-600 leading-relaxed italic">"{node.description}"</p>}
-                              {node.checklist && node.checklist.length > 0 && (
-                                <div className="grid grid-cols-1 gap-1.5">
-                                  {node.checklist.map((item, idx) => (
-                                    <div key={idx} className="flex items-center gap-2 text-[11px] font-bold text-slate-700 bg-slate-50 p-2 rounded-lg border">
-                                      <CheckCircle className="w-3 h-3 text-emerald-500" /> {item}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </CardContent>
-                          </Card>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-12 md:p-20 space-y-24 pb-64">
-                    {structuredLevels.map((levelNodes, levelIdx) => (
-                      <div key={levelIdx} className="relative">
-                        {levelIdx < structuredLevels.length - 1 && (
-                          <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-20">
-                            <div className="w-0.5 h-12 bg-slate-400" />
-                            <ArrowDown className="w-4 h-4 text-slate-400" />
-                          </div>
+                            <textPath href={`#path-${i}`} startOffset="50%" textAnchor="middle">
+                              {pathObj.label}
+                            </textPath>
+                          </text>
                         )}
-                        
-                        <div className={cn(
-                          "grid gap-12 items-center justify-center",
-                          levelNodes.length === 1 ? "grid-cols-1 max-w-md mx-auto" : 
-                          levelNodes.length === 2 ? "grid-cols-2 max-w-4xl mx-auto" : "grid-cols-3 max-w-6xl mx-auto"
-                        )}>
+                      </g>
+                    ))}
+                  </svg>
+
+                  <div className="space-y-32 relative z-10">
+                    {guideSubMode === 'structured' ? (
+                      structuredGrid.map((levelNodes, levelIdx) => (
+                        <div key={levelIdx} className="grid gap-12 items-center justify-center" style={{ gridTemplateColumns: `repeat(${levelNodes.length}, minmax(300px, 1fr))` }}>
                           {levelNodes.map((node, nodeIdx) => (
                             <div key={node.id} className="flex justify-center">
                               <BpmnNode node={node} index={nodeIdx} isActive={activeNodeId === node.id} />
                             </div>
                           ))}
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      activeVersion?.model_json?.nodes?.map((node: ProcessNode, i: number) => (
+                        <div key={node.id} className="flex justify-center">
+                          <BpmnNode node={node} index={i} isActive={activeNodeId === node.id} />
+                        </div>
+                      ))
+                    )}
                   </div>
-                )}
+                </div>
               </ScrollArea>
             </div>
           )}

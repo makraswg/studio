@@ -354,6 +354,27 @@ export default function ProcessDetailViewPage() {
     return () => clearTimeout(timer);
   }, [activeNodeId, activeVersion, viewMode, guideMode, updateFlowLines]);
 
+  // AUTO-RECENTERING LOGIC WHEN SWITCHING MODES
+  useEffect(() => {
+    if (!mounted || !scrollAreaRef.current) return;
+
+    if (guideMode === 'structure') {
+      // Re-center horizontally on switch to structure
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        setTimeout(() => {
+          scrollContainer.scrollLeft = (scrollContainer.scrollWidth - scrollContainer.clientWidth) / 2;
+          scrollContainer.scrollTop = 0;
+        }, 50);
+      }
+    } else {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollLeft = 0;
+      }
+    }
+  }, [guideMode, mounted]);
+
   const syncDiagram = useCallback(() => {
     if (!iframeRef.current || !activeVersion || viewMode !== 'diagram') return;
     const xml = generateMxGraphXml(activeVersion.model_json, activeVersion.layout_json, processes);
@@ -382,8 +403,6 @@ export default function ProcessDetailViewPage() {
       setTimeout(() => {
         const el = document.getElementById(`card-${nodeId}`);
         if (el) {
-          // In der Strukturansicht horizontal und vertikal zentrieren, 
-          // in der Liste nur vertikal, um horizontalen Versatz zu vermeiden.
           el.scrollIntoView({ 
             behavior: 'smooth', 
             block: 'center', 
@@ -684,7 +703,7 @@ export default function ProcessDetailViewPage() {
           </ScrollArea>
         </aside>
 
-        <main className="flex-1 flex flex-col bg-slate-100 relative">
+        <main className="flex-1 flex flex-col bg-slate-100 relative min-w-0">
           {viewMode === 'diagram' ? (
             <div className="flex-1 bg-white relative overflow-hidden shadow-inner">
               <iframe ref={iframeRef} src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json" className="absolute inset-0 w-full h-full border-none" />
@@ -764,7 +783,8 @@ export default function ProcessDetailViewPage() {
               </div>
             </ScrollArea>
           ) : (
-            <div className="flex-1 flex flex-col min-h-0 relative">
+            <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
+              {/* STICKY MODE BUTTONS - Outside ScrollArea to stay visible */}
               <div className="absolute top-6 right-8 z-30 bg-white/90 backdrop-blur shadow-xl border rounded-xl p-1.5 flex gap-1">
                 <Button variant={guideMode === 'list' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase" onClick={() => setGuideMode('list')}>Liste</Button>
                 <Button variant={guideMode === 'structure' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase" onClick={() => setGuideMode('structure')}>Struktur (BPMN)</Button>
@@ -773,8 +793,8 @@ export default function ProcessDetailViewPage() {
               <ScrollArea className="flex-1" ref={scrollAreaRef}>
                 <div 
                   className={cn(
-                    "p-6 md:p-10 mx-auto space-y-12 pb-32 relative min-h-[1000px]",
-                    guideMode === 'structure' ? "min-w-[1200px]" : "max-w-5xl w-full pl-20"
+                    "p-6 md:p-10 mx-auto space-y-12 pb-32 relative min-h-[1000px] transition-all duration-500",
+                    guideMode === 'structure' ? "min-w-[1400px]" : "max-w-5xl w-full pl-20"
                   )} 
                   ref={containerRef}
                 >

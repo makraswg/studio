@@ -34,6 +34,7 @@ import {
   FileCheck,
   UserCircle,
   ArrowUp,
+  ArrowDown,
   ClipboardCheck,
   ShieldAlert,
   X,
@@ -957,8 +958,8 @@ export default function ProcessDetailViewPage() {
               )}
             </div>
           </ScrollArea>
-        </main>
-      </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!selectedLogEntry} onOpenChange={(open) => !open && setSelectedLogEntry(null)}>
         <DialogContent className="max-w-4xl w-[95vw] h-[80vh] rounded-3xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">

@@ -42,7 +42,9 @@ import {
   ArrowLeftRight,
   ShieldAlert,
   X,
-  Scale
+  Scale,
+  FileJson,
+  ArrowDown
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -60,6 +62,7 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { updateProcessMetadataAction } from '@/app/actions/process-actions';
 import { toast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 export default function ProcessDetailViewPage() {
   const { id } = useParams();
@@ -68,13 +71,16 @@ export default function ProcessDetailViewPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'structure' | 'risks'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'structure' | 'risks' | 'history'>('list');
   const [selectedVersionNum, setSelectedVersionNum] = useState<number | null>(null);
   const [isUpdatingVvt, setIsUpdatingVvt] = useState(false);
   
   // Interactive Flow States
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [allPaths, setAllPaths] = useState<{ id: string, path: string, label?: string, isActive: boolean, isConnectedToActive: boolean }[]>([]);
+
+  // History / Diff States
+  const [selectedLogEntry, setSelectedLogEntry] = useState<any>(null);
 
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
@@ -88,6 +94,7 @@ export default function ProcessDetailViewPage() {
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
   const { data: subjectGroups } = usePluggableCollection<DataSubjectGroup>('dataSubjectGroups');
   const { data: dataCategories } = usePluggableCollection<DataCategory>('dataCategories');
+  const { data: auditLogs } = usePluggableCollection<any>('auditEvents');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const currentDept = useMemo(() => 
@@ -104,6 +111,13 @@ export default function ProcessDetailViewPage() {
     if (selectedVersionNum === null) return allProcessVersions[0];
     return allProcessVersions.find((v: any) => v.version === selectedVersionNum);
   }, [allProcessVersions, selectedVersionNum]);
+
+  const processAuditLogs = useMemo(() => {
+    if (!auditLogs) return [];
+    return auditLogs
+      .filter((log: any) => log.entityType === 'process' && log.entityId === id)
+      .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [auditLogs, id]);
 
   const risksData = useMemo(() => {
     if (!allRisks || !currentProcess || !activeVersion) return { direct: [], inherited: [], maxScore: 0 };
@@ -452,11 +466,13 @@ export default function ProcessDetailViewPage() {
                     </Label>
                     <div className="grid grid-cols-1 gap-2">
                       {node.checklist.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-100 group/item hover:border-emerald-200 transition-all cursor-pointer">
-                          <div className="w-5 h-5 rounded-md border border-slate-200 flex items-center justify-center shrink-0 group-hover/item:bg-emerald-500 group-hover/item:border-emerald-500 transition-all">
-                            <CheckCircle className="w-3.5 h-3.5 text-transparent group-hover/item:text-white" />
+                        <div key={idx} className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-100 group/item hover:border-emerald-200 transition-all">
+                          <div className="flex items-center gap-3">
+                            <div className="w-5 h-5 rounded-md border border-slate-200 flex items-center justify-center shrink-0 group-hover/item:bg-emerald-500 group-hover/item:border-emerald-500 transition-all">
+                              <CheckCircle className="w-3.5 h-3.5 text-transparent group-hover/item:text-white" />
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-700 leading-tight">{item}</span>
                           </div>
-                          <span className="text-[11px] font-bold text-slate-700 leading-tight">{item}</span>
                         </div>
                       ))}
                     </div>
@@ -528,17 +544,29 @@ export default function ProcessDetailViewPage() {
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <h1 className="text-lg font-headline font-bold tracking-tight text-slate-900 truncate">{currentProcess?.title}</h1>
-              <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-full px-2 h-5 text-[10px] font-black uppercase tracking-widest">{currentProcess?.status}</Badge>
+              <div className="flex items-center gap-1.5">
+                <Select value={String(selectedVersionNum || activeVersion?.version || 1)} onValueChange={(v) => setSelectedVersionNum(parseInt(v))}>
+                  <SelectTrigger className="h-6 w-20 rounded-full border-none bg-slate-100 text-[10px] font-black uppercase px-2 shadow-none focus:ring-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-none shadow-2xl">
+                    {allProcessVersions.map(v => (
+                      <SelectItem key={v.id} value={String(v.version)} className="text-[10px] font-bold">V{v.version}.0</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-full px-2 h-5 text-[10px] font-black uppercase tracking-widest">{currentProcess?.status}</Badge>
+              </div>
             </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">V{activeVersion?.version}.0 • Leitfaden</p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="bg-slate-100 p-1 rounded-xl flex gap-1 border">
             <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('list')}><ListChecks className="w-3.5 h-3.5 mr-1.5" /> Leitfaden</Button>
-            <Button variant={viewMode === 'structure' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('structure')}><Network className="w-3.5 h-3.5 mr-1.5" /> Struktur (BPMN)</Button>
+            <Button variant={viewMode === 'structure' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('structure')}><Network className="w-3.5 h-3.5 mr-1.5" /> Struktur</Button>
             <Button variant={viewMode === 'risks' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('risks')}><ShieldAlert className="w-3.5 h-3.5 mr-1.5" /> Risikoanalyse</Button>
+            <Button variant={viewMode === 'history' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('history')}><History className="w-3.5 h-3.5 mr-1.5" /> Historie</Button>
           </div>
           <Button variant="outline" className="rounded-xl h-10 px-6 font-bold text-xs border-slate-200 gap-2 shadow-sm" onClick={() => router.push(`/processhub/${id}`)}><FileEdit className="w-4 h-4" /> Designer</Button>
         </div>
@@ -646,180 +674,254 @@ export default function ProcessDetailViewPage() {
                   </div>
                 </section>
               )}
-
-              <section className="space-y-3">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 border-b pb-2 flex items-center gap-2"><Server className="w-3.5 h-3.5" /> Involvierte Systeme</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {processResources.map((res: any) => (
-                    <Badge key={res.id} variant="outline" className="bg-white border-slate-100 text-[9px] font-bold h-6 px-2 text-slate-600 shadow-sm cursor-help" onClick={() => router.push(`/resources?search=${res.name}`)}>
-                      {res.name}
-                    </Badge>
-                  ))}
-                </div>
-              </section>
             </div>
           </ScrollArea>
         </aside>
 
         <main className="flex-1 flex flex-col bg-slate-100 relative min-w-0">
-          {viewMode === 'risks' ? (
-            <ScrollArea className="flex-1">
-              <div className="p-8 md:p-12 max-w-5xl mx-auto space-y-10 pb-32">
-                <div className="flex items-center justify-between border-b pb-6">
-                  <div className="flex items-center gap-4">
+          <ScrollArea className="flex-1" ref={scrollAreaRef}>
+            <div 
+              className={cn(
+                "p-6 md:p-10 mx-auto space-y-12 pb-32 relative min-h-[1000px] transition-all duration-500",
+                viewMode === 'structure' ? "min-w-[1400px]" : "max-w-5xl w-full pl-20"
+              )} 
+              ref={containerRef}
+              onClick={() => {
+                if (viewMode === 'structure' || viewMode === 'list') setActiveNodeId(null);
+              }}
+            >
+              <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
+                <defs>
+                  <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-slate-400" />
+                  </marker>
+                  <marker id="arrowhead-active" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary" />
+                  </marker>
+                </defs>
+                {allPaths.map((p) => (
+                  <g key={p.id}>
+                    <path 
+                      id={p.id}
+                      d={p.path} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth={p.isActive ? "4" : "2"} 
+                      strokeDasharray={viewMode === 'list' ? "4 2" : "none"}
+                      className={cn(
+                        p.isActive ? "text-primary z-30 opacity-100" : cn("text-slate-300 z-0", activeNodeId ? "opacity-20" : "opacity-40"),
+                        "transition-all duration-500"
+                      )}
+                      markerEnd={p.isActive ? "url(#arrowhead-active)" : "url(#arrowhead)"}
+                    />
+                    {p.label && viewMode === 'structure' && (
+                      <text 
+                        className={cn("text-[9px] font-black uppercase", p.isActive ? "text-primary" : "text-slate-400 opacity-40")}
+                        dy="-5"
+                        fill="currentColor"
+                        style={{ 
+                          paintOrder: 'stroke', 
+                          stroke: 'white', 
+                          strokeWidth: '4px', 
+                          textAnchor: 'middle'
+                        }}
+                      >
+                        <textPath href={`#${p.id}`} startOffset="50%">{p.label}</textPath>
+                      </text>
+                    )}
+                  </g>
+                ))}
+              </svg>
+
+              {viewMode === 'list' && (
+                <div className="space-y-12 relative">
+                  <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-200 z-0" />
+                  {activeVersion?.model_json?.nodes?.map((node: ProcessNode, i: number) => (
+                    <GuideCard key={node.id} node={node} index={i} />
+                  ))}
+                </div>
+              )}
+
+              {viewMode === 'structure' && (
+                <div className="space-y-20 py-10 relative">
+                  {structuredFlow.levels.map((row, rowIdx) => (
+                    <div key={rowIdx} className="relative flex justify-center gap-16 min-h-[140px]">
+                      {row.map((node) => (
+                        <div key={node.id} className="relative flex flex-col items-center">
+                          <GuideCard node={node} index={0} compact={true} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {viewMode === 'risks' && (
+                <div className="space-y-10 animate-in fade-in">
+                  <div className="flex items-center gap-4 border-b pb-6">
                     <div className="w-14 h-14 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center shadow-sm">
                       <ShieldAlert className="w-8 h-8" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-headline font-bold uppercase tracking-tight text-slate-900">Risikoanalyse</h2>
-                      <p className="text-xs text-slate-500 font-medium">Betrachtung der prozessspezifischen Gefahrenlage.</p>
+                      <h2 className="text-2xl font-headline font-bold uppercase tracking-tight text-slate-900">Prozess-Risikoanalyse</h2>
+                      <p className="text-xs text-slate-500 font-medium">Betrachtung der spezifischen Gefahrenlage dieses Workflows.</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card className="rounded-2xl border shadow-sm overflow-hidden bg-white">
+                      <CardHeader className="bg-slate-50/50 border-b p-6"><CardTitle className="text-sm font-bold flex items-center gap-2"><Target className="w-4 h-4 text-primary" /> Direkte Risiken</CardTitle></CardHeader>
+                      <CardContent className="p-0">
+                        {risksData.direct.length === 0 ? <div className="p-10 text-center opacity-30 italic text-xs">Keine direkten Risiken.</div> : (
+                          <div className="divide-y divide-slate-50">{risksData.direct.map(r => (
+                            <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks/${r.id}`)}>
+                              <div className="flex items-center gap-3"><Badge className={cn("h-6 w-8 justify-center rounded-md font-black text-[10px] border-none",(r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white")}>{r.impact * r.probability}</Badge><span className="text-[11px] font-bold text-slate-800">{r.title}</span></div>
+                              <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
+                            </div>
+                          ))}</div>
+                        )}
+                      </CardContent>
+                    </Card>
+                    <Card className="rounded-2xl border shadow-sm overflow-hidden bg-white">
+                      <CardHeader className="bg-indigo-50/30 border-b p-6"><CardTitle className="text-sm font-bold flex items-center gap-2 text-indigo-900"><Layers className="w-4 h-4 text-indigo-600" /> System-Risiken</CardTitle></CardHeader>
+                      <CardContent className="p-0">
+                        {risksData.inherited.length === 0 ? <div className="p-10 text-center opacity-30 italic text-xs">Keine systembedingten Risiken.</div> : (
+                          <div className="divide-y divide-slate-50">{risksData.inherited.map(r => (
+                            <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks/${r.id}`)}>
+                              <div className="flex items-center gap-3"><Badge className={cn("h-6 w-8 justify-center rounded-md font-black text-[10px] border-none",(r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white")}>{r.impact * r.probability}</Badge><span className="text-[11px] font-bold text-slate-800">{r.title}</span></div>
+                              <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
+                            </div>
+                          ))}</div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              )}
+
+              {viewMode === 'history' && (
+                <div className="space-y-10 animate-in fade-in max-w-4xl mx-auto">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center shadow-sm">
+                        <History className="w-8 h-8" />
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-headline font-bold uppercase tracking-tight text-slate-900">Versionshistorie</h2>
+                        <p className="text-xs text-slate-500 font-medium">Lückenlose Aufzeichnung aller strukturellen Änderungen.</p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="rounded-full font-black text-[10px] h-6 px-3">{allProcessVersions.length} Versionen im Archiv</Badge>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="md:col-span-1 space-y-4">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Verfügbare Versionen</Badge>
+                      <div className="space-y-2">
+                        {allProcessVersions.map(v => (
+                          <div 
+                            key={v.id} 
+                            className={cn(
+                              "p-4 rounded-xl border flex items-center justify-between transition-all cursor-pointer group",
+                              activeVersion?.id === v.id ? "bg-white border-primary ring-2 ring-primary/5 shadow-md" : "bg-white border-slate-100 hover:border-slate-300"
+                            )}
+                            onClick={() => setSelectedVersionNum(v.version)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black", activeVersion?.id === v.id ? "bg-primary text-white" : "bg-slate-50 text-slate-400")}>
+                                V{v.version}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-800">Revision {v.revision}</p>
+                                <p className="text-[9px] text-slate-400 font-medium">{new Date(v.created_at).toLocaleDateString()}</p>
+                              </div>
+                            </div>
+                            <ChevronRight className={cn("w-4 h-4 transition-all", activeVersion?.id === v.id ? "text-primary translate-x-1" : "text-slate-200 opacity-0 group-hover:opacity-100")} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2 space-y-6">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Änderungs-Logbuch (Audit Trail)</Label>
+                      <div className="relative">
+                        <div className="absolute left-[19px] top-0 bottom-0 w-0.5 bg-slate-200" />
+                        <div className="space-y-8 relative">
+                          {processAuditLogs.map((log: any) => (
+                            <div key={log.id} className="flex gap-6 group">
+                              <div className="relative z-10 w-10 h-10 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center shrink-0 shadow-sm group-hover:border-primary transition-all">
+                                <Activity className="w-4 h-4 text-slate-400 group-hover:text-primary" />
+                              </div>
+                              <div className="flex-1 pt-1 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(log.timestamp).toLocaleString()}</span>
+                                  <Badge className="bg-slate-100 text-slate-600 border-none text-[8px] font-bold h-4 px-1.5 uppercase">{log.actorUid}</Badge>
+                                </div>
+                                <div 
+                                  className="p-4 bg-white border rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group/card"
+                                  onClick={() => setSelectedLogEntry(log)}
+                                >
+                                  <p className="text-xs font-bold text-slate-800 group-hover/card:text-primary transition-colors">{log.action}</p>
+                                  {log.after && <Button variant="ghost" size="sm" className="h-6 text-[8px] font-black uppercase text-primary p-0 mt-2 gap-1.5 opacity-0 group-hover/card:opacity-100 transition-all"><FileJson className="w-3 h-3" /> Details / Diff anzeigen</Button>}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          {processAuditLogs.length === 0 && (
+                            <div className="py-20 text-center opacity-30 italic text-xs uppercase tracking-widest">Keine detaillierten Audit-Einträge gefunden.</div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card className="rounded-2xl border shadow-sm overflow-hidden bg-white">
-                    <CardHeader className="bg-slate-50/50 border-b p-6">
-                      <CardTitle className="text-sm font-bold flex items-center gap-2">
-                        <Target className="w-4 h-4 text-primary" /> Direkte Risiken
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      {risksData.direct.length === 0 ? (
-                        <div className="p-10 text-center opacity-30 italic text-xs">Keine direkten Risiken.</div>
-                      ) : (
-                        <div className="divide-y divide-slate-50">
-                          {risksData.direct.map(r => (
-                            <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks?search=${r.title}`)}>
-                              <div className="flex items-center gap-3">
-                                <Badge className={cn(
-                                  "h-6 w-8 justify-center rounded-md font-black text-[10px] border-none",
-                                  (r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white"
-                                )}>{r.impact * r.probability}</Badge>
-                                <span className="text-[11px] font-bold text-slate-800">{r.title}</span>
-                              </div>
-                              <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card className="rounded-2xl border shadow-sm overflow-hidden bg-white">
-                    <CardHeader className="bg-indigo-50/30 border-b p-6">
-                      <CardTitle className="text-sm font-bold flex items-center gap-2 text-indigo-900">
-                        <Layers className="w-4 h-4 text-indigo-600" /> Vererbte Risiken (Assets)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      {risksData.inherited.length === 0 ? (
-                        <div className="p-10 text-center opacity-30 italic text-xs">Keine systembedingten Risiken.</div>
-                      ) : (
-                        <div className="divide-y divide-slate-50">
-                          {risksData.inherited.map(r => (
-                            <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks?search=${r.title}`)}>
-                              <div className="flex items-center gap-3">
-                                <Badge className={cn(
-                                  "h-6 w-8 justify-center rounded-md font-black text-[10px] border-none",
-                                  (r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white"
-                                )}>{r.impact * r.probability}</Badge>
-                                <span className="text-[11px] font-bold text-slate-800">{r.title}</span>
-                              </div>
-                              <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </ScrollArea>
-          ) : (
-            <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
-              <ScrollArea className="flex-1" ref={scrollAreaRef}>
-                <div 
-                  className={cn(
-                    "p-6 md:p-10 mx-auto space-y-12 pb-32 relative min-h-[1000px] transition-all duration-500",
-                    viewMode === 'structure' ? "min-w-[1400px]" : "max-w-5xl w-full pl-20"
-                  )} 
-                  ref={containerRef}
-                  onClick={() => {
-                    if (viewMode === 'structure') setActiveNodeId(null);
-                  }}
-                >
-                  <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
-                    <defs>
-                      <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                        <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-slate-400" />
-                      </marker>
-                      <marker id="arrowhead-active" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                        <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary" />
-                      </marker>
-                    </defs>
-                    {allPaths.map((p) => (
-                      <g key={p.id}>
-                        <path 
-                          id={p.id}
-                          d={p.path} 
-                          fill="none" 
-                          stroke="currentColor" 
-                          strokeWidth={p.isActive ? "4" : "2"} 
-                          strokeDasharray={viewMode === 'list' ? "4 2" : "none"}
-                          className={cn(
-                            p.isActive ? "text-primary z-30 opacity-100" : cn("text-slate-300 z-0", activeNodeId ? "opacity-20" : "opacity-40"),
-                            "transition-all duration-500"
-                          )}
-                          markerEnd={p.isActive ? "url(#arrowhead-active)" : "url(#arrowhead)"}
-                        />
-                        {p.label && viewMode === 'structure' && (
-                          <text 
-                            className={cn("text-[9px] font-black uppercase", p.isActive ? "text-primary" : "text-slate-400 opacity-40")}
-                            dy="-5"
-                            fill="currentColor"
-                            style={{ 
-                              paintOrder: 'stroke', 
-                              stroke: 'white', 
-                              strokeWidth: '4px', 
-                              textAnchor: 'middle'
-                            }}
-                          >
-                            <textPath href={`#${p.id}`} startOffset="50%">{p.label}</textPath>
-                          </text>
-                        )}
-                      </g>
-                    ))}
-                  </svg>
-
-                  {viewMode === 'list' && (
-                    <div className="space-y-12 relative">
-                      <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-200 z-0" />
-                      {activeVersion?.model_json?.nodes?.map((node: ProcessNode, i: number) => (
-                        <GuideCard key={node.id} node={node} index={i} />
-                      ))}
-                    </div>
-                  )}
-
-                  {viewMode === 'structure' && (
-                    <div className="space-y-20 py-10 relative">
-                      {structuredFlow.levels.map((row, rowIdx) => (
-                        <div key={rowIdx} className="relative flex justify-center gap-16 min-h-[140px]">
-                          {row.map((node) => (
-                            <div key={node.id} className="relative flex flex-col items-center">
-                              <GuideCard node={node} index={0} compact={true} />
-                            </div>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
+              )}
             </div>
-          )}
+          </ScrollArea>
         </main>
       </div>
+
+      <Dialog open={!!selectedLogEntry} onOpenChange={(open) => !open && setSelectedLogEntry(null)}>
+        <DialogContent className="max-w-4xl w-[95vw] h-[80vh] rounded-3xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10">
+                <FileJson className="w-6 h-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Struktur-Diff & Details</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase truncate">{selectedLogEntry?.action}</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100 overflow-hidden">
+            <div className="flex flex-col min-h-0">
+              <div className="p-4 bg-slate-50 border-b flex items-center gap-2">
+                <ArrowUp className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-[10px] font-black uppercase text-slate-400">Vorher (Status Quo)</span>
+              </div>
+              <ScrollArea className="flex-1 p-6 bg-white">
+                <pre className="text-[10px] font-mono text-slate-500 leading-relaxed">
+                  {selectedLogEntry?.before ? JSON.stringify(selectedLogEntry.before, null, 2) : "// Keine Daten vorhanden"}
+                </pre>
+              </ScrollArea>
+            </div>
+            <div className="flex flex-col min-h-0">
+              <div className="p-4 bg-emerald-50/50 border-b flex items-center gap-2">
+                <ArrowDown className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-[10px] font-black uppercase text-emerald-600">Nachher (Änderung)</span>
+              </div>
+              <ScrollArea className="flex-1 p-6 bg-white">
+                <pre className="text-[10px] font-mono text-emerald-900 leading-relaxed">
+                  {selectedLogEntry?.after ? JSON.stringify(selectedLogEntry.after, null, 2) : "// Keine Daten vorhanden"}
+                </pre>
+              </ScrollArea>
+            </div>
+          </div>
+          <div className="p-4 bg-slate-50 border-t flex justify-end">
+            <Button className="rounded-xl h-10 px-8 font-bold text-xs" onClick={() => setSelectedLogEntry(null)}>Schließen</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   Workflow, 
@@ -62,7 +62,7 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { updateProcessMetadataAction } from '@/app/actions/process-actions';
 import { toast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { exportDetailedProcessPdf } from '@/lib/export-utils';
 
 export default function ProcessDetailViewPage() {
@@ -259,6 +259,7 @@ export default function ProcessDetailViewPage() {
           cp2x = tX;
           cp2y = (sY + tY) / 2;
         } else {
+          // Keep original list view bezier curves (left anchor, wide arc)
           sX = sourceRect.left - containerRect.left + 20; 
           sY = sourceRect.top - containerRect.top + 20;
           tX = targetRect.left - containerRect.left + 20;
@@ -296,10 +297,11 @@ export default function ProcessDetailViewPage() {
     return () => window.removeEventListener('resize', updateFlowLines);
   }, [updateFlowLines]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
+    if (!mounted) return;
     const timer = setTimeout(updateFlowLines, 100);
     return () => clearTimeout(timer);
-  }, [activeNodeId, activeVersion, viewMode, updateFlowLines]);
+  }, [activeNodeId, activeVersion, viewMode, updateFlowLines, mounted]);
 
   useEffect(() => {
     if (!mounted || !scrollAreaRef.current) return;
@@ -561,6 +563,8 @@ export default function ProcessDetailViewPage() {
 
   const ownerRole = useMemo(() => jobTitles?.find(j => j.id === currentProcess?.ownerRoleId), [jobTitles, currentProcess]);
 
+  if (!mounted) return null;
+
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body">
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
@@ -570,16 +574,18 @@ export default function ProcessDetailViewPage() {
             <div className="flex items-center gap-3">
               <h1 className="text-lg font-headline font-bold tracking-tight text-slate-900 truncate">{currentProcess?.title}</h1>
               <div className="flex items-center gap-1.5">
-                <Select value={String(selectedVersionNum || activeVersion?.version || 1)} onValueChange={(v) => setSelectedVersionNum(parseInt(v))}>
-                  <SelectTrigger className="h-6 w-20 rounded-full border-none bg-slate-100 text-[10px] font-black uppercase px-2 shadow-none focus:ring-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-none shadow-2xl">
-                    {allProcessVersions.map(v => (
-                      <SelectItem key={v.id} value={String(v.version)} className="text-[10px] font-bold">V{v.version}.0</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {mounted && (
+                  <Select value={String(selectedVersionNum || activeVersion?.version || 1)} onValueChange={(v) => setSelectedVersionNum(parseInt(v))}>
+                    <SelectTrigger className="h-6 w-20 rounded-full border-none bg-slate-100 text-[10px] font-black uppercase px-2 shadow-none focus:ring-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-none shadow-2xl">
+                      {allProcessVersions.map(v => (
+                        <SelectItem key={v.id} value={String(v.version)} className="text-[10px] font-bold">V{v.version}.0</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-full px-2 h-5 text-[10px] font-black uppercase tracking-widest">{currentProcess?.status}</Badge>
               </div>
             </div>
@@ -682,15 +688,17 @@ export default function ProcessDetailViewPage() {
                 <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 space-y-3 shadow-inner">
                   <div className="space-y-1">
                     <Label className="text-[8px] font-black uppercase text-slate-400">VVT-Bezug</Label>
-                    <Select value={currentProcess?.vvtId || 'none'} onValueChange={handleUpdateVvtLink} disabled={isUpdatingVvt}>
-                      <SelectTrigger className="h-8 rounded-lg bg-white border-emerald-100 text-[10px] font-bold px-2">
-                        <SelectValue placeholder="Wählen..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Kein Bezug</SelectItem>
-                        {vvts?.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    {mounted && (
+                      <Select value={currentProcess?.vvtId || 'none'} onValueChange={handleUpdateVvtLink} disabled={isUpdatingVvt}>
+                        <SelectTrigger className="h-8 rounded-lg bg-white border-emerald-100 text-[10px] font-bold px-2">
+                          <SelectValue placeholder="Wählen..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Kein Bezug</SelectItem>
+                          {vvts?.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                   {currentVvt && <p className="text-[9px] font-medium text-slate-600 leading-tight line-clamp-2 italic px-1">"{currentVvt.description}"</p>}
                 </div>

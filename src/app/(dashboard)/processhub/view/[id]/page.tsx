@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -40,7 +41,8 @@ import {
   Scale,
   FileJson,
   FileDown,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Save as SaveIcon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -58,7 +60,7 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { updateProcessMetadataAction } from '@/app/actions/process-actions';
 import { toast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { exportDetailedProcessPdf } from '@/lib/export-utils';
 
 export default function ProcessDetailViewPage() {
@@ -982,9 +984,9 @@ export default function ProcessDetailViewPage() {
               </ScrollArea>
             </div>
           </div>
-          <div className="p-4 bg-slate-50 border-t flex justify-end shrink-0">
+          <DialogFooter className="p-4 bg-slate-50 border-t flex justify-end shrink-0">
             <Button className="rounded-xl h-10 px-8 font-bold text-xs" onClick={() => setSelectedLogEntry(null)}>Schließen</Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

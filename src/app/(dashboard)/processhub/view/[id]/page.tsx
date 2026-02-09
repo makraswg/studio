@@ -448,7 +448,7 @@ export default function ProcessDetailViewPage() {
                         <SelectTrigger className="h-8 rounded-lg bg-white border-emerald-100 text-[10px] font-bold px-2" suppressHydrationWarning>
                           <SelectValue placeholder="Wählen..." />
                         </SelectTrigger>
-                        <SelectContent className="rounded-xl border-none shadow-2xl">
+                        <SelectContent>
                           <SelectItem value="none">Kein VVT-Bezug</SelectItem>
                           {vvts?.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
                         </SelectContent>

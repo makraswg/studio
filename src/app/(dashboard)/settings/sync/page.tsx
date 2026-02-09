@@ -16,7 +16,8 @@ import {
   Database,
   Building2,
   Activity,
-  ArrowRight
+  ArrowRight,
+  Save
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';

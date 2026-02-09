@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -10,29 +9,34 @@ import {
   Network, 
   RefreshCw, 
   Loader2, 
+  Play, 
   ShieldCheck, 
-  Save as SaveIcon, 
-  Activity, 
-  Search, 
-  Info,
-  Server,
-  KeyRound,
-  Database
+  Lock,
+  Globe,
+  Database,
+  Building2,
+  Activity,
+  ArrowRight,
+  Save
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { toast } from '@/hooks/use-toast';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { triggerSyncJobAction } from '@/app/actions/sync-actions';
 import { Tenant, SyncJob } from '@/lib/types';
-import { toast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+import { usePlatformAuth } from '@/context/auth-context';
 
 export default function SyncSettingsPage() {
   const { dataSource, activeTenantId } = useSettings();
+  const { user: authUser } = usePlatformAuth();
   const [isSaving, setIsSaving] = useState(false);
-  const [isSyncing, setIsSyncing] = useState<string | null>(null);
+  const [isJobRunning, setIsJobRunning] = useState<string | null>(null);
+  
   const [tenantDraft, setTenantDraft] = useState<Partial<Tenant>>({});
 
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<Tenant>('tenants');
@@ -49,7 +53,7 @@ export default function SyncSettingsPage() {
     try {
       const res = await saveCollectionRecord('tenants', tenantDraft.id, tenantDraft, dataSource);
       if (res.success) {
-        toast({ title: "Synchronisations-Profil gespeichert" });
+        toast({ title: "LDAP-Konfiguration gespeichert" });
         refreshTenants();
       }
     } finally {
@@ -57,16 +61,16 @@ export default function SyncSettingsPage() {
     }
   };
 
-  const handleRunSync = async (jobId: string) => {
-    setIsSyncing(jobId);
+  const handleRunJob = async (jobId: string) => {
+    setIsJobRunning(jobId);
     try {
-      const res = await triggerSyncJobAction(jobId, dataSource);
+      const res = await triggerSyncJobAction(jobId, dataSource, authUser?.email || 'system');
       if (res.success) {
-        toast({ title: "Synchronisation gestartet" });
+        toast({ title: "Job abgeschlossen" });
         refreshJobs();
       }
     } finally {
-      setIsSyncing(null);
+      setIsJobRunning(null);
     }
   };
 
@@ -75,22 +79,20 @@ export default function SyncSettingsPage() {
       <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
         <CardHeader className="p-8 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
           <div className="flex items-center gap-6">
-            <div className="w-14 h-14 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-600 shadow-sm border border-blue-100 dark:border-blue-900/30">
-              <RefreshCw className="w-7 h-7" />
+            <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
+              <Network className="w-7 h-7" />
             </div>
             <div>
-              <CardTitle className="text-xl font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Verzeichnis-Synchronisation</CardTitle>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1.5">Anbindung an Active Directory & LDAP Systeme</p>
+              <CardTitle className="text-xl font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">LDAP / Active Directory Sync</CardTitle>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1.5">Zentrale Identitäts-Synchronisation</p>
             </div>
           </div>
         </CardHeader>
-        
-        <CardContent className="p-8 space-y-12">
-          {/* LDAP Toggle */}
-          <div className="flex items-center justify-between p-6 bg-blue-50/50 dark:bg-slate-950 rounded-xl border border-blue-100 dark:border-blue-800">
+        <CardContent className="p-8 space-y-10">
+          <div className="flex items-center justify-between p-6 bg-primary/5 dark:bg-slate-950 rounded-xl border border-primary/10">
             <div className="space-y-1">
-              <Label className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase">LDAP/AD Integration aktiv</Label>
-              <p className="text-[10px] uppercase font-bold text-slate-400 italic">Ermöglicht den automatischen Abgleich von Identitäten und Gruppenmitgliedschaften.</p>
+              <Label className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase">LDAP Integration aktiv</Label>
+              <p className="text-[10px] uppercase font-bold text-slate-400 italic">Synchronisiert Identitäten und Abteilungen automatisch.</p>
             </div>
             <Switch 
               checked={!!tenantDraft.ldapEnabled} 
@@ -101,86 +103,134 @@ export default function SyncSettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-3">
               <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">LDAP Server URL</Label>
-              <div className="relative">
-                <Server className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                <Input value={tenantDraft.ldapUrl || ''} onChange={e => setTenantDraft({...tenantDraft, ldapUrl: e.target.value})} placeholder="ldap://ad.firma.local" className="rounded-xl h-12 pl-11 border-slate-200 dark:border-slate-800" />
-              </div>
+              <Input 
+                value={tenantDraft.ldapUrl || ''} 
+                onChange={e => setTenantDraft({...tenantDraft, ldapUrl: e.target.value})} 
+                placeholder="ldap://dc1.firma.local" 
+                className="rounded-xl h-12 border-slate-200 dark:border-slate-800" 
+              />
             </div>
             <div className="space-y-3">
               <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Port</Label>
-              <Input value={tenantDraft.ldapPort || ''} onChange={e => setTenantDraft({...tenantDraft, ldapPort: e.target.value})} placeholder="389 / 636" className="rounded-xl h-12 border-slate-200 dark:border-slate-800" />
+              <Input 
+                value={tenantDraft.ldapPort || ''} 
+                onChange={e => setTenantDraft({...tenantDraft, ldapPort: e.target.value})} 
+                placeholder="389 / 636" 
+                className="rounded-xl h-12 border-slate-200 dark:border-slate-800" 
+              />
             </div>
             <div className="space-y-3">
-              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Bind-User (DN)</Label>
-              <Input value={tenantDraft.ldapBindDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBindDn: e.target.value})} placeholder="cn=admin,dc=firma,dc=local" className="rounded-xl h-12 border-slate-200 dark:border-slate-800" />
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Base DN (Suche)</Label>
+              <Input 
+                value={tenantDraft.ldapBaseDn || ''} 
+                onChange={e => setTenantDraft({...tenantDraft, ldapBaseDn: e.target.value})} 
+                placeholder="OU=Users,DC=firma,DC=local" 
+                className="rounded-xl h-12 border-slate-200 dark:border-slate-800" 
+              />
             </div>
             <div className="space-y-3">
-              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Bind-Passwort</Label>
-              <Input type="password" value={tenantDraft.ldapBindPassword || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBindPassword: e.target.value})} className="rounded-xl h-12 border-slate-200 dark:border-slate-800 font-mono" />
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">User Filter</Label>
+              <Input 
+                value={tenantDraft.ldapUserFilter || ''} 
+                onChange={e => setTenantDraft({...tenantDraft, ldapUserFilter: e.target.value})} 
+                placeholder="(&(objectClass=user)(memberOf=...))" 
+                className="rounded-xl h-12 border-slate-200 dark:border-slate-800" 
+              />
             </div>
-            <div className="space-y-3 md:col-span-2">
-              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Base DN (User Search)</Label>
-              <Input value={tenantDraft.ldapBaseDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBaseDn: e.target.value})} placeholder="ou=Users,dc=firma,dc=local" className="rounded-xl h-12 border-slate-200 dark:border-slate-800" />
+          </div>
+
+          <div className="space-y-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+            <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-2 tracking-widest">
+              <Lock className="w-4 h-4 text-primary" /> Bind Credentials
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Bind DN (Nutzer)</Label>
+                <Input 
+                  value={tenantDraft.ldapBindDn || ''} 
+                  onChange={e => setTenantDraft({...tenantDraft, ldapBindDn: e.target.value})} 
+                  placeholder="CN=ServiceAccount,..." 
+                  className="rounded-xl h-12 border-slate-200 dark:border-slate-800" 
+                />
+              </div>
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Passwort</Label>
+                <Input 
+                  type="password"
+                  value={tenantDraft.ldapBindPassword || ''} 
+                  onChange={e => setTenantDraft({...tenantDraft, ldapBindPassword: e.target.value})} 
+                  className="rounded-xl h-12 border-slate-200 dark:border-slate-800 font-mono" 
+                />
+              </div>
             </div>
           </div>
 
           <div className="flex justify-end pt-8 border-t border-slate-100 dark:border-slate-800">
-            <Button 
-              onClick={handleSaveLdap} 
-              disabled={isSaving} 
-              className="rounded-xl font-black uppercase text-xs tracking-[0.1em] h-12 px-12 gap-3 bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-95"
-            >
-              {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <SaveIcon className="w-5 h-5" />}
-              Profil Speichern
+            <Button onClick={handleSaveLdap} disabled={isSaving} className="rounded-xl font-black uppercase text-xs tracking-[0.1em] h-12 px-16 gap-3 bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-95">
+              {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+              LDAP Einstellungen Speichern
             </Button>
           </div>
         </CardContent>
       </Card>
 
       <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-        <CardHeader className="p-8 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
+        <CardHeader className="p-6 bg-slate-50 dark:bg-slate-900/50 border-b flex flex-row items-center justify-between">
           <div className="flex items-center gap-4">
-            <Activity className="w-6 h-6 text-primary" />
-            <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight">Geplante Aufgaben (Sync Jobs)</CardTitle>
+            <div className="w-10 h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center text-indigo-600 shadow-inner">
+              <Database className="w-5 h-5" />
+            </div>
+            <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white">System-Jobs & Automatisierung</CardTitle>
           </div>
+          <Badge className="bg-emerald-100 text-emerald-700 border-none rounded-full text-[8px] font-black uppercase h-5 px-3">Real-time Monitor</Badge>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {syncJobs?.map(job => (
-              <div key={job.id} className="p-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
-                <div className="flex items-center gap-5">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-primary transition-colors">
-                    <Database className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-sm text-slate-800 dark:text-slate-100">{job.name}</span>
+          <Table>
+            <TableHeader className="bg-slate-50/30">
+              <TableRow className="border-slate-100 dark:border-slate-800">
+                <TableHead className="py-4 px-6 text-[9px] font-black uppercase text-slate-400 tracking-widest">Sync-Job</TableHead>
+                <TableHead className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Letzter Lauf</TableHead>
+                <TableHead className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Status</TableHead>
+                <TableHead className="text-right px-6"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[ 
+                { id: 'job-ldap-sync', name: 'LDAP / AD Identitäten-Sync', desc: 'Abgleich der Aufbauorganisation' }, 
+                { id: 'job-jira-sync', name: 'Jira Gateway Warteschlange', desc: 'Ticket-Status-Abfrage' } 
+              ].map(job => {
+                const dbJob = syncJobs?.find(j => j.id === job.id);
+                const isRunning = isJobRunning === job.id;
+                return (
+                  <TableRow key={job.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-slate-100 dark:border-slate-800">
+                    <TableCell className="py-4 px-6">
+                      <div>
+                        <div className="text-sm font-bold text-slate-800 dark:text-slate-100">{job.name}</div>
+                        <div className="text-[10px] text-slate-400 font-medium italic mt-0.5">{job.desc}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                      {dbJob?.lastRun ? new Date(dbJob.lastRun).toLocaleString() : '---'}
+                    </TableCell>
+                    <TableCell>
                       <Badge variant="outline" className={cn(
-                        "text-[8px] font-black uppercase h-4 px-1.5 border-none",
-                        job.lastStatus === 'success' ? "bg-emerald-50 text-emerald-600" : job.lastStatus === 'running' ? "bg-blue-50 text-blue-600" : "bg-red-50 text-red-600"
+                        "text-[8px] font-black uppercase rounded-full border-none px-3 h-5", 
+                        dbJob?.lastStatus === 'success' ? "bg-emerald-50 text-emerald-700 shadow-sm" : "bg-slate-100 text-slate-500"
                       )}>
-                        {job.lastStatus || 'IDLE'}
+                        {dbJob?.lastStatus || 'IDLE'}
                       </Badge>
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-1">Letzter Lauf: {job.lastRun ? new Date(job.lastRun).toLocaleString() : 'Noch nie'}</p>
-                  </div>
-                </div>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="h-9 rounded-lg text-[10px] font-black uppercase tracking-widest gap-2 border-slate-200 dark:border-slate-800"
-                  disabled={isSyncing === job.id}
-                  onClick={() => handleRunSync(job.id)}
-                >
-                  {isSyncing === job.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                  Jetzt ausführen
-                </Button>
-              </div>
-            ))}
-            {(!syncJobs || syncJobs.length === 0) && (
-              <div className="p-12 text-center text-[10px] font-bold text-slate-400 uppercase italic">Keine automatisierten Sync-Jobs konfiguriert</div>
-            )}
-          </div>
+                    </TableCell>
+                    <TableCell className="text-right px-6">
+                      <Button size="sm" variant="ghost" className="h-9 font-black uppercase text-[10px] tracking-widest px-6 gap-2 hover:bg-primary/10 hover:text-primary transition-all rounded-lg opacity-0 group-hover:opacity-100" disabled={isRunning} onClick={() => handleRunJob(job.id)}>
+                        {isRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                        Trigger Job
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>

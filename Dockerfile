@@ -22,7 +22,8 @@ ENV NEXT_TELEMETRY_DISABLED 1
 # Erstelle den public Ordner falls er fehlt (für den Build-Schritt)
 RUN mkdir -p public
 
-# Force rebuild by adding a comment
+# Force rebuild by adding a unique environment variable
+ENV CACHE_BUSTER=2024-07-16T15:00:00Z
 RUN npm run build
 
 # Stage 3: Runner

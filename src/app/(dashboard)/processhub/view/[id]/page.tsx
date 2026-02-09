@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   Workflow, 
@@ -130,10 +131,15 @@ export default function ProcessDetailViewPage() {
   const router = useRouter();
   const { dataSource } = useSettings();
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   const [viewMode, setViewMode] = useState<'diagram' | 'guide' | 'risks'>('guide');
   const [selectedVersionNum, setSelectedVersionNum] = useState<number | null>(null);
   const [isUpdatingVvt, setIsUpdatingVvt] = useState(false);
+  
+  // Interactive Flow States
+  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
+  const [connections, setConnectionPaths] = useState<string[]>([]);
 
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
@@ -163,22 +169,6 @@ export default function ProcessDetailViewPage() {
     if (selectedVersionNum === null) return allProcessVersions[0];
     return allProcessVersions.find((v: any) => v.version === selectedVersionNum);
   }, [allProcessVersions, selectedVersionNum]);
-
-  const processFeatures = useMemo(() => {
-    if (!featureLinks) return [];
-    const links = featureLinks.filter((l: any) => l.processId === id);
-    const featureIds = [...new Set(links.map((l: any) => l.featureId))];
-    return featureIds.map(fid => allFeatures?.find(f => f.id === fid)).filter(Boolean);
-  }, [featureLinks, id, allFeatures]);
-
-  const processResources = useMemo(() => {
-    if (!activeVersion) return [];
-    const resourceIds = new Set<string>();
-    activeVersion.model_json.nodes.forEach((n: ProcessNode) => {
-      if (n.resourceIds) n.resourceIds.forEach(rid => resourceIds.add(rid));
-    });
-    return Array.from(resourceIds).map(rid => resources?.find(r => r.id === rid)).filter(Boolean);
-  }, [activeVersion, resources]);
 
   const risksData = useMemo(() => {
     if (!allRisks || !currentProcess || !activeVersion) return { direct: [], inherited: [], maxScore: 0 };
@@ -224,7 +214,61 @@ export default function ProcessDetailViewPage() {
     }
   };
 
-  useEffect(() => { setMounted(true); }, []);
+  /**
+   * Calculates the SVG paths between connected nodes.
+   */
+  const updateFlowLines = useCallback(() => {
+    if (!activeNodeId || !activeVersion || viewMode !== 'guide' || !containerRef.current) {
+      setConnectionPaths([]);
+      return;
+    }
+
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const sourceEl = document.getElementById(`card-${activeNodeId}`);
+    if (!sourceEl) return;
+
+    const sourceRect = sourceEl.getBoundingClientRect();
+    const sourceMidX = sourceRect.left - containerRect.left + 5; // Left edge anchor
+    const sourceMidY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
+
+    const edges = activeVersion.model_json.edges || [];
+    const relatedEdges = edges.filter(e => e.source === activeNodeId || e.target === activeNodeId);
+    
+    const newPaths: string[] = [];
+
+    relatedEdges.forEach(edge => {
+      const isOutbound = edge.source === activeNodeId;
+      const targetId = isOutbound ? edge.target : edge.source;
+      const targetEl = document.getElementById(`card-${targetId}`);
+      
+      if (targetEl) {
+        const targetRect = targetEl.getBoundingClientRect();
+        const targetMidX = targetRect.left - containerRect.left + 5;
+        const targetMidY = targetRect.top - containerRect.top + (targetRect.height / 2);
+
+        // Cubic Bezier curve for "not straight" look
+        const cp1x = sourceMidX - 100;
+        const cp1y = sourceMidY;
+        const cp2x = targetMidX - 100;
+        const cp2y = targetMidY;
+
+        const path = `M ${sourceMidX} ${sourceMidY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${targetMidX} ${targetMidY}`;
+        newPaths.push(path);
+      }
+    });
+
+    setConnectionPaths(newPaths);
+  }, [activeNodeId, activeVersion, viewMode]);
+
+  useEffect(() => {
+    setMounted(true);
+    window.addEventListener('resize', updateFlowLines);
+    return () => window.removeEventListener('resize', updateFlowLines);
+  }, [updateFlowLines]);
+
+  useLayoutEffect(() => {
+    if (activeNodeId) updateFlowLines();
+  }, [activeNodeId, updateFlowLines]);
 
   const syncDiagram = useCallback(() => {
     if (!iframeRef.current || !activeVersion || viewMode !== 'diagram') return;
@@ -432,200 +476,231 @@ export default function ProcessDetailViewPage() {
               </div>
             </ScrollArea>
           ) : (
-            <ScrollArea className="flex-1">
-              <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32">
-                <div className="space-y-12 relative">
-                  <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-200 z-0" />
-                  
-                  {activeVersion?.model_json?.nodes?.map((node: ProcessNode, i: number) => {
-                    const roleName = getFullRoleName(node.roleId);
-                    const nodeLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id);
-                    const nodeResources = resources?.filter(r => node.resourceIds?.includes(r.id));
-                    const nodeGroups = subjectGroups?.filter(g => node.subjectGroupIds?.includes(g.id));
-                    const nodeCategories = dataCategories?.filter(c => node.dataCategoryIds?.includes(c.id));
-                    
-                    const predecessors = activeVersion.model_json.edges
-                      .filter(e => e.target === node.id)
-                      .map(e => activeVersion.model_json.nodes.find(n => n.id === e.source))
-                      .filter(Boolean);
-                    
-                    const successors = activeVersion.model_json.edges
-                      .filter(e => e.source === node.id)
-                      .map(e => ({
-                        edge: e,
-                        node: activeVersion.model_json.nodes.find(n => n.id === e.target)
-                      }))
-                      .filter(s => !!s.node);
+            <div className="flex-1 flex flex-col min-h-0 relative" ref={containerRef}>
+              {/* SVG Layer for Flow Lines */}
+              <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
+                <defs>
+                  <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary/40" />
+                  </marker>
+                </defs>
+                {connections.map((path, i) => (
+                  <path 
+                    key={i} 
+                    d={path} 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeDasharray="4 2"
+                    className="text-primary/20 animate-in fade-in duration-1000"
+                    markerEnd="url(#arrowhead)"
+                  />
+                ))}
+              </svg>
 
-                    return (
-                      <div key={node.id} className="relative z-10 pl-12" id={node.id}>
-                        {/* Timeline Node Indicator */}
-                        <div className={cn(
-                          "absolute left-0 w-10 h-10 rounded-xl flex items-center justify-center border-4 border-slate-50 shadow-sm z-20 transition-transform hover:scale-110",
-                          node.type === 'start' ? "bg-emerald-500 text-white" : 
-                          node.type === 'end' ? "bg-red-500 text-white" : 
-                          node.type === 'decision' ? "bg-amber-500 text-white" : "bg-white text-slate-900 border-slate-200"
-                        )}>
-                          {node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
-                           node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> :
-                           node.type === 'decision' ? <GitBranch className="w-5 h-5" /> :
-                           <span className="font-headline font-black text-sm">{i + 1}</span>}
-                        </div>
+              <ScrollArea className="flex-1">
+                <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32">
+                  <div className="space-y-12 relative">
+                    <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-200 z-0" />
+                    
+                    {activeVersion?.model_json?.nodes?.map((node: ProcessNode, i: number) => {
+                      const roleName = getFullRoleName(node.roleId);
+                      const nodeLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id);
+                      const nodeResources = resources?.filter(r => node.resourceIds?.includes(r.id));
+                      const nodeGroups = subjectGroups?.filter(g => node.subjectGroupIds?.includes(g.id));
+                      const nodeCategories = dataCategories?.filter(c => node.dataCategoryIds?.includes(c.id));
+                      
+                      const predecessors = activeVersion.model_json.edges
+                        .filter(e => e.target === node.id)
+                        .map(e => activeVersion.model_json.nodes.find(n => n.id === e.source))
+                        .filter(Boolean);
+                      
+                      const successors = activeVersion.model_json.edges
+                        .filter(e => e.source === node.id)
+                        .map(e => ({
+                          edge: e,
+                          node: activeVersion.model_json.nodes.find(n => n.id === e.target)
+                        }))
+                        .filter(s => !!s.node);
 
-                        {/* Inbound Flow Indication */}
-                        {predecessors.length > 0 && (
-                          <div className="flex gap-1.5 mb-2 ml-1">
-                            {predecessors.map((p, idx) => (
-                              <Badge key={idx} variant="ghost" className="h-4 px-2 text-[7px] font-black uppercase text-slate-400 bg-slate-100/50 border-none rounded-full">
-                                <ArrowLeftRight className="w-2 h-2 mr-1" /> Folge von: {p?.title}
-                              </Badge>
-                            ))}
+                      const isActive = activeNodeId === node.id;
+
+                      return (
+                        <div key={node.id} className="relative z-10 pl-12" id={node.id}>
+                          {/* Timeline Node Indicator */}
+                          <div className={cn(
+                            "absolute left-0 w-10 h-10 rounded-xl flex items-center justify-center border-4 border-slate-50 shadow-sm z-20 transition-all cursor-pointer",
+                            isActive ? "scale-125 ring-4 ring-primary/20" : "hover:scale-110",
+                            node.type === 'start' ? "bg-emerald-500 text-white" : 
+                            node.type === 'end' ? "bg-red-500 text-white" : 
+                            node.type === 'decision' ? "bg-amber-500 text-white" : "bg-white text-slate-900 border-slate-200"
+                          )} onClick={() => setActiveNodeId(isActive ? null : node.id)}>
+                            {node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
+                             node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> :
+                             node.type === 'decision' ? <GitBranch className="w-5 h-5" /> :
+                             <span className="font-headline font-black text-sm">{i + 1}</span>}
                           </div>
-                        )}
-                        
-                        <Card className={cn(
-                          "rounded-2xl border shadow-sm overflow-hidden group hover:border-primary/40 transition-all bg-white duration-300",
-                          node.type === 'decision' && "border-amber-100 bg-amber-50/10",
-                          node.type === 'subprocess' && "border-indigo-100 bg-indigo-50/10"
-                        )}>
-                          <CardHeader className="p-5 pb-4 bg-white border-b">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="font-headline font-black text-base text-slate-900 uppercase tracking-tight">{node.title}</h3>
-                                  <Badge variant="outline" className={cn(
-                                    "text-[8px] font-black h-4 px-1.5 border-none shadow-none uppercase",
-                                    node.type === 'decision' ? "bg-amber-100 text-amber-700" : 
-                                    node.type === 'subprocess' ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500"
-                                  )}>{node.type}</Badge>
-                                </div>
-                                <div className="flex flex-wrap gap-2 items-center">
-                                  <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-primary bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
-                                    <Briefcase className="w-3 h-3" /> {roleName}
-                                  </div>
-                                  {nodeResources?.map(res => (
-                                    <TooltipProvider key={res.id}>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-md h-5 px-1.5 text-[8px] font-black cursor-help">
-                                            <Server className="w-2.5 h-2.5 mr-1" /> {res.name}
-                                          </Badge>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="text-[9px] font-bold p-2 bg-slate-900 border-none rounded-lg text-white">
-                                          {res.assetType} • {res.criticality.toUpperCase()} • {res.dataLocation}
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  ))}
-                                </div>
-                              </div>
-                              {node.targetProcessId && node.targetProcessId !== 'none' && (
-                                <Button size="sm" variant="outline" className="h-8 rounded-lg text-[9px] font-black uppercase border-indigo-200 text-indigo-700 hover:bg-indigo-50 gap-1.5" onClick={() => router.push(`/processhub/view/${node.targetProcessId}`)}>
-                                  <ExternalLink className="w-3 h-3" /> Prozess-Referenz
-                                </Button>
-                              )}
+
+                          {/* Inbound Flow Indication */}
+                          {predecessors.length > 0 && (
+                            <div className="flex gap-1.5 mb-2 ml-1">
+                              {predecessors.map((p, idx) => (
+                                <Badge key={idx} variant="ghost" className="h-4 px-2 text-[7px] font-black uppercase text-slate-400 bg-slate-100/50 border-none rounded-full">
+                                  <ArrowLeftRight className="w-2 h-2 mr-1" /> Folge von: {p?.title}
+                                </Badge>
+                              ))}
                             </div>
-                          </CardHeader>
+                          )}
                           
-                          <CardContent className="p-0">
-                            <div className="grid grid-cols-1 md:grid-cols-10 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-                              {/* Action Column */}
-                              <div className="md:col-span-7 p-5 space-y-6">
-                                {node.description && <p className="text-xs text-slate-600 leading-relaxed font-medium bg-slate-50/50 p-3 rounded-xl border border-dashed border-slate-200">{node.description}</p>}
-                                
-                                {node.checklist && node.checklist.length > 0 && (
-                                  <div className="space-y-3">
-                                    <Label className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-2 tracking-widest">
-                                      <ListChecks className="w-3.5 h-3.5" /> Checkliste / To-Do
-                                    </Label>
-                                    <div className="grid grid-cols-1 gap-2">
-                                      {node.checklist.map((item, idx) => (
-                                        <div key={idx} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-100 group/item hover:border-emerald-200 transition-all cursor-pointer">
-                                          <div className="w-5 h-5 rounded-md border border-slate-200 flex items-center justify-center shrink-0 group-hover/item:bg-emerald-500 group-hover/item:border-emerald-500 transition-all">
-                                            <CheckCircle className="w-3 h-3 text-transparent group-hover/item:text-white" />
-                                          </div>
-                                          <span className="text-[11px] font-bold text-slate-700 leading-tight">{item}</span>
-                                        </div>
-                                      ))}
-                                    </div>
+                          <Card 
+                            id={`card-${node.id}`}
+                            className={cn(
+                              "rounded-2xl border shadow-sm overflow-hidden group transition-all bg-white duration-300 cursor-pointer",
+                              isActive ? "ring-2 ring-primary border-primary/40 shadow-xl scale-[1.01]" : "hover:border-primary/20",
+                              node.type === 'decision' && !isActive && "border-amber-100 bg-amber-50/10",
+                              node.type === 'subprocess' && !isActive && "border-indigo-100 bg-indigo-50/10"
+                            )}
+                            onClick={() => setActiveNodeId(isActive ? null : node.id)}
+                          >
+                            <CardHeader className="p-5 pb-4 bg-white border-b">
+                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h3 className="font-headline font-black text-base text-slate-900 uppercase tracking-tight">{node.title}</h3>
+                                    <Badge variant="outline" className={cn(
+                                      "text-[8px] font-black h-4 px-1.5 border-none shadow-none uppercase",
+                                      node.type === 'decision' ? "bg-amber-100 text-amber-700" : 
+                                      node.type === 'subprocess' ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500"
+                                    )}>{node.type}</Badge>
                                   </div>
+                                  <div className="flex flex-wrap gap-2 items-center">
+                                    <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-primary bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
+                                      <Briefcase className="w-3 h-3" /> {roleName}
+                                    </div>
+                                    {nodeResources?.map(res => (
+                                      <TooltipProvider key={res.id}>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-md h-5 px-1.5 text-[8px] font-black cursor-help">
+                                              <Server className="w-2.5 h-2.5 mr-1" /> {res.name}
+                                            </Badge>
+                                          </TooltipTrigger>
+                                          <TooltipContent className="text-[9px] font-bold p-2 bg-slate-900 border-none rounded-lg text-white">
+                                            {res.assetType} • {res.criticality.toUpperCase()} • {res.dataLocation}
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    ))}
+                                  </div>
+                                </div>
+                                {node.targetProcessId && node.targetProcessId !== 'none' && (
+                                  <Button size="sm" variant="outline" className="h-8 rounded-lg text-[9px] font-black uppercase border-indigo-200 text-indigo-700 hover:bg-indigo-50 gap-1.5" onClick={(e) => { e.stopPropagation(); router.push(`/processhub/view/${node.targetProcessId}`); }}>
+                                    <ExternalLink className="w-3 h-3" /> Prozess-Referenz
+                                  </Button>
                                 )}
                               </div>
-
-                              {/* Context Column (Compact) */}
-                              <div className="md:col-span-3 p-5 space-y-6 bg-slate-50/30">
-                                {/* Expertise & Data */}
-                                <div className="space-y-4">
-                                  {(node.tips || node.errors) && (
-                                    <div className="space-y-2">
-                                      <Label className="text-[8px] font-black uppercase text-slate-400">Expertise</Label>
-                                      {node.tips && (
-                                        <div className="flex items-start gap-2 p-2 rounded-lg bg-blue-50/50 border border-blue-100 text-[10px] font-bold text-blue-900 italic">
-                                          <Lightbulb className="w-3 h-3 text-blue-500 shrink-0 mt-0.5" /> {node.tips}
-                                        </div>
-                                      )}
-                                      {node.errors && (
-                                        <div className="flex items-start gap-2 p-2 rounded-lg bg-red-50/50 border border-red-100 text-[10px] font-bold text-red-900 italic">
-                                          <AlertCircle className="w-3 h-3 text-red-500 shrink-0 mt-0.5" /> {node.errors}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  <div className="space-y-2">
-                                    <Label className="text-[8px] font-black uppercase text-slate-400">Compliance & Daten</Label>
-                                    <div className="flex flex-wrap gap-1">
-                                      {nodeLinks?.map((l: any) => (
-                                        <Badge key={l.id} variant="outline" className="bg-white text-primary border-primary/10 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{allFeatures?.find(f => f.id === l.featureId)?.name}</Badge>
-                                      ))}
-                                      {nodeGroups?.map(g => (
-                                        <Badge key={g.id} variant="outline" className="bg-white text-emerald-700 border-emerald-100 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{g.name}</Badge>
-                                      ))}
-                                      {nodeCategories?.map(c => (
-                                        <Badge key={c.id} variant="outline" className="bg-white text-blue-700 border-blue-100 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{c.name}</Badge>
-                                      ))}
-                                    </div>
-                                  </div>
-
-                                  {node.links && node.links.length > 0 && (
-                                    <div className="space-y-2">
-                                      <Label className="text-[8px] font-black uppercase text-slate-400">Links</Label>
-                                      {node.links.map((link, idx) => (
-                                        <a key={idx} href={link.url} target="_blank" className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-100 text-[10px] font-bold text-slate-600 hover:text-primary transition-all">
-                                          <LinkIcon className="w-3 h-3" /> <span className="truncate">{link.title}</span>
-                                        </a>
-                                      ))}
+                            </CardHeader>
+                            
+                            <CardContent className="p-0">
+                              <div className="grid grid-cols-1 md:grid-cols-10 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+                                {/* Action Column */}
+                                <div className="md:col-span-7 p-5 space-y-6">
+                                  {node.description && <p className="text-xs text-slate-600 leading-relaxed font-medium bg-slate-50/50 p-3 rounded-xl border border-dashed border-slate-200">{node.description}</p>}
+                                  
+                                  {node.checklist && node.checklist.length > 0 && (
+                                    <div className="space-y-3">
+                                      <Label className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-2 tracking-widest">
+                                        <ListChecks className="w-3.5 h-3.5" /> Checkliste / To-Do
+                                      </Label>
+                                      <div className="grid grid-cols-1 gap-2">
+                                        {node.checklist.map((item, idx) => (
+                                          <div key={idx} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-100 group/item hover:border-emerald-200 transition-all cursor-pointer">
+                                            <div className="w-5 h-5 rounded-md border border-slate-200 flex items-center justify-center shrink-0 group-hover/item:bg-emerald-500 group-hover/item:border-emerald-500 transition-all">
+                                              <CheckCircle className="w-3 h-3 text-transparent group-hover/item:text-white" />
+                                            </div>
+                                            <span className="text-[11px] font-bold text-slate-700 leading-tight">{item}</span>
+                                          </div>
+                                        ))}
+                                      </div>
                                     </div>
                                   )}
                                 </div>
-                              </div>
-                            </div>
 
-                            {/* Outbound Footer */}
-                            {successors.length > 0 && (
-                              <div className="bg-slate-50/80 p-3 border-t flex flex-wrap justify-center gap-2">
-                                {successors.map((s, idx) => (
-                                  <Button 
-                                    key={idx} 
-                                    variant="ghost" 
-                                    className="h-8 rounded-full px-4 border bg-white shadow-sm gap-2 group/next active:scale-95 transition-all"
-                                    onClick={() => document.getElementById(s.node?.id || '')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                                  >
-                                    {s.edge.label && <Badge className="bg-amber-500 text-white border-none h-3.5 px-1 text-[6px] font-black uppercase">{s.edge.label}</Badge>}
-                                    <span className="text-[9px] font-black uppercase tracking-tight text-slate-600">{s.node?.title}</span>
-                                    <ArrowRightCircle className="w-3.5 h-3.5 text-slate-300 group-hover/next:text-primary group-hover/next:translate-x-0.5 transition-all" />
-                                  </Button>
-                                ))}
+                                {/* Context Column (Compact) */}
+                                <div className="md:col-span-3 p-5 space-y-6 bg-slate-50/30">
+                                  {/* Expertise & Data */}
+                                  <div className="space-y-4">
+                                    {(node.tips || node.errors) && (
+                                      <div className="space-y-2">
+                                        <Label className="text-[8px] font-black uppercase text-slate-400">Expertise</Label>
+                                        {node.tips && (
+                                          <div className="flex items-start gap-2 p-2 rounded-lg bg-blue-50/50 border border-blue-100 text-[10px] font-bold text-blue-900 italic">
+                                            <Lightbulb className="w-3 h-3 text-blue-500 shrink-0 mt-0.5" /> {node.tips}
+                                          </div>
+                                        )}
+                                        {node.errors && (
+                                          <div className="flex items-start gap-2 p-2 rounded-lg bg-red-50/50 border border-red-100 text-[10px] font-bold text-red-900 italic">
+                                            <AlertCircle className="w-3 h-3 text-red-500 shrink-0 mt-0.5" /> {node.errors}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    <div className="space-y-2">
+                                      <Label className="text-[8px] font-black uppercase text-slate-400">Compliance & Daten</Label>
+                                      <div className="flex flex-wrap gap-1">
+                                        {nodeLinks?.map((l: any) => (
+                                          <Badge key={l.id} variant="outline" className="bg-white text-primary border-primary/10 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{allFeatures?.find(f => f.id === l.featureId)?.name}</Badge>
+                                        ))}
+                                        {nodeGroups?.map(g => (
+                                          <Badge key={g.id} variant="outline" className="bg-white text-emerald-700 border-emerald-100 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{g.name}</Badge>
+                                        ))}
+                                        {nodeCategories?.map(c => (
+                                          <Badge key={c.id} variant="outline" className="bg-white text-blue-700 border-blue-100 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{c.name}</Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    {node.links && node.links.length > 0 && (
+                                      <div className="space-y-2">
+                                        <Label className="text-[8px] font-black uppercase text-slate-400">Links</Label>
+                                        {node.links.map((link, idx) => (
+                                          <a key={idx} href={link.url} target="_blank" className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-100 text-[10px] font-bold text-slate-600 hover:text-primary transition-all">
+                                            <LinkIcon className="w-3 h-3" /> <span className="truncate">{link.title}</span>
+                                          </a>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </div>
-                    );
-                  })}
+
+                              {/* Outbound Footer */}
+                              {successors.length > 0 && (
+                                <div className="bg-slate-50/80 p-3 border-t flex flex-wrap justify-center gap-2">
+                                  {successors.map((s, idx) => (
+                                    <Button 
+                                      key={idx} 
+                                      variant="ghost" 
+                                      className="h-8 rounded-full px-4 border bg-white shadow-sm gap-2 group/next active:scale-95 transition-all"
+                                      onClick={(e) => { e.stopPropagation(); document.getElementById(s.node?.id || '')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setActiveNodeId(s.node?.id || null); }}
+                                    >
+                                      {s.edge.label && <Badge className="bg-amber-500 text-white border-none h-3.5 px-1 text-[6px] font-black uppercase">{s.edge.label}</Badge>}
+                                      <span className="text-[9px] font-black uppercase tracking-tight text-slate-600">{s.node?.title}</span>
+                                      <ArrowRightCircle className="w-3.5 h-3.5 text-slate-300 group-hover/next:text-primary group-hover/next:translate-x-0.5 transition-all" />
+                                    </Button>
+                                  ))}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            </ScrollArea>
+              </ScrollArea>
+            </div>
           )}
         </main>
       </div>

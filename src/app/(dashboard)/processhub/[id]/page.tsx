@@ -438,7 +438,7 @@ export default function ProcessDesignerPage() {
   const handleQuickAdd = (type: 'step' | 'decision' | 'end' | 'subprocess') => {
     if (!currentVersion) return;
     const newId = `${type}-${Date.now()}`;
-    const titles = { step: 'Neuer Schritt', decision: 'Entscheidung?', end: 'Endpunkt', subprocess: 'Prozess-Referenz' };
+    const titles = { step: 'Neuer Prozessschritt', decision: 'Entscheidung?', end: 'Endpunkt', subprocess: 'Prozess-Referenz' };
     const nodes = currentVersion.model_json.nodes || [];
     const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : (nodes.length > 0 ? nodes[nodes.length - 1] : null);
     
@@ -820,7 +820,7 @@ export default function ProcessDesignerPage() {
             <div className="h-full flex flex-col items-center justify-center p-10 text-center">
               <Workflow className="w-16 h-16 text-slate-200 mb-4" />
               <h2 className="text-xl font-headline font-bold text-slate-900">Modellierung starten</h2>
-              <Button className="mt-6 rounded-xl h-11 px-8 font-bold text-xs" onClick={() => handleQuickAdd('step')}><PlusCircle className="w-4 h-4 mr-2" /> Ersten Schritt anlegen</Button>
+              <Button className="mt-6 rounded-xl h-11 px-8 font-bold text-xs" onClick={() => handleQuickAdd('step')}><PlusCircle className="w-4 h-4 mr-2" /> Ersten Prozessschritt anlegen</Button>
             </div>
           )}
           <div className="fixed bottom-6 right-6 z-50">
@@ -897,7 +897,7 @@ export default function ProcessDesignerPage() {
                     <TabsContent value="logic" className="mt-0 space-y-8">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-indigo-600 flex items-center gap-2"><ArrowLeftCircle className="w-4 h-4" /> Vorgänger (Predecessors)</Label>
+                          <Label className="text-[10px] font-black uppercase text-indigo-600 flex items-center gap-2 ml-1"><ArrowLeftCircle className="w-4 h-4" /> Vorgänger (Predecessors)</Label>
                           <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
                             {currentVersion?.model_json?.nodes?.filter((n: any) => n.id !== selectedNodeId).map((n: any) => (
                               <div key={n.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, predecessorIds: prev.predecessorIds.includes(n.id) ? prev.predecessorIds.filter(id => id !== n.id) : [...prev.predecessorIds, n.id] }))}>
@@ -908,7 +908,7 @@ export default function ProcessDesignerPage() {
                           </ScrollArea>
                         </div>
                         <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-emerald-600 flex items-center gap-2"><ArrowRightCircle className="w-4 h-4" /> Nachfolger (Successors)</Label>
+                          <Label className="text-[10px] font-black uppercase text-emerald-600 flex items-center gap-2 ml-1"><ArrowRightCircle className="w-4 h-4" /> Nachfolger (Successors)</Label>
                           <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
                             {currentVersion?.model_json?.nodes?.filter((n: any) => n.id !== selectedNodeId).map((n: any) => (
                               <div key={n.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, successorIds: prev.successorIds.includes(n.id) ? prev.successorIds.filter(id => id !== n.id) : [...prev.successorIds, n.id] }))}>
@@ -952,7 +952,7 @@ export default function ProcessDesignerPage() {
 
                     <TabsContent value="data" className="mt-0 space-y-10">
                       <div className="space-y-4">
-                        <Label className="text-[10px] font-black uppercase text-sky-600 flex items-center gap-2"><Tag className="w-4 h-4" /> Verarbeitete Daten</Label>
+                        <Label className="text-[10px] font-black uppercase text-sky-600 flex items-center gap-2 ml-1"><Tag className="w-4 h-4" /> Verarbeitete Daten</Label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {allFeatures?.filter(f => f.status !== 'archived').map(feat => (
                             <div key={feat.id} className={cn("p-3 border rounded-xl flex items-center justify-between cursor-pointer shadow-sm", localNodeEdits.featureIds.includes(feat.id) ? "border-sky-500 bg-sky-50/20" : "bg-white border-slate-100")} onClick={() => setLocalNodeEdits(prev => ({ ...prev, featureIds: prev.featureIds.includes(feat.id) ? prev.featureIds.filter(id => id !== feat.id) : [...prev.featureIds, feat.id] }))}>
@@ -965,7 +965,7 @@ export default function ProcessDesignerPage() {
                       <Separator />
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-emerald-600 flex items-center gap-2"><UserCircle className="w-4 h-4" /> Betroffene Personengruppen</Label>
+                          <Label className="text-[10px] font-black uppercase text-emerald-600 flex items-center gap-2 ml-1"><UserCircle className="w-4 h-4" /> Betroffene Personengruppen</Label>
                           <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
                             {subjectGroups?.filter(g => g.status === 'active').map(g => (
                               <div key={g.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, subjectGroupIds: prev.subjectGroupIds.includes(g.id) ? prev.subjectGroupIds.filter(id => id !== g.id) : [...prev.subjectGroupIds, g.id] }))}>
@@ -976,7 +976,7 @@ export default function ProcessDesignerPage() {
                           </ScrollArea>
                         </div>
                         <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-2"><Layers className="w-4 h-4" /> Datenkategorien (DSGVO)</Label>
+                          <Label className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-2 ml-1"><Layers className="w-4 h-4" /> Datenkategorien (DSGVO)</Label>
                           <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
                             {dataCategories?.filter(c => c.status === 'active').map(c => (
                               <div key={c.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, dataCategoryIds: prev.dataCategoryIds.includes(c.id) ? prev.dataCategoryIds.filter(id => id !== c.id) : [...prev.dataCategoryIds, c.id] }))}>
@@ -992,17 +992,17 @@ export default function ProcessDesignerPage() {
                     <TabsContent value="details" className="mt-0 space-y-10">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-2"><Lightbulb className="w-3.5 h-3.5" /> Tipps & Expertise</Label>
+                          <Label className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-2 ml-1"><Lightbulb className="w-3.5 h-3.5" /> Tipps & Expertise</Label>
                           <Textarea value={localNodeEdits.tips} onChange={e => setLocalNodeEdits({...localNodeEdits, tips: e.target.value})} className="text-xs min-h-[100px] rounded-xl bg-blue-50/20" />
                         </div>
                         <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-red-600 flex items-center gap-2"><AlertCircle className="w-3.5 h-3.5" /> Häufige Fehler</Label>
+                          <Label className="text-[10px] font-black uppercase text-red-600 flex items-center gap-2 ml-1"><AlertCircle className="w-3.5 h-3.5" /> Häufige Fehler</Label>
                           <Textarea value={localNodeEdits.errors} onChange={e => setLocalNodeEdits({...localNodeEdits, errors: e.target.value})} className="text-xs min-h-[100px] rounded-xl bg-red-50/20" />
                         </div>
                       </div>
                       
                       <div className="space-y-4">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2"><FileStack className="w-3.5 h-3.5" /> Anhänge & Medien</Label>
+                        <Label className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2 ml-1"><FileStack className="w-3.5 h-3.5" /> Anhänge & Medien</Label>
                         <div className="p-6 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-3 bg-slate-50/50 relative">
                           <Upload className="w-6 h-6 text-slate-400" />
                           <p className="text-[10px] font-bold uppercase">Klicken zum Hochladen</p>

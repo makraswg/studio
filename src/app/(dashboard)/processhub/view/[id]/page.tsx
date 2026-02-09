@@ -126,7 +126,7 @@ export default function ProcessDetailViewPage() {
   
   // Interactive Flow States
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
-  const [connections, setConnectionPaths] = useState<string[]>([]);
+  const [connectionPaths, setConnectionPaths] = useState<string[]>([]);
 
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
@@ -473,11 +473,11 @@ export default function ProcessDetailViewPage() {
                 <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32 relative" ref={containerRef}>
                   <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
                     <defs>
-                      <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                      <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
                         <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary/40" />
                       </marker>
                     </defs>
-                    {connections.map((path, i) => (
+                    {connectionPaths.map((path, i) => (
                       <path 
                         key={i} 
                         d={path} 
@@ -515,6 +515,7 @@ export default function ProcessDetailViewPage() {
                         .filter(s => !!s.node);
 
                       const isActive = activeNodeId === node.id;
+                      const targetProc = node.targetProcessId ? processes?.find(p => p.id === node.targetProcessId) : null;
 
                       return (
                         <div key={node.id} className="relative z-10 pl-12" id={node.id}>
@@ -560,7 +561,7 @@ export default function ProcessDetailViewPage() {
                                       "text-[8px] font-black h-4 px-1.5 border-none shadow-none uppercase",
                                       node.type === 'decision' ? "bg-amber-100 text-amber-700" : 
                                       node.type === 'subprocess' ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500"
-                                    )}>{node.type}</Badge>
+                                    )}>{node.type === 'decision' ? 'Entscheidung' : node.type === 'step' ? 'Prozessschritt' : node.type}</Badge>
                                   </div>
                                   <div className="flex flex-wrap gap-2 items-center">
                                     <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-primary bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
@@ -582,9 +583,9 @@ export default function ProcessDetailViewPage() {
                                     ))}
                                   </div>
                                 </div>
-                                {node.targetProcessId && node.targetProcessId !== 'none' && (
-                                  <Button size="sm" variant="outline" className="h-8 rounded-lg text-[9px] font-black uppercase border-indigo-200 text-indigo-700 hover:bg-indigo-50 gap-1.5" onClick={(e) => { e.stopPropagation(); router.push(`/processhub/view/${node.targetProcessId}`); }}>
-                                    <ExternalLink className="w-3 h-3" /> Prozess-Referenz
+                                {node.type === 'subprocess' && targetProc && (
+                                  <Button size="sm" variant="outline" className="h-8 rounded-lg text-[9px] font-black uppercase border-indigo-200 text-indigo-700 hover:bg-indigo-50 gap-1.5 shadow-sm" onClick={(e) => { e.stopPropagation(); router.push(`/processhub/view/${node.targetProcessId}`); }}>
+                                    <ExternalLink className="w-3 h-3" /> Prozess: {targetProc.title}
                                   </Button>
                                 )}
                               </div>

@@ -49,7 +49,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Process, JobTitle, ProcessVersion, ProcessNode, Resource, Risk, ProcessingActivity, DataSubjectGroup, DataCategory, Tenant, Department } from '@/lib/types';
+import { Process, JobTitle, ProcessVersion, ProcessNode, Resource, Risk, ProcessingActivity, DataSubjectGroup, DataCategory, Tenant, Department, Feature } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -69,6 +69,7 @@ export default function ProcessDetailViewPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'structure' | 'risks' | 'history'>('list');
   const [selectedVersionNum, setSelectedVersionNum] = useState<number | null>(null);
   const [isUpdatingVvt, setIsUpdatingVvt] = useState(false);
@@ -86,7 +87,7 @@ export default function ProcessDetailViewPage() {
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: featureLinks } = usePluggableCollection<any>('feature_process_steps');
-  const { data: allFeatures } = usePluggableCollection<any>('features');
+  const { data: allFeatures } = usePluggableCollection<Feature>('features');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: allRisks } = usePluggableCollection<Risk>('risks');
   const { data: media } = usePluggableCollection<any>('media');
@@ -280,33 +281,18 @@ export default function ProcessDetailViewPage() {
 
   useEffect(() => {
     setMounted(true);
+    const timer = setTimeout(() => setIsHydrated(true), 500);
     window.addEventListener('resize', updateFlowLines);
-    return () => window.removeEventListener('resize', updateFlowLines);
+    return () => {
+      window.removeEventListener('resize', updateFlowLines);
+      clearTimeout(timer);
+    };
   }, [updateFlowLines]);
 
   useEffect(() => {
     const timer = setTimeout(updateFlowLines, 100);
     return () => clearTimeout(timer);
   }, [activeNodeId, activeVersion, viewMode, updateFlowLines]);
-
-  useEffect(() => {
-    if (!mounted || !scrollAreaRef.current) return;
-
-    if (viewMode === 'structure') {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        setTimeout(() => {
-          scrollContainer.scrollLeft = (scrollContainer.scrollWidth - scrollContainer.clientWidth) / 2;
-          scrollContainer.scrollTop = 0;
-        }, 50);
-      }
-    } else if (viewMode === 'list') {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollLeft = 0;
-      }
-    }
-  }, [viewMode, mounted]);
 
   const handleNodeClick = (nodeId: string) => {
     if (viewMode === 'structure') {
@@ -549,6 +535,8 @@ export default function ProcessDetailViewPage() {
 
   const ownerRole = useMemo(() => jobTitles?.find(j => j.id === currentProcess?.ownerRoleId), [jobTitles, currentProcess]);
 
+  if (!mounted) return null;
+
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body">
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
@@ -557,7 +545,7 @@ export default function ProcessDetailViewPage() {
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <h1 className="text-lg font-headline font-bold tracking-tight text-slate-900 truncate">{currentProcess?.title}</h1>
-              {mounted && (
+              {isHydrated && (
                 <div className="flex items-center gap-1.5">
                   <Select value={String(selectedVersionNum || activeVersion?.version || 1)} onValueChange={(v) => setSelectedVersionNum(parseInt(v))}>
                     <SelectTrigger className="h-6 w-20 rounded-full border-none bg-slate-100 text-[10px] font-black uppercase px-2 shadow-none focus:ring-0" suppressHydrationWarning>
@@ -609,7 +597,7 @@ export default function ProcessDetailViewPage() {
                 <div className="space-y-4 p-4 bg-slate-50 rounded-xl border border-slate-100 shadow-inner">
                   <div className="space-y-1">
                     <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Fachabteilung</p>
-                    <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                    <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
                       <Building2 className="w-4 h-4 text-primary" /> {currentDept?.name || '---'}
                     </div>
                   </div>
@@ -686,7 +674,7 @@ export default function ProcessDetailViewPage() {
                   <FileCheck className="w-3.5 h-3.5" /> DSGVO Koppelung
                 </h3>
                 <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 space-y-3 shadow-inner">
-                  {mounted && (
+                  {isHydrated && (
                     <div className="space-y-1">
                       <Label className="text-[8px] font-black uppercase text-slate-400">VVT-Bezug</Label>
                       <Select value={currentProcess?.vvtId || 'none'} onValueChange={handleUpdateVvtLink} disabled={isUpdatingVvt}>
@@ -958,8 +946,8 @@ export default function ProcessDetailViewPage() {
               )}
             </div>
           </ScrollArea>
-        </DialogContent>
-      </Dialog>
+        </main>
+      </div>
 
       <Dialog open={!!selectedLogEntry} onOpenChange={(open) => !open && setSelectedLogEntry(null)}>
         <DialogContent className="max-w-4xl w-[95vw] h-[80vh] rounded-3xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">

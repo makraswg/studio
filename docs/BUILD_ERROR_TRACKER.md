@@ -11,11 +11,11 @@ Keine aktuellen Build-Blocker bekannt.
 
 | ID | Fehler | Ort | Ursache | Lösung | Status |
 |:---|:---|:---|:---|:---|:---|
-| ERR-01 | `ReferenceError: Save is not defined` | `/settings/sync` | Namenskollision mit `handleSave` | Umbenennung in `SaveIcon` | ✅ Behoben |
-| ERR-02 | `ReferenceError: Switch is not defined` | `/settings/email` | Fehlender Import | Import hinzugefügt | ✅ Behoben |
+| ERR-01 | `ReferenceError: Save is not defined` | `/settings/sync`, `/risks`, `/gdpr` | Namenskollision mit `handleSave` | Umbenennung in `SaveIcon` | ✅ Behoben |
+| ERR-02 | `ReferenceError: Switch is not defined` | `/settings/email`, `/settings/sync` | Fehlender Import | Import hinzugefügt | ✅ Behoben |
 | ERR-03 | `Parsing ecmascript failed` | `/processhub/view/[id]` | Nicht geschlossene Tags / Schachtelung | JSX-Struktur validiert & bereinigt | ✅ Behoben |
 | ERR-04 | `Unexpected token ... Did you mean {'}'}?` | `/processhub/view/[id]` | Fehlender `</SelectContent>` Abschluss | Tag korrekt geschlossen | ✅ Behoben |
-| ERR-05 | `Internal Server Error` | `/processhub/view/[id]` | Malformed JSX in Sidebar | Tags und Schachtelung korrigiert | ✅ Behoben |
+| ERR-05 | `Internal Server Error` | Global | Malformed JSX in Kernkomponenten | Syntaxbereinigung in Prozessansicht | ✅ Behoben |
 
 ## 🛡️ Richtlinien für Entwickler
 

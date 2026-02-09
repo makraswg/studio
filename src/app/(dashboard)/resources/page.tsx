@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -17,7 +18,7 @@ import {
   Database,
   KeyRound,
   ShieldAlert,
-  Save,
+  Save as SaveIcon,
   Archive,
   RotateCcw,
   ShieldCheck,
@@ -389,7 +390,7 @@ export default function ResourcesPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
-                      <div className="flex justify-end gap-1">
+                      <div className="flex justify-end gap-1.5">
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white" onClick={() => openEdit(res)}>
                           <Pencil className="w-3.5 h-3.5 text-slate-400" />
                         </Button>
@@ -538,7 +539,7 @@ export default function ResourcesPage() {
                 </TabsContent>
               </div>
             </ScrollArea>
-            <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2"><Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] h-11 uppercase">Abbrechen</Button><Button size="sm" onClick={handleSave} disabled={isSaving} className="rounded-xl h-11 px-12 bg-primary hover:bg-primary/90 text-white font-bold text-[10px] uppercase shadow-lg gap-2">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern</Button></DialogFooter>
+            <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2"><Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] h-11 uppercase">Abbrechen</Button><Button size="sm" onClick={handleSave} disabled={isSaving} className="rounded-xl h-11 px-12 bg-primary hover:bg-primary/90 text-white font-bold text-[10px] uppercase shadow-lg gap-2">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern</Button></DialogFooter>
           </Tabs>
         </DialogContent>
       </Dialog>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -15,7 +16,7 @@ import {
   Plus,
   Pencil,
   Loader2,
-  Save,
+  Save as SaveIcon,
   X,
   Lock,
   Shield
@@ -269,7 +270,7 @@ export default function PlatformUsersPage() {
           <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-900 border-t flex flex-col sm:flex-row gap-2">
             <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
             <Button onClick={handleSave} disabled={isSaving} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
-              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Speichern
+              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} Speichern
             </Button>
           </DialogFooter>
         </DialogContent>

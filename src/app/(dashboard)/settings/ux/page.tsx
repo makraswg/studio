@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -12,7 +13,7 @@ import {
   Layers, 
   Zap, 
   Loader2, 
-  Save, 
+  Save as SaveIcon, 
   Info
 } from 'lucide-react';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -164,7 +165,7 @@ export default function UxSettingsPage() {
               disabled={isSaving || isLoading} 
               className="rounded-xl font-black uppercase text-xs tracking-[0.1em] h-12 px-12 gap-3 bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
-              {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+              {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <SaveIcon className="w-5 h-5" />}
               Änderungen Speichern
             </Button>
           </div>

@@ -468,7 +468,7 @@ export default function ProcessDetailViewPage() {
                             <div className="w-5 h-5 rounded-md border border-slate-200 flex items-center justify-center shrink-0 group-hover/item:bg-emerald-500 group-hover/item:border-emerald-500 transition-all">
                               <CheckCircle className="w-3.5 h-3.5 text-transparent group-hover/item:text-white" />
                             </div>
-                            <span className="text-[11px] font-bold text-slate-700 leading-tight">{item}</span>
+                            <span className="text-11px font-bold text-slate-700 leading-tight">{item}</span>
                           </div>
                         </div>
                       ))}

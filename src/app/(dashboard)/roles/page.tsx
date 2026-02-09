@@ -25,7 +25,7 @@ import {
   ShieldAlert,
   Info,
   Building2,
-  Save,
+  Save as SaveIcon,
   ChevronRight,
   X,
   AlertTriangle,
@@ -283,7 +283,7 @@ export default function RolesManagementPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
-                      <div className="flex justify-end gap-1.5">
+                      <div className="flex justify-end items-center gap-1.5">
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => router.push(`/roles/${role.id}`)}>
                           <Eye className="w-3.5 h-3.5 text-primary" />
                         </Button>
@@ -398,7 +398,7 @@ export default function RolesManagementPage() {
           <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-900 border-t flex flex-col sm:flex-row gap-2">
             <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
             <Button onClick={handleSave} disabled={isSaving || !name} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
-              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Rolle speichern
+              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} Rolle speichern
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -47,7 +47,12 @@ import {
   ArrowLeftRight,
   ShieldAlert,
   LayoutGrid,
-  List
+  List,
+  ArrowDown,
+  Circle,
+  PlayCircle,
+  StopCircle,
+  HelpCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -125,7 +130,7 @@ export default function ProcessDetailViewPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   const [viewMode, setViewMode] = useState<'diagram' | 'guide' | 'risks'>('guide');
-  const [guideSubMode, setGuideSubMode] = useState<'list' | 'structured'>('list');
+  const [guideSubMode, setGuideSubMode] = useState<'list' | 'structured'>('structured');
   const [selectedVersionNum, setSelectedVersionNum] = useState<number | null>(null);
   const [isUpdatingVvt, setIsUpdatingVvt] = useState(false);
   
@@ -198,8 +203,8 @@ export default function ProcessDetailViewPage() {
     const edges = activeVersion.model_json.edges || [];
     
     const nodeToLevel: Record<string, number> = {};
-    const levels: ProcessNode[][] = [];
-
+    
+    // 1. Initial leveling (Topological inspired)
     nodes.forEach(node => {
       const incoming = edges.filter(e => e.target === node.id);
       if (incoming.length === 0) nodeToLevel[node.id] = 0;
@@ -334,17 +339,10 @@ export default function ProcessDetailViewPage() {
 
   if (!mounted) return null;
 
-  const NodeCard = ({ node, index, compact = false }: { node: ProcessNode, index: number, compact?: boolean }) => {
+  const BpmnNode = ({ node, index, isActive }: { node: ProcessNode, index: number, isActive: boolean }) => {
     const roleName = getFullRoleName(node.roleId);
     const nodeLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id);
     const nodeResources = resources?.filter(r => node.resourceIds?.includes(r.id));
-    const nodeGroups = subjectGroups?.filter(g => node.subjectGroupIds?.includes(g.id));
-    const nodeCategories = dataCategories?.filter(c => node.dataCategoryIds?.includes(c.id));
-    
-    const predecessors = activeVersion.model_json.edges
-      .filter(e => e.target === node.id)
-      .map(e => activeVersion.model_json.nodes.find(n => n.id === e.source))
-      .filter(Boolean);
     
     const successors = activeVersion.model_json.edges
       .filter(e => e.source === node.id)
@@ -354,157 +352,128 @@ export default function ProcessDetailViewPage() {
       }))
       .filter(s => !!s.node);
 
-    const isActive = activeNodeId === node.id;
     const targetProc = node.targetProcessId ? processes?.find(p => p.id === node.targetProcessId) : null;
 
-    return (
-      <div className={cn("relative z-10", !compact && "pl-12")} id={node.id}>
-        {!compact && (
+    // Semantic BPMN Shapes
+    if (node.type === 'start') {
+      return (
+        <div className="flex flex-col items-center gap-2 group cursor-pointer" onClick={() => setActiveNodeId(isActive ? null : node.id)}>
           <div className={cn(
-            "absolute left-0 w-10 h-10 rounded-xl flex items-center justify-center border-4 border-slate-50 shadow-sm z-20 transition-all cursor-pointer",
-            isActive ? "scale-125 ring-4 ring-primary/20" : "hover:scale-110",
-            node.type === 'start' ? "bg-emerald-500 text-white" : 
-            node.type === 'end' ? "bg-red-500 text-white" : 
-            node.type === 'decision' ? "bg-amber-500 text-white" : "bg-white text-slate-900 border-slate-200"
-          )} onClick={() => setActiveNodeId(isActive ? null : node.id)}>
-            {node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
-             node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> :
-             node.type === 'decision' ? <GitBranch className="w-5 h-5" /> :
-             <span className="font-headline font-black text-sm">{index + 1}</span>}
+            "w-12 h-12 rounded-full border-2 border-emerald-500 bg-white flex items-center justify-center transition-all shadow-md group-hover:scale-110",
+            isActive && "ring-4 ring-emerald-500/20 bg-emerald-50"
+          )}>
+            <PlayCircle className="w-6 h-6 text-emerald-600" />
           </div>
-        )}
+          <span className="text-[10px] font-black uppercase text-emerald-700 text-center tracking-tighter">Start</span>
+        </div>
+      );
+    }
 
-        {predecessors.length > 0 && !compact && (
-          <div className="flex gap-1.5 mb-2 ml-1">
-            {predecessors.map((p, idx) => (
-              <Badge key={idx} variant="ghost" className="h-4 px-2 text-[7px] font-black uppercase text-slate-400 bg-slate-100/50 border-none rounded-full">
-                <ArrowLeftRight className="w-2.5 h-2.5 mr-1" /> Folge von: {p?.title}
-              </Badge>
+    if (node.type === 'end') {
+      return (
+        <div className="flex flex-col items-center gap-2 group cursor-pointer" onClick={() => setActiveNodeId(isActive ? null : node.id)}>
+          <div className={cn(
+            "w-12 h-12 rounded-full border-4 border-red-600 bg-white flex items-center justify-center transition-all shadow-md group-hover:scale-110",
+            isActive && "ring-4 ring-red-600/20 bg-red-50"
+          )}>
+            <StopCircle className="w-6 h-6 text-red-600" />
+          </div>
+          <span className="text-[10px] font-black uppercase text-red-700 text-center tracking-tighter">Ende</span>
+        </div>
+      );
+    }
+
+    if (node.type === 'decision') {
+      return (
+        <div className="flex flex-col items-center gap-4 group cursor-pointer" onClick={() => setActiveNodeId(isActive ? null : node.id)}>
+          <div className={cn(
+            "w-16 h-16 bg-white border-2 border-amber-500 rotate-45 flex items-center justify-center transition-all shadow-lg group-hover:scale-105",
+            isActive && "ring-4 ring-amber-500/20 bg-amber-50"
+          )}>
+            <div className="-rotate-45">
+              <HelpCircle className="w-6 h-6 text-amber-600" />
+            </div>
+          </div>
+          <div className="text-center space-y-1">
+            <span className="text-[11px] font-black uppercase text-amber-700 block tracking-tight leading-none px-2">{node.title}</span>
+            {successors.map((s, idx) => (
+              <Badge key={idx} variant="outline" className="bg-white text-[8px] font-black uppercase border-amber-200 text-amber-600 h-4 px-1">{s.edge.label || 'Weg'}</Badge>
             ))}
           </div>
+        </div>
+      );
+    }
+
+    // Standard Step or Subprocess
+    return (
+      <Card 
+        className={cn(
+          "w-full max-w-sm rounded-xl border shadow-md overflow-hidden transition-all bg-white group cursor-pointer",
+          isActive ? "ring-4 ring-primary/20 border-primary shadow-xl" : "hover:border-primary/30",
+          node.type === 'subprocess' && "border-dashed border-indigo-400 bg-indigo-50/5"
         )}
-        
-        <Card 
-          id={`card-${node.id}`}
-          className={cn(
-            "rounded-2xl border shadow-sm overflow-hidden group transition-all bg-white duration-300 cursor-pointer h-full",
-            isActive ? "ring-2 ring-primary border-primary/40 shadow-xl scale-[1.01]" : "hover:border-primary/20",
-            node.type === 'decision' && !isActive && "border-amber-100 bg-amber-50/10",
-            node.type === 'subprocess' && !isActive && "border-indigo-100 bg-indigo-50/10"
-          )}
-          onClick={() => setActiveNodeId(isActive ? null : node.id)}
-        >
-          <CardHeader className="p-5 pb-4 bg-white border-b">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-headline font-black text-sm md:text-base text-slate-900 uppercase tracking-tight truncate">{node.title}</h3>
-                  <Badge variant="outline" className={cn(
-                    "text-[8px] font-black h-4 px-1.5 border-none shadow-none uppercase",
-                    node.type === 'decision' ? 'Entscheidung' : node.type === 'step' ? 'Prozessschritt' : node.type
-                  )}>{node.type === 'decision' ? 'Entscheidung' : node.type === 'step' ? 'Prozessschritt' : node.type}</Badge>
-                </div>
-                <div className="flex flex-wrap gap-2 items-center">
-                  <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-primary bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
-                    <Briefcase className="w-3 h-3" /> {roleName}
-                  </div>
-                  {nodeResources?.map(res => (
-                    <Badge key={res.id} className={cn(
-                      "border rounded-md h-5 px-1.5 text-[8px] font-black gap-1",
-                      res.criticality === 'high' ? "bg-red-50 text-red-700 border-red-100" : "bg-indigo-50 text-indigo-700 border-indigo-100"
-                    )}>
-                      <Server className="w-2.5 h-2.5" /> {res.name} <span className="opacity-50 font-normal">({res.assetType})</span>
+        onClick={() => setActiveNodeId(isActive ? null : node.id)}
+      >
+        <CardHeader className="p-3 bg-white border-b flex flex-row items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h4 className="text-xs font-black uppercase tracking-tight text-slate-900 truncate">{node.title}</h4>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <Briefcase className="w-2.5 h-2.5 text-primary opacity-50" />
+              <span className="text-[9px] font-bold text-slate-500 truncate max-w-[150px]">{roleName}</span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1 shrink-0">
+            {nodeResources?.map(res => (
+              <TooltipProvider key={res.id}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge className={cn("h-4 px-1 text-[7px] font-black", res.criticality === 'high' ? "bg-red-50 text-red-600" : "bg-indigo-50 text-indigo-600")}>
+                      <Server className="w-2 h-2" />
                     </Badge>
-                  ))}
-                </div>
-              </div>
-              {node.type === 'subprocess' && targetProc && (
-                <Button size="sm" variant="outline" className="h-8 rounded-lg text-[9px] font-black uppercase border-indigo-200 text-indigo-700 hover:bg-indigo-50 gap-1.5 shadow-sm" onClick={(e) => { e.stopPropagation(); router.push(`/processhub/view/${node.targetProcessId}`); }}>
-                  <ExternalLink className="w-3 h-3" /> Prozess: {targetProc.title}
-                </Button>
-              )}
-            </div>
-          </CardHeader>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px] font-bold">System: {res.name}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ))}
+          </div>
+        </CardHeader>
+        <CardContent className="p-3 space-y-3">
+          {node.description && <p className="text-[10px] text-slate-600 leading-relaxed line-clamp-2 italic">"{node.description}"</p>}
           
-          <CardContent className="p-0">
-            <div className="grid grid-cols-1 md:grid-cols-10 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-              <div className="md:col-span-7 p-5 space-y-6">
-                {node.description && <p className="text-xs text-slate-600 leading-relaxed font-medium bg-slate-50/50 p-3 rounded-xl border border-dashed border-slate-200">{node.description}</p>}
-                
-                {node.checklist && node.checklist.length > 0 && (
-                  <div className="space-y-3">
-                    <Label className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-2 tracking-widest">
-                      <ListChecks className="w-3.5 h-3.5" /> Checkliste
-                    </Label>
-                    <div className="grid grid-cols-1 gap-2">
-                      {node.checklist.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-100 group/item hover:border-emerald-200 transition-all cursor-pointer">
-                          <div className="w-5 h-5 rounded-md border border-slate-200 flex items-center justify-center shrink-0 group-hover/item:bg-emerald-500 group-hover/item:border-emerald-500 transition-all">
-                            <CheckCircle className="w-3.5 h-3.5 text-transparent group-hover/item:text-white" />
-                          </div>
-                          <span className="text-[11px] font-bold text-slate-700 leading-tight">{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="md:col-span-3 p-5 space-y-6 bg-slate-50/30">
-                <div className="space-y-4">
-                  {(node.tips || node.errors) && (
-                    <div className="space-y-2">
-                      <Label className="text-[8px] font-black uppercase text-slate-400">Expertise</Label>
-                      {node.tips && (
-                        <div className="flex items-start gap-2 p-2 rounded-lg bg-blue-50/50 border border-blue-100 text-[10px] font-bold text-blue-900 italic">
-                          <Lightbulb className="w-3 h-3 text-blue-500 shrink-0 mt-0.5" /> {node.tips}
-                        </div>
-                      )}
-                      {node.errors && (
-                        <div className="flex items-start gap-2 p-2 rounded-lg bg-red-50/50 border border-red-100 text-[10px] font-bold text-red-900 italic">
-                          <AlertCircle className="w-3 h-3 text-red-500 shrink-0 mt-0.5" /> {node.errors}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label className="text-[8px] font-black uppercase text-slate-400">Compliance & Daten</Label>
-                    <div className="flex flex-wrap gap-1">
-                      {nodeLinks?.map((l: any) => (
-                        <Badge key={l.id} variant="outline" className="bg-white text-primary border-primary/10 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{allFeatures?.find(f => f.id === l.featureId)?.name}</Badge>
-                      ))}
-                      {nodeGroups?.map(g => (
-                        <Badge key={g.id} variant="outline" className="bg-white text-emerald-700 border-emerald-100 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{g.name}</Badge>
-                      ))}
-                      {nodeCategories?.map(c => (
-                        <Badge key={c.id} variant="outline" className="bg-white text-blue-700 border-blue-100 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{c.name}</Badge>
-                      ))}
-                    </div>
-                  </div>
+          {node.checklist && node.checklist.length > 0 && (isActive) && (
+            <div className="space-y-1 animate-in fade-in slide-in-from-top-1">
+              {node.checklist.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2 p-1.5 bg-slate-50 rounded-lg border border-slate-100">
+                  <CheckCircle className="w-3 h-3 text-emerald-500" />
+                  <span className="text-[10px] font-bold text-slate-700">{item}</span>
                 </div>
-              </div>
+              ))}
             </div>
+          )}
 
-            {successors.length > 0 && (
-              <div className="bg-slate-50/80 p-3 border-t flex flex-wrap justify-center gap-2">
-                {successors.map((s, idx) => (
-                  <Button 
-                    key={idx} 
-                    variant="ghost" 
-                    className="h-8 rounded-full px-4 border bg-white shadow-sm gap-2 group/next active:scale-95 transition-all"
-                    onClick={(e) => { e.stopPropagation(); document.getElementById(s.node?.id || '')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setActiveNodeId(s.node?.id || null); }}
-                  >
-                    {s.edge.label && <Badge className="bg-amber-500 text-white border-none h-3.5 px-1 text-[6px] font-black uppercase">{s.edge.label}</Badge>}
-                    <span className="text-[9px] font-black uppercase tracking-tight text-slate-600">{s.node?.title}</span>
-                    <ArrowRightCircle className="w-3.5 h-3.5 text-slate-300 group-hover/next:text-primary group-hover/next:translate-x-0.5 transition-all" />
-                  </Button>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          {node.type === 'subprocess' && targetProc && (
+            <Button size="sm" variant="outline" className="w-full h-7 rounded-lg text-[8px] font-black uppercase border-indigo-200 text-indigo-700 bg-indigo-50/50 hover:bg-indigo-50 transition-all gap-1" onClick={(e) => { e.stopPropagation(); router.push(`/processhub/view/${node.targetProcessId}`); }}>
+              <ExternalLink className="w-2.5 h-2.5" /> Referenz: {targetProc.title}
+            </Button>
+          )}
+
+          {successors.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-2 border-t mt-2">
+              {successors.map((s, idx) => (
+                <Button 
+                  key={idx} 
+                  variant="ghost" 
+                  className="h-6 rounded-md px-2 border bg-white shadow-sm gap-1 hover:bg-slate-50 transition-all"
+                  onClick={(e) => { e.stopPropagation(); document.getElementById(s.node?.id || '')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setActiveNodeId(s.node?.id || null); }}
+                >
+                  <span className="text-[8px] font-black uppercase text-slate-400">{s.node?.title}</span>
+                  <ArrowRightCircle className="w-2.5 h-2.5 text-slate-300" />
+                </Button>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     );
   };
 
@@ -526,7 +495,7 @@ export default function ProcessDetailViewPage() {
                 </Badge>
               )}
             </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">V{activeVersion?.version}.0 • Leitfaden</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">V{activeVersion?.version}.0 • BPMN Ablaufplan</p>
           </div>
         </div>
 
@@ -613,6 +582,25 @@ export default function ProcessDetailViewPage() {
         </aside>
 
         <main className="flex-1 flex flex-col bg-slate-100 relative">
+          <div className="absolute top-6 right-8 z-30 flex bg-white/90 backdrop-blur-sm p-1 rounded-xl border shadow-md">
+            <Button 
+              variant={guideSubMode === 'list' ? 'secondary' : 'ghost'} 
+              size="sm" 
+              className="h-8 rounded-lg text-[9px] font-black uppercase px-3"
+              onClick={() => setGuideSubMode('list')}
+            >
+              <List className="w-3.5 h-3.5 mr-1.5" /> Liste
+            </Button>
+            <Button 
+              variant={guideSubMode === 'structured' ? 'secondary' : 'ghost'} 
+              size="sm" 
+              className="h-8 rounded-lg text-[9px] font-black uppercase px-3"
+              onClick={() => setGuideSubMode('structured')}
+            >
+              <LayoutGrid className="w-3.5 h-3.5 mr-1.5" /> Struktur
+            </Button>
+          </div>
+
           {viewMode === 'diagram' ? (
             <div className="flex-1 bg-white relative overflow-hidden shadow-inner">
               <iframe ref={iframeRef} src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json" className="absolute inset-0 w-full h-full border-none" />
@@ -692,29 +680,10 @@ export default function ProcessDetailViewPage() {
               </div>
             </ScrollArea>
           ) : (
-            <div className="flex-1 flex flex-col min-h-0 relative">
-              <div className="absolute top-6 right-8 z-30 flex bg-white/90 backdrop-blur-sm p-1 rounded-xl border shadow-md">
-                <Button 
-                  variant={guideSubMode === 'list' ? 'secondary' : 'ghost'} 
-                  size="sm" 
-                  className="h-8 rounded-lg text-[9px] font-black uppercase px-3"
-                  onClick={() => setGuideSubMode('list')}
-                >
-                  <List className="w-3.5 h-3.5 mr-1.5" /> Liste
-                </Button>
-                <Button 
-                  variant={guideSubMode === 'structured' ? 'secondary' : 'ghost'} 
-                  size="sm" 
-                  className="h-8 rounded-lg text-[9px] font-black uppercase px-3"
-                  onClick={() => setGuideSubMode('structured')}
-                >
-                  <LayoutGrid className="w-3.5 h-3.5 mr-1.5" /> Struktur
-                </Button>
-              </div>
-
+            <div className="flex-1 flex flex-col min-h-0 relative" ref={containerRef}>
               <ScrollArea className="flex-1">
                 {guideSubMode === 'list' ? (
-                  <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32 relative" ref={containerRef}>
+                  <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32 relative">
                     <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
                       <defs>
                         <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
@@ -741,29 +710,75 @@ export default function ProcessDetailViewPage() {
                     <div className="space-y-12 relative">
                       <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-200 z-0" />
                       {activeVersion?.model_json?.nodes?.map((node: ProcessNode, i: number) => (
-                        <NodeCard key={node.id} node={node} index={i} />
+                        <div key={node.id} className={cn("relative z-10 pl-12")} id={node.id}>
+                          <div className={cn(
+                            "absolute left-0 w-10 h-10 rounded-xl flex items-center justify-center border-4 border-slate-50 shadow-sm z-20 transition-all cursor-pointer",
+                            activeNodeId === node.id ? "scale-125 ring-4 ring-primary/20" : "hover:scale-110",
+                            node.type === 'start' ? "bg-emerald-500 text-white" : 
+                            node.type === 'end' ? "bg-red-500 text-white" : 
+                            node.type === 'decision' ? "bg-amber-500 text-white" : "bg-white text-slate-900 border-slate-200"
+                          )} onClick={() => setActiveNodeId(activeNodeId === node.id ? null : node.id)}>
+                            {node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
+                             node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> :
+                             node.type === 'decision' ? <GitBranch className="w-5 h-5" /> :
+                             <span className="font-headline font-black text-sm">{i + 1}</span>}
+                          </div>
+                          
+                          <Card 
+                            id={`card-${node.id}`}
+                            className={cn(
+                              "rounded-2xl border shadow-sm overflow-hidden group transition-all bg-white duration-300",
+                              activeNodeId === node.id ? "ring-2 ring-primary border-primary/40 shadow-xl" : "hover:border-primary/20"
+                            )}
+                            onClick={() => setActiveNodeId(activeNodeId === node.id ? null : node.id)}
+                          >
+                            <CardHeader className="p-4 bg-white border-b flex flex-row items-center justify-between">
+                              <div className="min-w-0 flex-1">
+                                <h3 className="font-headline font-black text-base text-slate-900 uppercase truncate">{node.title}</h3>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge variant="outline" className="bg-primary/5 text-primary border-none text-[8px] font-black h-4 px-1.5 uppercase">{getFullRoleName(node.roleId)}</Badge>
+                                  {node.resourceIds?.map(rid => (
+                                    <Badge key={rid} variant="outline" className="text-[7px] font-bold text-slate-400 border-slate-100 h-4 px-1">{resources?.find(r => r.id === rid)?.name}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="p-4 space-y-4">
+                              {node.description && <p className="text-xs text-slate-600 leading-relaxed italic">"{node.description}"</p>}
+                              {node.checklist && node.checklist.length > 0 && (
+                                <div className="grid grid-cols-1 gap-1.5">
+                                  {node.checklist.map((item, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 text-[11px] font-bold text-slate-700 bg-slate-50 p-2 rounded-lg border">
+                                      <CheckCircle className="w-3 h-3 text-emerald-500" /> {item}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        </div>
                       ))}
                     </div>
                   </div>
                 ) : (
-                  <div className="p-8 md:p-12 space-y-16 pb-40">
+                  <div className="p-12 md:p-20 space-y-24 pb-64">
                     {structuredLevels.map((levelNodes, levelIdx) => (
                       <div key={levelIdx} className="relative">
                         {levelIdx < structuredLevels.length - 1 && (
-                          <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-20">
-                            <div className="w-0.5 h-8 bg-slate-400" />
-                            <ChevronDown className="w-4 h-4 text-slate-400" />
+                          <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-20">
+                            <div className="w-0.5 h-12 bg-slate-400" />
+                            <ArrowDown className="w-4 h-4 text-slate-400" />
                           </div>
                         )}
                         
                         <div className={cn(
-                          "grid gap-6 items-stretch",
-                          levelNodes.length === 1 ? "grid-cols-1 max-w-3xl mx-auto" : 
-                          levelNodes.length === 2 ? "grid-cols-2 max-w-6xl mx-auto" : "grid-cols-3 max-w-7xl mx-auto"
+                          "grid gap-12 items-center justify-center",
+                          levelNodes.length === 1 ? "grid-cols-1 max-w-md mx-auto" : 
+                          levelNodes.length === 2 ? "grid-cols-2 max-w-4xl mx-auto" : "grid-cols-3 max-w-6xl mx-auto"
                         )}>
                           {levelNodes.map((node, nodeIdx) => (
-                            <div key={node.id} className="h-full">
-                              <NodeCard node={node} index={nodeIdx} compact={true} />
+                            <div key={node.id} className="flex justify-center">
+                              <BpmnNode node={node} index={nodeIdx} isActive={activeNodeId === node.id} />
                             </div>
                           ))}
                         </div>

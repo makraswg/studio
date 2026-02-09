@@ -581,3 +581,26 @@ export interface Entitlement {
   externalMapping?: string;
   resourceId?: string;
 }
+
+export interface FeatureLink {
+  id: string;
+  featureId: string;
+  targetType: 'risk' | 'resource';
+  targetId: string;
+}
+
+export interface FeatureDependency {
+  id: string;
+  featureId: string;
+  dependencyType: string;
+  dependencyId: string;
+}
+
+export interface FeatureProcessStep {
+  id: string;
+  featureId: string;
+  processId: string;
+  nodeId: string;
+  usageType: string;
+  criticality: 'low' | 'medium' | 'high';
+}

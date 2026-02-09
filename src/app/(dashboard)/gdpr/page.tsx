@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -22,7 +23,7 @@ import {
   Building2,
   RefreshCw,
   FileText,
-  Save,
+  Save as SaveIcon,
   Layers,
   Download,
   Scale,
@@ -281,7 +282,7 @@ export default function GdprPage() {
                 </div>
                 <div className="min-w-0">
                   <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">VVT bearbeiten</DialogTitle>
-                  <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Automatisierte TOM-Sicht • Roadmap Phase 5</DialogDescription>
+                  <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Automatisierte Compliance-Analyse</DialogDescription>
                 </div>
               </div>
               <AiFormAssistant formType="gdpr" currentData={{ name, description, responsibleDepartment, legalBasis }} onApply={(s) => { if(s.name) setName(s.name); if(s.description) setDescription(s.description); toast({title:"Vorschläge übernommen"}); }} />
@@ -306,7 +307,7 @@ export default function GdprPage() {
                       <Input value={name} onChange={e => setName(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white shadow-sm" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortliche Abteilung</Label>
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Abteilung</Label>
                       <Input value={responsibleDepartment} onChange={e => setResponsibleDepartment(e.target.value)} className="rounded-xl h-11 text-xs font-bold border-slate-200 bg-white" />
                     </div>
                     <div className="space-y-2">
@@ -408,9 +409,6 @@ export default function GdprPage() {
                         <div><p className="text-[9px] font-black uppercase mb-1 tracking-widest">{gap.type} Finding</p><p className="text-xs font-bold leading-relaxed">{gap.msg}</p></div>
                       </div>
                     ))}
-                    {heritage.gaps.length === 0 && (
-                      <div className="py-20 text-center space-y-4 opacity-30"><CheckCircle2 className="w-16 h-16 mx-auto text-emerald-500" /><p className="text-sm font-black uppercase">Keine Gaps identifiziert</p></div>
-                    )}
                   </div>
                 </TabsContent>
               </div>
@@ -419,7 +417,7 @@ export default function GdprPage() {
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
             <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button>
             <Button size="sm" onClick={handleSave} disabled={isSaving || !name} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-12 h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg active:scale-95 gap-2 uppercase">
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern
             </Button>
           </DialogFooter>
         </DialogContent>

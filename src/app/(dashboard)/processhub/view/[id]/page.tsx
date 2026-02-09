@@ -33,8 +33,8 @@ import {
   AlertCircle,
   FileCheck,
   UserCircle,
-  ArrowUp,
-  ArrowDown,
+  ArrowUp as ArrowUpIcon,
+  ArrowDown as ArrowDownIcon,
   ClipboardCheck,
   ShieldAlert,
   X,
@@ -276,7 +276,7 @@ export default function ProcessDetailViewPage() {
       const isEnd = node.type === 'end';
       return (
         <div id={`card-${node.id}`} className={cn("z-10 transition-all duration-300 shadow-lg cursor-pointer", isDecision ? "w-24 h-24 rotate-45 flex items-center justify-center border-4 border-white bg-amber-500 text-white" : (isStart || isEnd) ? "w-16 h-16 rounded-full border-4 border-white flex items-center justify-center text-white shadow-xl" : "w-64 rounded-2xl bg-white border border-slate-200 overflow-hidden")} onClick={(e) => { e.stopPropagation(); handleNodeClick(node.id); }}>
-          {isDecision ? (<div className="-rotate-45 text-center px-2"><GitBranch className="w-6 h-6 mx-auto mb-1" /><p className="text-[9px] font-black leading-tight uppercase truncate max-w-[60px]">{node.title}</p></div>) : (isStart || isEnd) ? (<div className="flex flex-col items-center">{isStart ? <ArrowUp className="w-6 h-6" /> : <CheckCircle2 className="w-6 h-6" />}<p className="text-[8px] font-black uppercase mt-1">{isStart ? 'Start' : 'Ende'}</p></div>) : (<div className="flex flex-col"><div className={cn("p-3 border-b flex items-center gap-3", node.type === 'subprocess' ? "bg-indigo-50" : "bg-slate-50")}><div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm", node.type === 'subprocess' ? "bg-indigo-600" : "bg-primary")}>{node.type === 'subprocess' ? <Network className="w-4 h-4" /> : <Activity className="w-4 h-4" />}</div><div className="min-w-0"><p className="text-[10px] font-black uppercase text-slate-900 truncate leading-tight">{node.type === 'subprocess' && targetProc ? `Prozess: ${targetProc.title}` : node.title}</p><p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{roleName}</p></div></div><div className="p-4"><p className="text-[10px] text-slate-500 line-clamp-2 italic leading-relaxed">"{node.description || 'Keine Beschreibung'}"</p></div></div>)}
+          {isDecision ? (<div className="-rotate-45 text-center px-2"><GitBranch className="w-6 h-6 mx-auto mb-1" /><p className="text-[9px] font-black leading-tight uppercase truncate max-w-[60px]">{node.title}</p></div>) : (isStart || isEnd) ? (<div className="flex flex-col items-center">{isStart ? <ArrowUpIcon className="w-6 h-6" /> : <CheckCircle2 className="w-6 h-6" />}<p className="text-[8px] font-black uppercase mt-1">{isStart ? 'Start' : 'Ende'}</p></div>) : (<div className="flex flex-col"><div className={cn("p-3 border-b flex items-center gap-3", node.type === 'subprocess' ? "bg-indigo-50" : "bg-slate-50")}><div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm", node.type === 'subprocess' ? "bg-indigo-600" : "bg-primary")}>{node.type === 'subprocess' ? <Network className="w-4 h-4" /> : <Activity className="w-4 h-4" />}</div><div className="min-w-0"><p className="text-[10px] font-black uppercase text-slate-900 truncate leading-tight">{node.type === 'subprocess' && targetProc ? `Prozess: ${targetProc.title}` : node.title}</p><p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{roleName}</p></div></div><div className="p-4"><p className="text-[10px] text-slate-500 line-clamp-2 italic leading-relaxed">"{node.description || 'Keine Beschreibung'}"</p></div></div>)}
         </div>
       );
     }
@@ -285,7 +285,7 @@ export default function ProcessDetailViewPage() {
       <div className={cn("relative z-10", !compact && "pl-12")}>
         {!compact && (
           <div className={cn("absolute left-0 w-10 h-10 rounded-xl flex items-center justify-center border-4 border-slate-50 shadow-sm z-20 transition-all cursor-pointer", isActive ? "scale-125 ring-4 ring-primary/20" : "hover:scale-110")} onClick={() => handleNodeClick(node.id)}>
-            {node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
+            {node.type === 'start' ? <ArrowUpIcon className="w-5 h-5" /> : 
              node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> : 
              node.type === 'decision' ? <GitBranch className="w-5 h-5" /> : 
              <span className="font-headline font-black text-sm">{index + 1}</span>}
@@ -527,11 +527,11 @@ export default function ProcessDetailViewPage() {
           </DialogHeader>
           <div className="flex-1 grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100 overflow-hidden">
             <div className="flex flex-col min-h-0">
-              <div className="p-4 bg-slate-50 border-b flex items-center gap-2"><ArrowUp className="w-3.5 h-3.5 text-slate-400" /><span className="text-[10px] font-black uppercase text-slate-400">Vorher (Status Quo)</span></div>
+              <div className="p-4 bg-slate-50 border-b flex items-center gap-2"><ArrowUpIcon className="w-3.5 h-3.5 text-slate-400" /><span className="text-[10px] font-black uppercase text-slate-400">Vorher (Status Quo)</span></div>
               <ScrollArea className="flex-1 p-6 bg-white"><pre className="text-[10px] font-mono text-slate-500 leading-relaxed">{selectedLogEntry?.before ? JSON.stringify(selectedLogEntry.before, null, 2) : "// Keine Daten vorhanden"}</pre></ScrollArea>
             </div>
             <div className="flex flex-col min-h-0">
-              <div className="p-4 bg-emerald-50/50 border-b flex items-center gap-2"><ArrowDown className="w-3.5 h-3.5 text-emerald-600" /><span className="text-[10px] font-black uppercase text-emerald-600">Nachher (Änderung)</span></div>
+              <div className="p-4 bg-emerald-50/50 border-b flex items-center gap-2"><ArrowDownIcon className="w-3.5 h-3.5 text-emerald-600" /><span className="text-[10px] font-black uppercase text-emerald-600">Nachher (Änderung)</span></div>
               <ScrollArea className="flex-1 p-6 bg-white"><pre className="text-[10px] font-mono text-emerald-900 leading-relaxed">{selectedLogEntry?.after ? JSON.stringify(selectedLogEntry.after, null, 2) : "// Keine Daten vorhanden"}</pre></ScrollArea>
             </div>
           </div>

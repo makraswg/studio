@@ -15,6 +15,7 @@ Dieses Dokument dient der systematischen Erfassung und Behebung von Fehlern, die
 | ERR-06 | `ReferenceError: Target is not defined` | `/processhub/view/[id]` | Doppelte oder fehlende Target-Icons | Importe bereinigt und eindeutig benannt |
 | ERR-07 | `ReferenceError: ArrowRightLeft is not defined` | `/processhub/view/[id]` | Fehlender Import für das Schnittstellen-Icon | Icon importiert |
 | ERR-08 | `ReferenceError: ArrowUp is not defined` | `/processhub/view/[id]` | Fehlender Import für das Start-Icon | Icon importiert |
+| ERR-09 | `Internal Server Error` | `/processhub/view/[id]` | Fehlendes `</SelectContent>` Tag bei VVT-Koppelung | Tag ergänzt und Syntax validiert |
 
 ## 🛡️ Richtlinien für Entwickler
 

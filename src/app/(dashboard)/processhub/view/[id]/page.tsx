@@ -396,21 +396,25 @@ export default function ProcessDetailViewPage() {
   }, [mounted, activeVersion, syncDiagram, viewMode]);
 
   const handleNodeClick = (nodeId: string) => {
-    const isDeactivating = activeNodeId === nodeId;
-    setActiveNodeId(isDeactivating ? null : nodeId);
-    
-    if (!isDeactivating) {
-      setTimeout(() => {
-        const el = document.getElementById(`card-${nodeId}`);
-        if (el) {
-          el.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'center', 
-            inline: guideMode === 'structure' ? 'center' : 'nearest' 
-          });
-        }
-      }, 100);
+    if (guideMode === 'structure') {
+      // In structure mode, just set (don't toggle if already active)
+      setActiveNodeId(nodeId);
+    } else {
+      // In list mode, toggle behavior as before
+      const isDeactivating = activeNodeId === nodeId;
+      setActiveNodeId(isDeactivating ? null : nodeId);
     }
+    
+    setTimeout(() => {
+      const el = document.getElementById(`card-${nodeId}`);
+      if (el) {
+        el.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center', 
+          inline: guideMode === 'structure' ? 'center' : 'nearest' 
+        });
+      }
+    }, 100);
   };
 
   const GuideCard = ({ node, index, compact = false }: { node: ProcessNode, index: number, compact?: boolean }) => {
@@ -446,7 +450,10 @@ export default function ProcessDetailViewPage() {
             (isStart || isEnd) ? "w-16 h-16 rounded-full border-4 border-white flex items-center justify-center text-white shadow-xl" : 
             "w-64 rounded-2xl bg-white border border-slate-200 overflow-hidden"
           )} 
-          onClick={() => handleNodeClick(node.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleNodeClick(node.id);
+          }}
         >
           {isDecision ? (
             <div className="-rotate-45 text-center px-2">
@@ -505,7 +512,13 @@ export default function ProcessDetailViewPage() {
             node.type === 'decision' && !isActive && "border-amber-100 bg-amber-50/10",
             node.type === 'subprocess' && !isActive && "border-indigo-100 bg-indigo-50/10"
           )}
-          onClick={() => handleNodeClick(node.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            // In structure mode, stay open when clicking inside.
+            // In list mode, use standard toggle logic via handleNodeClick.
+            if (guideMode === 'structure' && isActive) return;
+            handleNodeClick(node.id);
+          }}
         >
           <CardHeader className="p-5 pb-4 bg-white border-b">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -797,6 +810,10 @@ export default function ProcessDetailViewPage() {
                     guideMode === 'structure' ? "min-w-[1400px]" : "max-w-5xl w-full pl-20"
                   )} 
                   ref={containerRef}
+                  onClick={() => {
+                    // Close active node when clicking on background in structure mode
+                    if (guideMode === 'structure') setActiveNodeId(null);
+                  }}
                 >
                   <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
                     <defs>

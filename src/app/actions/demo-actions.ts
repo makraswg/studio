@@ -1,3 +1,4 @@
+
 'use server';
 
 import { saveCollectionRecord } from './mysql-actions';
@@ -109,114 +110,40 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       }, dataSource);
     }
 
-    // --- 7. PROZESSE & VVT (Detailed Chain) ---
+    // --- 7. PROZESSE & VVT ---
     const processRegistry = [
-      { id: 'p-int-mgmt', title: 'Interessentenmanagement', dept: 'd-best', vvt: 'vvt-lead', next: 'p-vermietung', cats: ['dcat-stamm'], groups: ['dsg-interessent'] },
-      { id: 'p-vermietung', title: 'Mietvertragsabschluss', dept: 'd-best', vvt: 'vvt-contract', next: 'p-uebergabe', cats: ['dcat-stamm', 'dcat-bank', 'dcat-bonitaet'], groups: ['dsg-mieter'] },
+      { id: 'p-int-mgmt', title: 'Interessentenmanagement', dept: 'd-best', vvt: 'vvt-lead', cats: ['dcat-stamm'], groups: ['dsg-interessent'] },
+      { id: 'p-vermietung', title: 'Mietvertragsabschluss', dept: 'd-best', vvt: 'vvt-contract', cats: ['dcat-stamm', 'dcat-bank', 'dcat-bonitaet'], groups: ['dsg-mieter'] },
       { id: 'p-uebergabe', title: 'Wohnungsübergabe', dept: 'd-tech', vvt: 'vvt-handover', cats: ['dcat-gebaeude'], groups: ['dsg-mieter'] },
-      { id: 'p-maengel', title: 'Mängelanzeige (Mieter)', dept: 'd-best', vvt: 'vvt-support', next: 'p-instandhaltung', cats: ['dcat-stamm'], groups: ['dsg-mieter'] },
-      { id: 'p-instandhaltung', title: 'Instandsetzungsauftrag', dept: 'd-tech', vvt: 'vvt-workorder', cats: ['dcat-gebaeude'], groups: ['dsg-handwerker'], complex: true },
-      { id: 'p-bk-abr', title: 'Betriebskostenabrechnung', dept: 'd-best', vvt: 'vvt-utilities', cats: ['dcat-verbrauch', 'dcat-bank'], groups: ['dsg-mieter'] }
+      { id: 'p-instandhaltung', title: 'Instandsetzungsauftrag', dept: 'd-tech', vvt: 'vvt-workorder', cats: ['dcat-gebaeude'], groups: ['dsg-handwerker'], complex: true }
     ];
 
     for (const p of processRegistry) {
-      // Create VVT
       await saveCollectionRecord('processingActivities', p.vvt, {
         id: p.vvt, tenantId: t1Id, name: `VVT: ${p.title}`, status: 'active', version: '1.0',
         responsibleDepartment: departmentsData.find(d => d.id === p.dept)?.name || 'General',
         legalBasis: 'Art. 6 Abs. 1 lit. b (Vertrag)', 
-        description: `Dokumentation der Verarbeitungstätigkeiten für den Prozess ${p.title}.`,
-        retentionPeriod: '10 Jahre nach Abschluss', lastReviewDate: today
+        description: `Dokumentation für ${p.title}.`,
+        retentionPeriod: '10 Jahre', lastReviewDate: today
       }, dataSource);
 
-      // Create Process
       await saveCollectionRecord('processes', p.id, {
         id: p.id, tenantId: t1Id, title: p.title, status: 'published', currentVersion: 1,
         responsibleDepartmentId: p.dept, vvtId: p.vvt, createdAt: offsetDate(30), updatedAt: now,
         automationLevel: 'partial', dataVolume: 'medium', processingFrequency: 'daily'
       }, dataSource);
 
-      // --- BRANCHING LOGIC FOR INSTANDHALTUNG ---
-      let nodes: ProcessNode[] = [];
-      let edges: any[] = [];
-      let positions: any = {};
-
-      if (p.complex) {
-        nodes = [
-          { id: 'start', type: 'start', title: 'Meldungseingang' },
-          { 
-            id: 'step1', type: 'step', title: 'Schadensaufnahme', 
-            roleId: 'j-tech-ref', resourceIds: ['res-m365'], 
-            dataCategoryIds: p.cats, subjectGroupIds: p.groups,
-            description: 'Der technische Mitarbeiter prüft den Mangel vor Ort oder per Foto.',
-            tips: 'Achten Sie auf Versicherungsschäden (Leitungswasser).',
-            checklist: ['Schadensbild dokumentieren', 'Kostenschätzung erstellen']
-          },
-          { 
-            id: 'dec1', type: 'decision', title: 'Großauftrag > 1.000€?', 
-            description: 'Überschreiten die geschätzten Kosten die Kompetenzgrenze des Referenten?'
-          },
-          { 
-            id: 'step2a', type: 'step', title: 'Freigabe Geschäftsführung', 
-            roleId: 'j-gf', resourceIds: ['res-m365'], 
-            description: 'Manuelle Genehmigung durch die Geschäftsleitung erforderlich.',
-            errors: 'Häufig wird die Kostenschätzung nicht angehängt.'
-          },
-          { 
-            id: 'step3', type: 'step', title: 'Beauftragung Handwerker', 
-            roleId: 'j-tech-ref', resourceIds: ['res-mareon', 'res-wodis'], 
-            description: 'Erstellung des Auftrags im Mareon Portal.',
-            checklist: ['Handwerker wählen', 'Termin avisieren', 'Auftrag in Wodis buchen']
-          },
-          { id: 'end', type: 'end', title: 'Abschluss' }
-        ];
-
-        edges = [
-          { id: 'e1', source: 'start', target: 'step1' },
-          { id: 'e2', source: 'step1', target: 'dec1' },
-          { id: 'e3', source: 'dec1', target: 'step2a', label: 'Ja' },
-          { id: 'e4', source: 'dec1', target: 'step3', label: 'Nein' },
-          { id: 'e5', source: 'step2a', target: 'step3' },
-          { id: 'e6', source: 'step3', target: 'end' }
-        ];
-
-        positions = {
-          start: { x: 50, y: 150 },
-          step1: { x: 200, y: 150 },
-          dec1: { x: 450, y: 150 },
-          step2a: { x: 450, y: 300 },
-          step3: { x: 700, y: 150 },
-          end: { x: 950, y: 150 }
-        };
-      } else {
-        nodes = [
-          { id: 'start', type: 'start', title: 'Start' },
-          { 
-            id: 'step1', type: 'step', title: 'Datenerfassung', 
-            roleId: 'j-immo-kfm', resourceIds: ['res-m365'], 
-            dataCategoryIds: p.cats, subjectGroupIds: p.groups,
-            description: 'Erfassung der notwendigen Informationen.' 
-          },
-          { 
-            id: 'step2', type: 'step', title: 'System-Eintrag', 
-            roleId: 'j-immo-kfm', resourceIds: ['res-wodis'], 
-            dataCategoryIds: p.cats, subjectGroupIds: p.groups,
-            description: 'Übernahme in das führende ERP System.' 
-          },
-          { id: 'end', type: p.next ? 'subprocess' : 'end', title: p.next ? 'Weiterleitung' : 'Ende', targetProcessId: p.next || undefined }
-        ];
-
-        edges = [
-          {id:'e1',source:'start',target:'step1'}, {id:'e2',source:'step1',target:'step2'}, {id:'e3',source:'step2',target:'end'}
-        ];
-
-        positions = {start:{x:50,y:100},step1:{x:200,y:100},step2:{x:450,y:100},end:{x:700,y:100}};
-      }
+      const nodes: ProcessNode[] = [
+        { id: 'start', type: 'start', title: 'Start' },
+        { id: 'step1', type: 'step', title: 'Erfassung', roleId: 'j-immo-kfm', resourceIds: ['res-m365'], description: 'Datenaufnahme.' },
+        { id: 'end', type: 'end', title: 'Abschluss' }
+      ];
+      const edges = [{ id: 'e1', source: 'start', target: 'step1' }, { id: 'e2', source: 'step1', target: 'end' }];
 
       await saveCollectionRecord('process_versions', `ver-${p.id}-1`, {
         id: `ver-${p.id}-1`, process_id: p.id, version: 1, 
         model_json: { nodes, edges },
-        layout_json: { positions },
+        layout_json: { positions: { start: {x:50,y:50}, step1:{x:200,y:50}, end:{x:400,y:50} } },
         revision: 1, created_at: offsetDate(30)
       }, dataSource);
     }
@@ -226,51 +153,24 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
     await saveCollectionRecord('risks', r1Id, {
       id: r1Id, tenantId: t1Id, title: 'Datenverlust im ERP (Wodis)', 
       category: 'IT-Sicherheit', impact: 5, probability: 2, status: 'active', assetId: 'res-wodis', 
-      owner: 'CISO', createdAt: offsetDate(20), description: 'Szenario eines technischen Defekts im Cloud-Rechenzentrum.'
+      owner: 'CISO', createdAt: offsetDate(20), description: 'Technischer Defekt.'
     }, dataSource);
 
     const m1Id = 'msr-backup';
     await saveCollectionRecord('riskMeasures', m1Id, {
-      id: m1Id, riskIds: [r1Id], resourceIds: ['res-wodis'], title: 'Revisionssicheres Backup & Restore', 
-      description: 'Regelmäßige Sicherung der SQL-Datenbanken und der Dateisysteme auf getrennten Speichermedien.',
-      owner: 'Aareon Support', status: 'completed', isTom: true, tomCategory: 'Verfügbarkeitskontrolle', 
+      id: m1Id, riskIds: [r1Id], resourceIds: ['res-wodis'], title: 'Sicherungskonzept', 
+      description: 'Regelmäßige Backups.',
+      owner: 'IT-Leitung', status: 'completed', isTom: true, tomCategory: 'Verfügbarkeitskontrolle', 
       dueDate: in30Days, effectiveness: 5
     }, dataSource);
 
-    await saveCollectionRecord('riskControls', 'ctrl-backup-01', {
-      id: 'ctrl-backup-01', measureId: m1Id, title: 'Wöchentlicher Backup-Report Check', 
-      owner: 'IT-Leitung', status: 'completed', isEffective: true, checkType: 'Review',
-      lastCheckDate: today, nextCheckDate: in30Days, evidenceDetails: 'Report vom Sonntag liegt vor. Keine Fehler.'
-    }, dataSource);
-
-    const m2Id = 'msr-mfa';
-    await saveCollectionRecord('riskMeasures', m2Id, {
-      id: m2Id, riskIds: [r1Id], resourceIds: ['res-m365', 'res-wodis'], title: 'Multi-Faktor Authentifizierung (MFA)',
-      description: 'Zwingende Nutzung von MFA für alle administrativen und externen Zugriffe.',
-      owner: 'IT-Security', status: 'active', isTom: true, tomCategory: 'Zugriffskontrolle',
-      dueDate: in30Days, effectiveness: 4
-    }, dataSource);
-
-    // --- 9. AUDIT LOG ---
-    for (let i = 0; i < 15; i++) {
-      const lid = `audit-seed-${i}`;
-      await saveCollectionRecord('auditEvents', lid, {
-        id: lid, tenantId: t1Id, actorUid: actorEmail, 
-        action: `Demo-Aktion #${i}: Konfiguration angepasst.`,
-        entityType: 'system', entityId: 'setup',
-        timestamp: offsetDate(i),
-        before: { step: i }, after: { step: i + 1 }
-      }, dataSource);
-    }
-
     await logAuditEventAction(dataSource, {
-      tenantId: 'global', actorUid: actorEmail, action: 'High-Fidelity Demo-Daten eingespielt (Branching-Prozesse + GRC).',
-      entityType: 'system', entityId: 'seed-v8'
+      tenantId: 'global', actorUid: actorEmail, action: 'Demo-Daten erfolgreich geladen.',
+      entityType: 'system', entityId: 'seed'
     });
 
-    return { success: true, message: "Enterprise Szenario V8 (Branching Logic) erfolgreich geladen. Prüfen Sie den Prozess 'Instandsetzungsauftrag' für die neue Weichen-Visualisierung." };
+    return { success: true, message: "Demo-Daten wurden eingespielt." };
   } catch (e: any) {
-    console.error("Seeding Error:", e);
     return { success: false, error: e.message };
   }
 }

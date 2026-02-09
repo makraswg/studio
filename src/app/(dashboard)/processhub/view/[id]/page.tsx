@@ -468,29 +468,29 @@ export default function ProcessDetailViewPage() {
               </div>
             </ScrollArea>
           ) : (
-            <div className="flex-1 flex flex-col min-h-0 relative" ref={containerRef}>
-              <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
-                <defs>
-                  <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
-                    <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary/40" />
-                  </marker>
-                </defs>
-                {connections.map((path, i) => (
-                  <path 
-                    key={i} 
-                    d={path} 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeDasharray="4 2"
-                    className="text-primary/20 animate-in fade-in duration-1000"
-                    markerEnd="url(#arrowhead)"
-                  />
-                ))}
-              </svg>
-
+            <div className="flex-1 flex flex-col min-h-0 relative">
               <ScrollArea className="flex-1">
-                <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32">
+                <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32 relative" ref={containerRef}>
+                  <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
+                    <defs>
+                      <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary/40" />
+                      </marker>
+                    </defs>
+                    {connections.map((path, i) => (
+                      <path 
+                        key={i} 
+                        d={path} 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeDasharray="4 2"
+                        className="text-primary/20 animate-in fade-in duration-1000"
+                        markerEnd="url(#arrowhead)"
+                      />
+                    ))}
+                  </svg>
+
                   <div className="space-y-12 relative">
                     <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-200 z-0" />
                     

@@ -6,12 +6,12 @@ import { useParams, useRouter } from 'next/navigation';
 import { 
   Workflow, 
   ChevronLeft, 
+  ChevronRight,
+  ChevronDown,
   Loader2, 
   ShieldCheck,
   Activity, 
   RefreshCw, 
-  ChevronRight,
-  ChevronDown,
   ListChecks,
   Network,
   ExternalLink,
@@ -159,7 +159,7 @@ export default function ProcessDetailViewPage() {
   
   // Interactive Flow States
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
-  const [connectionPaths, setConnectionPaths] = useState<string[]>([]);
+  const [connectionPaths, setConnectionPaths] = useState<{ path: string, label?: string }[]>([]);
 
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
@@ -220,7 +220,7 @@ export default function ProcessDetailViewPage() {
     return Array.from(resourceIds).map(rid => resources.find(r => r.id === rid)).filter(Boolean);
   }, [activeVersion, resources]);
 
-  // Structured Grid Logic
+  // Unified grid logic for BPMN structure
   const structuredGrid = useMemo(() => {
     if (!activeVersion || guideMode !== 'structure') return [];
     
@@ -228,20 +228,20 @@ export default function ProcessDetailViewPage() {
     const edges = activeVersion.model_json.edges || [];
     
     const levels: ProcessNode[][] = [];
-    const visited = new Set<string>();
+    const processed = new Set<string>();
     
-    // Initial: Start nodes
+    // Find initial entry nodes (Start or nodes with no incoming edges)
     let currentLevel = nodes.filter(n => !edges.some(e => e.target === n.id));
     if (currentLevel.length === 0 && nodes.length > 0) currentLevel = [nodes[0]];
 
     while (currentLevel.length > 0) {
       levels.push(currentLevel);
-      currentLevel.forEach(n => visited.add(n.id));
+      currentLevel.forEach(n => processed.add(n.id));
       
       const nextLevelSet = new Set<string>();
       currentLevel.forEach(n => {
         edges.filter(e => e.source === n.id).forEach(e => {
-          if (!visited.has(e.target)) nextLevelSet.add(e.target);
+          if (!processed.has(e.target)) nextLevelSet.add(e.target);
         });
       });
       
@@ -287,13 +287,12 @@ export default function ProcessDetailViewPage() {
     const sourceRect = sourceEl.getBoundingClientRect();
     const isGrid = guideMode === 'structure';
     
-    // DIFFERENT ANCHOR POINTS FOR DIFFERENT MODES
     let sourceX, sourceY;
     if (isGrid) {
       sourceX = sourceRect.left - containerRect.left + (sourceRect.width / 2);
       sourceY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
     } else {
-      // Restore classical left-side icon anchor
+      // List Mode: Anchor at the left-side icon (approx 20px in)
       sourceX = sourceRect.left - containerRect.left + 20; 
       sourceY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
     }
@@ -301,7 +300,7 @@ export default function ProcessDetailViewPage() {
     const edges = activeVersion.model_json.edges || [];
     const relatedEdges = edges.filter(e => e.source === activeNodeId || e.target === activeNodeId);
     
-    const newPaths: string[] = [];
+    const newPaths: { path: string, label?: string }[] = [];
 
     relatedEdges.forEach(edge => {
       const isOutbound = edge.source === activeNodeId;
@@ -316,21 +315,19 @@ export default function ProcessDetailViewPage() {
           targetX = targetRect.left - containerRect.left + (targetRect.width / 2);
           targetY = targetRect.top - containerRect.top + (targetRect.height / 2);
         } else {
-          // Restore classical left-side icon anchor
           targetX = targetRect.left - containerRect.left + 20;
           targetY = targetRect.top - containerRect.top + (targetRect.height / 2);
         }
 
         let cp1x, cp1y, cp2x, cp2y;
-        
         if (isGrid) {
-          // Centered grid logic
+          // Centered grid flow: straight-ish Bezier
           cp1x = sourceX;
           cp1y = (sourceY + targetY) / 2;
           cp2x = targetX;
           cp2y = (sourceY + targetY) / 2;
         } else {
-          // Restore classical outward curve to the left
+          // Classic List mode: curve to the far left
           cp1x = sourceX - 120;
           cp1y = sourceY;
           cp2x = targetX - 120;
@@ -338,7 +335,7 @@ export default function ProcessDetailViewPage() {
         }
 
         const path = `M ${sourceX} ${sourceY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${targetX} ${targetY}`;
-        newPaths.push(path);
+        newPaths.push({ path, label: edge.label });
       }
     });
 
@@ -375,7 +372,7 @@ export default function ProcessDetailViewPage() {
     return () => window.removeEventListener('message', handleMessage);
   }, [mounted, activeVersion, syncDiagram, viewMode]);
 
-  const GuideCard = ({ node, index }: { node: ProcessNode, index: number }) => {
+  const GuideCard = ({ node, index, compact = false }: { node: ProcessNode, index: number, compact?: boolean }) => {
     const roleName = getFullRoleName(node.roleId);
     const nodeLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id);
     const nodeResources = resources?.filter(r => node.resourceIds?.includes(r.id));
@@ -398,6 +395,54 @@ export default function ProcessDetailViewPage() {
     const isActive = activeNodeId === node.id;
     const targetProc = node.targetProcessId ? processes?.find(p => p.id === node.targetProcessId) : null;
 
+    if (compact) {
+      // BPMN Compact Layout for Structure Grid
+      const isDecision = node.type === 'decision';
+      const isStart = node.type === 'start';
+      const isEnd = node.type === 'end';
+
+      return (
+        <div 
+          id={`card-${node.id}`}
+          className={cn(
+            "relative z-10 transition-all duration-300 shadow-lg cursor-pointer",
+            isActive ? "scale-110 ring-4 ring-primary/20" : "hover:scale-105",
+            isDecision ? "w-24 h-24 rotate-45 flex items-center justify-center border-4 border-white bg-amber-500 text-white" : 
+            (isStart || isEnd) ? "w-16 h-16 rounded-full border-4 border-white flex items-center justify-center text-white shadow-xl" : 
+            "w-64 rounded-2xl bg-white border border-slate-200 overflow-hidden"
+          )} 
+          onClick={() => setActiveNodeId(isActive ? null : node.id)}
+        >
+          {isDecision ? (
+            <div className="-rotate-45 text-center px-2">
+              <GitBranch className="w-6 h-6 mx-auto mb-1" />
+              <p className="text-[9px] font-black leading-tight uppercase truncate max-w-[60px]">{node.title}</p>
+            </div>
+          ) : (isStart || isEnd) ? (
+            <div className="flex flex-col items-center">
+              {isStart ? <ArrowUp className="w-6 h-6" /> : <CheckCircle2 className="w-6 h-6" />}
+              <p className="text-[8px] font-black uppercase mt-1">{isStart ? 'Start' : 'Ende'}</p>
+            </div>
+          ) : (
+            <div className="flex flex-col">
+              <div className={cn("p-3 border-b flex items-center gap-3", node.type === 'subprocess' ? "bg-indigo-50" : "bg-slate-50")}>
+                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm", node.type === 'subprocess' ? "bg-indigo-600" : "bg-primary")}>
+                  {node.type === 'subprocess' ? <Network className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase text-slate-900 truncate leading-tight">{node.type === 'subprocess' && targetProc ? `Prozess: ${targetProc.title}` : node.title}</p>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{roleName}</p>
+                </div>
+              </div>
+              <div className="p-4">
+                <p className="text-[10px] text-slate-500 line-clamp-2 italic leading-relaxed">"{node.description || 'Keine Beschreibung'}"</p>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     return (
       <div className="relative z-10 pl-12">
         <div className={cn(
@@ -413,16 +458,6 @@ export default function ProcessDetailViewPage() {
            <span className="font-headline font-black text-sm">{index + 1}</span>}
         </div>
 
-        {predecessors.length > 0 && (
-          <div className="flex gap-1.5 mb-2 ml-1">
-            {predecessors.map((p, idx) => (
-              <Badge key={idx} variant="ghost" className="h-4 px-2 text-[7px] font-black uppercase text-slate-400 bg-slate-100/50 border-none rounded-full">
-                <ArrowLeftRight className="w-2 h-2 mr-1" /> Folge von: {p?.title}
-              </Badge>
-            ))}
-          </div>
-        )}
-        
         <Card 
           id={`card-${node.id}`}
           className={cn(
@@ -458,7 +493,7 @@ export default function ProcessDetailViewPage() {
                           </Badge>
                         </TooltipTrigger>
                         <TooltipContent className="text-[9px] font-bold p-2 bg-slate-900 border-none rounded-lg text-white">
-                          {res.assetType} • {res.criticality.toUpperCase()} • {res.dataLocation}
+                          {res.assetType} • {res.criticality.toUpperCase()}
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -502,16 +537,8 @@ export default function ProcessDetailViewPage() {
                   {(node.tips || node.errors) && (
                     <div className="space-y-2">
                       <Label className="text-[8px] font-black uppercase text-slate-400">Expertise</Label>
-                      {node.tips && (
-                        <div className="flex items-start gap-2 p-2 rounded-lg bg-blue-50/50 border border-blue-100 text-[10px] font-bold text-blue-900 italic">
-                          <Lightbulb className="w-3 h-3 text-blue-500 shrink-0 mt-0.5" /> {node.tips}
-                        </div>
-                      )}
-                      {node.errors && (
-                        <div className="flex items-start gap-2 p-2 rounded-lg bg-red-50/50 border border-red-100 text-[10px] font-bold text-red-900 italic">
-                          <AlertCircle className="w-3 h-3 text-red-500 shrink-0 mt-0.5" /> {node.errors}
-                        </div>
-                      )}
+                      {node.tips && <div className="flex items-start gap-2 p-2 rounded-lg bg-blue-50/50 border border-blue-100 text-[10px] font-bold text-blue-900 italic"><Lightbulb className="w-3 h-3 text-blue-500 shrink-0 mt-0.5" /> {node.tips}</div>}
+                      {node.errors && <div className="flex items-start gap-2 p-2 rounded-lg bg-red-50/50 border border-red-100 text-[10px] font-bold text-red-900 italic"><AlertCircle className="w-3 h-3 text-red-500 shrink-0 mt-0.5" /> {node.errors}</div>}
                     </div>
                   )}
 
@@ -570,14 +597,6 @@ export default function ProcessDetailViewPage() {
             <div className="flex items-center gap-3">
               <h1 className="text-lg font-headline font-bold tracking-tight text-slate-900 truncate">{currentProcess?.title}</h1>
               <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-full px-2 h-5 text-[10px] font-black uppercase tracking-widest">{currentProcess?.status}</Badge>
-              {risksData.maxScore > 0 && (
-                <Badge className={cn(
-                  "rounded-full px-2 h-5 text-[10px] font-black border-none",
-                  risksData.maxScore >= 15 ? "bg-red-600 text-white" : risksData.maxScore >= 8 ? "bg-accent text-white" : "bg-emerald-600 text-white"
-                )}>
-                  Risk: {risksData.maxScore}
-                </Badge>
-              )}
             </div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">V{activeVersion?.version}.0 • Leitfaden</p>
           </div>
@@ -757,20 +776,39 @@ export default function ProcessDetailViewPage() {
                   <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
                     <defs>
                       <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                        <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary/40" />
+                        <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className={cn(guideMode === 'structure' ? "text-primary" : "text-primary/40")} />
                       </marker>
                     </defs>
-                    {connectionPaths.map((path, i) => (
-                      <path 
-                        key={i} 
-                        d={path} 
-                        fill="none" 
-                        stroke="currentColor" 
-                        strokeWidth="3" 
-                        strokeDasharray={guideMode === 'list' ? "4 2" : "none"}
-                        className="text-primary/30 animate-in fade-in duration-1000"
-                        markerEnd="url(#arrowhead)"
-                      />
+                    {connectionPaths.map((p, i) => (
+                      <g key={i}>
+                        <path 
+                          d={p.path} 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth={guideMode === 'structure' ? "3" : "2"} 
+                          strokeDasharray={guideMode === 'list' ? "4 2" : "none"}
+                          className={cn(guideMode === 'structure' ? "text-primary" : "text-primary/30", "animate-in fade-in duration-1000")}
+                          markerEnd="url(#arrowhead)"
+                        />
+                        {p.label && guideMode === 'structure' && (
+                          <text 
+                            className="text-[10px] font-black uppercase"
+                            dy="-5"
+                            fill="currentColor"
+                            style={{ 
+                              paintOrder: 'stroke', 
+                              stroke: 'white', 
+                              strokeWidth: '3px', 
+                              textAnchor: 'middle',
+                              color: 'hsl(var(--primary))'
+                            }}
+                          >
+                            <textPath href={`#path-${i}`} startOffset="50%">{p.label}</textPath>
+                            {/* Fallback for non-textpath positions */}
+                            <tspan x="50%" y="50%">{p.label}</tspan>
+                          </text>
+                        )}
+                      </g>
                     ))}
                   </svg>
 
@@ -787,64 +825,17 @@ export default function ProcessDetailViewPage() {
                     <div className="space-y-24 py-10 relative">
                       {structuredGrid.map((row, rowIdx) => (
                         <div key={rowIdx} className="relative flex justify-center gap-12">
-                          {row.map((node) => {
-                            const isDecision = node.type === 'decision';
-                            const isStart = node.type === 'start';
-                            const isEnd = node.type === 'end';
-                            const isActive = activeNodeId === node.id;
-                            const targetProc = node.targetProcessId ? processes?.find(p => p.id === node.targetProcessId) : null;
-                            const label = node.type === 'subprocess' && targetProc ? `Prozess: ${targetProc.title}` : node.title;
-
-                            return (
-                              <div key={node.id} className="relative flex flex-col items-center">
-                                <div 
-                                  id={`card-${node.id}`}
-                                  className={cn(
-                                    "relative z-10 transition-all duration-300 shadow-lg cursor-pointer",
-                                    isActive ? "scale-110 ring-4 ring-primary/20" : "hover:scale-105",
-                                    isDecision ? "w-24 h-24 rotate-45 flex items-center justify-center border-4 border-white bg-amber-500 text-white" : 
-                                    (isStart || isEnd) ? "w-16 h-16 rounded-full border-4 border-white flex items-center justify-center text-white shadow-xl" : 
-                                    "w-64 rounded-2xl bg-white border border-slate-200 overflow-hidden"
-                                  )} 
-                                  onClick={() => setActiveNodeId(isActive ? null : node.id)}
-                                >
-                                  {isDecision ? (
-                                    <div className="-rotate-45 text-center px-2">
-                                      <GitBranch className="w-6 h-6 mx-auto mb-1" />
-                                      <p className="text-[9px] font-black leading-tight uppercase truncate max-w-[60px]">{node.title}</p>
-                                    </div>
-                                  ) : (isStart || isEnd) ? (
-                                    <div className="flex flex-col items-center">
-                                      {isStart ? <ArrowUp className="w-6 h-6" /> : <CheckCircle2 className="w-6 h-6" />}
-                                      <p className="text-[8px] font-black uppercase mt-1">{isStart ? 'Start' : 'Ende'}</p>
-                                    </div>
-                                  ) : (
-                                    <div className="flex flex-col">
-                                      <div className={cn("p-3 border-b flex items-center gap-3", node.type === 'subprocess' ? "bg-indigo-50" : "bg-slate-50")}>
-                                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm", node.type === 'subprocess' ? "bg-indigo-600" : "bg-primary")}>
-                                          {node.type === 'subprocess' ? <Network className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
-                                        </div>
-                                        <div className="min-w-0">
-                                          <p className="text-[10px] font-black uppercase text-slate-900 truncate leading-tight">{label}</p>
-                                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{getFullRoleName(node.roleId)}</p>
-                                        </div>
-                                      </div>
-                                      <div className="p-4">
-                                        <p className="text-[10px] text-slate-500 line-clamp-2 italic leading-relaxed">"{node.description || 'Keine Beschreibung'}"</p>
-                                      </div>
-                                    </div>
-                                  )}
+                          {row.map((node) => (
+                            <div key={node.id} className="relative flex flex-col items-center">
+                              <GuideCard node={node} index={0} compact={true} />
+                              {rowIdx < structuredGrid.length - 1 && (
+                                <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-30">
+                                  <div className="w-0.5 h-12 bg-slate-400" />
+                                  <ChevronDown className="w-4 h-4 text-slate-400" />
                                 </div>
-
-                                {rowIdx < structuredGrid.length - 1 && (
-                                  <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-30">
-                                    <div className="w-0.5 h-12 bg-slate-400" />
-                                    <ChevronDown className="w-4 h-4 text-slate-400" />
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                              )}
+                            </div>
+                          ))}
                         </div>
                       ))}
                     </div>

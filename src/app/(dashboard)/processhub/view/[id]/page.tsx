@@ -7,6 +7,7 @@ import {
   Workflow, 
   ChevronLeft, 
   ChevronRight,
+  ChevronDown,
   Loader2, 
   ShieldCheck,
   Activity, 
@@ -100,9 +101,7 @@ export default function ProcessDetailViewPage() {
   const { data: allFeatures } = usePluggableCollection<Feature>('features');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: allRisks } = usePluggableCollection<Risk>('risks');
-  const { data: media } = usePluggableCollection<any>('media');
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
-  const { data: subjectGroups } = usePluggableCollection<DataSubjectGroup>('dataSubjectGroups');
   const { data: dataCategories } = usePluggableCollection<DataCategory>('dataCategories');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
@@ -163,7 +162,6 @@ export default function ProcessDetailViewPage() {
     const levels: Record<string, number> = {};
     const cols: Record<string, number> = {};
     
-    // Simple level assignment via BFS
     const startNode = nodes.find(n => n.type === 'start') || nodes[0];
     if (!startNode) return null;
 
@@ -215,7 +213,6 @@ export default function ProcessDetailViewPage() {
         const sRect = sourceEl.getBoundingClientRect();
         const tRect = targetEl.getBoundingClientRect();
 
-        // Calculate relative coordinates
         const sX = sRect.left - containerRect.left + (sRect.width / 2);
         const sY = sRect.top - containerRect.top + sRect.height + scrollTop;
         const tX = tRect.left - containerRect.left + (tRect.width / 2);
@@ -262,7 +259,6 @@ export default function ProcessDetailViewPage() {
     const isEvent = node.type === 'start' || node.type === 'end';
 
     if (isCompact) {
-      // BPMN Style Shape for Structure Mode
       return (
         <div 
           id={`grid-node-${node.id}`}
@@ -538,7 +534,6 @@ export default function ProcessDetailViewPage() {
                 </div>
               ) : (
                 <div className="p-10 pb-64 relative min-w-max">
-                  {/* Structured BPMN Grid Mode */}
                   <div className="flex flex-col gap-24 items-center">
                     {gridLayout?.map((levelNodes, levelIdx) => (
                       <div key={levelIdx} className="relative flex items-center justify-center gap-12">
@@ -546,7 +541,6 @@ export default function ProcessDetailViewPage() {
                           <div key={node.id} className="relative flex flex-col items-center">
                             <GuideCard node={node} isCompact />
                             
-                            {/* Visual Connectors down to next level */}
                             {levelIdx < gridLayout.length - 1 && (
                               <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-30">
                                 <div className="w-0.5 h-12 bg-slate-400" />

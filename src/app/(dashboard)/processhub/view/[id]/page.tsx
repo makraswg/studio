@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -387,13 +386,9 @@ export default function ProcessDetailViewPage() {
           <div className={cn(
             "absolute left-0 w-10 h-10 rounded-xl flex items-center justify-center border-4 border-slate-50 shadow-sm z-20 transition-all cursor-pointer",
             isActive ? "scale-125 ring-4 ring-primary/20" : "hover:scale-110",
-            node.type === 'start' ? "bg-emerald-500 text-white" : 
-            node.type === 'end' ? "bg-red-500 text-white" : 
-            node.type === 'decision' ? "bg-amber-500 text-white" : "bg-white text-slate-900 border-slate-200"
-          )} onClick={() => handleNodeClick(node.id)}>
-            {node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
-             node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> :
-             node.type === 'decision' ? <GitBranch className="w-5 h-5" /> :
+            node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
+            node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> :
+            node.type === 'decision' ? <GitBranch className="w-5 h-5" /> :
              <span className="font-headline font-black text-sm">{index + 1}</span>}
           </div>
         )}

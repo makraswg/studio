@@ -81,7 +81,7 @@ export default function AccessHubDashboard() {
       const actualGroups = u.adGroups || [];
       
       const hasDrift = targetGroups.some(g => !actualGroups.includes(g as string)) || 
-                       actualGroups.some(g => entitlements.some(e => e.externalMapping === g) && !targetGroups.includes(g));
+                       actualGroups.some((g: string) => entitlements.some(e => e.externalMapping === g) && !targetGroups.includes(g));
       if (hasDrift) driftCount++;
     });
 
@@ -225,8 +225,8 @@ export default function AccessHubDashboard() {
             <div className="h-[200px] w-full relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={sourceData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
-                    {sourceData.map((entry, index) => <Cell key={index} fill={entry.color} cornerRadius={6} />)}
+                  <Pie data={sourceData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none" cornerRadius={6}>
+                    {sourceData.map((entry, index) => <Cell key={index} fill={entry.color} />)}
                   </Pie>
                   <RechartsTooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 'bold' }} />
                 </PieChart>
@@ -271,10 +271,10 @@ export default function AccessHubDashboard() {
                 <div>
                   <h4 className="text-sm font-bold text-indigo-900">Lifecycle Automation</h4>
                   <p className="text-[10px] text-indigo-700 font-medium">Onboarding-Pakete für schnelleren Zugriff definieren.</p>
+                  </div>
                 </div>
+                <ArrowRight className="w-4 h-4 text-indigo-400 group-hover:translate-x-1 transition-transform" />
               </div>
-              <ArrowRight className="w-4 h-4 text-indigo-400 group-hover:translate-x-1 transition-transform" />
-            </div>
           </CardContent>
         </Card>
       </div>

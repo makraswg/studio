@@ -11,8 +11,6 @@ import { ollama } from 'genkitx-ollama';
 export const ai = genkit({
   plugins: [
     googleAI(),
-    ollama({
-      serverUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
-    })
+    ollama()
   ],
 });

@@ -552,3 +552,32 @@ export interface Document {
   id: string;
   [key: string]: any;
 }
+
+export interface Assignment {
+  id: string;
+  tenantId: string;
+  userId: string;
+  entitlementId: string;
+  status: 'active' | 'archived' | 'removed' | 'requested';
+  originGroupId?: string;
+  syncSource?: string;
+  validFrom?: string;
+  validUntil?: string;
+  lastReviewedAt?: string;
+  ticketRef?: string;
+  jiraIssueKey?: string;
+  notes?: string;
+  grantedBy?: string;
+  grantedAt?: string;
+}
+
+export interface Entitlement {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  status: 'active' | 'archived';
+  isAdmin?: boolean | number;
+  externalMapping?: string;
+  resourceId?: string;
+}

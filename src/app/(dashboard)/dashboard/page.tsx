@@ -157,7 +157,7 @@ export default function DashboardPage() {
     
     return [
       { name: 'Niedrig', value: low, color: '#10b981' },
-      { name: 'Mittel', value: '#FF9800', color: '#FF9800' },
+      { name: 'Mittel', value: medium, color: '#FF9800' },
       { name: 'Hoch', value: high, color: '#ef4444' },
     ].filter(d => d.value > 0);
   }, [filteredData.risks]);
@@ -374,8 +374,8 @@ export default function DashboardPage() {
             <div className="h-[180px] w-full relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={riskPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value" stroke="none">
-                    {riskPieData.map((entry, index) => <Cell key={index} fill={entry.color} cornerRadius={4} className="cursor-pointer" />)}
+                  <Pie data={riskPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value" stroke="none" cornerRadius={4}>
+                    {riskPieData.map((entry, index) => <Cell key={index} fill={entry.color} className="cursor-pointer" />)}
                   </Pie>
                   <RechartsTooltip contentStyle={{ borderRadius: '0.5rem', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 'bold' }} />
                 </PieChart>

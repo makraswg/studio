@@ -5,8 +5,8 @@
 
 @layer base {
   :root {
-    /* PRD: Vibrant Blue (#29ABE2) */
-    --primary: 198 76% 52%;
+    /* Refined Professional Blue (replacing intrusive #29ABE2) */
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
     
     /* PRD: Light Gray Background (#F5F5F5) */
@@ -25,8 +25,8 @@
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
     
-    /* PRD: Warm Orange (#FF9800) */
-    --accent: 36 100% 50%;
+    /* Softer Accent Orange */
+    --accent: 24 95% 53%;
     --accent-foreground: 0 0% 100%;
     
     --destructive: 0 84.2% 60.2%;
@@ -34,8 +34,8 @@
     
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 198 76% 52%;
-    --radius: 0.5rem;
+    --ring: 221 83% 53%;
+    --radius: 0.75rem;
   }
 
   .dark {
@@ -48,7 +48,7 @@
     --popover: 222 47% 8%;
     --popover-foreground: 210 40% 98%;
     
-    --primary: 198 76% 52%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
     
     --secondary: 217.2 32.6% 12%;
@@ -57,7 +57,7 @@
     --muted: 217.2 32.6% 12%;
     --muted-foreground: 215 20.2% 65.1%;
     
-    --accent: 36 100% 50%;
+    --accent: 24 95% 53%;
     --accent-foreground: 0 0% 100%;
     
     --destructive: 0 62.8% 30.6%;
@@ -65,7 +65,7 @@
     
     --border: 217.2 32.6% 15%;
     --input: 217.2 32.6% 15%;
-    --ring: 198 76% 52%;
+    --ring: 217 91% 60%;
   }
 }
 
@@ -84,7 +84,7 @@
 
 /* UI Optimierungen */
 .admin-card {
-  @apply bg-card border border-border shadow-sm rounded-lg overflow-hidden transition-all hover:shadow-md;
+  @apply bg-card border border-border shadow-sm rounded-xl overflow-hidden transition-all hover:shadow-md;
 }
 
 .glass-header {

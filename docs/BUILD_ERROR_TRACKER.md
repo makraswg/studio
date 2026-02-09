@@ -7,17 +7,12 @@ Dieses Dokument dient der systematischen Erfassung und Behebung von Fehlern, die
 
 | ID | Fehler | Ort | Ursache | Lösung |
 |:---|:---|:---|:---|:---|
-| ERR-01 | `ReferenceError: Save is not defined` | `/settings/sync` | Icon `Save` kollidierte mit Funktionsnamen oder fehlte | Importiert als `SaveIcon` |
-| ERR-02 | `ReferenceError: Switch is not defined` | `/settings/email` | Fehlender Import der Shadcn Switch Komponente | Import hinzugefügt |
+| ERR-01 | `ReferenceError: Save is not defined` | `/settings/sync`, `/settings/email`, `/risks`, `/features`, `/gdpr` | Icon `Save` kollidierte mit Funktionsnamen oder fehlte | Importiert als `SaveIcon` |
+| ERR-02 | `ReferenceError: Switch is not defined` | `/settings/email`, `/settings/sync` | Fehlender Import der Shadcn Switch Komponente | Import hinzugefügt |
 | ERR-03 | `ReferenceError: ArrowDown is not defined` | `/processhub/view/[id]` | Fehlender Import in der Versionshistorie | Icon zur Importliste hinzugefügt |
 | ERR-04 | `Parsing ecmascript failed` (JSX) | `/processhub/view/[id]` | Falsch geschachtelte `div` oder ungeschlossene Tags | JSX-Struktur bereinigt & validiert |
 | ERR-05 | `Hydration Mismatch` | `Select` Komponenten | Instabile IDs bei SSR in Next.js 15 | `suppressHydrationWarning` und Mount-Check |
-| ERR-06 | `ReferenceError: Save is not defined` | `/features`, `/gdpr` | Namenskollision zwischen Icon und `handleSave` | Umbenannt in `SaveIcon` |
-
-## 🟡 In Prüfung
-
-- [ ] Validierung der PDF-Generierung in der Alpine-Umgebung (Docker).
-- [ ] Prüfung der LDAP-Konnektivität im isolierten Docker-Netzwerk.
+| ERR-06 | `ReferenceError: Target is not defined` | `/processhub/view/[id]` | Doppelte oder fehlende Target-Icons | Importe bereinigt und eindeutig benannt |
 
 ## 🛡️ Richtlinien für Entwickler
 

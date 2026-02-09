@@ -28,7 +28,7 @@ import {
   ArrowRightCircle,
   Zap,
   CheckCircle2,
-  Target as TargetIcon,
+  Target,
   Server,
   AlertCircle,
   FileCheck,
@@ -802,7 +802,7 @@ export default function ProcessDetailViewPage() {
                     <Card className="rounded-2xl border shadow-sm overflow-hidden bg-white">
                       <CardHeader className="bg-slate-50/50 border-b p-6">
                         <CardTitle className="text-sm font-bold flex items-center gap-2">
-                          <TargetIcon className="w-4 h-4 text-primary" /> Direkte Risiken
+                          <Target className="w-4 h-4 text-primary" /> Direkte Risiken
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="p-0">

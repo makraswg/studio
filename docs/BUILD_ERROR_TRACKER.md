@@ -7,17 +7,17 @@ Dieses Dokument dient der systematischen Erfassung und Behebung von Fehlern, die
 
 | ID | Fehler | Ort | Ursache | Lösung |
 |:---|:---|:---|:---|:---|
-| ERR-01 | `ReferenceError: Save is not defined` | `/settings/sync` | Icon `Save` verwendet ohne Import / Namenskollision | Importiert als `SaveIcon` |
+| ERR-01 | `ReferenceError: Save is not defined` | `/settings/sync` | Icon `Save` kollidierte mit Funktionsnamen oder fehlte | Importiert als `SaveIcon` |
 | ERR-02 | `ReferenceError: Switch is not defined` | `/settings/email` | Fehlender Import der Shadcn Switch Komponente | Import hinzugefügt |
 | ERR-03 | `ReferenceError: ArrowDown is not defined` | `/processhub/view/[id]` | Fehlender Import in der Versionshistorie | Icon zur Importliste hinzugefügt |
-| ERR-04 | `Parsing ecmascript failed` (JSX) | `/processhub/view/[id]` | Falsch geschachteltes `<Label>` / `</Badge>` | JSX-Tags korrigiert |
-| ERR-05 | `Hydration Mismatch` | `Select` Komponenten | Instabile IDs bei SSR | `suppressHydrationWarning` und Mount-Check |
-| ERR-06 | `ReferenceError: Save is not defined` | `/settings/email` | Icon-Kollision mit Funktionsname | Umbenannt in `SaveIcon` |
+| ERR-04 | `Parsing ecmascript failed` (JSX) | `/processhub/view/[id]` | Falsch geschachtelte `div` oder ungeschlossene Tags | JSX-Struktur bereinigt & validiert |
+| ERR-05 | `Hydration Mismatch` | `Select` Komponenten | Instabile IDs bei SSR in Next.js 15 | `suppressHydrationWarning` und Mount-Check |
+| ERR-06 | `ReferenceError: Save is not defined` | `/features`, `/gdpr` | Namenskollision zwischen Icon und `handleSave` | Umbenannt in `SaveIcon` |
 
 ## 🟡 In Prüfung
 
-- [ ] Validierung der LDAP-Verbindungstests im Docker-Netzwerk.
-- [ ] Prüfung der PDF-Generierung in der Alpine-Umgebung (Docker).
+- [ ] Validierung der PDF-Generierung in der Alpine-Umgebung (Docker).
+- [ ] Prüfung der LDAP-Konnektivität im isolierten Docker-Netzwerk.
 
 ## 🛡️ Richtlinien für Entwickler
 

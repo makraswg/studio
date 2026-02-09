@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -19,7 +20,7 @@ import {
   Archive,
   RotateCcw,
   ShieldAlert,
-  Save,
+  Save as SaveIcon,
   Briefcase,
   FileEdit,
   Layers,
@@ -187,7 +188,7 @@ export default function FeaturesOverviewPage() {
     try {
       const res = await saveFeatureAction(featureData, dataSource, user?.email || 'system');
       if (res.success) {
-        toast({ title: f.name ? "Datenobjekt aktualisiert" : "Datenobjekt angelegt" });
+        toast({ title: selectedFeature ? "Datenobjekt aktualisiert" : "Datenobjekt angelegt" });
         setIsDialogOpen(false);
         resetForm();
         refresh();
@@ -383,11 +384,11 @@ export default function FeaturesOverviewPage() {
                     <TableCell>
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                          <Building2 className="w-3 h-3 text-slate-300" /> {dept?.name || '---'}
+                          <Building2 className="w-3.5 h-3.5 text-slate-300" /> {dept?.name || '---'}
                         </div>
                         {role && (
                           <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 italic">
-                            <Briefcase className="w-3 h-3 text-slate-300" /> {role.name}
+                            <Briefcase className="w-3.5 h-3.5 text-slate-300" /> {role.name}
                           </div>
                         )}
                       </div>
@@ -677,7 +678,7 @@ export default function FeaturesOverviewPage() {
             <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
               <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 tracking-widest text-slate-400 hover:bg-white">Abbrechen</Button>
               <Button size="sm" onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-95 gap-2">
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern
               </Button>
             </DialogFooter>
           </Tabs>

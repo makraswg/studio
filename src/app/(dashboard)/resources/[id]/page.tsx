@@ -40,7 +40,7 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Save,
+  Save as SaveIcon,
   Fingerprint,
   KeyRound,
   ShieldX,
@@ -116,7 +116,7 @@ export default function ResourceDetailPage() {
   const { data: measures } = usePluggableCollection<RiskMeasure>('riskMeasures');
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
   const { data: features } = usePluggableCollection<Feature>('features');
-  const { data: jobs } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: departmentsData } = usePluggableCollection<Department>('departments');
   const { data: featureLinks } = usePluggableCollection<FeatureProcessStep>('feature_process_steps');
   const { data: partners } = usePluggableCollection<ServicePartner>('servicePartners');
@@ -133,11 +133,11 @@ export default function ResourceDetailPage() {
   const resourceBackups = useMemo(() => backups?.filter(b => b.resourceId === id) || [], [backups, id]);
   const resourceUpdates = useMemo(() => updates?.filter(u => u.resourceId === id) || [], [updates, id]);
   
-  const systemOwnerRole = useMemo(() => jobs?.find(j => j.id === resource?.systemOwnerRoleId), [jobs, resource]);
+  const systemOwnerRole = useMemo(() => jobTitles?.find(j => j.id === resource?.systemOwnerRoleId), [jobTitles, resource]);
   const systemOwnerDept = useMemo(() => departmentsData?.find(d => d.id === systemOwnerRole?.departmentId), [departmentsData, systemOwnerRole]);
   const systemOwnerPartner = useMemo(() => partners?.find(p => p.id === resource?.externalOwnerPartnerId), [partners, resource]);
   const systemOwnerArea = useMemo(() => areas?.find(a => a.id === resource?.externalOwnerAreaId), [areas, resource]);
-  const riskOwnerRole = useMemo(() => jobs?.find(j => j.id === resource?.riskOwnerRoleId), [jobs, resource]);
+  const riskOwnerRole = useMemo(() => jobTitles?.find(j => j.id === resource?.riskOwnerRoleId), [jobTitles, resource]);
   const riskOwnerDept = useMemo(() => departmentsData?.find(d => d.id === riskOwnerRole?.departmentId), [departmentsData, riskOwnerRole]);
 
   const identityProvider = useMemo(() => {
@@ -229,6 +229,25 @@ export default function ResourceDetailPage() {
     } finally { setIsSavingRole(false); }
   };
 
+  const openRoleEdit = (role: Entitlement) => {
+    setSelectedRole(role);
+    setRoleName(role.name);
+    setRoleDesc(role.description || '');
+    setRoleRiskLevel(role.riskLevel as any || 'low');
+    setRoleIsAdmin(!!role.isAdmin);
+    setRoleMapping(role.externalMapping || '');
+    setIsRoleDialogOpen(true);
+  };
+
+  const resetRoleForm = () => {
+    setSelectedRole(null);
+    setRoleName('');
+    setRoleDesc('');
+    setRoleRiskLevel('low');
+    setRoleIsAdmin(false);
+    setRoleMapping('');
+  };
+
   const sortedRoles = useMemo(() => {
     if (!jobTitles || !departmentsData) return [];
     return [...jobTitles].sort((a, b) => {
@@ -251,6 +270,10 @@ export default function ResourceDetailPage() {
 
   if (isResLoading) {
     return <div className="h-full flex flex-col items-center justify-center py-40 gap-4"><Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" /><p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Analysiere Asset-Kontext...</p></div>;
+  }
+
+  if (!resource) {
+    return <div className="p-20 text-center space-y-4"><AlertTriangle className="w-12 h-12 text-amber-500 mx-auto" /><h2 className="text-xl font-headline font-bold text-slate-900">Ressource nicht gefunden</h2><Button onClick={() => router.push('/resources')}>Zurück zum Katalog</Button></div>;
   }
 
   return (
@@ -276,7 +299,7 @@ export default function ResourceDetailPage() {
         <Alert className="bg-amber-50 border-amber-200 text-amber-900 rounded-2xl shadow-sm animate-in fade-in slide-in-from-top-4">
           <Zap className="h-5 w-5 text-amber-600" />
           <AlertTitle className="font-bold text-sm">Governance Drift erkannt!</AlertTitle>
-          <AlertDescription className="text-xs mt-1 leading-relaxed">Die verarbeiteten Datenobjekte erfordern eine höhere Klassifizierung (<strong className="uppercase">{effectiveInheritance?.classification}</strong>).<div className="mt-3"><Button size="sm" onClick={handleApplyInheritance} disabled={isInheriting} className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] uppercase h-8 px-4 rounded-lg shadow-md gap-2 transition-all">{isInheriting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Werte übernehmen</Button></div></AlertDescription>
+          <AlertDescription className="text-xs mt-1 leading-relaxed">Die verarbeiteten Datenobjekte erfordern eine höhere Klassifizierung (<strong className="uppercase">{effectiveInheritance?.classification}</strong>).<div className="mt-3"><Button size="sm" onClick={handleApplyInheritance} disabled={isInheriting} className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] uppercase h-8 px-4 rounded-lg shadow-md gap-2 transition-all">{isInheriting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Werte übernehmen</Button></div></AlertDescription>
         </Alert>
       )}
 
@@ -403,7 +426,7 @@ export default function ResourceDetailPage() {
             <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label className="text-[11px] font-bold text-slate-400 uppercase">Risiko</Label><Select value={roleRiskLevel} onValueChange={(v:any) => setRoleRiskLevel(v)}><SelectTrigger className="rounded-xl h-11"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Niedrig</SelectItem><SelectItem value="medium">Mittel</SelectItem><SelectItem value="high">Hoch</SelectItem></SelectContent></Select></div><div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border mt-6"><Label className="text-[10px] font-bold text-slate-500">Admin</Label><Switch checked={roleIsAdmin} onCheckedChange={setRoleIsAdmin} /></div></div>
             <div className="space-y-2"><Label className="text-[11px] font-bold text-slate-400 uppercase">ID / Mapping</Label><Input value={roleMapping} onChange={e => setRoleMapping(e.target.value)} className="rounded-xl h-11 font-mono text-xs" /></div>
           </div>
-          <DialogFooter className="p-4 bg-slate-50 border-t"><Button variant="ghost" onClick={() => setIsRoleDialogOpen(false)}>Abbrechen</Button><Button onClick={handleSaveRole} disabled={isSavingRole} className="rounded-xl h-11 px-8 bg-primary text-white shadow-lg gap-2">{isSavingRole ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern</Button></DialogFooter>
+          <DialogFooter className="p-4 bg-slate-50 border-t"><Button variant="ghost" onClick={() => setIsRoleDialogOpen(false)}>Abbrechen</Button><Button onClick={handleSaveRole} disabled={isSavingRole} className="rounded-xl h-11 px-8 bg-primary text-white shadow-lg gap-2">{isSavingRole ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 

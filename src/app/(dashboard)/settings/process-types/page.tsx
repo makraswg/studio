@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -6,12 +5,11 @@ import {
   Plus, 
   Trash2, 
   Loader2, 
-  Settings2,
-  Workflow,
-  RotateCcw,
-  PlusCircle,
-  Save as SaveIcon,
-  Search
+  Workflow, 
+  Search,
+  AlertTriangle,
+  Info,
+  ShieldCheck
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,10 +24,12 @@ import { ProcessType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export const dynamic = 'force-dynamic';
+
+const SYSTEM_TYPE_IDS = ['pt-corp', 'pt-detail', 'pt-backup', 'pt-update'];
 
 export default function ProcessTypesPage() {
   const { dataSource } = useSettings();
@@ -83,21 +83,25 @@ export default function ProcessTypesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4 border-b pb-6">
-        <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
-          <Workflow className="w-6 h-6" />
-        </div>
-        <div>
-          <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">WorkflowHub Config</Badge>
-          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Prozesstypen</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Definieren Sie Kategorien zur Strukturierung Ihres Prozess-Registers.</p>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
+            <Workflow className="w-6 h-6" />
+          </div>
+          <div>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">WorkflowHub Config</Badge>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Prozesstypen</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Strukturierung des Prozess-Registers durch Funktions-Kategorien.</p>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-1 space-y-6">
           <Card className="rounded-xl border shadow-sm bg-white overflow-hidden">
-            <CardHeader className="bg-slate-50/50 border-b p-4"><CardTitle className="text-xs font-bold uppercase tracking-widest text-slate-400">Neuer Typ</CardTitle></CardHeader>
+            <CardHeader className="bg-slate-50/50 border-b p-4">
+              <CardTitle className="text-xs font-bold uppercase tracking-widest text-slate-400">Neuer Typ</CardTitle>
+            </CardHeader>
             <CardContent className="p-6 space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase text-slate-400">Bezeichnung</Label>
@@ -112,6 +116,16 @@ export default function ProcessTypesPage() {
               </Button>
             </CardContent>
           </Card>
+
+          <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-3">
+            <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-amber-900 uppercase">System-Hinweis</p>
+              <p className="text-[9px] text-amber-700 leading-relaxed italic">
+                System-Typen (z.B. Backup, Update) können nicht gelöscht werden, da sie als Filter für die Ressourcen-Governance dienen.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="md:col-span-2 space-y-4">
@@ -126,22 +140,47 @@ export default function ProcessTypesPage() {
                 <TableRow>
                   <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Kategorie</TableHead>
                   <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Beschreibung</TableHead>
-                  <TableHead className="font-bold text-[11px] text-slate-400 text-right uppercase tracking-widest">Status</TableHead>
+                  <TableHead className="font-bold text-[11px] text-slate-400 text-right uppercase tracking-widest">Status / Aktion</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTypes.map(t => (
-                  <TableRow key={t.id} className="group border-b last:border-0">
-                    <TableCell className="py-4 px-6 font-bold text-sm text-slate-800">{t.name}</TableCell>
-                    <TableCell className="text-xs text-slate-500 italic max-w-xs truncate">{t.description || '---'}</TableCell>
-                    <TableCell className="text-right px-6">
-                      <div className="flex items-center justify-end gap-4">
-                        <Switch checked={!!t.enabled} onCheckedChange={() => toggleEnabled(t)} />
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all" onClick={() => { if(confirm("Typ permanent löschen?")) deleteCollectionRecord('process_types', t.id, dataSource).then(() => refresh()); }}><Trash2 className="w-3.5 h-3.5" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {isLoading ? (
+                  <TableRow><TableCell colSpan={3} className="h-32 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary opacity-20" /></TableCell></TableRow>
+                ) : filteredTypes.map(t => {
+                  const isSystem = SYSTEM_TYPE_IDS.includes(t.id);
+                  return (
+                    <TableRow key={t.id} className="group border-b last:border-0">
+                      <TableCell className="py-4 px-6">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-slate-800">{t.name}</span>
+                          {isSystem && <Badge className="bg-blue-50 text-blue-600 border-none text-[7px] font-black h-3.5 uppercase">System</Badge>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-[11px] text-slate-500 italic max-w-xs truncate">{t.description || '---'}</TableCell>
+                      <TableCell className="text-right px-6">
+                        <div className="flex items-center justify-end gap-4">
+                          <Switch checked={!!t.enabled} onCheckedChange={() => toggleEnabled(t)} />
+                          {isSystem ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="w-8 h-8 flex items-center justify-center text-slate-200 cursor-not-allowed">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent className="text-[9px] font-bold uppercase">System-Typ geschützt</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all" onClick={() => { if(confirm("Typ permanent löschen?")) deleteCollectionRecord('process_types', t.id, dataSource).then(() => refresh()); }}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

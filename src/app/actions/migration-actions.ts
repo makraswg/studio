@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getMysqlConnection } from '@/lib/mysql';
@@ -68,19 +67,20 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       }
     }
 
-    // SEEDING: Prozesstypen (ERWEITERT um IT-Prozess)
+    // SEEDING: Prozesstypen (System-Typen mit festen IDs für Filter-Integrität)
     details.push('🌱 Prüfe auf Prozesstypen...');
     const [typeRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `process_types`');
     if (typeRows[0].count === 0) {
       const types = [
-        ['pt-1', 'Unternehmensprozess', 'Strategische Geschäftsprozesse', 1, new Date().toISOString()],
-        ['pt-2', 'Detailprozess', 'Operative Arbeitsabläufe', 1, new Date().toISOString()],
-        ['pt-3', 'IT-Prozess', 'Technische Wartungs- und Sicherungsprozesse', 1, new Date().toISOString()]
+        ['pt-corp', 'Unternehmensprozess', 'Strategische und übergeordnete Geschäftsprozesse', 1, new Date().toISOString()],
+        ['pt-detail', 'Detailprozess', 'Operative Arbeitsabläufe und Handlungsschritte', 1, new Date().toISOString()],
+        ['pt-backup', 'Backup-Prozess', 'Technische Leitfäden zur Datensicherung und Wiederherstellung', 1, new Date().toISOString()],
+        ['pt-update', 'Update-Prozess', 'Verfahrensanweisungen für Patching und Software-Wartung', 1, new Date().toISOString()]
       ];
       for (const t of types) {
         await connection.execute('INSERT INTO `process_types` (id, name, description, enabled, createdAt) VALUES (?, ?, ?, ?, ?)', t);
       }
-      details.push('   ✅ Standard-Prozesstypen erstellt.');
+      details.push('   ✅ System-Prozesstypen erstellt.');
     }
 
     // SEEDING: Default Admin Account

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -126,6 +125,10 @@ function ResourcesPageContent() {
 
   const [notes, setNotes] = useState('');
   const [url, setUrl] = useState('');
+
+  // Dropdown Search States
+  const [backupProcSearch, setBackupProcSearch] = useState('');
+  const [updateProcSearch, setUpdateProcSearch] = useState('');
 
   const { data: resources, isLoading, refresh } = usePluggableCollection<Resource>('resources');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
@@ -302,6 +305,7 @@ function ResourcesPageContent() {
       });
       setCurrentBackupIdx(null);
     }
+    setBackupProcSearch('');
     setIsBackupModalOpen(true);
   };
 
@@ -329,9 +333,22 @@ function ResourcesPageContent() {
     });
   }, [resources, search, activeTenantId, showArchived, assetTypeFilter]);
 
-  if (!mounted) return null;
+  const backupProcesses = useMemo(() => 
+    allProcesses?.filter(p => p.process_type_id === 'pt-backup' && p.title.toLowerCase().includes(backupProcSearch.toLowerCase())),
+    [allProcesses, backupProcSearch]
+  );
 
-  const detailProcesses = allProcesses?.filter(p => p.status !== 'archived');
+  const updateProcesses = useMemo(() => 
+    allProcesses?.filter(p => p.process_type_id === 'pt-update' && p.title.toLowerCase().includes(updateProcSearch.toLowerCase())),
+    [allProcesses, updateProcSearch]
+  );
+
+  const genericDetailProcesses = useMemo(() => 
+    allProcesses?.filter(p => p.process_type_id === 'pt-detail'),
+    [allProcesses]
+  );
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-6 pb-10">
@@ -347,7 +364,7 @@ function ResourcesPageContent() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 active:scale-95" onClick={() => exportResourcesExcel(filteredResources)}>
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 active:scale-95" onClick={() => exportResourcesExcel(filteredResources, tenants || [])}>
             <Download className="w-3.5 h-3.5 mr-2" /> Export
           </Button>
           <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-95" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
@@ -669,9 +686,20 @@ function ResourcesPageContent() {
                     </div>
                     {updatesRequired && (
                       <div className="space-y-4">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Verknüpfte Detailprozesse</Label>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Verknüpfte Update-Prozesse</Label>
+                          <div className="relative group mb-3">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                            <Input 
+                              placeholder="Update-Prozesse suchen..." 
+                              value={updateProcSearch} 
+                              onChange={e => setUpdateProcSearch(e.target.value)}
+                              className="h-8 pl-8 text-[10px]"
+                            />
+                          </div>
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {detailProcesses?.map(proc => (
+                          {updateProcesses?.map(proc => (
                             <div 
                               key={proc.id} 
                               className={cn(
@@ -689,6 +717,11 @@ function ResourcesPageContent() {
                               </div>
                             </div>
                           ))}
+                          {updateProcesses?.length === 0 && (
+                            <div className="col-span-full py-6 text-center border border-dashed rounded-xl opacity-30">
+                              <p className="text-[10px] font-bold uppercase">Keine Update-Prozesse gefunden</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -789,12 +822,21 @@ function ResourcesPageContent() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Übergeordneter IT-Prozess</Label>
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Übergeordneter IT-Prozess (Backup)</Label>
+                  <div className="relative group mb-1.5">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <Input 
+                      placeholder="Filtern..." 
+                      value={backupProcSearch} 
+                      onChange={e => setBackupProcSearch(e.target.value)}
+                      className="h-8 pl-8 text-[10px]"
+                    />
+                  </div>
                   <Select value={backupForm.it_process_id || 'none'} onValueChange={v => setBackupForm({...backupForm, it_process_id: v})}>
-                    <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="IT-Leitfaden wählen..." /></SelectTrigger>
+                    <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Backup-Leitfaden wählen..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Kein Bezug</SelectItem>
-                      {allProcesses?.filter(p => p.process_type_id === 'pt-3').map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                      {backupProcesses?.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -804,7 +846,7 @@ function ResourcesPageContent() {
                     <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Detail-Workflow wählen..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Kein Bezug</SelectItem>
-                      {detailProcesses?.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                      {genericDetailProcesses?.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

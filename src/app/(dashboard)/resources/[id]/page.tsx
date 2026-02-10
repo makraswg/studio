@@ -40,7 +40,8 @@ import {
   History,
   MapPin,
   CheckCircle,
-  X
+  X,
+  Fingerprint
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -172,7 +173,6 @@ export default function ResourceDetailPage() {
   const internalRiskOwner = useMemo(() => jobTitles?.find(j => j.id === resource?.riskOwnerRoleId), [jobTitles, resource]);
   const externalPartner = useMemo(() => partners?.find(p => p.id === resource?.externalOwnerPartnerId), [partners, resource]);
   const externalContact = useMemo(() => contacts?.find(c => c.id === resource?.externalOwnerContactId), [contacts, resource]);
-  const externalArea = useMemo(() => areas?.find(a => a.id === resource?.externalOwnerAreaId), [areas, resource]);
 
   const handleCreateTask = async () => {
     if (!taskTitle || !taskAssigneeId) {
@@ -224,7 +224,6 @@ export default function ResourceDetailPage() {
   }
 
   const finalGDPR = inheritedData ? inheritedData.hasPersonalData : !!resource.hasPersonalData;
-  const finalClass = inheritedData ? inheritedData.dataClassification : resource.dataClassification;
   const finalC = inheritedData ? inheritedData.confidentialityReq : resource.confidentialityReq;
   const finalI = inheritedData ? inheritedData.integrityReq : resource.integrityReq;
   const finalA = inheritedData ? inheritedData.availabilityReq : resource.availabilityReq;
@@ -257,11 +256,11 @@ export default function ResourceDetailPage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Sidebar: Standard Governance Panel */}
+        {/* Sidebar: Governance Cockpit */}
         <aside className="lg:col-span-1 space-y-6">
           <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden group">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6">
-              <CardTitle className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Sicherheitszustand</CardTitle>
+              <CardTitle className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Governance Cockpit</CardTitle>
             </CardHeader>
             <CardContent className="p-8 space-y-8">
               <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-inner flex flex-col items-center text-center group-hover:scale-[1.02] transition-transform duration-500">
@@ -331,7 +330,7 @@ export default function ResourceDetailPage() {
           </Card>
         </aside>
 
-        {/* Main Content: Unified Tab Structure */}
+        {/* Main Content Area */}
         <div className="lg:col-span-3">
           <Tabs defaultValue="details" className="space-y-8">
             <TabsList className="bg-slate-100 dark:bg-slate-800 p-1.5 h-14 rounded-2xl border w-full justify-start gap-2 shadow-inner overflow-x-auto no-scrollbar">
@@ -352,7 +351,7 @@ export default function ResourceDetailPage() {
             <TabsContent value="details" className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
                 <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-8">
-                  <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight">System-Kontext</CardTitle>
+                  <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">System-Kontext</CardTitle>
                 </CardHeader>
                 <CardContent className="p-10 space-y-12">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
@@ -362,17 +361,17 @@ export default function ResourceDetailPage() {
                         <p className="text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-800">{resource.category || '---'}</p>
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Technischer Standort</Label>
+                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Anmelde-Infrastruktur</Label>
                         <div className="flex items-center gap-3 text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                          <MapPin className="w-4 h-4 text-slate-300" /> {resource.dataLocation || 'Nicht spezifiziert'}
+                          <Fingerprint className="w-4 h-4 text-primary" /> {resource.isIdentityProvider ? 'Eigenes IdP-System' : 'Externer Directory-Dienst'}
                         </div>
                       </div>
                     </div>
                     <div className="space-y-8">
                       <div className="space-y-1">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Anmelde-Infrastruktur</Label>
+                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Technischer Standort</Label>
                         <div className="flex items-center gap-3 text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                          <Fingerprint className="w-4 h-4 text-primary" /> {resource.isIdentityProvider ? 'Eigenes IdP-System' : 'Externer Directory-Dienst'}
+                          <MapPin className="w-4 h-4 text-slate-300" /> {resource.dataLocation || 'Nicht spezifiziert'}
                         </div>
                       </div>
                       <div className="space-y-1">

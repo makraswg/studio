@@ -53,6 +53,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { 
@@ -68,7 +69,7 @@ export const dynamic = 'force-dynamic';
 export default function ResourceDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { activeTenantId } = useSettings();
+  const { activeTenantId, dataSource } = useSettings();
   const [mounted, setMounted] = useState(false);
 
   const { data: resources, isLoading: isResLoading } = usePluggableCollection<Resource>('resources');
@@ -226,7 +227,7 @@ export default function ResourceDetailPage() {
         </div>
         <div className="flex gap-2">
           <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary text-white shadow-lg active:scale-95" onClick={() => router.push(`/resources?edit=${resource.id}`)}>
-            <Settings2 className="w-3.5 h-3.5 mr-2" /> Konfigurieren
+            <Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten
           </Button>
         </div>
       </header>
@@ -235,7 +236,7 @@ export default function ResourceDetailPage() {
         <aside className="lg:col-span-1 space-y-4">
           <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="bg-slate-50/50 border-b p-4 px-6">
-              <CardTitle className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Integrität & Schutzbedarf</CardTitle>
+              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Integrität & Schutzbedarf</CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
               <div className="p-4 rounded-xl bg-slate-50 border shadow-inner flex flex-col items-center">

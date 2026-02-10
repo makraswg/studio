@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -43,7 +44,7 @@ export default function GeneralSettingsPage() {
 
   return (
     <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-      <CardHeader className="p-8 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
+      <CardHeader className="p-8 bg-slate-50 dark:bg-slate-800 border-b shrink-0">
         <div className="flex items-center gap-6">
           <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
             <Building2 className="w-7 h-7" />

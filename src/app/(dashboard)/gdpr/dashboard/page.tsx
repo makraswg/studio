@@ -130,7 +130,7 @@ export default function PolicyHubDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Audit Status Card - Refined */}
-        <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden relative group">
+        <Card className="rounded-2xl border-2 border-emerald-500/20 shadow-sm bg-white dark:bg-slate-900 overflow-hidden relative group">
             <CardContent className="p-8 space-y-6 relative z-10">
                 <div className="flex items-center justify-between">
                     <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center shadow-inner border border-emerald-500/10">
@@ -147,7 +147,7 @@ export default function PolicyHubDashboard() {
                         <span>TOM Abdeckung (Art. 32)</span>
                         <span className="text-emerald-600">Level {Math.ceil(dashboardData.score / 20)}</span>
                     </div>
-                    <Progress value={dashboardData.score} className="h-2 bg-slate-100" />
+                    <Progress value={dashboardData.score} className="h-2 bg-slate-100 dark:bg-slate-800" />
                     <p className="text-[9px] text-slate-400 leading-relaxed italic mt-4">
                         Anteil der VVTs mit mindestens einer wirksamen technischen Kontrolle.
                     </p>
@@ -196,66 +196,6 @@ export default function PolicyHubDashboard() {
                 </CardContent>
             </Card>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <Card className="border shadow-sm bg-white dark:bg-slate-900 rounded-2xl overflow-hidden flex flex-col">
-          <CardHeader className="border-b py-4 px-6 bg-slate-50/50">
-            <CardTitle className="text-xs font-headline font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                <PieChartIcon className="w-4 h-4 text-slate-400" /> Register Maturity
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6 flex-1 flex flex-col items-center justify-center">
-            <div className="h-[200px] w-full relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={dashboardData.statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
-                    {dashboardData.statusData.map((entry, index) => <Cell key={index} fill={entry.color} cornerRadius={6} />)}
-                  </Pie>
-                  <RechartsTooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 'bold' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="xl:col-span-2 border shadow-sm bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
-          <CardHeader className="p-6 border-b bg-slate-50/50 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-red-50 text-red-600 rounded-xl flex items-center justify-center shadow-inner">
-                <Target className="w-5 h-5" />
-              </div>
-              <div>
-                <CardTitle className="text-sm font-bold">Art. 32 Gap Analysis</CardTitle>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kritische Tätigkeiten</p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {dashboardData.riskActivities.length === 0 ? (
-                <div className="py-20 text-center opacity-30 italic text-xs uppercase">Keine kritischen Lücken</div>
-              ) : dashboardData.riskActivities.map((act) => (
-                <div key={act.id} className="p-5 flex items-center justify-between group hover:bg-slate-50 transition-all cursor-pointer" onClick={() => router.push(`/gdpr/${act.id}`)}>
-                  <div className="flex items-center gap-5">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-red-600 transition-colors shadow-inner">
-                      <Fingerprint className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-emerald-600 transition-colors">{act.name}</h4>
-                      <div className="flex gap-1 mt-1">
-                        {(act as any).gaps.map((g: string, idx: number) => (
-                            <Badge key={idx} variant="outline" className="text-[7px] font-black h-3.5 border-red-100 text-red-600 bg-red-50/50 uppercase">{g}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl group-hover:bg-white group-hover:shadow-sm"><ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-primary transition-all" /></Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

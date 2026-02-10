@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -88,12 +89,12 @@ export function CommandMenu() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-3xl border-none shadow-2xl bg-white dark:bg-slate-950 top-[20%] translate-y-0">
-        <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+        <DialogHeader className="p-6 bg-slate-100 dark:bg-slate-900 shrink-0 border-b">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
               <Search className="w-5 h-5 text-white" />
             </div>
-            <DialogTitle className="text-lg font-headline font-bold">ComplianceHub Schnellsuche</DialogTitle>
+            <DialogTitle className="text-lg font-headline font-bold text-slate-900 dark:text-white">ComplianceHub Schnellsuche</DialogTitle>
           </div>
         </DialogHeader>
         

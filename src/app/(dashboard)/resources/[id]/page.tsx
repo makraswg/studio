@@ -345,24 +345,24 @@ export default function ResourceDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-[2.5rem] border-none shadow-2xl bg-slate-900 text-white overflow-hidden relative">
+          <Card className="rounded-[2.5rem] border-2 border-primary/20 shadow-2xl bg-primary/5 overflow-hidden relative">
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full -mr-12 -mt-12 blur-2xl" />
             <CardContent className="p-10 space-y-8 relative z-10">
-              <div className="w-14 h-14 bg-primary rounded-[1.25rem] flex items-center justify-center shadow-2xl border border-white/10 rotate-3 group-hover:rotate-0 transition-transform duration-500">
+              <div className="w-14 h-14 bg-primary rounded-[1.25rem] flex items-center justify-center shadow-lg border border-white/10 rotate-3 group-hover:rotate-0 transition-transform duration-500">
                 <ShieldCheck className="w-8 h-8 text-white" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-xl font-headline font-black uppercase tracking-tight leading-none">Compliance Hub</h3>
+                <h3 className="text-xl font-headline font-black uppercase tracking-tight leading-none text-slate-900 dark:text-white">Compliance Hub</h3>
                 <p className="text-[10px] font-bold text-primary uppercase tracking-[0.3em]">Integrity Level</p>
               </div>
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-primary">
                   <span>Dokumentationsgrad</span>
-                  <span className="text-emerald-400">100%</span>
+                  <span className="text-emerald-600">100%</span>
                 </div>
-                <Progress value={100} className="h-1.5 bg-white/10 rounded-full overflow-hidden" />
-                <p className="text-[10px] text-slate-400 leading-relaxed italic font-medium">
-                  Status: Audit-Ready. Die Kritikalität wurde erfolgreich aus der verknüpften Prozesslandschaft abgeleitet.
+                <Progress value={100} className="h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden" />
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed italic font-medium">
+                  Status: Audit-Ready. Die Kritikalität wurde automatisch aus der Datenlast der verknüpften Geschäftsprozesse abgeleitet.
                 </p>
               </div>
             </CardContent>
@@ -454,14 +454,14 @@ export default function ResourceDetailPage() {
             <TabsContent value="ownership" className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <Card className="rounded-[2rem] border shadow-xl bg-white dark:bg-slate-900 overflow-hidden group">
-                  <CardHeader className="bg-slate-900 text-white p-8">
+                  <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-8">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-2xl border border-white/10 group-hover:rotate-3 transition-transform duration-500">
+                      <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shadow-sm border border-primary/10 group-hover:rotate-3 transition-transform duration-500">
                         <Building2 className="w-6 h-6" />
                       </div>
                       <div>
-                        <CardTitle className="text-base font-headline font-black uppercase tracking-widest">Interne Verantwortung</CardTitle>
-                        <CardDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest">Governance & Business Owner</CardDescription>
+                        <CardTitle className="text-base font-headline font-black uppercase tracking-widest text-slate-900 dark:text-white">Interne Verantwortung</CardTitle>
+                        <CardDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Governance & Business Owner</CardDescription>
                       </div>
                     </div>
                   </CardHeader>
@@ -484,14 +484,14 @@ export default function ResourceDetailPage() {
                 </Card>
 
                 <Card className="rounded-[2rem] border shadow-xl bg-white dark:bg-slate-900 overflow-hidden group">
-                  <CardHeader className="bg-indigo-600 text-white p-8">
+                  <CardHeader className="bg-indigo-50 dark:bg-indigo-900/20 border-b p-8">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white shadow-2xl border border-white/10 group-hover:-rotate-3 transition-transform duration-500">
+                      <div className="w-12 h-12 bg-white dark:bg-slate-950 rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100 dark:border-indigo-800 group-hover:-rotate-3 transition-transform duration-500">
                         <Globe className="w-6 h-6" />
                       </div>
                       <div>
-                        <CardTitle className="text-base font-headline font-black uppercase tracking-widest">Externer Betrieb</CardTitle>
-                        <CardDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest">Dienstleister & Support</CardDescription>
+                        <CardTitle className="text-base font-headline font-black uppercase tracking-widest text-slate-900 dark:text-white">Externer Betrieb</CardTitle>
+                        <CardDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Dienstleister & Support</CardDescription>
                       </div>
                     </div>
                   </CardHeader>
@@ -509,7 +509,7 @@ export default function ResourceDetailPage() {
                         <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-slate-400 border border-slate-100 shadow-inner"><UserIcon className="w-5 h-5" /></div>
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{externalContact?.name || 'Kein Kontakt'}</p>
-                          <p className="text-[10px] text-slate-400 font-medium truncate italic mt-0.5">{externalContact?.email}</p>
+                          <p className="text-[9px] text-slate-400 font-medium truncate italic mt-0.5">{externalContact?.email}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm hover:border-indigo-200 transition-all duration-300">
@@ -771,14 +771,14 @@ export default function ResourceDetailPage() {
       {/* Task Creation Dialog */}
       <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
         <DialogContent className="max-w-2xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-[2rem] p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white dark:bg-slate-900">
-          <DialogHeader className="p-8 bg-slate-900 text-white shrink-0 pr-12">
+          <DialogHeader className="p-8 bg-slate-50 dark:bg-slate-800 border-b shrink-0 pr-12">
             <div className="flex items-center gap-6">
-              <div className="w-14 h-14 bg-primary/20 rounded-[1.25rem] flex items-center justify-center text-primary border border-white/10 shadow-2xl">
+              <div className="w-14 h-14 bg-primary/10 rounded-[1.25rem] flex items-center justify-center text-primary border border-primary/10 shadow-sm">
                 <ClipboardList className="w-8 h-8" />
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-xl font-headline font-black uppercase tracking-tight truncate">Aufgabe für Asset erstellen</DialogTitle>
-                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-[0.2em] mt-1.5">Referenz: {resource.name}</DialogDescription>
+                <DialogTitle className="text-xl font-headline font-black uppercase tracking-tight truncate text-slate-900 dark:text-white">Aufgabe für Asset erstellen</DialogTitle>
+                <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1.5">Referenz: {resource.name}</DialogDescription>
               </div>
             </div>
           </DialogHeader>

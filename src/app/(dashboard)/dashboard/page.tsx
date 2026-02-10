@@ -45,9 +45,9 @@ import {
   Cell, 
   ResponsiveContainer, 
   Tooltip as RechartsTooltip,
-  BarChart,
-  Bar,
-  XAxis,
+  BarChart, 
+  Bar, 
+  XAxis, 
   YAxis,
   CartesianGrid
 } from 'recharts';
@@ -238,7 +238,7 @@ export default function DashboardPage() {
 
       {/* Resilience Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden relative group">
+        <Card className="rounded-2xl border-2 border-primary/20 shadow-sm bg-white dark:bg-slate-900 overflow-hidden relative group">
             <CardContent className="p-8 space-y-6 relative z-10">
                 <div className="flex items-center justify-between">
                     <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center shadow-inner border border-primary/10">
@@ -255,7 +255,7 @@ export default function DashboardPage() {
                         <span className="text-slate-400 uppercase text-[10px]">Kontroll-Effektivität</span>
                         <span className="text-primary">{complianceHealth.resilienceScore}%</span>
                     </div>
-                    <Progress value={complianceHealth.resilienceScore} className="h-2 bg-slate-100" />
+                    <Progress value={complianceHealth.resilienceScore} className="h-2 bg-slate-100 dark:bg-slate-800" />
                     <div className="flex items-center gap-2 mt-4 text-[10px] text-slate-400 italic">
                         <Zap className="w-3.5 h-3.5 text-primary fill-current" />
                         Basis: {filteredData.controls.filter(c => c.isEffective).length} wirksame von {filteredData.controls.length} Kontrollen.
@@ -281,7 +281,7 @@ export default function DashboardPage() {
                         <span>Absicherung Hochrisiken</span>
                         <span className="text-orange-600">Level {Math.ceil(complianceHealth.riskCoverage / 20)}</span>
                     </div>
-                    <Progress value={complianceHealth.riskCoverage} className="h-2 bg-slate-100" />
+                    <Progress value={complianceHealth.riskCoverage} className="h-2 bg-slate-100 dark:bg-slate-800" />
                     <p className="text-[9px] text-slate-400 leading-relaxed font-medium">
                         Zeigt an, wie viele kritische Bedrohungen durch mindestens eine wirksame Kontrolle abgesichert sind.
                     </p>
@@ -290,7 +290,7 @@ export default function DashboardPage() {
         </Card>
 
         <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-            <CardHeader className="bg-slate-50/50 p-4 border-b">
+            <CardHeader className="bg-slate-50/50 dark:bg-slate-800/50 p-4 border-b">
                 <CardTitle className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
                     <BarChart4 className="w-3.5 h-3.5" /> Department Review Integrity
                 </CardTitle>
@@ -301,130 +301,16 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between text-[10px] font-bold">
                             <div className="flex items-center gap-2">
                                 <span className="w-4 text-slate-300 font-black italic">#{idx+1}</span>
-                                <span className="text-slate-700 truncate max-w-[120px]">{dept.name}</span>
+                                <span className="text-slate-700 dark:text-slate-300 truncate max-w-[120px]">{dept.name}</span>
                             </div>
                             <span className={cn("font-black", dept.score > 80 ? "text-emerald-600" : "text-primary")}>{dept.score}%</span>
                         </div>
-                        <Progress value={dept.score} className="h-1 rounded-full bg-slate-100" />
+                        <Progress value={dept.score} className="h-1 rounded-full bg-slate-100 dark:bg-slate-800" />
                     </div>
                 ))}
             </CardContent>
         </Card>
       </div>
-
-      {/* Main Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard id="stat-users" value={filteredData.users.length} icon={Users} label="Identitäten" color="text-blue-500" bg="bg-blue-50" loading={usersLoading} help="Anzahl aller registrierten Mitarbeiter im System." />
-        <StatCard id="stat-resources" value={filteredData.resources.length} icon={Layers} label="IT-Assets" color="text-indigo-500" bg="bg-indigo-50" loading={resourcesLoading} help="Alle Anwendungen und Hardware-Komponenten im Katalog." />
-        <StatCard id="stat-data" value={filteredData.features.length} icon={LayoutDashboard} label="Datenobjekte" color="text-sky-500" bg="bg-sky-50" loading={false} help="Zahl der definierten Datenobjekte und Entitäten." />
-        <StatCard id="stat-risks" value={filteredData.risks.length} icon={AlertTriangle} label="Gefahrenlage" color="text-orange-500" bg="bg-orange-50" loading={risksLoading} help="Identifizierte Bedrohungen für das Unternehmen." />
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Action Center */}
-        <Card className="xl:col-span-2 border shadow-sm bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
-          <CardHeader className="p-6 pb-2 border-b bg-slate-50/50 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-primary/10 rounded-md flex items-center justify-center text-primary">
-                <Target className="w-5 h-5" />
-              </div>
-              <div>
-                <CardTitle className="text-sm font-headline font-bold">Action Center</CardTitle>
-                <p className="text-[10px] font-bold text-slate-400">Governance Ops Warteschlange</p>
-              </div>
-            </div>
-            <Badge className="bg-primary/10 text-primary border-none rounded-full text-[8px] font-black h-5 px-3 uppercase">Audit Focus</Badge>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-3">
-                <div className="group flex items-center justify-between p-4 bg-slate-50/50 border border-slate-100 rounded-xl hover:border-primary/20 transition-all cursor-pointer shadow-sm" onClick={() => router.push('/reviews')}>
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm text-primary">
-                            <CalendarCheck className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-bold text-slate-900">Access Reviews fällig</h4>
-                            <p className="text-[10px] text-slate-500">Zertifizierungen für die aktuelle Periode stehen aus.</p>
-                        </div>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-slate-300 group-hover:translate-x-1 transition-transform" />
-                </div>
-                <div className="group flex items-center justify-between p-4 bg-slate-50/50 border border-slate-100 rounded-xl hover:border-accent/20 transition-all cursor-pointer shadow-sm" onClick={() => router.push('/risks')}>
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm text-accent">
-                            <AlertTriangle className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-bold text-slate-900">Kritische Risiken</h4>
-                            <p className="text-[10px] text-slate-500">Hochrisiko-Szenarien ohne wirksame Maßnahmen identifiziert.</p>
-                        </div>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-slate-300 group-hover:translate-x-1 transition-transform" />
-                </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* RISK PIE */}
-        <Card className="border shadow-sm bg-white dark:bg-slate-900 rounded-2xl overflow-hidden flex flex-col">
-          <CardHeader className="border-b py-4 px-6 bg-slate-50/50">
-            <CardTitle className="text-xs font-headline font-bold text-slate-800 uppercase tracking-widest">Risiko-Verteilung</CardTitle>
-          </CardHeader>
-          <CardContent className="p-6 flex-1 flex flex-col items-center justify-center">
-            <div className="h-[180px] w-full relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={riskPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value" stroke="none">
-                    {riskPieData.map((entry, index) => <Cell key={index} fill={entry.color} cornerRadius={4} className="cursor-pointer" />)}
-                  </Pie>
-                  <RechartsTooltip contentStyle={{ borderRadius: '0.5rem', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '10px', fontWeight: 'bold' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="w-full space-y-1.5 mt-4">
-              {riskPieData.map((item) => (
-                <div key={item.name} className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 transition-all cursor-pointer">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">{item.name}</span>
-                  </div>
-                  <span className="text-xs font-black text-slate-800">{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Report Dialog */}
-      <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
-        <DialogContent className="rounded-2xl max-w-xl w-[95vw] bg-white p-0 border-none shadow-2xl overflow-hidden">
-          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
-                <FileText className="w-5 h-5" />
-              </div>
-              <div>
-                <DialogTitle className="text-base font-headline font-bold">Compliance Snapshot</DialogTitle>
-                <DialogDescription className="text-slate-400 text-[10px] font-bold uppercase">Offizieller Bericht für Auditoren</DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-          <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Button variant="outline" className="h-16 rounded-xl border-slate-100 flex flex-col gap-1 items-start px-4 justify-center hover:bg-primary/5 transition-all" onClick={() => handleExport('pdf', 'user')}>
-              <span className="font-bold text-xs uppercase">Identitäten (PDF)</span>
-              <span className="text-[10px] text-slate-400">IAM-Gesamtbericht</span>
-            </Button>
-            <Button variant="outline" className="h-16 rounded-xl border-slate-100 flex flex-col gap-1 items-start px-4 justify-center hover:bg-indigo-50 transition-all" onClick={() => handleExport('pdf', 'resource')}>
-              <span className="font-bold text-xs uppercase">Systeme (PDF)</span>
-              <span className="text-[10px] text-slate-400">Assetbericht</span>
-            </Button>
-          </div>
-          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
-            <Button variant="ghost" size="sm" onClick={() => setIsReportDialogOpen(false)} className="rounded-md text-[10px] font-bold uppercase">Abbrechen</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

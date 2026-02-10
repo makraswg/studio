@@ -59,6 +59,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export const dynamic = 'force-dynamic';
 
@@ -155,7 +156,6 @@ export default function UnifiedOrganizationPage() {
 
   const isSuperAdmin = user?.role === 'superAdmin';
 
-  // Hocheffiziente Gruppierung für Docker Umgebungen
   const groupedData = useMemo(() => {
     if (!tenants) return [];
     

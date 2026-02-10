@@ -271,6 +271,19 @@ export default function ResourcesPage() {
     setNotes(''); setUrl('');
   };
 
+  const handleOpenBackupModal = (idx: number | null = null) => {
+    if (idx !== null) {
+      setBackupForm(localBackupJobs[idx]);
+      setCurrentBackupIdx(idx);
+    } else {
+      setBackupForm({
+        name: '', cycle: 'Täglich', storage_location: '', description: '', responsible_id: '', lastReviewDate: '', it_process_id: 'none', detail_process_id: 'none'
+      });
+      setCurrentBackupIdx(null);
+    }
+    setIsBackupModalOpen(true);
+  };
+
   const saveBackupForm = () => {
     if (!backupForm.name || !backupForm.responsible_id) {
       toast({ variant: "destructive", title: "Fehler", description: "Name und Verantwortlicher sind erforderlich." });
@@ -354,7 +367,7 @@ export default function ResourcesPage() {
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Anwendung / Asset</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest text-center">CIA</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">CIA</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">Backup/Updates</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
               </TableRow>

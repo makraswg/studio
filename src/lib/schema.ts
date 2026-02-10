@@ -91,6 +91,14 @@ export const appSchema: AppSchema = {
       enabled: 'BOOLEAN DEFAULT TRUE',
     }
   },
+  process_types: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      enabled: 'BOOLEAN DEFAULT TRUE',
+    }
+  },
   data_stores: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -232,6 +240,7 @@ export const appSchema: AppSchema = {
       tenantId: 'VARCHAR(255) NOT NULL',
       responsibleDepartmentId: 'VARCHAR(255)',
       vvtId: 'VARCHAR(255)', 
+      processTypeId: 'VARCHAR(255)',
       title: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
       inputs: 'TEXT',

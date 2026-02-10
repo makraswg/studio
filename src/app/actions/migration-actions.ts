@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getMysqlConnection } from '@/lib/mysql';
@@ -84,6 +83,23 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
         [adminId, adminEmail, hashedPassword, 'Plattform Admin', 'superAdmin', 'all', 1, now, 'local']
       );
       details.push(`   ✅ Initialer Admin erstellt: ${adminEmail} (Passwort: ${adminPassword})`);
+    }
+
+    // SEEDING: Default Process Types
+    details.push('🌱 Prüfe auf initiale Prozesstypen...');
+    const [typeRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `process_types`');
+    if (typeRows[0].count === 0) {
+      const types = [
+        { id: 'pt-core', name: 'Unternehmensprozess', desc: 'Strategische Kernprozesse der Organisation.' },
+        { id: 'pt-detail', name: 'Detailprozess', desc: 'Operative Arbeitsabläufe auf Teamebene.' }
+      ];
+      for (const t of types) {
+        await connection.execute(
+          'INSERT INTO `process_types` (id, name, description, enabled) VALUES (?, ?, ?, 1)',
+          [t.id, t.name, t.desc]
+        );
+      }
+      details.push(`   ✅ Standard-Prozesstypen erstellt.`);
     }
 
     connection.release();

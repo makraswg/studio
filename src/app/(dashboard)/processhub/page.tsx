@@ -29,7 +29,8 @@ import {
   FileEdit,
   Activity,
   Zap,
-  Building2
+  Building2,
+  Layout
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -38,7 +39,7 @@ import { useRouter } from 'next/navigation';
 import { createProcessAction, deleteProcessAction } from '@/app/actions/process-actions';
 import { usePlatformAuth } from '@/context/auth-context';
 import { toast } from '@/hooks/use-toast';
-import { Process, ProcessVersion, Department } from '@/lib/types';
+import { Process, ProcessVersion, Department, ProcessType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import {
@@ -70,6 +71,7 @@ export default function ProcessHubOverview() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [deptFilter, setDeptFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -80,6 +82,7 @@ export default function ProcessHubOverview() {
   const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
   const { data: media } = usePluggableCollection<any>('media');
   const { data: departments } = usePluggableCollection<Department>('departments');
+  const { data: processTypes } = usePluggableCollection<ProcessType>('processTypes');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -126,9 +129,10 @@ export default function ProcessHubOverview() {
       const matchesSearch = (p.title || '').toLowerCase().includes(search.toLowerCase());
       const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
       const matchesDept = deptFilter === 'all' || p.responsibleDepartmentId === deptFilter;
-      return matchesTenant && matchesSearch && matchesStatus && matchesDept;
+      const matchesType = typeFilter === 'all' || p.processTypeId === typeFilter;
+      return matchesTenant && matchesSearch && matchesStatus && matchesDept && matchesType;
     });
-  }, [processes, search, statusFilter, deptFilter, activeTenantId]);
+  }, [processes, search, statusFilter, deptFilter, typeFilter, activeTenantId]);
 
   if (!mounted) return null;
 
@@ -168,6 +172,19 @@ export default function ProcessHubOverview() {
         </div>
         
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 h-9 shrink-0">
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="border-none shadow-none h-full rounded-sm bg-transparent text-[10px] font-bold min-w-[120px]">
+              <Layout className="w-3 h-3 mr-1.5 text-slate-400" />
+              <SelectValue placeholder="Typ" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">Alle Typen</SelectItem>
+              {processTypes?.filter(t => t.enabled).map(t => (
+                <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 my-auto mx-1" />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="border-none shadow-none h-full rounded-sm bg-transparent text-[10px] font-bold min-w-[120px]">
               <Filter className="w-3 h-3 mr-1.5 text-slate-400" />
@@ -213,7 +230,7 @@ export default function ProcessHubOverview() {
           <Table>
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent border-b">
-                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Bezeichnung</TableHead>
+                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Bezeichnung / Typ</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Abteilung</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest text-center">Reifegrad</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 text-center">Status</TableHead>
@@ -227,6 +244,7 @@ export default function ProcessHubOverview() {
                 const pMedia = media?.filter((m: any) => m.entityId === p.id).length || 0;
                 const maturity = calculateProcessMaturity(p, version, pMedia);
                 const dept = departments?.find(d => d.id === p.responsibleDepartmentId);
+                const type = processTypes?.find(t => t.id === p.processTypeId);
 
                 return (
                   <TableRow key={p.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/processhub/view/${p.id}`)}>
@@ -237,8 +255,11 @@ export default function ProcessHubOverview() {
                         </div>
                         <div>
                           <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{p.title}</div>
-                          <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1.5 mt-0.5">
-                            <Tag className="w-2.5 h-2.5" /> {p.tags || 'Standard'}
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {type && <Badge variant="outline" className="bg-slate-50 text-slate-500 border-none text-[8px] font-black h-4 px-1.5 uppercase">{type.name}</Badge>}
+                            <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1.5">
+                              <Tag className="w-2.5 h-2.5" /> {p.tags || 'Standard'}
+                            </div>
                           </div>
                         </div>
                       </div>

@@ -202,11 +202,19 @@ export interface ProcessOperation {
   payload: any;
 }
 
+export interface ProcessType {
+  id: string;
+  name: string;
+  description?: string;
+  enabled: boolean | number;
+}
+
 export interface Process {
   id: string;
   tenantId: string;
   responsibleDepartmentId?: string;
   vvtId?: string; 
+  processTypeId?: string;
   title: string;
   description?: string;
   inputs?: string;

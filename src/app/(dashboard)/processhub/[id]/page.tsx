@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -41,7 +40,8 @@ import {
   X,
   ClipboardCheck,
   Layers,
-  ShieldAlert
+  ShieldAlert,
+  Layout
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,7 +60,7 @@ import { saveTaskAction } from '@/app/actions/task-actions';
 import { saveMediaAction, deleteMediaAction } from '@/app/actions/media-actions';
 import { runOcrAction } from '@/ai/flows/ocr-flow';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessNode, ProcessOperation, ProcessVersion, Department, RegulatoryOption, Feature, MediaFile, Resource, Task, PlatformUser, ProcessingActivity, DataSubjectGroup, DataCategory } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessNode, ProcessOperation, ProcessVersion, Department, RegulatoryOption, Feature, MediaFile, Resource, Task, PlatformUser, ProcessingActivity, DataSubjectGroup, DataCategory, ProcessType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -183,6 +183,7 @@ export default function ProcessDesignerPage() {
   const [metaOutputs, setMetaOutputs] = useState('');
   const [metaKpis, setMetaKpis] = useState('');
   const [metaDeptId, setMetaDeptId] = useState('');
+  const [metaTypeId, setMetaTypeId] = useState('');
   const [metaFramework, setMetaFramework] = useState('');
   const [metaAutomation, setMetaAutomation] = useState<'manual' | 'partial' | 'full'>('manual');
   const [metaVolume, setMetaDataVolume] = useState<'low' | 'medium' | 'high'>('low');
@@ -216,6 +217,7 @@ export default function ProcessDesignerPage() {
   const { data: regulatoryOptions } = usePluggableCollection<RegulatoryOption>('regulatory_options');
   const { data: subjectGroups } = usePluggableCollection<DataSubjectGroup>('dataSubjectGroups');
   const { data: dataCategories } = usePluggableCollection<DataCategory>('dataCategories');
+  const { data: processTypes } = usePluggableCollection<ProcessType>('processTypes');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
@@ -248,6 +250,7 @@ export default function ProcessDesignerPage() {
       setMetaOutputs(currentProcess.outputs || '');
       setMetaKpis(currentProcess.kpis || '');
       setMetaDeptId(currentProcess.responsibleDepartmentId || 'none');
+      setMetaTypeId(currentProcess.processTypeId || 'none');
       setMetaFramework(currentProcess.regulatoryFramework || 'none');
       setMetaAutomation(currentProcess.automationLevel || 'manual');
       setMetaDataVolume(currentProcess.dataVolume || 'low');
@@ -362,6 +365,7 @@ export default function ProcessDesignerPage() {
         outputs: metaOutputs,
         kpis: metaKpis,
         responsibleDepartmentId: metaDeptId === 'none' ? undefined : metaDeptId,
+        processTypeId: metaTypeId === 'none' ? undefined : metaTypeId,
         regulatoryFramework: metaFramework === 'none' ? undefined : metaFramework,
         automationLevel: metaAutomation,
         dataVolume: metaVolume,
@@ -623,6 +627,18 @@ export default function ProcessDesignerPage() {
                         <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="h-10 text-xs font-bold" />
                       </div>
                       <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Kategorisierung / Typ</Label>
+                        <Select value={metaTypeId} onValueChange={setMetaTypeId}>
+                          <SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Nicht kategorisiert</SelectItem>
+                            {processTypes?.filter(t => t.enabled).map(t => (
+                              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
                         <Label className="text-[10px] font-black uppercase text-slate-400">Fachliche Beschreibung</Label>
                         <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[100px] text-xs leading-relaxed" />
                       </div>
@@ -830,7 +846,7 @@ export default function ProcessDesignerPage() {
                     {mediaFiles?.filter(m => m.entityId === id).map(m => (
                       <div key={m.id} className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
-                          {m.fileType.includes('image') ? <Activity className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                          {m.fileType.includes('image') ? <HardDrive className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[10px] font-bold text-slate-800 truncate">{m.fileName}</p>

@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
@@ -47,6 +46,7 @@ const collectionToTableMap: { [key: string]: string } = {
   dataStores: 'data_stores',
   assetTypeOptions: 'asset_type_options',
   operatingModelOptions: 'operating_model_options',
+  processTypes: 'process_types',
   processes: 'processes',
   process_versions: 'process_versions',
   process_comments: 'process_comments',
@@ -272,11 +272,11 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
   try {
     connection = await getMysqlConnection();
     const tablesToClear = [
-      'users', 'auditEvents', 'catalogs', 'hazardModules', 'hazards', 'hazardMeasures', 'hazardMeasureRelations',
+      'users', 'auditEvents', 'catalogs', 'hazardModules', 'hazards', 'hazardMeasures', 'hazardMeasures', 'hazardMeasureRelations',
       'importRuns', 'risks', 'riskMeasures', 'riskControls', 'resources', 'entitlements', 'assignments',
       'groups', 'bundles', 'processingActivities', 'dataSubjectGroups', 'dataCategories', 'departments',
       'jobTitles', 'service_partners', 'service_partner_contacts', 'service_partner_areas', 'data_stores',
-      'asset_type_options', 'operating_model_options', 'processes', 'process_versions', 'process_comments',
+      'asset_type_options', 'operating_model_options', 'process_types', 'processes', 'process_versions', 'process_comments',
       'process_ops', 'process_relations', 'bookstack_exports', 'ai_sessions', 'ai_messages', 'regulatory_options',
       'usage_type_options', 'uiConfigs', 'platformRoles', 'features', 'feature_links', 'feature_dependencies',
       'feature_process_steps', 'tasks', 'task_comments', 'media', 'backup_jobs', 'update_processes'

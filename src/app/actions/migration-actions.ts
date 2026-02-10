@@ -73,12 +73,12 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
     const [typeRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `process_types`');
     if (typeRows[0].count === 0) {
       const types = [
-        ['pt-1', 'Unternehmensprozess', 1],
-        ['pt-2', 'Detailprozess', 1],
-        ['pt-3', 'IT-Prozess', 1]
+        ['pt-1', 'Unternehmensprozesse', 'Strategische Geschäftsprozesse', 1, new Date().toISOString()],
+        ['pt-2', 'Detailprozess', 'Operative Arbeitsabläufe', 1, new Date().toISOString()],
+        ['pt-3', 'IT-Prozess', 'Technische Wartungs- und Sicherungsprozesse', 1, new Date().toISOString()]
       ];
       for (const t of types) {
-        await connection.execute('INSERT INTO `process_types` (id, name, enabled) VALUES (?, ?, ?)', t);
+        await connection.execute('INSERT INTO `process_types` (id, name, description, enabled, createdAt) VALUES (?, ?, ?, ?, ?)', t);
       }
       details.push('   ✅ Standard-Prozesstypen erstellt.');
     }

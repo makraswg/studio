@@ -64,7 +64,7 @@ const collectionToTableMap: { [key: string]: string } = {
   task_comments: 'task_comments',
   media: 'media',
   backup_jobs: 'backup_jobs',
-  update_processes: 'update_processes'
+  resource_update_processes: 'resource_update_processes'
 };
 
 function normalizeRecord(item: any, tableName: string) {
@@ -142,10 +142,6 @@ export async function getCollectionData(collectionName: string, dataSource: Data
   }
 }
 
-/**
- * Holt einen einzelnen Datensatz anhand der ID. 
- * Deutlich performanter als getCollectionData für Punktabfragen.
- */
 export async function getSingleRecord(collectionName: string, id: string, dataSource: DataSource = 'mysql'): Promise<{ data: any | null; error: string | null; }> {
   if (dataSource === 'mock') {
     const coll = getMockCollection(collectionName);
@@ -198,7 +194,6 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     connection = await getMysqlConnection();
     const preparedData = { ...data, id };
     
-    // JSON Serialization
     const jsonFields: Record<string, string[]> = {
       groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
       bundles: ['entitlementIds'],

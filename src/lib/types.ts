@@ -206,6 +206,7 @@ export interface Process {
   tenantId: string;
   responsibleDepartmentId?: string;
   vvtId?: string; 
+  typeId?: string;
   title: string;
   description?: string;
   inputs?: string;
@@ -214,7 +215,7 @@ export interface Process {
   openQuestions?: string; 
   regulatoryFramework?: string; 
   status: 'draft' | 'published' | 'archived';
-  ownerRoleId?: string;
+  ownerUserId?: string;
   currentVersion: number;
   publishedVersion?: number;
   automationLevel?: 'manual' | 'partial' | 'full';
@@ -234,6 +235,14 @@ export interface ProcessVersion {
   revision: number;
   created_by_user_id: string;
   created_at: string;
+}
+
+export interface ProcessType {
+  id: string;
+  name: string;
+  description?: string;
+  enabled: boolean | number;
+  createdAt: string;
 }
 
 export interface RegulatoryOption {
@@ -312,6 +321,28 @@ export interface FeatureProcessLink {
   criticality: 'low' | 'medium' | 'high';
 }
 
+export interface BackupJob {
+  id: string;
+  resourceId: string;
+  name: string;
+  cycle: 'Täglich' | 'Wöchentlich' | 'Monatlich' | 'Manuell';
+  storage_location: string;
+  description?: string;
+  responsibleRoleId: string;
+  it_process_id?: string;
+  detail_process_id?: string;
+  lastReviewDate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ResourceUpdateProcess {
+  id: string;
+  resourceId: string;
+  processId: string;
+  createdAt: string;
+}
+
 export interface Resource {
   id: string;
   tenantId: string;
@@ -352,6 +383,8 @@ export interface Resource {
   documentationUrl?: string;
   notes: string;
   createdAt?: string;
+  backupRequired?: boolean | number;
+  updatesRequired?: boolean | number;
 }
 
 export interface ProcessingActivity {

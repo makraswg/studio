@@ -41,7 +41,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department, Process, BackupJob, UpdateProcess } from '@/lib/types';
+import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department, Process, BackupJob, ResourceUpdateProcess, ProcessType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportResourcesExcel } from '@/lib/export-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
@@ -106,9 +106,16 @@ export default function ResourcesPage() {
   const [backupRequired, setBackupRequired] = useState(false);
   const [updatesRequired, setUpdatesRequired] = useState(false);
 
-  // Local Lists for Jobs
+  // Backup & Updates Local State
   const [localBackupJobs, setLocalBackupJobs] = useState<Partial<BackupJob>[]>([]);
-  const [localUpdateProcesses, setLocalUpdateProcesses] = useState<Partial<UpdateProcess>[]>([]);
+  const [selectedUpdateProcessIds, setSelectedUpdateProcessIds] = useState<string[]>([]);
+
+  // Backup Modal State
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
+  const [currentBackupIdx, setCurrentBackupIdx] = useState<number | null>(null);
+  const [backupForm, setBackupForm] = useState<Partial<BackupJob>>({
+    name: '', cycle: 'Täglich', storage_location: '', description: '', responsibleRoleId: '', lastReviewDate: ''
+  });
 
   const [notes, setNotes] = useState('');
   const [url, setUrl] = useState('');
@@ -122,8 +129,9 @@ export default function ResourcesPage() {
   const { data: assetTypeOptions } = usePluggableCollection<AssetTypeOption>('assetTypeOptions');
   const { data: operatingModelOptions } = usePluggableCollection<OperatingModelOption>('operatingModelOptions');
   const { data: allProcesses } = usePluggableCollection<Process>('processes');
+  const { data: pTypes } = usePluggableCollection<ProcessType>('process_types');
   const { data: allBackupJobs, refresh: refreshBackups } = usePluggableCollection<BackupJob>('backup_jobs');
-  const { data: allUpdateProcesses, refresh: refreshUpdates } = usePluggableCollection<UpdateProcess>('update_processes');
+  const { data: allUpdateLinks, refresh: refreshUpdates } = usePluggableCollection<ResourceUpdateProcess>('resource_update_processes');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -138,8 +146,14 @@ export default function ResourcesPage() {
   }, [jobTitles, departmentsData]);
 
   const itProcesses = useMemo(() => {
-    return allProcesses?.filter(p => p.status !== 'archived') || [];
-  }, [allProcesses]);
+    const itTypeId = pTypes?.find(t => t.name === 'IT-Prozess')?.id;
+    return allProcesses?.filter(p => p.status !== 'archived' && (p.typeId === itTypeId || !itTypeId)) || [];
+  }, [allProcesses, pTypes]);
+
+  const detailProcesses = useMemo(() => {
+    const detailTypeId = pTypes?.find(t => t.name === 'Detailprozess')?.id;
+    return allProcesses?.filter(p => p.status !== 'archived' && (p.typeId === detailTypeId || !detailTypeId)) || [];
+  }, [allProcesses, pTypes]);
 
   const handleSave = async () => {
     if (!name || !assetType) {
@@ -175,21 +189,41 @@ export default function ResourcesPage() {
       externalOwnerAreaId: systemOwnerType === 'external' ? externalOwnerAreaId : undefined,
       riskOwnerRoleId: riskOwnerRoleId !== 'none' ? riskOwnerRoleId : undefined,
       notes, url, status: selectedResource?.status || 'active',
-      createdAt: selectedResource?.createdAt || new Date().toISOString(),
-      operatorId: '', riskOwner: '', dataOwner: '', mfaType: 'none', authMethod: identityProviderId === 'none' ? 'direct' : 'idp'
+      createdAt: selectedResource?.createdAt || new Date().toISOString()
     } as Resource;
 
     try {
       const res = await saveResourceAction(resourceData, dataSource, user?.email || 'system');
       if (res.success) {
-        // Save sub-items (Backups & Updates)
+        // Clear existing jobs/links if it was an edit
+        if (selectedResource) {
+          const oldJobs = allBackupJobs?.filter(b => b.resourceId === id) || [];
+          for (const oj of oldJobs) await deleteCollectionRecord('backup_jobs', oj.id, dataSource);
+          
+          const oldUpdates = allUpdateLinks?.filter(u => u.resourceId === id) || [];
+          for (const ou of oldUpdates) await deleteCollectionRecord('resource_update_processes', ou.id, dataSource);
+        }
+
+        // Save Jobs
         for (const job of localBackupJobs) {
           const jobId = job.id || `bj-${Math.random().toString(36).substring(2, 7)}`;
-          await saveCollectionRecord('backup_jobs', jobId, { ...job, id: jobId, resourceId: id }, dataSource);
+          await saveCollectionRecord('backup_jobs', jobId, { 
+            ...job, 
+            id: jobId, 
+            resourceId: id,
+            it_process_id: job.it_process_id === 'none' ? undefined : job.it_process_id,
+            detail_process_id: job.detail_process_id === 'none' ? undefined : job.detail_process_id,
+            updatedAt: new Date().toISOString(),
+            createdAt: job.createdAt || new Date().toISOString()
+          }, dataSource);
         }
-        for (const proc of localUpdateProcesses) {
-          const procId = proc.id || `up-${Math.random().toString(36).substring(2, 7)}`;
-          await saveCollectionRecord('update_processes', procId, { ...proc, id: procId, resourceId: id }, dataSource);
+
+        // Save Update Links
+        for (const pid of selectedUpdateProcessIds) {
+          const lid = `upl-${id}-${pid}`;
+          await saveCollectionRecord('resource_update_processes', lid, { 
+            id: lid, resourceId: id, processId: pid, createdAt: new Date().toISOString() 
+          }, dataSource);
         }
 
         toast({ title: selectedResource ? "Ressource aktualisiert" : "Ressource registriert" });
@@ -221,7 +255,7 @@ export default function ResourcesPage() {
     setUpdatesRequired(!!res.updatesRequired);
     
     setLocalBackupJobs(allBackupJobs?.filter(b => b.resourceId === res.id) || []);
-    setLocalUpdateProcesses(allUpdateProcesses?.filter(u => u.resourceId === res.id) || []);
+    setSelectedUpdateProcessIds(allUpdateLinks?.filter(u => u.resourceId === res.id).map(u => u.processId) || []);
 
     if (res.identityProviderId === res.id) setIdentityProviderId('self');
     else setIdentityProviderId(res.identityProviderId || 'none');
@@ -248,8 +282,34 @@ export default function ResourcesPage() {
     setIdentityProviderId('none'); setDataLocation(''); setSystemOwnerType('internal');
     setSystemOwnerRoleId(''); setExternalRefId('none'); setRiskOwnerRoleId('');
     setBackupRequired(false); setUpdatesRequired(false);
-    setLocalBackupJobs([]); setLocalUpdateProcesses([]);
+    setLocalBackupJobs([]); setSelectedUpdateProcessIds([]);
     setNotes(''); setUrl('');
+  };
+
+  const handleOpenBackupModal = (idx: number | null = null) => {
+    if (idx !== null) {
+      setBackupForm(localBackupJobs[idx]);
+      setCurrentBackupIdx(idx);
+    } else {
+      setBackupForm({ name: '', cycle: 'Täglich', storage_location: '', description: '', responsibleRoleId: '', lastReviewDate: '' });
+      setCurrentBackupIdx(null);
+    }
+    setIsBackupModalOpen(true);
+  };
+
+  const saveBackupForm = () => {
+    if (!backupForm.name || !backupForm.responsibleRoleId) {
+      toast({ variant: "destructive", title: "Fehler", description: "Name und Verantwortlicher sind erforderlich." });
+      return;
+    }
+    const next = [...localBackupJobs];
+    if (currentBackupIdx !== null) {
+      next[currentBackupIdx] = backupForm;
+    } else {
+      next.push({ ...backupForm, createdAt: new Date().toISOString() });
+    }
+    setLocalBackupJobs(next);
+    setIsBackupModalOpen(false);
   };
 
   const filteredResources = useMemo(() => {
@@ -276,7 +336,7 @@ export default function ResourcesPage() {
           <div>
             <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-wider">Resource Catalog</Badge>
             <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Ressourcenkatalog</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung der IT-Assets für {getTenantSlug(activeTenantId)}.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung der IT-Assets für {activeTenantId === 'all' ? 'die Organisation' : activeTenantId}.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -334,14 +394,14 @@ export default function ResourcesPage() {
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Anwendung / Asset</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Integrität (CIA)</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest text-center">Wartung/Backup</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">Wartung/Backup</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredResources.map((res) => {
                 const backups = allBackupJobs?.filter(b => b.resourceId === res.id).length || 0;
-                const updates = allUpdateProcesses?.filter(u => u.resourceId === res.id).length || 0;
+                const updates = allUpdateLinks?.filter(u => u.resourceId === res.id).length || 0;
                 return (
                   <TableRow key={res.id} className={cn("group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer", res.status === 'archived' && "opacity-60")} onClick={() => router.push(`/resources/${res.id}`)}>
                     <TableCell className="py-4 px-6">
@@ -406,7 +466,8 @@ export default function ResourcesPage() {
             <div className="px-6 border-b shrink-0 bg-white">
               <TabsList className="h-12 bg-transparent gap-8 p-0">
                 <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Basisdaten</TabsTrigger>
-                <TabsTrigger value="maintenance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-orange-600 transition-all">Wartung & Backup</TabsTrigger>
+                <TabsTrigger value="gov" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600 transition-all">Compliance & Schutz</TabsTrigger>
+                <TabsTrigger value="maintenance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-orange-600 transition-all">Datensicherung & Updates</TabsTrigger>
                 <TabsTrigger value="admin" className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-slate-900 transition-all">Ownership & Auth</TabsTrigger>
               </TabsList>
             </div>
@@ -436,156 +497,128 @@ export default function ResourcesPage() {
                   </div>
                 </TabsContent>
 
+                <TabsContent value="gov" className="mt-0 space-y-8">
+                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-8">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Kritikalität</Label>
+                        <Select value={criticality} onValueChange={(v:any) => setCriticality(v)}>
+                          <SelectTrigger className="rounded-xl h-11 bg-slate-50/50"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">Niedrig (Low)</SelectItem>
+                            <SelectItem value="medium">Mittel (Medium)</SelectItem>
+                            <SelectItem value="high">Hoch (High)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Klassifizierung</Label>
+                        <Select value={dataClassification} onValueChange={(v:any) => setDataClassification(v)}>
+                          <SelectTrigger className="rounded-xl h-11 bg-slate-50/50"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="public">Öffentlich</SelectItem>
+                            <SelectItem value="internal">Intern</SelectItem>
+                            <SelectItem value="confidential">Vertraulich</SelectItem>
+                            <SelectItem value="strictly_confidential">Streng Vertraulich</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <Separator />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Schutzbedarf: V</Label><Select value={confidentialityReq} onValueChange={(v:any) => setConfidentialityReq(v)}><SelectTrigger className="h-10 rounded-lg"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent></Select></div>
+                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Schutzbedarf: I</Label><Select value={integrityReq} onValueChange={(v:any) => setIntegrityReq(v)}><SelectTrigger className="h-10 rounded-lg"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent></Select></div>
+                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Schutzbedarf: A</Label><Select value={availabilityReq} onValueChange={(v:any) => setAvailabilityReq(v)}><SelectTrigger className="h-10 rounded-lg"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent></Select></div>
+                    </div>
+                  </div>
+                </TabsContent>
+
                 <TabsContent value="maintenance" className="mt-0 space-y-10">
                   <div className="space-y-10">
-                    {/* Backup Section */}
+                    {/* Datensicherung Section */}
                     <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
                       <div className="flex items-center justify-between border-b pb-3">
                         <div className="flex items-center gap-2">
                           <HardDrive className="w-4 h-4 text-orange-600" />
-                          <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Datensicherung (Backups)</h4>
+                          <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Datensicherung (Backup)</h4>
                         </div>
                         <div className="flex items-center gap-2">
                           <Label className="text-[10px] font-bold uppercase text-slate-400">Erforderlich</Label>
                           <Switch checked={backupRequired} onCheckedChange={setBackupRequired} className="data-[state=checked]:bg-orange-600" />
                         </div>
                       </div>
+                      
                       {backupRequired && (
                         <div className="space-y-4">
-                          <div className="grid grid-cols-1 gap-2">
+                          <div className="flex justify-end">
+                            <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold gap-2 border-orange-200 text-orange-700 hover:bg-orange-50" onClick={() => handleOpenBackupModal()}>
+                              <PlusCircle className="w-3.5 h-3.5" /> Backup-Job anlegen
+                            </Button>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 gap-3">
                             {localBackupJobs.map((job, idx) => (
-                              <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-4">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                      <Label className="text-[8px] font-black uppercase text-slate-400">Job Name</Label>
-                                      <Input value={job.name || ''} onChange={e => {
-                                        const next = [...localBackupJobs];
-                                        next[idx] = { ...next[idx], name: e.target.value };
-                                        setLocalBackupJobs(next);
-                                      }} className="h-8 text-xs bg-white" placeholder="z.B. Tägliches DB-Backup" />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <Label className="text-[8px] font-black uppercase text-slate-400">Intervall / Zyklus</Label>
-                                      <Input value={job.cycle || ''} onChange={e => {
-                                        const next = [...localBackupJobs];
-                                        next[idx] = { ...next[idx], cycle: e.target.value };
-                                        setLocalBackupJobs(next);
-                                      }} className="h-8 text-xs bg-white" placeholder="z.B. Täglich 23:00 Uhr" />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <Label className="text-[8px] font-black uppercase text-slate-400">Verantwortlich</Label>
-                                      <Select value={job.responsibleRoleId || 'none'} onValueChange={v => {
-                                        const next = [...localBackupJobs];
-                                        next[idx] = { ...next[idx], responsibleRoleId: v === 'none' ? undefined : v };
-                                        setLocalBackupJobs(next);
-                                      }}>
-                                        <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="none">Nicht zugewiesen</SelectItem>
-                                          {sortedRoles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <Label className="text-[8px] font-black uppercase text-slate-400">IT-Prozess (Referenz)</Label>
-                                      <Select value={job.processId || 'none'} onValueChange={v => {
-                                        const next = [...localBackupJobs];
-                                        next[idx] = { ...next[idx], processId: v === 'none' ? undefined : v };
-                                        setLocalBackupJobs(next);
-                                      }}>
-                                        <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="none">Kein Bezug</SelectItem>
-                                          {itProcesses.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
-                                        </SelectContent>
-                                      </Select>
+                              <div key={idx} className="p-4 bg-slate-50 border rounded-xl flex items-center justify-between group hover:border-orange-300 transition-all">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center text-orange-600 shadow-sm border"><HardDrive className="w-4 h-4" /></div>
+                                  <div>
+                                    <p className="text-sm font-bold text-slate-800">{job.name}</p>
+                                    <div className="flex items-center gap-3 mt-0.5">
+                                      <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 uppercase">{job.cycle}</Badge>
+                                      <span className="text-[9px] text-slate-400 font-bold uppercase flex items-center gap-1"><UserCircle className="w-2.5 h-2.5" /> {sortedRoles.find(r => r.id === job.responsibleRoleId)?.name || 'N/A'}</span>
                                     </div>
                                   </div>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400" onClick={() => setLocalBackupJobs(prev => prev.filter((_, i) => i !== idx))}><Trash2 className="w-4 h-4" /></Button>
+                                </div>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400" onClick={() => handleOpenBackupModal(idx)}><Pencil className="w-3.5 h-3.5" /></Button>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400" onClick={() => setLocalBackupJobs(prev => prev.filter((_, i) => i !== idx))}><Trash2 className="w-3.5 h-3.5" /></Button>
                                 </div>
                               </div>
                             ))}
+                            {localBackupJobs.length === 0 && <p className="text-center py-8 text-[10px] text-slate-400 italic">Noch keine Backup-Jobs konfiguriert.</p>}
                           </div>
-                          <Button variant="outline" size="sm" className="w-full rounded-xl h-9 text-[10px] font-black uppercase border-orange-200 text-orange-700 hover:bg-orange-50 gap-2" onClick={() => setLocalBackupJobs([...localBackupJobs, { name: '', cycle: '', location: '', status: 'active' }])}>
-                            <PlusCircle className="w-3.5 h-3.5" /> Sicherungs-Job hinzufügen
-                          </Button>
                         </div>
                       )}
                     </div>
 
-                    {/* Update Section */}
+                    {/* Updates Section */}
                     <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
                       <div className="flex items-center justify-between border-b pb-3">
                         <div className="flex items-center gap-2">
                           <Activity className="w-4 h-4 text-blue-600" />
-                          <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Patch-Management (Updates)</h4>
+                          <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Updates & Patching</h4>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Label className="text-[10px] font-bold uppercase text-slate-400">Aktiv</Label>
+                          <Label className="text-[10px] font-bold uppercase text-slate-400">Erforderlich</Label>
                           <Switch checked={updatesRequired} onCheckedChange={setUpdatesRequired} className="data-[state=checked]:bg-blue-600" />
                         </div>
                       </div>
+                      
                       {updatesRequired && (
                         <div className="space-y-4">
-                          <div className="grid grid-cols-1 gap-2">
-                            {localUpdateProcesses.map((proc, idx) => (
-                              <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-4">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                      <Label className="text-[8px] font-black uppercase text-slate-400">Prozessbezeichnung</Label>
-                                      <Input value={proc.name || ''} onChange={e => {
-                                        const next = [...localUpdateProcesses];
-                                        next[idx] = { ...next[idx], name: e.target.value };
-                                        setLocalUpdateProcesses(next);
-                                      }} className="h-8 text-xs bg-white" placeholder="z.B. Monatliche Sicherheits-Patches" />
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">IT-Prozesse verknüpfen (Patching)</Label>
+                            <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
+                              <div className="grid grid-cols-1 gap-1">
+                                {itProcesses.map(proc => (
+                                  <div 
+                                    key={proc.id} 
+                                    className={cn(
+                                      "p-2 rounded-lg border flex items-center justify-between cursor-pointer transition-all",
+                                      selectedUpdateProcessIds.includes(proc.id) ? "bg-blue-50 border-blue-200" : "bg-white border-transparent hover:border-slate-200"
+                                    )}
+                                    onClick={() => setSelectedUpdateProcessIds(prev => prev.includes(proc.id) ? prev.filter(id => id !== proc.id) : [...prev, proc.id])}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <Checkbox checked={selectedUpdateProcessIds.includes(proc.id)} />
+                                      <span className="text-[11px] font-bold text-slate-700">{proc.title}</span>
                                     </div>
-                                    <div className="space-y-1">
-                                      <Label className="text-[8px] font-black uppercase text-slate-400">Intervall</Label>
-                                      <Input value={proc.frequency || ''} onChange={e => {
-                                        const next = [...localUpdateProcesses];
-                                        next[idx] = { ...next[idx], frequency: e.target.value };
-                                        setLocalUpdateProcesses(next);
-                                      }} className="h-8 text-xs bg-white" placeholder="z.B. Alle 30 Tage" />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <Label className="text-[8px] font-black uppercase text-slate-400">Verantwortlich</Label>
-                                      <Select value={proc.responsibleRoleId || 'none'} onValueChange={v => {
-                                        const next = [...localUpdateProcesses];
-                                        next[idx] = { ...next[idx], responsibleRoleId: v === 'none' ? undefined : v };
-                                        setLocalUpdateProcesses(next);
-                                      }}>
-                                        <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="none">Nicht zugewiesen</SelectItem>
-                                          {sortedRoles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <Label className="text-[8px] font-black uppercase text-slate-400">IT-Workflow (Referenz)</Label>
-                                      <Select value={proc.processId || 'none'} onValueChange={v => {
-                                        const next = [...localUpdateProcesses];
-                                        next[idx] = { ...next[idx], processId: v === 'none' ? undefined : v };
-                                        setLocalUpdateProcesses(next);
-                                      }}>
-                                        <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="none">Kein Bezug</SelectItem>
-                                          {itProcesses.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
+                                    <Badge variant="outline" className="text-[7px] font-black uppercase border-none bg-slate-100">V{proc.currentVersion}</Badge>
                                   </div>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400" onClick={() => setLocalUpdateProcesses(prev => prev.filter((_, i) => i !== idx))}><Trash2 className="w-4 h-4" /></Button>
-                                </div>
+                                ))}
                               </div>
-                            ))}
+                            </ScrollArea>
                           </div>
-                          <Button variant="outline" size="sm" className="w-full rounded-xl h-9 text-[10px] font-black uppercase border-blue-200 text-blue-700 hover:bg-blue-50 gap-2" onClick={() => setLocalUpdateProcesses([...localUpdateProcesses, { name: '', frequency: '' }])}>
-                            <PlusCircle className="w-3.5 h-3.5" /> Wartungsprozess hinzufügen
-                          </Button>
                         </div>
                       )}
                     </div>
@@ -628,7 +661,7 @@ export default function ResourcesPage() {
                           <SelectContent>
                             <SelectItem value="none">Direkt / Lokal</SelectItem>
                             <SelectItem value="self">Dieses System (LDAP/Local)</SelectItem>
-                            {identityProviders.filter(idp => idp.id !== selectedResource?.id).map(idp => <SelectItem key={idp.id} value={idp.id}>{idp.name}</SelectItem>)}
+                            {resources.filter(r => r.isIdentityProvider && r.id !== selectedResource?.id).map(idp => <SelectItem key={idp.id} value={idp.id}>{idp.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
@@ -644,6 +677,84 @@ export default function ResourcesPage() {
               </Button>
             </DialogFooter>
           </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Backup Job Modal */}
+      <Dialog open={isBackupModalOpen} onOpenChange={setIsBackupModalOpen}>
+        <DialogContent className="max-w-xl rounded-2xl border-none shadow-2xl p-0 overflow-hidden">
+          <DialogHeader className="p-6 bg-orange-600 text-white shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center border border-white/10"><HardDrive className="w-5 h-5" /></div>
+              <DialogTitle className="text-base font-headline font-bold uppercase tracking-tight">{currentBackupIdx !== null ? 'Backup-Job bearbeiten' : 'Neuer Backup-Job'}</DialogTitle>
+            </div>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <div className="p-6 space-y-6">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-400">Name des Sicherungs-Jobs</Label>
+                <Input value={backupForm.name} onChange={e => setBackupForm({...backupForm, name: e.target.value})} placeholder="z.B. Tägliche SQL-Sicherung" className="h-11 rounded-xl font-bold" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400">Zyklus</Label>
+                  <Select value={backupForm.cycle} onValueChange={(v:any) => setBackupForm({...backupForm, cycle: v})}>
+                    <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {['Täglich', 'Wöchentlich', 'Monatlich', 'Manuell'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400">Speicherort</Label>
+                  <Input value={backupForm.storage_location} onChange={e => setBackupForm({...backupForm, storage_location: e.target.value})} placeholder="/backup/prod/..." className="h-11 rounded-xl font-mono text-xs" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortlicher (Rolle)</Label>
+                <Select value={backupForm.responsibleRoleId} onValueChange={v => setBackupForm({...backupForm, responsibleRoleId: v})}>
+                  <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                  <SelectContent>
+                    {sortedRoles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400">IT-Prozess (Leitfaden)</Label>
+                  <Select value={backupForm.it_process_id || 'none'} onValueChange={v => setBackupForm({...backupForm, it_process_id: v})}>
+                    <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Keiner" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Kein Bezug</SelectItem>
+                      {itProcesses.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400">Detailprozess</Label>
+                  <Select value={backupForm.detail_process_id || 'none'} onValueChange={v => setBackupForm({...backupForm, detail_process_id: v})}>
+                    <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Keiner" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Kein Bezug</SelectItem>
+                      {detailProcesses.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-400">Letztes Review</Label>
+                <Input type="date" value={backupForm.lastReviewDate} onChange={e => setBackupForm({...backupForm, lastReviewDate: e.target.value})} className="h-11 rounded-xl" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-400">Beschreibung</Label>
+                <Textarea value={backupForm.description} onChange={e => setBackupForm({...backupForm, description: e.target.value})} className="min-h-[80px] rounded-xl text-xs" />
+              </div>
+            </div>
+          </ScrollArea>
+          <DialogFooter className="p-4 bg-slate-50 border-t flex gap-2">
+            <Button variant="ghost" onClick={() => setIsBackupModalOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
+            <Button onClick={saveBackupForm} className="rounded-xl h-11 px-8 bg-orange-600 hover:bg-orange-700 text-white font-bold text-[10px] uppercase shadow-lg">Job Speichern</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

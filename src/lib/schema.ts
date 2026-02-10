@@ -246,7 +246,10 @@ export const appSchema: AppSchema = {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
       name: 'VARCHAR(255) NOT NULL',
-      enabled: 'BOOLEAN DEFAULT TRUE'
+      description: 'TEXT',
+      enabled: 'BOOLEAN DEFAULT TRUE',
+      createdAt: 'VARCHAR(50)',
+      updatedAt: 'VARCHAR(50)',
     }
   },
   process_versions: {
@@ -267,23 +270,23 @@ export const appSchema: AppSchema = {
       resourceId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
       cycle: 'VARCHAR(50)', 
-      location: 'TEXT',
+      storage_location: 'TEXT',
       description: 'TEXT',
       responsibleRoleId: 'VARCHAR(255)',
-      processId: 'VARCHAR(255)', 
-      lastReviewDate: 'VARCHAR(50)'
+      it_process_id: 'VARCHAR(255)', 
+      detail_process_id: 'VARCHAR(255)',
+      lastReviewDate: 'VARCHAR(50)',
+      createdAt: 'VARCHAR(50)',
+      updatedAt: 'VARCHAR(50)',
     }
   },
-  update_processes: {
+  resource_update_processes: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
       resourceId: 'VARCHAR(255) NOT NULL',
-      name: 'VARCHAR(255) NOT NULL',
-      frequency: 'VARCHAR(50)',
-      responsibleRoleId: 'VARCHAR(255)',
-      processId: 'VARCHAR(255)', 
-      description: 'TEXT',
-      lastReviewDate: 'VARCHAR(50)'
+      processId: 'VARCHAR(255) NOT NULL',
+      createdAt: 'VARCHAR(50)',
+      updatedAt: 'VARCHAR(50)',
     }
   },
   regulatory_options: {

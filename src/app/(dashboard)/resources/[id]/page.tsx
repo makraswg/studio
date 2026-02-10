@@ -41,7 +41,8 @@ import {
   MapPin,
   CheckCircle,
   X,
-  Fingerprint
+  Fingerprint,
+  ShieldAlert
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -92,7 +93,6 @@ export default function ResourceDetailPage() {
   const { data: risks } = usePluggableCollection<Risk>('risks');
   const { data: partners } = usePluggableCollection<ServicePartner>('servicePartners');
   const { data: contacts } = usePluggableCollection<ServicePartnerContact>('servicePartnerContacts');
-  const { data: areas } = usePluggableCollection<ServicePartnerArea>('servicePartnerAreas');
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: features } = usePluggableCollection<Feature>('features');
   const { data: featureLinks } = usePluggableCollection<any>('feature_process_steps');
@@ -256,7 +256,6 @@ export default function ResourceDetailPage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Sidebar: Governance Cockpit */}
         <aside className="lg:col-span-1 space-y-6">
           <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden group">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6">
@@ -330,7 +329,6 @@ export default function ResourceDetailPage() {
           </Card>
         </aside>
 
-        {/* Main Content Area */}
         <div className="lg:col-span-3">
           <Tabs defaultValue="details" className="space-y-8">
             <TabsList className="bg-slate-100 dark:bg-slate-800 p-1.5 h-14 rounded-2xl border w-full justify-start gap-2 shadow-inner overflow-x-auto no-scrollbar">

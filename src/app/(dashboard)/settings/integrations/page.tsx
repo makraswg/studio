@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -5,20 +6,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from "@/components/ui/switch";
 import { 
   RefreshCw, 
   Loader2, 
   Ticket, 
   Layers, 
   ShieldCheck, 
-  Save,
+  Save as SaveIcon,
   Globe,
   Settings2,
   ExternalLink,
   ChevronRight,
   Database
 } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
@@ -37,6 +38,8 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+
+export const dynamic = 'force-dynamic';
 
 export default function JiraGatewaySettingsPage() {
   const { dataSource } = useSettings();
@@ -71,17 +74,13 @@ export default function JiraGatewaySettingsPage() {
         getJiraWorkspacesAction(jiraDraft)
       ]);
       if (pRes.success) setJiraProjects(pRes.projects || []);
-      if (wRes.success) setCanWorkspaces(wRes.workspaces || []);
+      if (wRes.success) setJiraWorkspaces(wRes.workspaces || []);
       toast({ title: "Jira Optionen geladen" });
     } catch (e) {
       console.error(e);
     } finally {
       setIsJiraFetching(false);
     }
-  };
-
-  const setCanWorkspaces = (ws: any[]) => {
-    setJiraWorkspaces(ws);
   };
 
   useEffect(() => {
@@ -248,7 +247,7 @@ export default function JiraGatewaySettingsPage() {
             disabled={isSaving} 
             className="w-full sm:w-auto rounded-xl h-12 px-16 font-black uppercase text-xs tracking-[0.1em] bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-95 gap-3"
           >
-            {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+            {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <SaveIcon className="w-5 h-5" />}
             Speichern
           </Button>
         </div>

@@ -1,9 +1,11 @@
+
 "use client";
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from "@/components/ui/switch";
 import { 
   Trash2, 
   Users, 
@@ -234,7 +236,7 @@ export default function PlatformUsersPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Shield className="w-3 h-3 text-indigo-500" />
+                        <Shield className="w-3.5 h-3.5 text-indigo-500" />
                         <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">{userRole?.name || u.role}</span>
                       </div>
                     </TableCell>

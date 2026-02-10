@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -5,14 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from "@/components/ui/switch";
 import { BookOpen, Loader2, Save as SaveIcon, ExternalLink, Info, BadgeCheck } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { BookStackConfig } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+
+export const dynamic = 'force-dynamic';
 
 export default function BookStackSettingsPage() {
   const { dataSource } = useSettings();

@@ -1,4 +1,3 @@
-
 'use server';
 
 import { DataSource } from '@/context/settings-context';
@@ -42,7 +41,7 @@ async function authenticateViaLdap(email: string, password: string, tenantId: st
 /**
  * Verifiziert einen Magic Link Token.
  */
-export async function verifyMagicLinkAction(token: string, email: string, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; user?: PlatformUser; error?: string }> {
+export async function verifyMagicLinkAction(token: string, email: string, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; user?: PlatformUser; requires2FA?: boolean; error?: string }> {
   if (!token || !email) return { success: false, error: 'Ungültiger Token oder E-Mail.' };
 
   try {
@@ -57,9 +56,6 @@ export async function verifyMagicLinkAction(token: string, email: string, dataSo
       return { success: false, error: 'Magic Link ist abgelaufen.' };
     }
 
-    // Markiere Link als verwendet
-    await saveCollectionRecord('magic_links', link.id, { ...link, used: true }, dataSource);
-
     // Suche User
     const userRes = await getCollectionData('platformUsers', dataSource);
     const user = userRes.data?.find(u => u.email === email && (u.enabled === 1 || u.enabled === true));
@@ -67,6 +63,14 @@ export async function verifyMagicLinkAction(token: string, email: string, dataSo
     if (!user) {
       return { success: false, error: 'Benutzerkonto nicht gefunden oder deaktiviert.' };
     }
+
+    // Wenn TOTP aktiv ist, verlangen wir den Code
+    if (user.totpEnabled) {
+      return { success: true, requires2FA: true };
+    }
+
+    // Markiere Link als verwendet
+    await saveCollectionRecord('magic_links', link.id, { ...link, used: true }, dataSource);
 
     return { success: true, user: user as PlatformUser };
   } catch (e: any) {
@@ -80,6 +84,7 @@ export async function verifyMagicLinkAction(token: string, email: string, dataSo
 export async function authenticateUserAction(dataSource: DataSource, email: string, password?: string): Promise<{ 
   success: boolean; 
   user?: PlatformUser; 
+  requires2FA?: boolean;
   error?: string 
 }> {
 
@@ -120,6 +125,11 @@ async function authenticateViaMysql(email: string, password: string) {
       if (!ldapResult.success) return ldapResult;
       
       const { password: _, ...userWithoutPassword } = user;
+      
+      if (user.totpEnabled) {
+        return { success: true, requires2FA: true };
+      }
+
       return { success: true, user: { ...userWithoutPassword, enabled: true } as PlatformUser };
     }
 
@@ -134,6 +144,11 @@ async function authenticateViaMysql(email: string, password: string) {
         ...userWithoutPassword,
         enabled: userWithoutPassword.enabled === 1 || userWithoutPassword.enabled === true
       } as PlatformUser;
+
+      if (user.totpEnabled) {
+        return { success: true, requires2FA: true };
+      }
+
       return { success: true, user: platformUser };
     } else {
       return { success: false, error: 'Ungültiges Passwort.' };
@@ -163,6 +178,7 @@ async function authenticateViaCloud(email: string) {
     const userDoc = snapshot.docs[0];
     const user = { id: userDoc.id, ...userDoc.data() } as PlatformUser;
     
+    // Cloud Bridge doesn't support TOTP yet in this proto
     return { success: true, user };
   } catch (error: any) {
     return { success: false, error: `Cloud-Fehler: ${error.message}` };

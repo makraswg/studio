@@ -1,4 +1,3 @@
-
 export type Role = 'tenantOwner' | 'admin' | 'editor' | 'viewer' | 'superAdmin' | string;
 export type DataSource = 'firestore' | 'mock' | 'mysql';
 
@@ -131,6 +130,8 @@ export interface PlatformUser {
   enabled: boolean | number;
   createdAt: string;
   authSource?: 'local' | 'ldap';
+  totpEnabled?: boolean | number;
+  totpSecret?: string;
 }
 
 export interface MediaFile {
@@ -580,6 +581,7 @@ export interface Entitlement {
   isAdmin?: boolean | number;
   externalMapping?: string;
   resourceId?: string;
+  riskLevel?: string;
 }
 
 export interface FeatureLink {

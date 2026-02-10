@@ -1,4 +1,3 @@
-
 export interface TableDefinition {
   columns: {
     [columnName: string]: string;
@@ -122,6 +121,8 @@ export const appSchema: AppSchema = {
       enabled: 'BOOLEAN DEFAULT TRUE',
       createdAt: 'VARCHAR(50)',
       authSource: 'VARCHAR(20) DEFAULT "local"',
+      totpEnabled: 'BOOLEAN DEFAULT FALSE',
+      totpSecret: 'VARCHAR(255)',
     },
   },
   magic_links: {

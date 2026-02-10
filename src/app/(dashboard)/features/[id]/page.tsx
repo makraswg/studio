@@ -54,7 +54,6 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { linkFeatureToProcessAction, unlinkFeatureFromProcessAction } from '@/app/actions/feature-actions';
 import { saveTaskAction } from '@/app/actions/task-actions';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -67,24 +66,19 @@ export default function FeatureDetailPage() {
   const { user } = usePlatformAuth();
   const { dataSource, activeTenantId } = useSettings();
   const [mounted, setMounted] = useState(false);
-  const [isLinking, setIsLinking] = useState(false);
 
-  // Form States consolidated for brevity
+  // Form States
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [isSavingTask, setIsSavingTask] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
   const [taskAssigneeId, setTaskAssigneeId] = useState('');
 
-  const { data: features, isLoading: isFeatLoading, refresh: refreshFeature } = usePluggableCollection<Feature>('features');
-  const { data: processLinks, refresh: refreshProcLinks } = usePluggableCollection<any>('feature_process_steps');
-  const { data: links } = usePluggableCollection<FeatureLink>('feature_links');
+  const { data: features, isLoading: isFeatLoading } = usePluggableCollection<Feature>('features');
+  const { data: processLinks } = usePluggableCollection<any>('feature_process_steps');
   const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
-  const { data: risks } = usePluggableCollection<Risk>('risks');
-  const { data: measures } = usePluggableCollection<RiskMeasure>('riskMeasures');
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
-  const { data: dataStores } = usePluggableCollection<DataStore>('dataStores');
   const { data: tasks, refresh: refreshTasks } = usePluggableCollection<Task>('tasks');
   const { data: pUsers } = usePluggableCollection<PlatformUser>('platformUsers');
   const { data: allResources } = usePluggableCollection<Resource>('resources');
@@ -128,7 +122,6 @@ export default function FeatureDetailPage() {
 
   const dept = departments?.find(d => d.id === feature.deptId);
   const owner = jobTitles?.find(j => j.id === feature.ownerId);
-  const store = dataStores?.find(s => s.id === feature.dataStoreId);
 
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-700">
@@ -148,7 +141,7 @@ export default function FeatureDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-indigo-200" onClick={() => setIsTaskDialogOpen(true)}><ClipboardList className="w-4 h-4 mr-2" /> Aufgabe</Button>
+          <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-indigo-200 text-indigo-700 shadow-sm" onClick={() => setIsTaskDialogOpen(true)}><ClipboardList className="w-4 h-4 mr-2" /> Aufgabe</Button>
           <Button size="sm" className="h-10 rounded-xl font-bold text-xs px-8 bg-primary text-white shadow-lg active:scale-95 transition-all">Bearbeiten</Button>
         </div>
       </header>
@@ -165,14 +158,14 @@ export default function FeatureDetailPage() {
                 <p className={cn("text-4xl font-black uppercase", feature.criticality === 'high' ? "text-red-600" : "text-emerald-600")}>{feature.criticality}</p>
                 <Badge variant="outline" className="mt-2 h-5 px-2 bg-white text-[8px] font-black">{feature.criticalityScore} Punkte</Badge>
               </div>
-              <div className="space-y-4 pt-4 border-t">
+              <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
                 <div className="space-y-1">
                   <Label className="text-[9px] font-black uppercase text-slate-400">Zuständige Abteilung</Label>
-                  <p className="text-xs font-bold text-slate-800">{dept?.name || '---'}</p>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{dept?.name || '---'}</p>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[9px] font-black uppercase text-slate-400">Data Owner</Label>
-                  <p className="text-xs font-bold text-slate-800">{owner?.name || '---'}</p>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{owner?.name || '---'}</p>
                 </div>
               </div>
             </CardContent>
@@ -182,50 +175,56 @@ export default function FeatureDetailPage() {
         <div className="lg:col-span-3">
           <Tabs defaultValue="overview" className="space-y-8">
             <TabsList className="bg-slate-100 dark:bg-slate-800 p-1.5 h-14 rounded-2xl border w-full justify-start gap-2 shadow-inner overflow-x-auto no-scrollbar">
-              <TabsTrigger value="overview" className="rounded-xl px-10 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg">
+              <TabsTrigger value="overview" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <Info className="w-4 h-4" /> Analyse
               </TabsTrigger>
-              <TabsTrigger value="context" className="rounded-xl px-10 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg">
+              <TabsTrigger value="context" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <Workflow className="w-4 h-4" /> Prozesse & Systeme
               </TabsTrigger>
-              <TabsTrigger value="tasks" className="rounded-xl px-10 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg">
+              <TabsTrigger value="tasks" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <ClipboardList className="w-4 h-4" /> Aufgaben ({relatedTasks.length})
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-              <Card className="rounded-2xl border shadow-xl bg-white overflow-hidden">
-                <CardHeader className="bg-slate-50 border-b p-8"><CardTitle className="text-lg font-headline font-bold uppercase">Fachliche Definition</CardTitle></CardHeader>
+              <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
+                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-8"><CardTitle className="text-lg font-headline font-bold uppercase text-slate-900 dark:text-white">Fachliche Definition</CardTitle></CardHeader>
                 <CardContent className="p-10 space-y-8">
-                  <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-slate-400">Zweck & Beschreibung</Label><p className="text-sm font-medium leading-relaxed italic bg-slate-50 p-6 rounded-2xl shadow-inner">"{feature.description}"</p></div>
-                  <div className="p-6 bg-indigo-50/30 rounded-2xl border border-indigo-100 flex items-center gap-4"><Info className="w-6 h-6 text-indigo-600" /><p className="text-xs font-bold text-indigo-900">{feature.purpose}</p></div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Zweck & Beschreibung</Label>
+                    <p className="text-sm font-medium leading-relaxed italic bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl shadow-inner border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300">"{feature.description}"</p>
+                  </div>
+                  <div className="p-6 bg-indigo-50/30 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-900/30 flex items-center gap-4">
+                    <Info className="w-6 h-6 text-indigo-600" />
+                    <p className="text-xs font-bold text-indigo-900 dark:text-indigo-300">{feature.purpose}</p>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="context" className="space-y-8 animate-in fade-in">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="rounded-2xl border shadow-xl bg-white overflow-hidden">
-                  <CardHeader className="bg-slate-50 border-b p-6"><CardTitle className="text-sm font-bold uppercase">Operative Workflows</CardTitle></CardHeader>
+                <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
+                  <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6"><CardTitle className="text-sm font-bold uppercase text-slate-900 dark:text-white">Operative Workflows</CardTitle></CardHeader>
                   <CardContent className="p-0">
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
                       {relatedProcLinks.map((link: any) => (
-                        <div key={link.id} className="p-4 flex items-center justify-between hover:bg-slate-50 cursor-pointer" onClick={() => router.push(`/processhub/view/${link.processId}`)}>
-                          <div className="flex items-center gap-3"><Workflow className="w-4 h-4 text-indigo-400" /><span className="text-xs font-bold text-slate-700">{processes?.find(p => p.id === link.processId)?.title}</span></div>
+                        <div key={link.id} className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => router.push(`/processhub/view/${link.processId}`)}>
+                          <div className="flex items-center gap-3"><Workflow className="w-4 h-4 text-indigo-400" /><span className="text-xs font-bold text-slate-700 dark:text-slate-300">{processes?.find(p => p.id === link.processId)?.title}</span></div>
                           <ArrowRight className="w-4 h-4 text-slate-300" />
                         </div>
                       ))}
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="rounded-2xl border shadow-xl bg-white overflow-hidden">
-                  <CardHeader className="bg-slate-50 border-b p-6"><CardTitle className="text-sm font-bold uppercase">IT-Systeme (Geerbt)</CardTitle></CardHeader>
+                <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
+                  <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6"><CardTitle className="text-sm font-bold uppercase text-slate-900 dark:text-white">IT-Systeme (Geerbt)</CardTitle></CardHeader>
                   <CardContent className="p-0">
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
                       {indirectResources.map(res => (
-                        <div key={res?.id} className="p-4 flex items-center justify-between hover:bg-slate-50 cursor-pointer" onClick={() => router.push(`/resources/${res?.id}`)}>
-                          <div className="flex items-center gap-3"><Server className="w-4 h-4 text-slate-400" /><span className="text-xs font-bold text-slate-700">{res?.name}</span></div>
-                          <Badge variant="outline" className="text-[7px] font-black uppercase h-4">{res?.assetType}</Badge>
+                        <div key={res?.id} className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => router.push(`/resources/${res?.id}`)}>
+                          <div className="flex items-center gap-3"><Server className="w-4 h-4 text-slate-400" /><span className="text-xs font-bold text-slate-700 dark:text-slate-300">{res?.name}</span></div>
+                          <Badge variant="outline" className="text-[7px] font-black uppercase h-4 border-slate-200">{res?.assetType}</Badge>
                         </div>
                       ))}
                     </div>
@@ -235,20 +234,21 @@ export default function FeatureDetailPage() {
             </TabsContent>
 
             <TabsContent value="tasks" className="animate-in fade-in">
-              <Card className="rounded-2xl border shadow-xl bg-white overflow-hidden">
+              <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
                 <CardContent className="p-0">
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {relatedTasks.map(t => (
-                      <div key={t.id} className="p-6 px-10 hover:bg-slate-50 transition-all flex items-center justify-between group cursor-pointer" onClick={() => router.push('/tasks')}>
+                      <div key={t.id} className="p-6 px-10 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all flex items-center justify-between group cursor-pointer" onClick={() => router.push('/tasks')}>
                         <div className="flex items-center gap-6">
                           <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg", t.status === 'done' ? "bg-emerald-500" : "bg-indigo-600")}>
                             <ClipboardList className="w-5 h-5" />
                           </div>
-                          <div><p className="text-sm font-black text-slate-800">{t.title}</p><p className="text-[10px] text-slate-400 uppercase font-bold">Status: {t.status}</p></div>
+                          <div><p className="text-sm font-black text-slate-800 dark:text-slate-100">{t.title}</p><p className="text-[10px] text-slate-400 uppercase font-bold">Status: {t.status}</p></div>
                         </div>
                         <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
                       </div>
                     ))}
+                    {relatedTasks.length === 0 && <div className="py-20 text-center text-xs text-slate-400 uppercase tracking-widest opacity-30">Keine Aufgaben gefunden</div>}
                   </div>
                 </CardContent>
               </Card>
@@ -256,6 +256,35 @@ export default function FeatureDetailPage() {
           </Tabs>
         </div>
       </div>
+
+      {/* Task Creation Dialog */}
+      <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
+        <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-slate-900">
+          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-800 border-b shrink-0">
+            <DialogTitle className="text-base font-headline font-bold uppercase tracking-tight">Aufgabe erstellen</DialogTitle>
+            <DialogDescription className="text-[10px] text-slate-400 font-bold">Referenz: {feature.name}</DialogDescription>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Bezeichnung</Label>
+              <Input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} className="h-11 rounded-xl font-bold" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verantwortlicher</Label>
+              <Select value={taskAssigneeId} onValueChange={setTaskAssigneeId}>
+                <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                <SelectContent>{pUsers?.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-800 border-t">
+            <Button variant="ghost" onClick={() => setIsTaskDialogOpen(false)}>Abbrechen</Button>
+            <Button onClick={handleCreateTask} disabled={isSavingTask || !taskTitle} className="bg-primary text-white font-bold text-xs h-11 px-8 rounded-xl shadow-lg">
+              {isSavingTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />} Erstellen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

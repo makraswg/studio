@@ -213,15 +213,7 @@ export default function ResourceDetailPage() {
     return <div className="h-full flex flex-col items-center justify-center py-40 gap-4"><Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" /><p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Lade Asset-Kontext...</p></div>;
   }
 
-  if (!resource) {
-    return (
-      <div className="p-20 text-center space-y-4">
-        <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto" />
-        <h2 className="text-xl font-headline font-bold text-slate-900">Ressource nicht gefunden</h2>
-        <Button onClick={() => router.push('/resources')}>Zurück zum Katalog</Button>
-      </div>
-    );
-  }
+  if (!resource) return null;
 
   const finalGDPR = inheritedData ? inheritedData.hasPersonalData : !!resource.hasPersonalData;
   const finalC = inheritedData ? inheritedData.confidentialityReq : resource.confidentialityReq;
@@ -332,16 +324,16 @@ export default function ResourceDetailPage() {
         <div className="lg:col-span-3">
           <Tabs defaultValue="details" className="space-y-8">
             <TabsList className="bg-slate-100 dark:bg-slate-800 p-1.5 h-14 rounded-2xl border w-full justify-start gap-2 shadow-inner overflow-x-auto no-scrollbar">
-              <TabsTrigger value="details" className="rounded-xl px-10 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+              <TabsTrigger value="details" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <Info className="w-4 h-4" /> Stammdaten & Ownership
               </TabsTrigger>
-              <TabsTrigger value="maintenance" className="rounded-xl px-10 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+              <TabsTrigger value="maintenance" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <Settings2 className="w-4 h-4" /> Wartung & Backup
               </TabsTrigger>
-              <TabsTrigger value="audit" className="rounded-xl px-10 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+              <TabsTrigger value="audit" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <BadgeCheck className="w-4 h-4" /> Zugriff & Rollen
               </TabsTrigger>
-              <TabsTrigger value="tasks" className="rounded-xl px-10 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+              <TabsTrigger value="tasks" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <ClipboardList className="w-4 h-4" /> Aufgaben ({resourceTasks.length})
               </TabsTrigger>
             </TabsList>
@@ -390,29 +382,29 @@ export default function ResourceDetailPage() {
                   <div className="space-y-4 pt-8 border-t">
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Verantwortlichkeiten (Ownership)</Label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-4">
+                      <div className="p-5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl space-y-4">
                         <p className="text-[10px] font-black uppercase text-primary">Interne Steuerung</p>
                         <div className="space-y-3">
                           <div className="flex items-center gap-3">
                             <UserCircle className="w-5 h-5 text-slate-400" />
-                            <div><p className="text-[8px] font-bold text-slate-400 uppercase">System Owner</p><p className="text-xs font-bold">{internalOwner?.name || 'Nicht zugewiesen'}</p></div>
+                            <div><p className="text-[8px] font-bold text-slate-400 uppercase">System Owner</p><p className="text-xs font-bold text-slate-800 dark:text-slate-200">{internalOwner?.name || 'Nicht zugewiesen'}</p></div>
                           </div>
                           <div className="flex items-center gap-3">
                             <ShieldAlert className="w-5 h-5 text-slate-400" />
-                            <div><p className="text-[8px] font-bold text-slate-400 uppercase">Risk Owner</p><p className="text-xs font-bold">{internalRiskOwner?.name || 'Nicht zugewiesen'}</p></div>
+                            <div><p className="text-[8px] font-bold text-slate-400 uppercase">Risk Owner</p><p className="text-xs font-bold text-slate-800 dark:text-slate-200">{internalRiskOwner?.name || 'Nicht zugewiesen'}</p></div>
                           </div>
                         </div>
                       </div>
-                      <div className="p-5 bg-indigo-50/30 border border-indigo-100 rounded-2xl space-y-4">
-                        <p className="text-[10px] font-black uppercase text-indigo-600">Externer Betrieb</p>
+                      <div className="p-5 bg-indigo-50/30 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl space-y-4">
+                        <p className="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400">Externer Betrieb</p>
                         <div className="space-y-3">
                           <div className="flex items-center gap-3">
                             <Globe className="w-5 h-5 text-indigo-400" />
-                            <div><p className="text-[8px] font-bold text-slate-400 uppercase">Partner</p><p className="text-xs font-bold">{externalPartner?.name || 'Keiner'}</p></div>
+                            <div><p className="text-[8px] font-bold text-slate-400 uppercase">Partner</p><p className="text-xs font-bold text-slate-800 dark:text-slate-200">{externalPartner?.name || 'Keiner'}</p></div>
                           </div>
                           <div className="flex items-center gap-3">
                             <Briefcase className="w-5 h-5 text-indigo-400" />
-                            <div><p className="text-[8px] font-bold text-slate-400 uppercase">Ansprechpartner</p><p className="text-xs font-bold">{externalContact?.name || '---'}</p></div>
+                            <div><p className="text-[8px] font-bold text-slate-400 uppercase">Ansprechpartner</p><p className="text-xs font-bold text-slate-800 dark:text-slate-200">{externalContact?.name || '---'}</p></div>
                           </div>
                         </div>
                       </div>
@@ -424,75 +416,75 @@ export default function ResourceDetailPage() {
 
             <TabsContent value="maintenance" className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-orange-50/50 border-b p-8">
+                <CardHeader className="bg-orange-50/50 dark:bg-orange-950/20 border-b p-8">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-orange-100 flex items-center justify-center rounded-2xl text-orange-600 shadow-md">
+                    <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center rounded-2xl text-orange-600 shadow-md">
                       <HardDrive className="w-6 h-6" />
                     </div>
-                    <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight">Sicherungs-Jobs & Workflows</CardTitle>
+                    <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Sicherungs-Jobs & Workflows</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {resourceBackups.map(job => {
                       const itProc = processes?.find(p => p.id === job.it_process_id);
                       return (
-                        <div key={job.id} className="p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-slate-50 transition-colors">
+                        <div key={job.id} className="p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                           <div className="space-y-2">
-                            <h5 className="font-black text-slate-800 flex items-center gap-3">
+                            <h5 className="font-black text-slate-800 dark:text-slate-100 flex items-center gap-3">
                               {job.name}
                               <Badge className="bg-orange-500 text-white border-none rounded-full text-[8px] font-black h-4 px-2">{job.cycle}</Badge>
                             </h5>
                             <p className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-2"><MapPin className="w-3 h-3" /> {job.storage_location}</p>
                           </div>
                           {itProc && (
-                            <Button variant="outline" size="sm" className="h-9 rounded-xl text-[10px] font-black uppercase border-orange-200 text-orange-700" onClick={() => router.push(`/processhub/view/${itProc.id}`)}>
+                            <Button variant="outline" size="sm" className="h-9 rounded-xl text-[10px] font-black uppercase border-orange-200 text-orange-700 hover:bg-orange-50" onClick={() => router.push(`/processhub/view/${itProc.id}`)}>
                               <Workflow className="w-3.5 h-3.5 mr-2" /> Recovery Leitfaden
                             </Button>
                           )}
                         </div>
                       );
                     })}
-                    {resourceBackups.length === 0 && <div className="p-20 text-center opacity-30 italic text-xs uppercase tracking-widest">Keine Backup-Jobs konfiguriert</div>}
+                    {resourceBackups.length === 0 && <div className="p-20 text-center opacity-30 italic text-xs uppercase tracking-widest text-slate-400">Keine Backup-Jobs konfiguriert</div>}
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-blue-50/50 border-b p-8">
+                <CardHeader className="bg-blue-50/50 dark:bg-blue-950/20 border-b p-8">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-blue-100 flex items-center justify-center rounded-2xl text-blue-600 shadow-md">
+                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center rounded-2xl text-blue-600 shadow-md">
                       <Activity className="w-6 h-6" />
                     </div>
-                    <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight">Patch-Management (Updates)</CardTitle>
+                    <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Patch-Management (Updates)</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent className="p-10">
                   {resourceUpdates.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {resourceUpdates.map(p => (
-                        <div key={p.id} className="p-4 bg-slate-50 border rounded-2xl flex items-center justify-between group hover:border-blue-300 cursor-pointer transition-all" onClick={() => router.push(`/processhub/view/${p.id}`)}>
+                        <div key={p.id} className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-between group hover:border-blue-300 cursor-pointer transition-all shadow-sm" onClick={() => router.push(`/processhub/view/${p.id}`)}>
                           <div className="flex items-center gap-4">
                             <Workflow className="w-5 h-5 text-blue-400" />
-                            <span className="text-xs font-bold text-slate-700">{p.title}</span>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{p.title}</span>
                           </div>
                           <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
                         </div>
                       ))}
                     </div>
-                  ) : <div className="p-20 text-center border-2 border-dashed rounded-3xl opacity-20 italic text-xs uppercase tracking-widest">Kein Patch-Bedarf definiert</div>}
+                  ) : <div className="p-20 text-center border-2 border-dashed rounded-3xl opacity-20 italic text-xs uppercase tracking-widest text-slate-400">Kein Patch-Bedarf definiert</div>}
                 </CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="audit" className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-slate-50 border-b p-8">
-                  <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight">System-Berechtigungen (Roles)</CardTitle>
+                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-8">
+                  <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">System-Berechtigungen (Roles)</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   <Table>
-                    <TableHeader className="bg-slate-50/30">
+                    <TableHeader className="bg-slate-50/30 dark:bg-slate-950/30">
                       <TableRow>
                         <TableHead className="py-4 px-8 font-black text-[10px] uppercase text-slate-400">Rollenbezeichnung</TableHead>
                         <TableHead className="font-black text-[10px] uppercase text-slate-400 text-center">Risiko</TableHead>
@@ -501,9 +493,9 @@ export default function ResourceDetailPage() {
                     </TableHeader>
                     <TableBody>
                       {resourceRoles.map(role => (
-                        <TableRow key={role.id} className="group hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => router.push(`/roles/${role.id}`)}>
+                        <TableRow key={role.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-slate-100 dark:border-slate-800 cursor-pointer" onClick={() => router.push(`/roles/${role.id}`)}>
                           <TableCell className="py-6 px-8">
-                            <div className="font-black text-sm text-slate-800">{role.name}</div>
+                            <div className="font-black text-sm text-slate-800 dark:text-slate-100">{role.name}</div>
                             {role.isAdmin && <Badge className="bg-red-600 text-white border-none rounded-full text-[7px] font-black h-4 px-1.5 mt-1 uppercase">Privilegiert</Badge>}
                           </TableCell>
                           <TableCell className="text-center">
@@ -522,27 +514,27 @@ export default function ResourceDetailPage() {
 
             <TabsContent value="tasks" className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-indigo-50/50 border-b p-8 flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight">Operative Aufgaben</CardTitle>
-                  <Button size="sm" variant="outline" className="h-9 rounded-xl text-[10px] font-black uppercase gap-2 border-indigo-200" onClick={() => setIsTaskDialogOpen(true)}><Plus className="w-3.5 h-3.5" /> Aufgabe</Button>
+                <CardHeader className="bg-indigo-50/50 dark:bg-indigo-950/20 border-b p-8 flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Operative Aufgaben</CardTitle>
+                  <Button size="sm" variant="outline" className="h-9 rounded-xl text-[10px] font-black uppercase gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm" onClick={() => setIsTaskDialogOpen(true)}><Plus className="w-3.5 h-3.5" /> Aufgabe</Button>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {resourceTasks.map(t => (
-                      <div key={t.id} className="p-6 px-10 hover:bg-slate-50 transition-all flex items-center justify-between group cursor-pointer" onClick={() => router.push('/tasks')}>
+                      <div key={t.id} className="p-6 px-10 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all flex items-center justify-between group cursor-pointer" onClick={() => router.push('/tasks')}>
                         <div className="flex items-center gap-6">
                           <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg", t.status === 'done' ? "bg-emerald-500" : t.priority === 'critical' ? "bg-red-600" : "bg-indigo-600")}>
                             <ClipboardList className="w-5 h-5" />
                           </div>
                           <div>
-                            <p className="text-sm font-black text-slate-800">{t.title}</p>
+                            <p className="text-sm font-black text-slate-800 dark:text-slate-100">{t.title}</p>
                             <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Status: {t.status} • Fällig: {t.dueDate || '∞'}</p>
                           </div>
                         </div>
                         <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
                       </div>
                     ))}
-                    {resourceTasks.length === 0 && <div className="py-20 text-center opacity-30 italic text-xs uppercase tracking-widest">Keine Aufgaben für diese Ressource</div>}
+                    {resourceTasks.length === 0 && <div className="py-20 text-center opacity-30 italic text-xs uppercase tracking-widest text-slate-400">Keine Aufgaben für diese Ressource</div>}
                   </div>
                 </CardContent>
               </Card>
@@ -553,8 +545,8 @@ export default function ResourceDetailPage() {
 
       {/* Task Creation Dialog */}
       <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
-        <DialogContent className="max-w-2xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
-          <DialogHeader className="p-8 bg-slate-50 border-b shrink-0">
+        <DialogContent className="max-w-2xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white dark:bg-slate-900">
+          <DialogHeader className="p-8 bg-slate-50 dark:bg-slate-800 border-b shrink-0">
             <DialogTitle className="text-xl font-headline font-black uppercase tracking-tight">Aufgabe für Asset erstellen</DialogTitle>
             <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Referenz: {resource.name}</DialogDescription>
           </DialogHeader>
@@ -583,7 +575,7 @@ export default function ResourceDetailPage() {
               </div>
             </div>
           </ScrollArea>
-          <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
+          <DialogFooter className="p-6 bg-slate-50 dark:bg-slate-800 border-t flex gap-3">
             <Button variant="ghost" onClick={() => setIsTaskDialogOpen(false)} className="rounded-xl font-bold text-xs">Abbrechen</Button>
             <Button onClick={handleCreateTask} disabled={isSavingTask || !taskTitle} className="rounded-xl px-12 bg-primary text-white font-bold text-xs shadow-lg gap-2">
               {isSavingTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Erstellen

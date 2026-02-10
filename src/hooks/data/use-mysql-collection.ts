@@ -1,19 +1,17 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { getCollectionData } from '@/app/actions/mysql-actions';
 
-// Globaler Cache für MySQL-Daten, um unnötige Re-Fetches beim Seitenwechsel zu vermeiden.
+// Global cache for MySQL data to avoid unnecessary re-fetches
 const mysqlCache: Record<string, { data: any[], timestamp: number }> = {};
 const CACHE_TTL = 10000; 
 
 /**
- * Ein hocheffizienter Hook zum Abrufen von MySQL-Daten.
- * Optimiert für virtualisierte Docker Umgebungen.
+ * A robust hook for fetching MySQL data with stability guarantees.
  */
 export function useMysqlCollection<T>(collectionName: string, enabled: boolean) {
-  // Initialisiere Daten aus dem Cache, falls vorhanden
   const [data, setData] = useState<T[] | null>(() => {
     const cached = mysqlCache[collectionName];
     if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
@@ -22,7 +20,6 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
     return null;
   });
   
-  // isLoading ist nur wahr, wenn enabled UND noch keine Daten (auch nicht aus Cache) vorhanden sind
   const [isLoading, setIsLoading] = useState(enabled && data === null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
@@ -34,7 +31,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   const fetchData = useCallback(async (silent = false) => {
     if (!enabled) return;
     
-    if (!silent && data === null) {
+    if (!silent && isInitialFetch.current) {
       setIsLoading(true);
     }
     
@@ -45,7 +42,6 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
       } else {
         const newData = (result.data || []) as T[];
         
-        // Update nur wenn Daten sich geändert haben oder erster Lauf
         if (newData.length !== prevDataCount.current || isInitialFetch.current) {
           setData(newData);
           prevDataCount.current = newData.length;
@@ -54,13 +50,12 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
         setError(null);
       }
     } catch (e: any) {
-      console.error(`Fetch error for ${collectionName}:`, e);
       setError(e.message || "Unbekannter Datenbankfehler");
     } finally {
       setIsLoading(false);
       isInitialFetch.current = false;
     }
-  }, [collectionName, enabled, data]);
+  }, [collectionName, enabled]);
 
   const refresh = useCallback(() => {
     delete mysqlCache[collectionName];
@@ -78,7 +73,6 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
 
     fetchData();
 
-    // Polling Intervall für Hintergrund-Updates
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchData(true);
@@ -91,5 +85,11 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
     };
   }, [enabled, version, fetchData]);
 
-  return { data, isLoading, error, refresh };
+  // Return a stable object to prevent infinite re-renders in consumer hooks
+  return useMemo(() => ({ 
+    data, 
+    isLoading, 
+    error, 
+    refresh 
+  }), [data, isLoading, error, refresh]);
 }

@@ -156,6 +156,10 @@ export default function UnifiedOrganizationPage() {
 
   const isSuperAdmin = user?.role === 'superAdmin';
 
+  const anyError = tenantsError || deptsError || jobsError;
+  const isInitialLoading = (tenantsLoading && tenants === null) || (deptsLoading && departments === null) || (jobsLoading && jobTitles === null);
+  const showLoading = isInitialLoading && !anyError;
+
   const groupedData = useMemo(() => {
     if (!tenants) return [];
     
@@ -291,6 +295,12 @@ export default function UnifiedOrganizationPage() {
     setIsSavingJob(false);
   };
 
+  const toggleEntitlement = (id: string) => {
+    setJobEntitlementIds(prev => 
+      prev.includes(id) ? prev.filter(eid => eid !== id) : [...prev, id]
+    );
+  };
+
   const filteredEntitlements = useMemo(() => {
     if (!entitlements || !resources) return [];
     return entitlements.filter(e => {
@@ -313,10 +323,6 @@ export default function UnifiedOrganizationPage() {
   }, []);
 
   if (!mounted) return null;
-
-  // Bestimme, ob wir wirklich noch im Ladezustand sind (Daten fehlen noch komplett)
-  const isReallyLoading = (tenantsLoading && tenants === null) || (deptsLoading && departments === null) || (jobsLoading && jobTitles === null);
-  const anyError = tenantsError || deptsError || jobsError;
 
   return (
     <div className="space-y-6 pb-10">
@@ -346,7 +352,7 @@ export default function UnifiedOrganizationPage() {
           </div>
 
           <div className="space-y-4">
-            {isReallyLoading ? (
+            {showLoading ? (
               <div className="py-20 text-center space-y-4">
                 <Loader2 className="w-10 h-10 animate-spin text-primary opacity-20 mx-auto" />
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Synchronisiere Struktur...</p>
@@ -446,7 +452,155 @@ export default function UnifiedOrganizationPage() {
         </div>
       )}
 
-      {/* Dialoge und Alerts OMITTED für Übersichtlichkeit - Logik bleibt identisch zum Vorzustand */}
+      {/* Tenant Editor Dialog */}
+      <Dialog open={isTenantDialogOpen} onOpenChange={setIsTenantDialogOpen}>
+        <DialogContent className="max-w-xl rounded-2xl p-0 overflow-hidden shadow-2xl border-none">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center text-primary border border-white/10 shadow-lg">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold">{editingTenant ? 'Mandant bearbeiten' : 'Neuer Mandant'}</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase mt-0.5">Zentrale Mandanten-Stammdaten</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="p-8 space-y-6">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Unternehmensname</Label>
+              <Input value={tenantName} onChange={e => setTenantName(e.target.value)} className="h-11 rounded-xl font-bold" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Regulatorik</Label>
+              <Select value={tenantRegion} onValueChange={setTenantRegion}>
+                <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="EU-DSGVO">EU-DSGVO</SelectItem>
+                  <SelectItem value="BSI-IT-Grundschutz">BSI-IT-Grundschutz</SelectItem>
+                  <SelectItem value="ISO-27001">ISO 27001</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">KI Kontext (Beschreibung)</Label>
+              <Textarea value={tenantDescription} onChange={e => setTenantDescription(e.target.value)} className="min-h-[100px] rounded-xl text-xs" />
+            </div>
+          </div>
+          <DialogFooter className="p-4 bg-slate-50 border-t">
+            <Button variant="ghost" onClick={() => setIsTenantDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
+            <Button onClick={handleSaveTenant} disabled={isSavingTenant || !tenantName} className="rounded-xl bg-primary text-white font-bold text-[10px] px-8 h-11 shadow-lg gap-2">
+              {isSavingTenant ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Blueprint Editor Dialog */}
+      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-5">
+                <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg">
+                  <Briefcase className="w-6 h-6" />
+                </div>
+                <div className="min-w-0">
+                  <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight truncate">Blueprint: {jobName}</DialogTitle>
+                  <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Standard-Rollen für dieses Profil</DialogDescription>
+                </div>
+              </div>
+              <AiFormAssistant formType="entitlement" currentData={{ name: jobName, description: jobDesc }} onApply={(s) => { if(s.name) setJobName(s.name); if(s.description) setJobDesc(s.description); }} />
+            </div>
+          </DialogHeader>
+          <ScrollArea className="flex-1 bg-slate-50/30">
+            <div className="p-8 space-y-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Bezeichnung</Label>
+                  <Input value={jobName} onChange={e => setJobName(e.target.value)} className="h-11 rounded-xl font-bold border-slate-200 bg-white" />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Beschreibung</Label>
+                  <Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[100px] rounded-xl text-xs bg-white" />
+                </div>
+              </div>
+
+              <div className="space-y-6 pt-6 border-t border-slate-200">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <Label className="text-[11px] font-bold text-primary flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4" /> Blueprint Rollen ({jobEntitlementIds.length} gewählt)
+                    </Label>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Standard-Berechtigungen für diese Stelle.</p>
+                  </div>
+                  <div className="relative group">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <Input placeholder="Rollen filtern..." value={roleSearch} onChange={e => setRoleSearch(e.target.value)} className="h-9 pl-9 text-[11px] rounded-lg min-w-[220px]" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {filteredEntitlements.map((ent) => {
+                    const res = resources?.find(r => r.id === ent.resourceId);
+                    return (
+                      <div 
+                        key={ent.id} 
+                        className={cn(
+                          "p-3 border rounded-xl cursor-pointer transition-all flex items-center gap-3 group shadow-sm",
+                          jobEntitlementIds.includes(ent.id) 
+                            ? "border-primary bg-primary/5 ring-1 ring-primary/10" 
+                            : "bg-white border-slate-100 hover:border-slate-200"
+                        )} 
+                        onClick={() => toggleEntitlement(ent.id)}
+                      >
+                        <Checkbox checked={jobEntitlementIds.includes(ent.id)} className="rounded-md" />
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-bold text-slate-800 truncate">{ent.name}</p>
+                          <p className="text-[8px] font-black uppercase text-slate-400 truncate">{res?.name}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
+            <Button variant="ghost" onClick={() => setIsEditorOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
+            <Button onClick={saveJobEdits} disabled={isSavingJob} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2">
+              {isSavingJob ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Blueprint sichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Alert */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(val) => !val && setDeleteTarget(null)}>
+        <AlertDialogContent className="rounded-2xl border-none shadow-2xl p-8">
+          <AlertDialogHeader>
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center">Permanent löschen?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">
+              Möchten Sie <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? 
+              <br/><br/>
+              <span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
+            <AlertDialogCancel className="rounded-xl font-bold text-xs h-11 px-8 border-slate-200">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={executeDelete} 
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs h-11 px-10 gap-2 shadow-lg shadow-red-200"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Permanent löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -11,8 +11,8 @@ import { useSettings } from '@/context/settings-context';
 import { Document } from '@/lib/types';
 
 /**
- * Der zentrale, hochperformante Daten-Hook der Anwendung. 
- * Optimiert für schnelle Seitenwechsel durch integriertes Caching.
+ * Central data hook. Switches between MySQL, Firestore and Mock data based on settings.
+ * Returns a stable result object.
  */
 export function usePluggableCollection<T extends Document>(collectionName: string): UseCollectionResult<T> {
   const { dataSource } = useSettings();
@@ -22,7 +22,6 @@ export function usePluggableCollection<T extends Document>(collectionName: strin
   const isMysql = dataSource === 'mysql';
   const isMock = dataSource === 'mock';
 
-  // Erstellt eine memoisierte Collection-Referenz für Firestore.
   const collectionRef = useMemo(() => {
     if (isFirestore && db) {
       return collection(db, collectionName) as CollectionReference<T, DocumentData>;

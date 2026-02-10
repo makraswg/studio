@@ -45,7 +45,7 @@ import { useSettings } from '@/context/settings-context';
 import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department, Process, BackupJob, ResourceUpdateProcess, ProcessType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportResourcesExcel } from '@/lib/export-utils';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Dialog, 
   DialogContent, 
@@ -65,8 +65,6 @@ import { toast } from '@/hooks/use-toast';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 
 export const dynamic = 'force-dynamic';
@@ -100,9 +98,7 @@ export default function ResourcesPage() {
   const [identityProviderId, setIdentityProviderId] = useState('none');
   const [dataLocation, setDataLocation] = useState('');
   
-  const [systemOwnerType, setSystemOwnerType] = useState<'internal' | 'external'>('internal');
   const [systemOwnerRoleId, setSystemOwnerRoleId] = useState('');
-  const [externalRefId, setExternalRefId] = useState('none'); 
   const [riskOwnerRoleId, setRiskOwnerRoleId] = useState('');
 
   const [backupRequired, setBackupRequired] = useState(false);
@@ -125,8 +121,6 @@ export default function ResourcesPage() {
   const { data: resources, isLoading, refresh } = usePluggableCollection<Resource>('resources');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: departmentsData } = usePluggableCollection<Department>('departments');
-  const { data: partners } = usePluggableCollection<ServicePartner>('servicePartners');
-  const { data: areas } = usePluggableCollection<ServicePartnerArea>('servicePartnerAreas');
   const { data: assetTypeOptions } = usePluggableCollection<AssetTypeOption>('assetTypeOptions');
   const { data: operatingModelOptions } = usePluggableCollection<OperatingModelOption>('operatingModelOptions');
   const { data: allProcesses } = usePluggableCollection<Process>('processes');
@@ -159,15 +153,6 @@ export default function ResourcesPage() {
     const id = selectedResource?.id || `res-${Math.random().toString(36).substring(2, 9)}`;
     const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
     
-    let externalOwnerPartnerId = undefined;
-    let externalOwnerAreaId = undefined;
-    if (externalRefId.startsWith('p:')) {
-      externalOwnerPartnerId = externalRefId.split(':')[1];
-    } else if (externalRefId.startsWith('a:')) {
-      externalOwnerAreaId = externalRefId.split(':')[1];
-      externalOwnerPartnerId = areas?.find(a => a.id === externalOwnerAreaId)?.partnerId;
-    }
-
     const resourceData: Resource = {
       ...selectedResource,
       id,
@@ -178,9 +163,7 @@ export default function ResourcesPage() {
       backupRequired, updatesRequired,
       identityProviderId: identityProviderId === 'none' ? undefined : (identityProviderId === 'self' ? id : identityProviderId),
       dataLocation,
-      systemOwnerRoleId: systemOwnerType === 'internal' && systemOwnerRoleId !== 'none' ? systemOwnerRoleId : undefined,
-      externalOwnerPartnerId: systemOwnerType === 'external' ? externalOwnerPartnerId : undefined,
-      externalOwnerAreaId: systemOwnerType === 'external' ? externalOwnerAreaId : undefined,
+      systemOwnerRoleId: systemOwnerRoleId !== 'none' ? systemOwnerRoleId : undefined,
       riskOwnerRoleId: riskOwnerRoleId !== 'none' ? riskOwnerRoleId : undefined,
       notes, url, status: selectedResource?.status || 'active',
       createdAt: selectedResource?.createdAt || new Date().toISOString()
@@ -189,6 +172,7 @@ export default function ResourcesPage() {
     try {
       const res = await saveResourceAction(resourceData, dataSource, user?.email || 'system');
       if (res.success) {
+        // Clear old relations and save new ones
         if (selectedResource) {
           const oldJobs = allBackupJobs?.filter(b => b.resourceId === id) || [];
           for (const oj of oldJobs) await deleteCollectionRecord('backup_jobs', oj.id, dataSource);
@@ -243,15 +227,9 @@ export default function ResourcesPage() {
     setUpdatesRequired(!!res.updatesRequired);
     setLocalBackupJobs(allBackupJobs?.filter(b => b.resourceId === res.id) || []);
     setSelectedUpdateProcessIds(allUpdateLinks?.filter(u => u.resourceId === res.id).map(u => u.processId) || []);
-    if (res.identityProviderId === res.id) setIdentityProviderId('self');
-    else setIdentityProviderId(res.identityProviderId || 'none');
+    setIdentityProviderId(res.identityProviderId === res.id ? 'self' : (res.identityProviderId || 'none'));
     setDataLocation(res.dataLocation || '');
-    const hasExternal = !!(res.externalOwnerPartnerId || res.externalOwnerAreaId);
-    setSystemOwnerType(hasExternal ? 'external' : 'internal');
     setSystemOwnerRoleId(res.systemOwnerRoleId || 'none');
-    if (res.externalOwnerAreaId) setExternalRefId(`a:${res.externalOwnerAreaId}`);
-    else if (res.externalOwnerPartnerId) setExternalRefId(`p:${res.externalOwnerPartnerId}`);
-    else setExternalRefId('none');
     setRiskOwnerRoleId(res.riskOwnerRoleId || 'none');
     setNotes(res.notes || '');
     setUrl(res.url || '');
@@ -264,8 +242,7 @@ export default function ResourcesPage() {
     setCriticality('medium'); setDataClassification('internal');
     setConfidentialityReq('medium'); setIntegrityReq('medium'); setAvailabilityReq('medium');
     setHasPersonalData(false); setIsDataRepository(false); setIsIdentityProvider(false);
-    setIdentityProviderId('none'); setDataLocation(''); setSystemOwnerType('internal');
-    setSystemOwnerRoleId(''); setExternalRefId('none'); setRiskOwnerRoleId('');
+    setIdentityProviderId('none'); setDataLocation(''); setSystemOwnerRoleId('none'); setRiskOwnerRoleId('none');
     setBackupRequired(false); setUpdatesRequired(false);
     setLocalBackupJobs([]); setSelectedUpdateProcessIds([]);
     setNotes(''); setUrl('');
@@ -468,7 +445,6 @@ export default function ResourcesPage() {
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-8">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                       <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Kritikalität</Label><Select value={criticality} onValueChange={(v:any) => setCriticality(v)}><SelectTrigger className="rounded-xl h-11 bg-slate-50/50"><SelectValue /></SelectTrigger><SelectContent className="rounded-xl"><SelectItem value="low">Niedrig</SelectItem><SelectItem value="medium">Mittel</SelectItem><SelectItem value="high">Hoch</SelectItem></SelectContent></Select></div>
-                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Schutzbedarf V</Label><Select value={confidentialityReq} onValueChange={(v:any) => setConfidentialityReq(v)}><SelectTrigger className="h-10 rounded-lg"><SelectValue /></SelectTrigger><SelectContent className="rounded-xl"><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent></Select></div>
                       <div className="space-y-2 flex items-center gap-4 pt-6"><Label className="text-[10px] font-bold text-slate-900">Pers. Daten</Label><Switch checked={hasPersonalData} onCheckedChange={setHasPersonalData} /></div>
                     </div>
                   </div>

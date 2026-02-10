@@ -37,7 +37,6 @@ import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
-import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { toast } from '@/hooks/use-toast';
 import { Tenant, Department, JobTitle, Entitlement, Resource } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -60,9 +59,14 @@ import { usePlatformAuth } from '@/context/auth-context';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Hilfsfunktion zum Escapen von XML-Sonderzeichen in mxGraph-Labels.
+ * Verhindert den Fehler: "xmlParseEntityRef: no name"
+ */
 function escapeXml(unsafe: any) {
   if (unsafe === null || unsafe === undefined) return '';
   return unsafe.toString().replace(/[<>&"']/g, (c: string) => {
@@ -156,33 +160,39 @@ export default function UnifiedOrganizationPage() {
 
   const isSuperAdmin = user?.role === 'superAdmin';
 
+  /**
+   * Hocheffiziente Map-basierte Gruppierung der Organisationsdaten.
+   * Reduziert die Komplexität von O(N^3) auf O(N).
+   */
   const groupedData = useMemo(() => {
     if (!tenants) return [];
     
-    const jobsMap = new Map<string, JobTitle[]>();
-    (jobTitles || []).forEach(j => {
-      const matchStatus = showArchived ? j.status === 'archived' : j.status !== 'archived';
+    // 1. Erstelle Maps für schnellen Zugriff
+    const jobsByDept = new Map<string, JobTitle[]>();
+    (jobTitles || []).forEach(job => {
+      const matchStatus = showArchived ? job.status === 'archived' : job.status !== 'archived';
       if (!matchStatus) return;
-      if (!jobsMap.has(j.departmentId)) jobsMap.set(j.departmentId, []);
-      jobsMap.get(j.departmentId)?.push(j);
+      if (!jobsByDept.has(job.departmentId)) jobsByDept.set(job.departmentId, []);
+      jobsByDept.get(job.departmentId)?.push(job);
     });
 
-    const deptsMap = new Map<string, any[]>();
-    (departments || []).forEach(d => {
-      const matchStatus = showArchived ? d.status === 'archived' : d.status !== 'archived';
+    const deptsByTenant = new Map<string, any[]>();
+    (departments || []).forEach(dept => {
+      const matchStatus = showArchived ? dept.status === 'archived' : dept.status !== 'archived';
       if (!matchStatus) return;
-      if (!deptsMap.has(d.tenantId)) deptsMap.set(d.tenantId, []);
-      deptsMap.get(d.tenantId)?.push({
-        ...d,
-        jobs: jobsMap.get(d.id) || []
+      if (!deptsByTenant.has(dept.tenantId)) deptsByTenant.set(dept.tenantId, []);
+      deptsByTenant.get(dept.tenantId)?.push({
+        ...dept,
+        jobs: jobsByDept.get(dept.id) || []
       });
     });
 
+    // 2. Erzeuge finale Baumstruktur
     return tenants
       .filter(t => (showArchived ? t.status === 'archived' : t.status !== 'archived'))
       .map(tenant => ({
         ...tenant,
-        departments: deptsMap.get(tenant.id) || []
+        departments: deptsByTenant.get(tenant.id) || []
       }))
       .filter(t => {
         if (!search) return true;
@@ -315,7 +325,7 @@ export default function UnifiedOrganizationPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
           <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">Organisationsstruktur</Badge>
@@ -357,7 +367,7 @@ export default function UnifiedOrganizationPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-base font-bold">{tenant.name}</CardTitle>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingTenant(tenant); setTenantName(tenant.name); setTenantSlug(tenant.slug); setTenantRegion(tenant.region || 'EU-DSGVO'); setTenantDescription(tenant.companyDescription || ''); setIsTenantDialogOpen(true); }}><Pencil className="w-3 h-3" /></Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingTenant(tenant); setTenantName(tenant.name); setTenantSlug(tenant.slug); setTenantRegion(tenant.region || 'EU-DSGVO'); setTenantDescription(tenant.companyDescription || ''); setIsTenantDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
                       </div>
                       <p className="text-[10px] text-slate-400 font-bold uppercase">{tenant.slug}</p>
                     </div>
@@ -376,7 +386,7 @@ export default function UnifiedOrganizationPage() {
                         <div className="flex items-center justify-between p-4 px-8 hover:bg-slate-50 transition-colors group">
                           <div className="flex items-center gap-3"><Layers className="w-4 h-4 text-emerald-600" /><h4 className="text-xs font-bold">{dept.name}</h4></div>
                           <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100">
-                            <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}><Plus className="w-3 h-3" /> Rolle</Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}><Plus className="w-3.5 h-3.5" /> Rolle</Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300" onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}><Archive className="w-3.5 h-3.5" /></Button>
                           </div>
                         </div>

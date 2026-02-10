@@ -146,14 +146,14 @@ export default function FeatureDetailPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <aside className="lg:col-span-1 space-y-6">
           <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden group">
-            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4 px-6">
               <CardTitle className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Daten-Klassifizierung</CardTitle>
             </CardHeader>
-            <CardContent className="p-8 space-y-8">
-              <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-inner flex flex-col items-center text-center group-hover:scale-[1.02] transition-transform duration-500">
+            <CardContent className="p-6 space-y-6">
+              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-inner flex flex-col items-center text-center group-hover:scale-[1.02] transition-transform duration-500">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Matrix Kritikalität</span>
                 <p className={cn("text-4xl font-black uppercase", feature.criticality === 'high' ? "text-red-600" : "text-emerald-600")}>{feature.criticality}</p>
                 <Badge variant="outline" className="mt-2 h-5 px-2 bg-white text-[8px] font-black">{feature.criticalityScore} Punkte</Badge>
@@ -173,8 +173,8 @@ export default function FeatureDetailPage() {
         </aside>
 
         <div className="lg:col-span-3">
-          <Tabs defaultValue="overview" className="space-y-8">
-            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1.5 h-14 rounded-2xl border w-full justify-start gap-2 shadow-inner overflow-x-auto no-scrollbar">
+          <Tabs defaultValue="overview" className="space-y-6">
+            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 h-12 rounded-2xl border w-full justify-start gap-1 shadow-inner overflow-x-auto no-scrollbar">
               <TabsTrigger value="overview" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <Info className="w-4 h-4" /> Analyse
               </TabsTrigger>
@@ -186,30 +186,30 @@ export default function FeatureDetailPage() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview" className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <TabsContent value="overview" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-8"><CardTitle className="text-lg font-headline font-bold uppercase text-slate-900 dark:text-white">Fachliche Definition</CardTitle></CardHeader>
-                <CardContent className="p-10 space-y-8">
+                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6"><CardTitle className="text-sm font-headline font-bold uppercase text-slate-900 dark:text-white">Fachliche Definition</CardTitle></CardHeader>
+                <CardContent className="p-6 space-y-6">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Zweck & Beschreibung</Label>
-                    <p className="text-sm font-medium leading-relaxed italic bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl shadow-inner border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300">"{feature.description}"</p>
+                    <p className="text-sm font-medium leading-relaxed italic bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl shadow-inner border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300">"{feature.description}"</p>
                   </div>
-                  <div className="p-6 bg-indigo-50/30 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-900/30 flex items-center gap-4">
-                    <Info className="w-6 h-6 text-indigo-600" />
+                  <div className="p-4 bg-indigo-50/30 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-900/30 flex items-center gap-4">
+                    <Info className="w-5 h-5 text-indigo-600" />
                     <p className="text-xs font-bold text-indigo-900 dark:text-indigo-300">{feature.purpose}</p>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            <TabsContent value="context" className="space-y-8 animate-in fade-in">
+            <TabsContent value="context" className="space-y-6 animate-in fade-in">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                  <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6"><CardTitle className="text-sm font-bold uppercase text-slate-900 dark:text-white">Operative Workflows</CardTitle></CardHeader>
+                  <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4"><CardTitle className="text-sm font-bold uppercase text-slate-900 dark:text-white">Operative Workflows</CardTitle></CardHeader>
                   <CardContent className="p-0">
                     <div className="divide-y divide-slate-100 dark:divide-slate-800">
                       {relatedProcLinks.map((link: any) => (
-                        <div key={link.id} className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => router.push(`/processhub/view/${link.processId}`)}>
+                        <div key={link.id} className="p-3 px-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => router.push(`/processhub/view/${link.processId}`)}>
                           <div className="flex items-center gap-3"><Workflow className="w-4 h-4 text-indigo-400" /><span className="text-xs font-bold text-slate-700 dark:text-slate-300">{processes?.find(p => p.id === link.processId)?.title}</span></div>
                           <ArrowRight className="w-4 h-4 text-slate-300" />
                         </div>
@@ -218,11 +218,11 @@ export default function FeatureDetailPage() {
                   </CardContent>
                 </Card>
                 <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                  <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6"><CardTitle className="text-sm font-bold uppercase text-slate-900 dark:text-white">IT-Systeme (Geerbt)</CardTitle></CardHeader>
+                  <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4"><CardTitle className="text-sm font-bold uppercase text-slate-900 dark:text-white">IT-Systeme (Geerbt)</CardTitle></CardHeader>
                   <CardContent className="p-0">
                     <div className="divide-y divide-slate-100 dark:divide-slate-800">
                       {indirectResources.map(res => (
-                        <div key={res?.id} className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => router.push(`/resources/${res?.id}`)}>
+                        <div key={res?.id} className="p-3 px-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => router.push(`/resources/${res?.id}`)}>
                           <div className="flex items-center gap-3"><Server className="w-4 h-4 text-slate-400" /><span className="text-xs font-bold text-slate-700 dark:text-slate-300">{res?.name}</span></div>
                           <Badge variant="outline" className="text-[7px] font-black uppercase h-4 border-slate-200">{res?.assetType}</Badge>
                         </div>
@@ -238,8 +238,8 @@ export default function FeatureDetailPage() {
                 <CardContent className="p-0">
                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {relatedTasks.map(t => (
-                      <div key={t.id} className="p-6 px-10 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all flex items-center justify-between group cursor-pointer" onClick={() => router.push('/tasks')}>
-                        <div className="flex items-center gap-6">
+                      <div key={t.id} className="p-4 px-8 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all flex items-center justify-between group cursor-pointer" onClick={() => router.push('/tasks')}>
+                        <div className="flex items-center gap-4">
                           <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg", t.status === 'done' ? "bg-emerald-500" : "bg-indigo-600")}>
                             <ClipboardList className="w-5 h-5" />
                           </div>
@@ -248,7 +248,7 @@ export default function FeatureDetailPage() {
                         <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
                       </div>
                     ))}
-                    {relatedTasks.length === 0 && <div className="py-20 text-center text-xs text-slate-400 uppercase tracking-widest opacity-30">Keine Aufgaben gefunden</div>}
+                    {relatedTasks.length === 0 && <div className="py-16 text-center text-xs text-slate-400 uppercase tracking-widest opacity-30">Keine Aufgaben gefunden</div>}
                   </div>
                 </CardContent>
               </Card>
@@ -280,7 +280,7 @@ export default function FeatureDetailPage() {
           <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-800 border-t">
             <Button variant="ghost" onClick={() => setIsTaskDialogOpen(false)}>Abbrechen</Button>
             <Button onClick={handleCreateTask} disabled={isSavingTask || !taskTitle} className="bg-primary text-white font-bold text-xs h-11 px-8 rounded-xl shadow-lg">
-              {isSavingTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />} Erstellen
+              {isSavingTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Erstellen
             </Button>
           </DialogFooter>
         </DialogContent>

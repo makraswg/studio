@@ -105,12 +105,12 @@ export default function GdprDetailViewPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <aside className="lg:col-span-1 space-y-6">
           <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden group">
-            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6"><CardTitle className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Maturity Score</CardTitle></CardHeader>
-            <CardContent className="p-8 space-y-8">
-              <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-inner flex flex-col items-center text-center group-hover:scale-[1.02] transition-transform duration-500">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4 px-6"><CardTitle className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Maturity Score</CardTitle></CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-inner flex flex-col items-center text-center group-hover:scale-[1.02] transition-transform duration-500">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Compliance Level</span>
                 <p className="text-4xl font-black text-emerald-600">{stats.gapScore}%</p>
                 <Badge variant="outline" className="mt-2 bg-white text-[8px] font-black">Art. 32 Audit</Badge>
@@ -124,8 +124,8 @@ export default function GdprDetailViewPage() {
         </aside>
 
         <div className="lg:col-span-3">
-          <Tabs defaultValue="vvt" className="space-y-8">
-            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1.5 h-14 rounded-2xl border w-full justify-start gap-2 shadow-inner overflow-x-auto no-scrollbar">
+          <Tabs defaultValue="vvt" className="space-y-6">
+            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 h-12 rounded-2xl border w-full justify-start gap-1 shadow-inner overflow-x-auto no-scrollbar">
               <TabsTrigger value="vvt" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all"><Info className="w-4 h-4" /> Stammblatt</TabsTrigger>
               <TabsTrigger value="assets" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all"><Server className="w-4 h-4" /> Systeme & TOM</TabsTrigger>
               <TabsTrigger value="gaps" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all"><AlertTriangle className="w-4 h-4 text-red-600" /> Gaps</TabsTrigger>
@@ -133,10 +133,10 @@ export default function GdprDetailViewPage() {
 
             <TabsContent value="vvt" className="animate-in fade-in duration-500">
               <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-8"><CardTitle className="text-lg font-headline font-bold uppercase text-slate-900 dark:text-white">Verarbeitungszweck</CardTitle></CardHeader>
-                <CardContent className="p-10 space-y-8">
-                  <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-slate-400">Fachliche Beschreibung</Label><p className="text-sm font-medium leading-relaxed italic bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl shadow-inner border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300">"{activity.description}"</p></div>
-                  <div className="grid grid-cols-2 gap-8 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6"><CardTitle className="text-sm font-headline font-bold uppercase text-slate-900 dark:text-white">Verarbeitungszweck</CardTitle></CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-slate-400">Fachliche Beschreibung</Label><p className="text-sm font-medium leading-relaxed italic bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl shadow-inner border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300">"{activity.description}"</p></div>
+                  <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-slate-800">
                     <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-slate-400">Aufbewahrung</Label><p className="text-xs font-bold text-slate-800 dark:text-slate-200">{activity.retentionPeriod}</p></div>
                     <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-slate-400">Transfer Status</Label><p className="text-xs font-bold text-slate-800 dark:text-slate-200">{activity.thirdCountryTransfer ? 'Drittstaatentransfer Aktiv' : 'Kein Drittstaatentransfer'}</p></div>
                   </div>
@@ -144,13 +144,13 @@ export default function GdprDetailViewPage() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="assets" className="animate-in fade-in">
+            <TabsContent value="assets" className="animate-in fade-in space-y-6">
               <div className="space-y-6">
                 <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                  <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6"><CardTitle className="text-sm font-bold uppercase text-slate-900 dark:text-white">IT-Infrastruktur</CardTitle></CardHeader>
+                  <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4"><CardTitle className="text-sm font-bold uppercase text-slate-900 dark:text-white">IT-Infrastruktur</CardTitle></CardHeader>
                   <CardContent className="p-0">
                     <div className="divide-y divide-slate-100 dark:divide-slate-800">{stats.aggregatedResources.map(res => (
-                      <div key={res.id} className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => router.push(`/resources/${res.id}`)}>
+                      <div key={res.id} className="p-3 px-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => router.push(`/resources/${res.id}`)}>
                         <div className="flex items-center gap-3"><Server className="w-4 h-4 text-slate-400" /><span className="text-xs font-bold text-slate-700 dark:text-slate-300">{res.name}</span></div>
                         <Badge variant="outline" className="text-[7px] font-black h-4 px-1 border-slate-200">{res.criticality.toUpperCase()}</Badge>
                       </div>
@@ -158,10 +158,10 @@ export default function GdprDetailViewPage() {
                   </CardContent>
                 </Card>
                 <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                  <CardHeader className="bg-emerald-50/50 dark:bg-emerald-900/10 border-b p-6"><CardTitle className="text-sm font-bold uppercase text-emerald-700 dark:text-emerald-400">Verknüpfte TOM (Art. 32)</CardTitle></CardHeader>
+                  <CardHeader className="bg-emerald-50/50 dark:bg-emerald-900/10 border-b p-4"><CardTitle className="text-sm font-bold uppercase text-emerald-700 dark:text-emerald-400">Verknüpfte TOM (Art. 32)</CardTitle></CardHeader>
                   <CardContent className="p-0">
                     <div className="divide-y divide-slate-100 dark:divide-slate-800">{stats.automatedToms.map(tom => (
-                      <div key={tom.id} className="p-4 flex items-center justify-between group hover:bg-emerald-50 dark:hover:bg-emerald-900/20 cursor-pointer">
+                      <div key={tom.id} className="p-3 px-4 flex items-center justify-between group hover:bg-emerald-50 dark:hover:bg-emerald-900/20 cursor-pointer">
                         <div className="flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-emerald-500" /><span className="text-xs font-bold text-slate-700 dark:text-slate-300">{tom.title}</span></div>
                         <Badge className="bg-emerald-500 text-white border-none text-[7px] h-4">AKTIV</Badge>
                       </div>
@@ -174,9 +174,9 @@ export default function GdprDetailViewPage() {
             <TabsContent value="gaps" className="animate-in fade-in">
               {stats.gaps.length > 0 ? (
                 <div className="space-y-4">{stats.gaps.map((gap, i) => (
-                  <div key={i} className="p-6 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-2xl flex items-center gap-4 shadow-sm"><AlertTriangle className="w-6 h-6 text-red-600" /><div><p className="text-sm font-black uppercase text-red-900 dark:text-red-400">Audit Finding</p><p className="text-xs font-bold text-red-700 dark:text-red-300">{gap.msg}</p></div></div>
+                  <div key={i} className="p-4 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-2xl flex items-center gap-4 shadow-sm"><AlertTriangle className="w-6 h-6 text-red-600" /><div><p className="text-sm font-black uppercase text-red-900 dark:text-red-400">Audit Finding</p><p className="text-xs font-bold text-red-700 dark:text-red-300">{gap.msg}</p></div></div>
                 ))}</div>
-              ) : <div className="py-20 text-center opacity-30 italic uppercase text-[10px] text-slate-400"><CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-emerald-500" />Keine Compliance Gaps gefunden</div>}
+              ) : <div className="py-16 text-center opacity-30 italic uppercase text-[10px] text-slate-400"><CheckCircle2 className="w-10 h-10 mx-auto mb-4 text-emerald-500" />Keine Compliance Gaps gefunden</div>}
             </TabsContent>
           </Tabs>
         </div>

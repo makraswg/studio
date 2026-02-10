@@ -143,14 +143,14 @@ export default function RiskDetailPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <aside className="lg:col-span-1 space-y-6">
           <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden group">
-            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4 px-6">
               <CardTitle className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Gefährdungslage</CardTitle>
             </CardHeader>
-            <CardContent className="p-8 space-y-10">
-              <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-inner flex flex-col items-center text-center group-hover:scale-[1.02] transition-transform duration-500">
+            <CardContent className="p-6 space-y-8">
+              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-inner flex flex-col items-center text-center group-hover:scale-[1.02] transition-transform duration-500">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Brutto Risiko-Score</span>
                 <p className={cn("text-4xl font-black tracking-tighter", bruteScore >= 15 ? "text-red-600" : bruteScore >= 8 ? "text-orange-600" : "text-emerald-600")}>{bruteScore}</p>
                 <div className="flex items-center gap-2 mt-3 text-[9px] font-bold text-slate-400 uppercase bg-white dark:bg-slate-900 px-3 py-1 rounded-full shadow-sm border border-slate-100">
@@ -158,19 +158,19 @@ export default function RiskDetailPage() {
                 </div>
               </div>
 
-              <div className="space-y-6 pt-4 border-t border-slate-100">
+              <div className="space-y-4 pt-4 border-t border-slate-100">
                 <div className="space-y-1 group/field">
                   <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Eigner (Owner)</Label>
-                  <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                  <div className="flex items-center gap-2 p-2.5 bg-white dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
                     <UserIcon className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{risk.owner}</span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{risk.owner}</span>
                   </div>
                 </div>
                 <div className="space-y-1 group/field">
                   <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Behandlungsstrategie</Label>
-                  <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                  <div className="flex items-center gap-2 p-2.5 bg-white dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
                     <Target className="w-4 h-4 text-indigo-600" />
-                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase">{risk.treatmentStrategy || 'Mitigate'}</span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">{risk.treatmentStrategy || 'Mitigate'}</span>
                   </div>
                 </div>
               </div>
@@ -179,8 +179,8 @@ export default function RiskDetailPage() {
         </aside>
 
         <div className="lg:col-span-3">
-          <Tabs defaultValue="overview" className="space-y-8">
-            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1.5 h-14 rounded-2xl border w-full justify-start gap-2 shadow-inner overflow-x-auto no-scrollbar">
+          <Tabs defaultValue="overview" className="space-y-6">
+            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 h-12 rounded-2xl border w-full justify-start gap-1 shadow-inner overflow-x-auto no-scrollbar">
               <TabsTrigger value="overview" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <Info className="w-4 h-4" /> Analyse & Kontext
               </TabsTrigger>
@@ -192,23 +192,23 @@ export default function RiskDetailPage() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview" className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <TabsContent value="overview" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-8">
-                  <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Szenariobeschreibung</CardTitle>
+                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6">
+                  <CardTitle className="text-sm font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Szenariobeschreibung</CardTitle>
                 </CardHeader>
-                <CardContent className="p-10 space-y-10">
-                  <div className="space-y-4">
+                <CardContent className="p-6 space-y-8">
+                  <div className="space-y-3">
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Beschreibung der Bedrohung</Label>
-                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium bg-slate-50 dark:bg-slate-950 p-8 rounded-2xl shadow-inner italic border border-slate-100 dark:border-slate-800">
+                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl shadow-inner italic border border-slate-100 dark:border-slate-800">
                       "{risk.description || 'Keine detaillierte Beschreibung hinterlegt.'}"
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-slate-800">
                     {asset && (
                       <div className="space-y-1">
                         <Label className="text-[9px] font-black uppercase text-slate-400">Betroffenes IT-System</Label>
-                        <div className="flex items-center gap-3 text-sm font-bold text-slate-800 dark:text-slate-200 p-3 bg-slate-50 dark:bg-slate-950 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors" onClick={() => router.push(`/resources/${asset.id}`)}>
+                        <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200 p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors" onClick={() => router.push(`/resources/${asset.id}`)}>
                           <Server className="w-4 h-4 text-indigo-500" /> {asset.name}
                         </div>
                       </div>
@@ -216,7 +216,7 @@ export default function RiskDetailPage() {
                     {process && (
                       <div className="space-y-1">
                         <Label className="text-[9px] font-black uppercase text-slate-400">Betroffener Workflow</Label>
-                        <div className="flex items-center gap-3 text-sm font-bold text-slate-800 dark:text-slate-200 p-3 bg-slate-50 dark:bg-slate-950 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors" onClick={() => router.push(`/processhub/view/${process.id}`)}>
+                        <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200 p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors" onClick={() => router.push(`/processhub/view/${process.id}`)}>
                           <Workflow className="w-4 h-4 text-orange-500" /> {process.title}
                         </div>
                       </div>
@@ -226,43 +226,43 @@ export default function RiskDetailPage() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="mitigation" className="space-y-8 animate-in fade-in">
-              <div className="grid grid-cols-1 gap-4">
+            <TabsContent value="mitigation" className="space-y-6 animate-in fade-in">
+              <div className="grid grid-cols-1 gap-3">
                 {linkedMeasures.map(m => (
-                  <div key={m.id} className="p-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-between group hover:border-emerald-300 transition-all cursor-pointer shadow-sm" onClick={() => router.push(`/risks/measures/${m.id}`)}>
-                    <div className="flex items-center gap-5">
-                      <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 flex items-center justify-center border border-emerald-100 dark:border-emerald-900/30 shadow-inner"><ShieldCheck className="w-6 h-6" /></div>
+                  <div key={m.id} className="p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-between group hover:border-emerald-300 transition-all cursor-pointer shadow-sm" onClick={() => router.push(`/risks/measures/${m.id}`)}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 flex items-center justify-center border border-emerald-100 dark:border-emerald-900/30 shadow-inner"><ShieldCheck className="w-5 h-5" /></div>
                       <div>
                         <p className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">{m.title}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">{m.tomCategory || 'Maßnahme'}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">{m.tomCategory || 'Maßnahme'}</p>
                       </div>
                     </div>
-                    <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-emerald-600 transition-all group-hover:translate-x-2" />
+                    <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 transition-all group-hover:translate-x-1" />
                   </div>
                 ))}
-                {linkedMeasures.length === 0 && <div className="py-20 text-center border-2 border-dashed rounded-3xl opacity-30 italic uppercase text-[10px] text-slate-400">Keine Maßnahmen verknüpft</div>}
+                {linkedMeasures.length === 0 && <div className="py-16 text-center border-2 border-dashed rounded-3xl opacity-30 italic uppercase text-[10px] text-slate-400">Keine Maßnahmen verknüpft</div>}
               </div>
             </TabsContent>
 
-            <TabsContent value="tasks" className="space-y-8 animate-in fade-in">
+            <TabsContent value="tasks" className="space-y-6 animate-in fade-in">
               <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-8">
-                  <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Operative Tasks</CardTitle>
+                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6">
+                  <CardTitle className="text-sm font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Operative Tasks</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {riskTasks.map(t => (
-                      <div key={t.id} className="p-6 px-10 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all flex items-center justify-between group cursor-pointer" onClick={() => router.push('/tasks')}>
-                        <div className="flex items-center gap-6">
-                          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg", t.status === 'done' ? "bg-emerald-500" : "bg-indigo-600")}>
+                      <div key={t.id} className="p-4 px-8 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all flex items-center justify-between group cursor-pointer" onClick={() => router.push('/tasks')}>
+                        <div className="flex items-center gap-4">
+                          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg", t.status === 'done' ? "bg-emerald-500" : t.priority === 'critical' ? "bg-red-600" : "bg-indigo-600")}>
                             <ClipboardList className="w-5 h-5" />
                           </div>
-                          <div><p className="text-sm font-black text-slate-800 dark:text-slate-100">{t.title}</p><p className="text-[10px] text-slate-400 uppercase font-bold mt-1">Status: {t.status}</p></div>
+                          <div><p className="text-sm font-black text-slate-800 dark:text-slate-100">{t.title}</p><p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Status: {t.status}</p></div>
                         </div>
                         <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
                       </div>
                     ))}
-                    {riskTasks.length === 0 && <div className="py-20 text-center opacity-30 italic text-[10px] uppercase text-slate-400">Keine Aufgaben für dieses Risiko</div>}
+                    {riskTasks.length === 0 && <div className="py-16 text-center opacity-30 italic text-[10px] uppercase text-slate-400">Keine Aufgaben für dieses Risiko</div>}
                   </div>
                 </CardContent>
               </Card>

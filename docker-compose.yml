@@ -4,20 +4,12 @@ services:
     container_name: compliance-hub-db
     restart: always
     privileged: true
-    environment:
-      MYSQL_ROOT_PASSWORD: changeme
-      MYSQL_DATABASE: compliance_hub
-      MYSQL_USER: compliance_user
-      MYSQL_PASSWORD: changeme
+    env_file:
+      - .env
     ports:
       - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u", "root", "-pchangeme"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   compliance-app:
     build: .
@@ -25,15 +17,13 @@ services:
     restart: always
     ports:
       - "9002:3000"
+    env_file:
+      - .env
     environment:
-      MYSQL_HOST: compliance-db
-      MYSQL_PORT: 3306
-      MYSQL_DATABASE: compliance_hub
-      MYSQL_USER: compliance_user
-      MYSQL_PASSWORD: changeme
+      - MYSQL_HOST=compliance-db
     depends_on:
-      compliance-db:
-        condition: service_healthy
+      - compliance-db
+
 
 volumes:
   mysql_data:

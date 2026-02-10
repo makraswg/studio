@@ -251,7 +251,7 @@ export default function ResourceDetailPage() {
               <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">{resource.name}</h1>
               <Badge className="rounded-full px-3 h-6 text-[10px] font-black uppercase bg-primary/10 text-primary border-none shadow-sm">{resource.assetType}</Badge>
             </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1 flex items-center gap-2">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1.5 flex items-center gap-2">
               <Building2 className="w-3 h-3" /> Asset-Management • {resource.operatingModel}
             </p>
           </div>
@@ -269,7 +269,7 @@ export default function ResourceDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <aside className="lg:col-span-1 space-y-6">
           <Card className="rounded-[2rem] border shadow-xl bg-white dark:bg-slate-900 overflow-hidden group">
-            <CardHeader className="bg-slate-50/50 dark:bg-slate-800/50 border-b p-6">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6">
               <CardTitle className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Sicherheitszustand</CardTitle>
             </CardHeader>
             <CardContent className="p-8 space-y-10">
@@ -288,35 +288,45 @@ export default function ResourceDetailPage() {
               
               <div className="space-y-6 pt-4 border-t">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Daten-Klassifizierung</p>
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Schutzbedarf (CIA)</p>
                   {inheritedData && <Badge className="bg-blue-600 text-white border-none text-[8px] font-black h-5 px-3 uppercase tracking-widest shadow-lg shadow-blue-200">Dynamisch</Badge>}
                 </div>
                 
-                <div className="p-4 rounded-2xl bg-white dark:bg-slate-950 border-2 border-slate-50 dark:border-slate-800 shadow-sm flex items-center justify-center">
-                  <span className={cn(
-                    "text-xs font-black uppercase tracking-widest",
-                    finalClass === 'strictly_confidential' ? 'text-red-600' : 'text-slate-700 dark:text-slate-300'
-                  )}>
-                    {finalClass?.replace('_', ' ') || 'internal'}
-                  </span>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-3">
                   {[
-                    { label: 'C', val: finalC },
-                    { label: 'I', val: finalI },
-                    { label: 'A', val: finalA }
+                    { label: 'Vertraulichkeit', short: 'C', val: finalC, icon: Shield },
+                    { label: 'Integrität', short: 'I', val: finalI, icon: CheckCircle2 },
+                    { label: 'Verfügbarkeit', short: 'A', val: finalA, icon: Activity }
                   ].map((req) => (
-                    <div key={req.label} className="flex flex-col items-center p-3 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-                      <span className="text-[8px] font-black text-slate-400 uppercase mb-1.5">{req.label}</span>
-                      <span className={cn(
-                        "text-xs font-black", 
-                        req.val === 'high' ? 'text-red-600' : 'text-slate-700 dark:text-slate-300'
+                    <div key={req.short} className="flex items-center justify-between p-3 bg-white dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <req.icon className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight">{req.label}</span>
+                      </div>
+                      <Badge className={cn(
+                        "text-[8px] font-black h-5 px-2 border-none shadow-sm uppercase",
+                        req.val === 'high' ? "bg-red-50 text-red-700" : 
+                        req.val === 'medium' ? "bg-orange-50 text-orange-700" : 
+                        "bg-emerald-50 text-emerald-700"
                       )}>
-                        {String(req.val)?.charAt(0).toUpperCase()}
-                      </span>
+                        {req.val === 'high' ? 'HOCH' : req.val === 'medium' ? 'MITTEL' : 'NIEDRIG'}
+                      </Badge>
                     </div>
                   ))}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Daten-Klassifizierung</Label>
+                  <div className="p-4 rounded-2xl bg-white dark:bg-slate-950 border-2 border-slate-50 dark:border-slate-800 shadow-sm flex items-center justify-center">
+                    <span className={cn(
+                      "text-xs font-black uppercase tracking-widest",
+                      finalClass === 'strictly_confidential' ? 'text-red-600' : 'text-slate-700 dark:text-slate-300'
+                    )}>
+                      {finalClass?.replace('_', ' ') || 'internal'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -345,14 +355,14 @@ export default function ResourceDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-[2.5rem] border-2 border-primary/20 shadow-2xl bg-primary/5 overflow-hidden relative">
+          <Card className="rounded-[2.5rem] border-2 border-primary/20 shadow-2xl bg-primary/5 overflow-hidden relative group">
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full -mr-12 -mt-12 blur-2xl" />
             <CardContent className="p-10 space-y-8 relative z-10">
               <div className="w-14 h-14 bg-primary rounded-[1.25rem] flex items-center justify-center shadow-lg border border-white/10 rotate-3 group-hover:rotate-0 transition-transform duration-500">
                 <ShieldCheck className="w-8 h-8 text-white" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-xl font-headline font-black uppercase tracking-tight leading-none text-slate-900 dark:text-white">Compliance Hub</h3>
+                <h3 className="text-xl font-headline font-black uppercase tracking-tight leading-none text-slate-900 dark:text-white">Audit Ready</h3>
                 <p className="text-[10px] font-bold text-primary uppercase tracking-[0.3em]">Integrity Level</p>
               </div>
               <div className="space-y-4">
@@ -362,7 +372,7 @@ export default function ResourceDetailPage() {
                 </div>
                 <Progress value={100} className="h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden" />
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed italic font-medium">
-                  Status: Audit-Ready. Die Kritikalität wurde automatisch aus der Datenlast der verknüpften Geschäftsprozesse abgeleitet.
+                  Die Kritikalität wird automatisch aus der Datenlast der verknüpften Geschäftsprozesse abgeleitet.
                 </p>
               </div>
             </CardContent>
@@ -391,13 +401,13 @@ export default function ResourceDetailPage() {
 
             <TabsContent value="overview" className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Card className="rounded-[2rem] border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-slate-50/50 dark:bg-slate-800/50 border-b p-8">
+                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-8">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-white dark:bg-slate-950 rounded-2xl flex items-center justify-center shadow-md border border-slate-100">
                       <Database className="w-6 h-6 text-slate-400" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight">Stammdaten & Asset-Kontext</CardTitle>
+                      <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Stammdaten & Asset-Kontext</CardTitle>
                       <CardDescription className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Technische und logische Einordnung</CardDescription>
                     </div>
                   </div>
@@ -405,11 +415,11 @@ export default function ResourceDetailPage() {
                 <CardContent className="p-10 space-y-12">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                     <div className="space-y-8">
-                      <div className="space-y-2 group/field">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest group-hover/field:text-primary transition-colors">Kategorie</Label>
+                      <div className="space-y-1 group/field">
+                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest group-hover/field:text-primary transition-colors">Asset-Kategorie</Label>
                         <p className="text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-800">{resource.category || '---'}</p>
                       </div>
-                      <div className="space-y-2 group/field">
+                      <div className="space-y-1 group/field">
                         <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest group-hover/field:text-primary transition-colors">Technischer Standort</Label>
                         <div className="flex items-center gap-3 text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
                           <MapPin className="w-4 h-4 text-slate-300" /> {resource.dataLocation || 'Nicht spezifiziert'}
@@ -417,13 +427,13 @@ export default function ResourceDetailPage() {
                       </div>
                     </div>
                     <div className="space-y-8">
-                      <div className="space-y-2 group/field">
+                      <div className="space-y-1 group/field">
                         <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest group-hover/field:text-primary transition-colors">Anmelde-Infrastruktur (IdP)</Label>
                         <div className="flex items-center gap-3 text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
                           <Fingerprint className="w-4 h-4 text-primary" /> {resource.isIdentityProvider ? 'Eigenes IdP-System' : 'Externer Directory-Dienst'}
                         </div>
                       </div>
-                      <div className="space-y-2 group/field">
+                      <div className="space-y-1 group/field">
                         <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest group-hover/field:text-primary transition-colors">Service URL</Label>
                         <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
                           {resource.url && resource.url !== '#' ? (
@@ -655,7 +665,7 @@ export default function ResourceDetailPage() {
 
             <TabsContent value="tasks" className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Card className="rounded-[2.5rem] border shadow-2xl bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-slate-50/50 dark:bg-slate-800/50 border-b p-8 flex flex-row items-center justify-between">
+                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-8 flex flex-row items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-14 h-14 rounded-[1.5rem] bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shadow-lg border border-indigo-200 dark:border-indigo-800">
                       <ClipboardList className="w-7 h-7" />
@@ -704,7 +714,7 @@ export default function ResourceDetailPage() {
 
             <TabsContent value="roles" className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Card className="rounded-[2.5rem] border shadow-2xl bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-slate-50/50 dark:bg-slate-800/50 border-b p-8">
+                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-8">
                   <div className="flex items-center gap-4">
                     <div className="w-14 h-14 rounded-[1.5rem] bg-slate-100 dark:bg-slate-950 flex items-center justify-center text-slate-500 shadow-lg border border-slate-200 dark:border-slate-800">
                       <KeyRound className="w-7 h-7" />
@@ -808,7 +818,7 @@ export default function ResourceDetailPage() {
                 </div>
                 <div className="space-y-3">
                   <Label className="text-[11px] font-black uppercase text-slate-400 ml-2 tracking-widest">Priorität</Label>
-                  <Select value={taskPriority} onValueChange={(v: any) => setTaskPriority(v)}>
+                  <Select value={taskPriority} onValueChange={(v: any) => setPriority(v)}>
                     <SelectTrigger className="rounded-2xl h-12 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold"><SelectValue /></SelectTrigger>
                     <SelectContent className="rounded-2xl">
                       <SelectItem value="low" className="text-xs font-bold">Niedrig</SelectItem>

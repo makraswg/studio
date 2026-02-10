@@ -124,6 +124,15 @@ export const appSchema: AppSchema = {
       authSource: 'VARCHAR(20) DEFAULT "local"',
     },
   },
+  magic_links: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      email: 'VARCHAR(255) NOT NULL',
+      token: 'VARCHAR(255) NOT NULL',
+      expiresAt: 'VARCHAR(50) NOT NULL',
+      used: 'BOOLEAN DEFAULT FALSE'
+    }
+  },
   tasks: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -461,6 +470,7 @@ export const appSchema: AppSchema = {
       host: 'VARCHAR(255)',
       port: 'VARCHAR(10)',
       fromEmail: 'VARCHAR(255)',
+      user: 'VARCHAR(255)',
     }
   },
   syncJobs: {

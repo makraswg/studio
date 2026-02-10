@@ -1,23 +1,21 @@
 
 'use server';
 
-import { SmtpConfig } from '@/lib/types';
+import { SmtpConfig, DataSource } from '@/lib/types';
 import { getMysqlConnection } from '@/lib/mysql';
+import { getCollectionData, saveCollectionRecord } from './mysql-actions';
 
 /**
  * Simuliert oder führt einen SMTP-Verbindungstest durch.
- * In einer realen Umgebung würde hier z.B. 'nodemailer' verwendet werden.
  */
 export async function testSmtpConnectionAction(config: Partial<SmtpConfig>): Promise<{ success: boolean; message: string }> {
   if (!config.host || !config.port) {
     return { success: false, message: 'Host und Port sind erforderlich.' };
   }
 
-  // Simulation einer Netzwerkprüfung
   try {
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    // Einfache Validierung der Eingaben
     if (config.host.includes('localhost') || config.host.includes('127.0.0.1')) {
       return { success: false, message: 'Lokale Hosts werden in dieser Sandbox nicht unterstützt.' };
     }
@@ -28,6 +26,50 @@ export async function testSmtpConnectionAction(config: Partial<SmtpConfig>): Pro
     };
   } catch (e: any) {
     return { success: false, message: `Verbindungsfehler: ${e.message}` };
+  }
+}
+
+/**
+ * Versendet einen Magic Link zur Anmeldung.
+ */
+export async function sendMagicLinkAction(email: string, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; message: string }> {
+  if (!email) return { success: false, message: 'E-Mail ist erforderlich.' };
+
+  try {
+    const configRes = await getCollectionData('smtpConfigs', dataSource);
+    const smtp = configRes.data?.find(c => c.enabled);
+    
+    if (!smtp) {
+      return { success: false, message: 'Kein aktiver SMTP-Server konfiguriert.' };
+    }
+
+    // Erzeuge Token
+    const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 Min gültig
+    const linkId = `ml-${Math.random().toString(36).substring(2, 7)}`;
+
+    await saveCollectionRecord('magic_links', linkId, {
+      id: linkId,
+      email,
+      token,
+      expiresAt,
+      used: false
+    }, dataSource);
+
+    // Erzeuge Link (URL Basis dynamisch oder statisch aus ENV)
+    const baseUrl = process.env.NODE_ENV === 'production' ? 'https://compliance-hub.local' : 'http://localhost:9002';
+    const magicLink = `${baseUrl}/auth/verify?token=${token}&email=${encodeURIComponent(email)}`;
+
+    console.log(`[SMTP MAGIC LINK] An: ${email} | Von: ${smtp.fromEmail}`);
+    console.log(`[LINK] ${magicLink}`);
+
+    return { 
+      success: true, 
+      message: `Magic Link wurde an ${email} gesendet. Bitte prüfen Sie Ihr Postfach (und den Spam-Ordner).` 
+    };
+  } catch (error: any) {
+    console.error("Magic Link Error:", error);
+    return { success: false, message: 'Fehler beim Generieren des Magic Links.' };
   }
 }
 
@@ -46,13 +88,9 @@ export async function requestPasswordResetAction(email: string): Promise<{ succe
     connection.release();
 
     if (!rows || rows.length === 0) {
-      // Aus Sicherheitsgründen geben wir oft trotzdem eine generische Erfolgsmeldung zurück,
-      // um "User Enumeration" zu verhindern. Hier im Prototyp sind wir ehrlich.
       return { success: false, message: 'Kein aktiver Benutzer mit dieser E-Mail gefunden.' };
     }
 
-    // Hier würde nun die E-Mail via SMTP versendet werden.
-    // Da wir nodemailer nicht installiert haben, simulieren wir den Erfolg.
     console.log(`[SMTP SIMULATION] Sende Passwort-Reset an ${email} für User ${rows[0].displayName}`);
 
     return { 

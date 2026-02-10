@@ -206,7 +206,7 @@ export interface Process {
   tenantId: string;
   responsibleDepartmentId?: string;
   vvtId?: string; 
-  typeId?: string;
+  process_type_id?: string;
   title: string;
   description?: string;
   inputs?: string;
@@ -329,7 +329,7 @@ export interface BackupJob {
   cycle: 'Täglich' | 'Wöchentlich' | 'Monatlich' | 'Manuell';
   storage_location: string;
   description?: string;
-  responsibleRoleId: string;
+  responsible_id: string; 
   it_process_id?: string;
   detail_process_id?: string;
   lastReviewDate?: string;
@@ -342,6 +342,7 @@ export interface ResourceUpdateProcess {
   resourceId: string;
   processId: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface Resource {

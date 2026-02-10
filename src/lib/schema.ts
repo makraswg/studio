@@ -222,7 +222,7 @@ export const appSchema: AppSchema = {
       tenantId: 'VARCHAR(255) NOT NULL',
       responsibleDepartmentId: 'VARCHAR(255)',
       vvtId: 'VARCHAR(255)', 
-      typeId: 'VARCHAR(255)',
+      process_type_id: 'VARCHAR(255)',
       title: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
       inputs: 'TEXT',
@@ -273,7 +273,7 @@ export const appSchema: AppSchema = {
       cycle: 'VARCHAR(50)', 
       storage_location: 'TEXT',
       description: 'TEXT',
-      responsibleRoleId: 'VARCHAR(255)',
+      responsible_id: 'VARCHAR(255)', 
       it_process_id: 'VARCHAR(255)', 
       detail_process_id: 'VARCHAR(255)',
       lastReviewDate: 'VARCHAR(50)',
@@ -413,8 +413,6 @@ export const appSchema: AppSchema = {
       isDataRepository: 'BOOLEAN DEFAULT FALSE',
       isIdentityProvider: 'BOOLEAN DEFAULT FALSE',
       identityProviderId: 'VARCHAR(255)',
-      backupRequired: 'BOOLEAN DEFAULT FALSE',
-      updatesRequired: 'BOOLEAN DEFAULT FALSE',
       affectedGroups: 'TEXT',
       dataLocation: 'VARCHAR(255)',
       isInternetExposed: 'BOOLEAN DEFAULT FALSE',
@@ -436,7 +434,9 @@ export const appSchema: AppSchema = {
       url: 'TEXT',
       documentationUrl: 'TEXT',
       notes: 'TEXT',
-      createdAt: 'VARCHAR(50)'
+      createdAt: 'VARCHAR(50)',
+      backupRequired: 'BOOLEAN DEFAULT FALSE',
+      updatesRequired: 'BOOLEAN DEFAULT FALSE',
     }
   },
   auditEvents: {

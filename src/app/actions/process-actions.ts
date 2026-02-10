@@ -1,3 +1,4 @@
+
 'use server';
 
 import { saveCollectionRecord, getCollectionData, deleteCollectionRecord, getSingleRecord } from './mysql-actions';
@@ -99,7 +100,6 @@ export async function createProcessAction(
  */
 export async function deleteProcessAction(processId: string, dataSource: DataSource = 'mysql') {
   try {
-    // We search for versions. This might still be slow for massive tables, but usually versions are fewer than individual nodes.
     const verRes = await getCollectionData('process_versions', dataSource);
     const versions = verRes.data?.filter((v: any) => v.process_id === processId) || [];
     for (const v of versions) {
@@ -120,7 +120,6 @@ export async function updateProcessMetadataAction(
   data: Partial<Process>,
   dataSource: DataSource = 'mysql'
 ) {
-  // Use getSingleRecord for much better performance
   const res = await getSingleRecord('processes', processId, dataSource);
   const process = res.data;
   if (!process) throw new Error("Prozess nicht gefunden.");
@@ -136,7 +135,6 @@ export async function updateProcessMetadataAction(
 
 /**
  * Wendet Operationen auf eine Prozessversion an.
- * Optimiert durch gezielte Abfrage der spezifischen Version.
  */
 export async function applyProcessOpsAction(
   processId: string,
@@ -146,7 +144,6 @@ export async function applyProcessOpsAction(
   userId: string,
   dataSource: DataSource = 'mysql'
 ) {
-  // Use point-query for performance
   const versionId = `ver-${processId}-${version}`;
   const versionRes = await getSingleRecord('process_versions', versionId, dataSource);
   const currentVersion = versionRes.data;
@@ -285,7 +282,7 @@ export async function applyProcessOpsAction(
 }
 
 /**
- * Erstellt einen Audit-Eintrag basierend auf den strukturellen Änderungen.
+ * Erstellt einen Audit-Eintrag.
  */
 export async function commitProcessVersionAction(
   processId: string,

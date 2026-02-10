@@ -66,6 +66,7 @@ import { usePlatformAuth } from '@/context/auth-context';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,7 +115,7 @@ export default function ResourcesPage() {
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [currentBackupIdx, setCurrentBackupIdx] = useState<number | null>(null);
   const [backupForm, setBackupForm] = useState<Partial<BackupJob>>({
-    name: '', cycle: 'Täglich', storage_location: '', description: '', responsibleRoleId: '', lastReviewDate: ''
+    name: '', cycle: 'Täglich', storage_location: '', description: '', responsibleRoleId: '', lastReviewDate: '', it_process_id: 'none', detail_process_id: 'none'
   });
 
   const [notes, setNotes] = useState('');
@@ -291,7 +292,7 @@ export default function ResourcesPage() {
       setBackupForm(localBackupJobs[idx]);
       setCurrentBackupIdx(idx);
     } else {
-      setBackupForm({ name: '', cycle: 'Täglich', storage_location: '', description: '', responsibleRoleId: '', lastReviewDate: '' });
+      setBackupForm({ name: '', cycle: 'Täglich', storage_location: '', description: '', responsibleRoleId: '', lastReviewDate: '', it_process_id: 'none', detail_process_id: 'none' });
       setCurrentBackupIdx(null);
     }
     setIsBackupModalOpen(true);
@@ -429,7 +430,7 @@ export default function ResourcesPage() {
                     </TableCell>
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white" onClick={() => openEdit(res)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => openEdit(res)}>
                           <Pencil className="w-3.5 h-3.5 text-slate-400" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md" onClick={() => router.push(`/resources/${res.id}`)}>
@@ -478,20 +479,20 @@ export default function ResourcesPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2 md:col-span-2">
                       <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Name der Ressource</Label>
-                      <Input value={name} onChange={e => setName(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white" placeholder="z.B. Microsoft 365, SAP S/4HANA..." />
+                      <Input value={name} onChange={e => setName(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white shadow-sm" placeholder="z.B. Microsoft 365, SAP S/4HANA..." />
                     </div>
                     <div className="space-y-2">
                       <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Asset Typ</Label>
                       <Select value={assetType} onValueChange={(v:any) => setAssetType(v)}>
                         <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                        <SelectContent>{assetTypeOptions?.filter(o => o.enabled).map(o => <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>)}</SelectContent>
+                        <SelectContent className="rounded-xl">{assetTypeOptions?.filter(o => o.enabled).map(o => <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Betriebsmodell</Label>
                       <Select value={operatingModel} onValueChange={(v:any) => setOperatingModel(v)}>
                         <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                        <SelectContent>{operatingModelOptions?.filter(o => o.enabled).map(o => <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>)}</SelectContent>
+                        <SelectContent className="rounded-xl">{operatingModelOptions?.filter(o => o.enabled).map(o => <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   </div>
@@ -504,7 +505,7 @@ export default function ResourcesPage() {
                         <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Kritikalität</Label>
                         <Select value={criticality} onValueChange={(v:any) => setCriticality(v)}>
                           <SelectTrigger className="rounded-xl h-11 bg-slate-50/50"><SelectValue /></SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="rounded-xl">
                             <SelectItem value="low">Niedrig (Low)</SelectItem>
                             <SelectItem value="medium">Mittel (Medium)</SelectItem>
                             <SelectItem value="high">Hoch (High)</SelectItem>
@@ -515,7 +516,7 @@ export default function ResourcesPage() {
                         <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Klassifizierung</Label>
                         <Select value={dataClassification} onValueChange={(v:any) => setDataClassification(v)}>
                           <SelectTrigger className="rounded-xl h-11 bg-slate-50/50"><SelectValue /></SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="rounded-xl">
                             <SelectItem value="public">Öffentlich</SelectItem>
                             <SelectItem value="internal">Intern</SelectItem>
                             <SelectItem value="confidential">Vertraulich</SelectItem>
@@ -526,9 +527,9 @@ export default function ResourcesPage() {
                     </div>
                     <Separator />
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Schutzbedarf: V</Label><Select value={confidentialityReq} onValueChange={(v:any) => setConfidentialityReq(v)}><SelectTrigger className="h-10 rounded-lg"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent></Select></div>
-                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Schutzbedarf: I</Label><Select value={integrityReq} onValueChange={(v:any) => setIntegrityReq(v)}><SelectTrigger className="h-10 rounded-lg"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent></Select></div>
-                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Schutzbedarf: A</Label><Select value={availabilityReq} onValueChange={(v:any) => setAvailabilityReq(v)}><SelectTrigger className="h-10 rounded-lg"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent></Select></div>
+                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Schutzbedarf: V</Label><Select value={confidentialityReq} onValueChange={(v:any) => setConfidentialityReq(v)}><SelectTrigger className="h-10 rounded-lg"><SelectValue /></SelectTrigger><SelectContent className="rounded-xl"><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent></Select></div>
+                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Schutzbedarf: I</Label><Select value={integrityReq} onValueChange={(v:any) => setIntegrityReq(v)}><SelectTrigger className="h-10 rounded-lg"><SelectValue /></SelectTrigger><SelectContent className="rounded-xl"><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent></Select></div>
+                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Schutzbedarf: A</Label><Select value={availabilityReq} onValueChange={(v:any) => setAvailabilityReq(v)}><SelectTrigger className="h-10 rounded-lg"><SelectValue /></SelectTrigger><SelectContent className="rounded-xl"><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent></Select></div>
                     </div>
                   </div>
                 </TabsContent>
@@ -551,20 +552,20 @@ export default function ResourcesPage() {
                       {backupRequired && (
                         <div className="space-y-4">
                           <div className="flex justify-end">
-                            <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold gap-2 border-orange-200 text-orange-700 hover:bg-orange-50" onClick={() => handleOpenBackupModal()}>
+                            <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold gap-2 border-orange-200 text-orange-700 hover:bg-orange-50 shadow-sm" onClick={() => handleOpenBackupModal()}>
                               <PlusCircle className="w-3.5 h-3.5" /> Backup-Job anlegen
                             </Button>
                           </div>
                           
                           <div className="grid grid-cols-1 gap-3">
                             {localBackupJobs.map((job, idx) => (
-                              <div key={idx} className="p-4 bg-slate-50 border rounded-xl flex items-center justify-between group hover:border-orange-300 transition-all">
+                              <div key={idx} className="p-4 bg-slate-50 border rounded-xl flex items-center justify-between group hover:border-orange-300 transition-all shadow-inner">
                                 <div className="flex items-center gap-4">
                                   <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center text-orange-600 shadow-sm border"><HardDrive className="w-4 h-4" /></div>
                                   <div>
                                     <p className="text-sm font-bold text-slate-800">{job.name}</p>
                                     <div className="flex items-center gap-3 mt-0.5">
-                                      <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 uppercase">{job.cycle}</Badge>
+                                      <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 uppercase border-slate-200">{job.cycle}</Badge>
                                       <span className="text-[9px] text-slate-400 font-bold uppercase flex items-center gap-1"><UserCircle className="w-2.5 h-2.5" /> {sortedRoles.find(r => r.id === job.responsibleRoleId)?.name || 'N/A'}</span>
                                     </div>
                                   </div>
@@ -575,7 +576,7 @@ export default function ResourcesPage() {
                                 </div>
                               </div>
                             ))}
-                            {localBackupJobs.length === 0 && <p className="text-center py-8 text-[10px] text-slate-400 italic">Noch keine Backup-Jobs konfiguriert.</p>}
+                            {localBackupJobs.length === 0 && <p className="text-center py-8 text-[10px] text-slate-400 italic font-medium">Noch keine Backup-Jobs konfiguriert.</p>}
                           </div>
                         </div>
                       )}
@@ -598,7 +599,7 @@ export default function ResourcesPage() {
                         <div className="space-y-4">
                           <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">IT-Prozesse verknüpfen (Patching)</Label>
-                            <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
+                            <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2 shadow-inner">
                               <div className="grid grid-cols-1 gap-1">
                                 {itProcesses.map(proc => (
                                   <div 
@@ -638,8 +639,8 @@ export default function ResourcesPage() {
                           <div className="space-y-2 animate-in fade-in">
                             <Label className="text-[9px] font-black uppercase text-slate-400">Interne Rolle</Label>
                             <Select value={systemOwnerRoleId} onValueChange={setSystemOwnerRoleId}>
-                              <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-                              <SelectContent>
+                              <SelectTrigger className="rounded-xl h-11 bg-white shadow-sm"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                              <SelectContent className="rounded-xl">
                                 <SelectItem value="none">Keine</SelectItem>
                                 {sortedRoles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => (
                                   <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>
@@ -648,7 +649,7 @@ export default function ResourcesPage() {
                             </Select>
                           </div>
                         ) : (
-                          <div className="space-y-2 animate-in fade-in"><Label className="text-[9px] font-black uppercase text-slate-400">Externer Partner/Bereich</Label><Select value={externalRefId} onValueChange={setExternalRefId}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger><SelectContent><SelectItem value="none">Keine</SelectItem>{partners?.map(p => <SelectGroup key={p.id}><SelectLabel className="text-[8px] font-black uppercase py-1 bg-slate-50/50">{p.name}</SelectLabel><SelectItem value={`p:${p.id}`}>{p.name} (Zentrale)</SelectItem>{areas?.filter(a => a.partnerId === p.id).map(area => <SelectItem key={area.id} value={`a:${area.id}`} className="pl-6">{area.name}</SelectItem>)}</SelectGroup>)}</SelectContent></Select></div>
+                          <div className="space-y-2 animate-in fade-in"><Label className="text-[9px] font-black uppercase text-slate-400">Externer Partner/Bereich</Label><Select value={externalRefId} onValueChange={setExternalRefId}><SelectTrigger className="rounded-xl h-11 bg-white shadow-sm"><SelectValue placeholder="Wählen..." /></SelectTrigger><SelectContent className="rounded-xl"><SelectItem value="none">Keine</SelectItem>{partners?.map(p => <SelectGroup key={p.id}><SelectLabel className="text-[8px] font-black uppercase py-1 bg-slate-50/50">{p.name}</SelectLabel><SelectItem value={`p:${p.id}`}>{p.name} (Zentrale)</SelectItem>{areas?.filter(a => a.partnerId === p.id).map(area => <SelectItem key={area.id} value={`a:${area.id}`} className="pl-6">{area.name}</SelectItem>)}</SelectGroup>)}</SelectContent></Select></div>
                         )}
                       </div>
                     </div>
@@ -657,11 +658,13 @@ export default function ResourcesPage() {
                       <div className="space-y-4">
                         <Label className="text-[9px] font-black uppercase text-slate-400">Anmeldung über</Label>
                         <Select value={identityProviderId} onValueChange={setIdentityProviderId}>
-                          <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="IdP wählen..." /></SelectTrigger>
-                          <SelectContent>
+                          <SelectTrigger className="rounded-xl h-11 bg-white shadow-sm"><SelectValue placeholder="IdP wählen..." /></SelectTrigger>
+                          <SelectContent className="rounded-xl">
                             <SelectItem value="none">Direkt / Lokal</SelectItem>
                             <SelectItem value="self">Dieses System (LDAP/Local)</SelectItem>
-                            {resources.filter(r => r.isIdentityProvider && r.id !== selectedResource?.id).map(idp => <SelectItem key={idp.id} value={idp.id}>{idp.name}</SelectItem>)}
+                            {resources?.filter(r => !!r.isIdentityProvider && r.id !== selectedResource?.id).map(idp => (
+                              <SelectItem key={idp.id} value={idp.id}>{idp.name}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -671,8 +674,8 @@ export default function ResourcesPage() {
               </div>
             </ScrollArea>
             <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] h-11 uppercase">Abbrechen</Button>
-              <Button size="sm" onClick={handleSave} disabled={isSaving} className="rounded-xl h-11 px-12 bg-primary hover:bg-primary/90 text-white font-bold text-[10px] uppercase shadow-lg gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] h-11 uppercase tracking-widest transition-all">Abbrechen</Button>
+              <Button size="sm" onClick={handleSave} disabled={isSaving} className="rounded-xl h-11 px-12 bg-primary hover:bg-primary/90 text-white font-bold text-[10px] uppercase shadow-lg gap-2 active:scale-95 transition-all">
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern
               </Button>
             </DialogFooter>
@@ -682,59 +685,59 @@ export default function ResourcesPage() {
 
       {/* Backup Job Modal */}
       <Dialog open={isBackupModalOpen} onOpenChange={setIsBackupModalOpen}>
-        <DialogContent className="max-w-xl rounded-2xl border-none shadow-2xl p-0 overflow-hidden">
+        <DialogContent className="max-w-xl rounded-2xl border-none shadow-2xl p-0 overflow-hidden bg-white">
           <DialogHeader className="p-6 bg-orange-600 text-white shrink-0">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center border border-white/10"><HardDrive className="w-5 h-5" /></div>
+              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center border border-white/10 shadow-lg"><HardDrive className="w-5 h-5" /></div>
               <DialogTitle className="text-base font-headline font-bold uppercase tracking-tight">{currentBackupIdx !== null ? 'Backup-Job bearbeiten' : 'Neuer Backup-Job'}</DialogTitle>
             </div>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
+          <ScrollArea className="max-h-[60vh] bg-white">
             <div className="p-6 space-y-6">
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Name des Sicherungs-Jobs</Label>
-                <Input value={backupForm.name} onChange={e => setBackupForm({...backupForm, name: e.target.value})} placeholder="z.B. Tägliche SQL-Sicherung" className="h-11 rounded-xl font-bold" />
+                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Name des Sicherungs-Jobs</Label>
+                <Input value={backupForm.name} onChange={e => setBackupForm({...backupForm, name: e.target.value})} placeholder="z.B. Tägliche SQL-Sicherung" className="h-11 rounded-xl font-bold border-slate-200" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400">Zyklus</Label>
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Zyklus</Label>
                   <Select value={backupForm.cycle} onValueChange={(v:any) => setBackupForm({...backupForm, cycle: v})}>
                     <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-xl">
                       {['Täglich', 'Wöchentlich', 'Monatlich', 'Manuell'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400">Speicherort</Label>
-                  <Input value={backupForm.storage_location} onChange={e => setBackupForm({...backupForm, storage_location: e.target.value})} placeholder="/backup/prod/..." className="h-11 rounded-xl font-mono text-xs" />
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Speicherort</Label>
+                  <Input value={backupForm.storage_location} onChange={e => setBackupForm({...backupForm, storage_location: e.target.value})} placeholder="/backup/prod/..." className="h-11 rounded-xl font-mono text-xs border-slate-200" />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortlicher (Rolle)</Label>
+                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verantwortlicher (Rolle)</Label>
                 <Select value={backupForm.responsibleRoleId} onValueChange={v => setBackupForm({...backupForm, responsibleRoleId: v})}>
                   <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-xl">
                     {sortedRoles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400">IT-Prozess (Leitfaden)</Label>
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">IT-Prozess (Leitfaden)</Label>
                   <Select value={backupForm.it_process_id || 'none'} onValueChange={v => setBackupForm({...backupForm, it_process_id: v})}>
                     <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Keiner" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-xl">
                       <SelectItem value="none">Kein Bezug</SelectItem>
                       {itProcesses.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400">Detailprozess</Label>
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Detailprozess</Label>
                   <Select value={backupForm.detail_process_id || 'none'} onValueChange={v => setBackupForm({...backupForm, detail_process_id: v})}>
                     <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Keiner" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-xl">
                       <SelectItem value="none">Kein Bezug</SelectItem>
                       {detailProcesses.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
                     </SelectContent>
@@ -742,18 +745,18 @@ export default function ResourcesPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Letztes Review</Label>
-                <Input type="date" value={backupForm.lastReviewDate} onChange={e => setBackupForm({...backupForm, lastReviewDate: e.target.value})} className="h-11 rounded-xl" />
+                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Letztes Review</Label>
+                <Input type="date" value={backupForm.lastReviewDate} onChange={e => setBackupForm({...backupForm, lastReviewDate: e.target.value})} className="h-11 rounded-xl border-slate-200" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Beschreibung</Label>
-                <Textarea value={backupForm.description} onChange={e => setBackupForm({...backupForm, description: e.target.value})} className="min-h-[80px] rounded-xl text-xs" />
+                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Beschreibung</Label>
+                <Textarea value={backupForm.description} onChange={e => setBackupForm({...backupForm, description: e.target.value})} className="min-h-[80px] rounded-xl text-xs bg-slate-50/50 p-3 border-slate-200 shadow-inner" placeholder="Details zum Sicherungsverfahren..." />
               </div>
             </div>
           </ScrollArea>
           <DialogFooter className="p-4 bg-slate-50 border-t flex gap-2">
-            <Button variant="ghost" onClick={() => setIsBackupModalOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
-            <Button onClick={saveBackupForm} className="rounded-xl h-11 px-8 bg-orange-600 hover:bg-orange-700 text-white font-bold text-[10px] uppercase shadow-lg">Job Speichern</Button>
+            <Button variant="ghost" onClick={() => setIsBackupModalOpen(false)} className="rounded-xl font-bold text-[10px] h-11 uppercase tracking-widest">Abbrechen</Button>
+            <Button onClick={saveBackupForm} className="rounded-xl h-11 px-12 bg-orange-600 hover:bg-orange-700 text-white font-bold text-[10px] uppercase shadow-lg shadow-orange-200 active:scale-95 transition-all">Job Speichern</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -106,7 +106,7 @@ export default function ProcessTypesPage() {
                 <Label className="text-[10px] font-black uppercase text-slate-400">Beschreibung</Label>
                 <Textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} className="min-h-[80px] rounded-lg" />
               </div>
-              <Button onClick={handleAddType} disabled={isSaving || !newName} className="w-full h-11 rounded-lg font-black uppercase text-[10px] tracking-widest gap-2 bg-primary text-white shadow-lg">
+              <Button onClick={handleAddType} disabled={isSaving || !newName} className="w-full h-11 rounded-lg font-black uppercase text-[10px] tracking-widest gap-2 bg-primary text-white shadow-lg shadow-primary/20">
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Hinzufügen
               </Button>
             </CardContent>
@@ -116,7 +116,7 @@ export default function ProcessTypesPage() {
         <div className="md:col-span-2 space-y-4">
           <div className="relative group max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
-            <Input placeholder="Typen filtern..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-10 rounded-lg border-slate-200 bg-white" />
+            <Input placeholder="Typen filtern..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-10 rounded-lg border-slate-200 bg-white shadow-sm" />
           </div>
 
           <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">

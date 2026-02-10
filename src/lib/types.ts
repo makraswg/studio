@@ -216,6 +216,7 @@ export interface Process {
   regulatoryFramework?: string; 
   status: 'draft' | 'published' | 'archived';
   ownerUserId?: string;
+  ownerRoleId?: string;
   currentVersion: number;
   publishedVersion?: number;
   automationLevel?: 'manual' | 'partial' | 'full';
@@ -584,4 +585,36 @@ export interface BookStackConfig {
 export interface Document {
   id: string;
   [key: string]: any;
+}
+
+export interface Entitlement {
+  id: string;
+  resourceId: string;
+  parentId?: string;
+  name: string;
+  description?: string;
+  riskLevel: 'low' | 'medium' | 'high';
+  isAdmin: boolean | number;
+  isSharedAccount?: boolean | number;
+  tenantId: string;
+  externalMapping?: string;
+}
+
+export interface Assignment {
+  id: string;
+  userId: string;
+  entitlementId: string;
+  originGroupId?: string;
+  status: 'requested' | 'active' | 'removed' | 'pending_removal';
+  grantedBy: string;
+  grantedAt: string;
+  validFrom: string;
+  validUntil: string;
+  ticketRef?: string;
+  jiraIssueKey?: string;
+  notes?: string;
+  lastReviewedAt?: string;
+  reviewedBy?: string;
+  tenantId: string;
+  syncSource?: 'manual' | 'group' | 'blueprint' | 'ldap';
 }

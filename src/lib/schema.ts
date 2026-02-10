@@ -232,6 +232,7 @@ export const appSchema: AppSchema = {
       regulatoryFramework: 'TEXT', 
       status: 'VARCHAR(50) DEFAULT "draft"',
       ownerUserId: 'VARCHAR(255)',
+      ownerRoleId: 'VARCHAR(255)',
       currentVersion: 'INT DEFAULT 1',
       publishedVersion: 'INT',
       automationLevel: 'VARCHAR(50)',

@@ -134,7 +134,7 @@ export default function BackupRestoreSettingsPage() {
           </div>
           <div className="flex gap-3">
             <Select value={cycleFilter} onValueChange={setCycleFilter}>
-              <SelectTrigger className="h-11 w-40 rounded-xl bg-white border-slate-200 text-xs font-bold uppercase tracking-widest">
+              <SelectTrigger className="h-11 w-40 rounded-xl bg-white border-slate-200 text-xs font-bold uppercase tracking-widest shadow-sm">
                 <Filter className="w-3.5 h-3.5 mr-2 text-slate-400" />
                 <SelectValue placeholder="Zyklus" />
               </SelectTrigger>

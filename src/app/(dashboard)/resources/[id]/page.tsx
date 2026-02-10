@@ -55,7 +55,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Process, ProcessVersion, ProcessNode, Risk, RiskMeasure, ProcessingActivity, Feature, JobTitle, ServicePartner, ServicePartnerContact, ServicePartnerArea, Department, Entitlement, BackupJob, ResourceUpdateProcess } from '@/lib/types';
+import { 
+  Resource, Process, ProcessVersion, ProcessNode, Risk, RiskMeasure, ProcessingActivity, Feature, JobTitle, ServicePartner, ServicePartnerContact, ServicePartnerArea, Department, Entitlement, BackupJob, ResourceUpdateProcess 
+} from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
@@ -71,6 +73,7 @@ export default function ResourceDetailPage() {
 
   const { data: resources, isLoading: isResLoading } = usePluggableCollection<Resource>('resources');
   const { data: processes } = usePluggableCollection<Process>('processes');
+  const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: backupJobs } = usePluggableCollection<BackupJob>('backup_jobs');
@@ -80,6 +83,8 @@ export default function ResourceDetailPage() {
   const { data: contacts } = usePluggableCollection<ServicePartnerContact>('servicePartnerContacts');
   const { data: areas } = usePluggableCollection<ServicePartnerArea>('servicePartnerAreas');
   const { data: departments } = usePluggableCollection<Department>('departments');
+  const { data: features } = usePluggableCollection<Feature>('features');
+  const { data: featureLinks } = usePluggableCollection<any>('feature_process_steps');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -93,6 +98,70 @@ export default function ResourceDetailPage() {
 
   const resourceRisks = useMemo(() => risks?.filter(r => r.assetId === id) || [], [risks, id]);
   
+  // --- INHERITANCE LOGIC (DATA & GDPR) ---
+  const inheritedData = useMemo(() => {
+    if (!resource || !versions || !featureLinks || !features) return null;
+
+    // 1. Find all processes using this resource
+    const usedInProcessIds = new Set<string>();
+    versions.forEach(v => {
+      const nodes = v.model_json?.nodes || [];
+      if (nodes.some(n => n.resourceIds?.includes(resource.id))) {
+        usedInProcessIds.add(v.process_id);
+      }
+    });
+
+    // 2. Find all features linked to these processes
+    const linkedFeatureIds = new Set<string>();
+    featureLinks.forEach((link: any) => {
+      if (usedInProcessIds.has(link.processId)) {
+        linkedFeatureIds.add(link.featureId);
+      }
+    });
+
+    const linkedFeatures = Array.from(linkedFeatureIds).map(fid => features.find(f => f.id === fid)).filter(Boolean) as Feature[];
+
+    if (linkedFeatures.length === 0) return null;
+
+    // 3. Aggregate values
+    const hasPersonalData = linkedFeatures.some(f => !!f.hasPersonalData);
+    
+    const classificationOrder = { strictly_confidential: 4, confidential: 3, internal: 2, public: 1 };
+    let maxClass: Resource['dataClassification'] = 'internal';
+    let maxVal = 0;
+    linkedFeatures.forEach(f => {
+      const v = classificationOrder[f.dataClassification as keyof typeof classificationOrder] || 0;
+      if (v > maxVal) {
+        maxVal = v;
+        maxClass = f.dataClassification as any;
+      }
+    });
+
+    const reqOrder = { high: 3, medium: 2, low: 1 };
+    const getReq = (prop: 'confidentialityReq' | 'integrityReq' | 'availabilityReq') => {
+      let maxReq: 'low' | 'medium' | 'high' = 'low';
+      let maxV = 0;
+      linkedFeatures.forEach(f => {
+        const val = reqOrder[f[prop] as keyof typeof reqOrder] || 0;
+        if (val > maxV) {
+          maxV = val;
+          maxReq = f[prop] as any;
+        }
+      });
+      return maxReq;
+    };
+
+    return {
+      hasPersonalData,
+      dataClassification: maxClass,
+      confidentialityReq: getReq('confidentialityReq'),
+      integrityReq: getReq('integrityReq'),
+      availabilityReq: getReq('availabilityReq'),
+      featureCount: linkedFeatures.length,
+      processCount: usedInProcessIds.size
+    };
+  }, [resource, versions, featureLinks, features]);
+
   const inheritedCriticality = useMemo(() => {
     if (resourceRisks.length === 0) return 'low';
     const maxScore = Math.max(...resourceRisks.map(r => r.impact * r.probability));
@@ -134,6 +203,12 @@ export default function ResourceDetailPage() {
     );
   }
 
+  const finalGDPR = inheritedData ? inheritedData.hasPersonalData : !!resource.hasPersonalData;
+  const finalClass = inheritedData ? inheritedData.dataClassification : resource.dataClassification;
+  const finalC = inheritedData ? inheritedData.confidentialityReq : resource.confidentialityReq;
+  const finalI = inheritedData ? inheritedData.integrityReq : resource.integrityReq;
+  const finalA = inheritedData ? inheritedData.availabilityReq : resource.availabilityReq;
+
   return (
     <div className="space-y-6 pb-20">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
@@ -174,23 +249,26 @@ export default function ResourceDetailPage() {
               </div>
               
               <div className="space-y-4 pt-4">
-                <div className="space-y-1">
+                <div className="flex items-center justify-between">
                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Daten-Klassifizierung</p>
-                  <Badge variant="outline" className="text-[10px] font-bold uppercase">{resource.dataClassification || 'internal'}</Badge>
+                  {inheritedData && <Badge className="bg-blue-50 text-blue-600 border-none text-[7px] font-black h-4 uppercase">Geerbt</Badge>}
                 </div>
+                <Badge variant="outline" className={cn("text-[10px] font-bold uppercase", inheritedData ? "border-blue-200 text-blue-700 bg-blue-50/30" : "")}>
+                  {finalClass || 'internal'}
+                </Badge>
                 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="flex flex-col items-center p-2 bg-slate-50 rounded-lg">
                     <span className="text-[7px] font-black text-slate-400 uppercase">C</span>
-                    <span className="text-[9px] font-bold">{resource.confidentialityReq?.charAt(0).toUpperCase()}</span>
+                    <span className="text-[9px] font-bold">{String(finalC)?.charAt(0).toUpperCase()}</span>
                   </div>
                   <div className="flex flex-col items-center p-2 bg-slate-50 rounded-lg">
                     <span className="text-[7px] font-black text-slate-400 uppercase">I</span>
-                    <span className="text-[9px] font-bold">{resource.integrityReq?.charAt(0).toUpperCase()}</span>
+                    <span className="text-[9px] font-bold">{String(finalI)?.charAt(0).toUpperCase()}</span>
                   </div>
                   <div className="flex flex-col items-center p-2 bg-slate-50 rounded-lg">
                     <span className="text-[7px] font-black text-slate-400 uppercase">A</span>
-                    <span className="text-[9px] font-bold">{resource.availabilityReq?.charAt(0).toUpperCase()}</span>
+                    <span className="text-[9px] font-bold">{String(finalA)?.charAt(0).toUpperCase()}</span>
                   </div>
                 </div>
               </div>
@@ -199,37 +277,30 @@ export default function ResourceDetailPage() {
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center text-[10px] font-bold">
-                  <span className="text-slate-400 uppercase">BACKUP STATUS</span>
-                  <Badge variant={resource.backupRequired ? 'default' : 'outline'} className={cn("h-4 px-1.5 text-[7px] font-black", resource.backupRequired ? "bg-orange-100 text-orange-700 border-none" : "text-slate-300")}>{resource.backupRequired ? 'AKTIV' : 'N/A'}</Badge>
+                  <span className="text-slate-400 uppercase">DSGVO STATUS</span>
+                  <Badge variant={finalGDPR ? 'default' : 'outline'} className={cn("h-4 px-1.5 text-[7px] font-black", finalGDPR ? "bg-emerald-100 text-emerald-700 border-none" : "text-slate-300")}>
+                    {finalGDPR ? 'PERSONENBEZUG' : 'KEIN PB'}
+                  </Badge>
                 </div>
                 <div className="flex justify-between items-center text-[10px] font-bold">
-                  <span className="text-slate-400 uppercase">PATCH MONITOR</span>
-                  <Badge variant={resource.updatesRequired ? 'default' : 'outline'} className={cn("h-4 px-1.5 text-[7px] font-black", resource.updatesRequired ? "bg-blue-100 text-blue-700 border-none" : "text-slate-300")}>{resource.updatesRequired ? 'AKTIV' : 'N/A'}</Badge>
+                  <span className="text-slate-400 uppercase">BACKUP STATUS</span>
+                  <Badge variant={resource.backupRequired ? 'default' : 'outline'} className={cn("h-4 px-1.5 text-[7px] font-black", resource.backupRequired ? "bg-orange-100 text-orange-700 border-none" : "text-slate-300")}>{resource.backupRequired ? 'AKTIV' : 'N/A'}</Badge>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-            <CardHeader className="bg-slate-50/50 border-b p-4 px-6 flex flex-row items-center justify-between">
-              <CardTitle className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Schnittstellen</CardTitle>
-              <Activity className="w-3.5 h-3.5 text-slate-400" />
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
+          {inheritedData && (
+            <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-2xl flex items-start gap-3 shadow-sm">
+              <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <p className="text-[9px] font-black uppercase text-slate-400">Identity Provider</p>
-                <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
-                  <KeyRound className="w-3.5 h-3.5 text-primary" /> {resource.isIdentityProvider ? 'Eigenständig' : (resources?.find(r => r.id === resource.identityProviderId)?.name || 'Kein Login')}
-                </div>
+                <p className="text-[10px] font-black text-blue-900 uppercase">Vererbte Governance</p>
+                <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
+                  Schutzbedarf und Personenbezug werden automatisch aus {inheritedData.featureCount} Datenobjekten in {inheritedData.processCount} Prozessen abgeleitet.
+                </p>
               </div>
-              <div className="space-y-1">
-                <p className="text-[9px] font-black uppercase text-slate-400">Technischer Standort</p>
-                <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400" /> {resource.dataLocation || '---'}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
         </aside>
 
         <div className="lg:col-span-3">
@@ -290,21 +361,19 @@ export default function ResourceDetailPage() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="p-6 space-y-6">
-                    <div className="space-y-4">
-                      <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-primary shadow-sm"><UserCircle className="w-6 h-6" /></div>
-                        <div className="min-w-0">
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">System Owner</p>
-                          <p className="text-sm font-bold text-slate-800 truncate">{internalOwner?.name || 'Nicht zugewiesen'}</p>
-                        </div>
+                  <CardContent className="p-6 space-y-4">
+                    <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-primary shadow-sm"><UserCircle className="w-6 h-6" /></div>
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">System Owner</p>
+                        <p className="text-sm font-bold text-slate-800 truncate">{internalOwner?.name || 'Nicht zugewiesen'}</p>
                       </div>
-                      <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-accent shadow-sm"><ShieldAlert className="w-6 h-6" /></div>
-                        <div className="min-w-0">
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Risk Owner</p>
-                          <p className="text-sm font-bold text-slate-800 truncate">{internalRiskOwner?.name || 'Nicht zugewiesen'}</p>
-                        </div>
+                    </div>
+                    <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-accent shadow-sm"><ShieldAlert className="w-6 h-6" /></div>
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Risk Owner</p>
+                        <p className="text-sm font-bold text-slate-800 truncate">{internalRiskOwner?.name || 'Nicht zugewiesen'}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -323,28 +392,26 @@ export default function ResourceDetailPage() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="p-6 space-y-6">
-                    <div className="space-y-4">
-                      <div className="p-4 bg-indigo-50/30 border border-indigo-100 rounded-2xl space-y-1">
-                        <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Service Partner</p>
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-bold text-indigo-900">{externalPartner?.name || 'Kein Partner'}</p>
-                          {externalPartner?.website && <a href={externalPartner.website} target="_blank" className="text-indigo-400 hover:text-indigo-600"><ExternalLink className="w-3.5 h-3.5" /></a>}
+                  <CardContent className="p-6 space-y-4">
+                    <div className="p-4 bg-indigo-50/30 border border-indigo-100 rounded-2xl space-y-1">
+                      <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Service Partner</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-indigo-900">{externalPartner?.name || 'Kein Partner'}</p>
+                        {externalPartner?.website && <a href={externalPartner.website} target="_blank" className="text-indigo-400 hover:text-indigo-600"><ExternalLink className="w-3.5 h-3.5" /></a>}
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 gap-2">
+                      <div className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
+                        <UserIcon className="w-4 h-4 text-slate-400" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold text-slate-800">{externalContact?.name || 'Kein Kontakt'}</p>
+                          <p className="text-[9px] text-slate-400 truncate">{externalContact?.email}</p>
                         </div>
                       </div>
-                      
-                      <div className="grid grid-cols-1 gap-2">
-                        <div className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
-                          <UserIcon className="w-4 h-4 text-slate-400" />
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-bold text-slate-800">{externalContact?.name || 'Kein Kontakt'}</p>
-                            <p className="text-[9px] text-slate-400 truncate">{externalContact?.email}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
-                          <Briefcase className="w-4 h-4 text-slate-400" />
-                          <p className="text-[10px] font-bold text-slate-800">{externalArea?.name || 'Kein Fachbereich'}</p>
-                        </div>
+                      <div className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
+                        <Briefcase className="w-4 h-4 text-slate-400" />
+                        <p className="text-[10px] font-bold text-slate-800">{externalArea?.name || 'Kein Fachbereich'}</p>
                       </div>
                     </div>
                   </CardContent>

@@ -148,6 +148,7 @@ export default function UnifiedOrganizationPage() {
 
   // Deletion State
   const [deleteTarget, setDeleteTarget] = useState<{ id: string, type: 'tenants' | 'departments' | 'jobTitles', label: string } | null>(null);
+  const [deleteErrors, setDeleteErrors] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: tenants, refresh: refreshTenants, isLoading: tenantsLoading, error: tenantsError } = usePluggableCollection<Tenant>('tenants');
@@ -157,6 +158,8 @@ export default function UnifiedOrganizationPage() {
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
+  const { data: users } = usePluggableCollection<any>('users');
+  const { data: bundles } = usePluggableCollection<any>('bundles');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -279,8 +282,35 @@ export default function UnifiedOrganizationPage() {
     }
   };
 
+  const getBlockingRelations = (target: { id: string, type: string, label: string }) => {
+    const errors: string[] = [];
+    if (target.type === 'tenants') {
+      const hasDepts = departments?.some(d => d.tenantId === target.id);
+      if (hasDepts) errors.push("Mandant enthält noch aktive Abteilungen.");
+    } else if (target.type === 'departments') {
+      const hasJobs = jobTitles?.some(j => j.departmentId === target.id);
+      if (hasJobs) errors.push("Abteilung enthält noch aktive Stellenprofile.");
+    } else if (target.type === 'jobTitles') {
+      const hasUsers = users?.some((u: any) => u.title === target.label && u.tenantId === activeTenantId);
+      if (hasUsers) errors.push("Es sind noch Mitarbeiter mit diesem Profil verknüpft.");
+      const isOwner = processes?.some((p: any) => p.ownerRoleId === target.id);
+      if (isOwner) errors.push("Profil ist als Verantwortlicher (Owner) in Prozessen eingetragen.");
+      const isUsedInNodes = versions?.some((v: any) => v.model_json?.nodes?.some((n: any) => n.roleId === target.id));
+      if (isUsedInNodes) errors.push("Profil wird aktiv in Prozess-Schritten verwendet.");
+      const isInBundle = bundles?.some((b: any) => b.entitlementIds?.includes(target.id));
+      if (isInBundle) errors.push("Profil ist Bestandteil eines Rollenpakets.");
+    }
+    return errors;
+  };
+
+  const handleDeleteClick = (target: { id: string, type: 'tenants' | 'departments' | 'jobTitles', label: string }) => {
+    const errors = getBlockingRelations(target);
+    setDeleteErrors(errors);
+    setDeleteTarget(target);
+  };
+
   const executeDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || deleteErrors.length > 0) return;
     setIsDeleting(true);
     const res = await deleteCollectionRecord(deleteTarget.type, deleteTarget.id, dataSource);
     if (res.success) {
@@ -309,7 +339,7 @@ export default function UnifiedOrganizationPage() {
     if (res.success) {
       setIsEditorOpen(false);
       refreshJobs();
-      toast({ title: "Rollenprofil (Blueprint) gespeichert" });
+      toast({ title: "Stellenprofil gespeichert" });
     }
     setIsSavingJob(false);
   };
@@ -349,7 +379,7 @@ export default function UnifiedOrganizationPage() {
         <div>
           <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">Organisationsstruktur</Badge>
           <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Mandanten &amp; Rollenplan</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung der Standorte, Abteilungen und Rollen-Blueprints.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung der Standorte, Abteilungen und Stellenprofile.</p>
         </div>
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1 h-10 rounded-xl border gap-1">
           <button className={cn("px-4 rounded-lg text-[10px] font-bold uppercase transition-all", activeTab === 'list' ? "bg-white dark:bg-slate-700 shadow-sm text-primary" : "text-slate-500 hover:text-slate-700")} onClick={() => setActiveTab('list')}>Liste</button>
@@ -362,7 +392,7 @@ export default function UnifiedOrganizationPage() {
           <div className="flex items-center justify-between">
             <div className="relative group max-w-md flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-              <Input placeholder="Suchen..." className="pl-9 h-10 rounded-md border-slate-200 bg-white" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input placeholder="Suchen..." className="pl-9 h-10 rounded-md border-slate-200 bg-white shadow-sm" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => setShowArchived(!showArchived)} className={cn("h-9 font-bold text-[10px] uppercase", showArchived && "bg-orange-50 text-orange-600")}>{showArchived ? 'Aktive' : 'Archiv'}</Button>
@@ -408,7 +438,12 @@ export default function UnifiedOrganizationPage() {
                     <Button size="sm" variant="ghost" className="h-8 text-[10px] font-black uppercase hover:bg-primary/5 gap-1.5" onClick={() => setActiveAddParent({ id: tenant.id, type: 'tenant' })}>
                       <PlusCircle className="w-3.5 h-3.5 text-primary" /> Abteilung
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400" onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}><Archive className="w-3.5 h-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className={cn("h-8 w-8", tenant.status === 'archived' ? "text-emerald-600" : "text-slate-400")} onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}>
+                      {tenant.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                    </Button>
+                    {tenant.status === 'archived' && isSuperAdmin && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => handleDeleteClick({ id: tenant.id, type: 'tenants', label: tenant.name })}><Trash2 className="w-3.5 h-3.5" /></Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -419,7 +454,12 @@ export default function UnifiedOrganizationPage() {
                           <div className="flex items-center gap-3"><Layers className="w-4 h-4 text-emerald-600" /><h4 className="text-xs font-bold">{dept.name}</h4></div>
                           <div className="flex items-center gap-2 opacity-0 group-hover/dept:opacity-100">
                             <Button variant="ghost" size="sm" className="h-7 text-[10px] font-black uppercase text-emerald-600 hover:bg-emerald-50 gap-1" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}><Plus className="w-3.5 h-3.5" /> Rolle</Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300" onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}><Archive className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className={cn("h-7 w-7", dept.status === 'archived' ? "text-emerald-600" : "text-slate-300")} onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}>
+                              {dept.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                            </Button>
+                            {dept.status === 'archived' && isSuperAdmin && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => handleDeleteClick({ id: dept.id, type: 'departments', label: dept.name })}><Trash2 className="w-3.5 h-3.5" /></Button>
+                            )}
                           </div>
                         </div>
                         <div className="bg-slate-50/30 px-8 pb-4">
@@ -452,7 +492,15 @@ export default function UnifiedOrganizationPage() {
                                       </div>
                                     </div>
                                   </div>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover/job:opacity-100 shrink-0" onClick={(e) => { e.stopPropagation(); openJobEditor(job); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                                  <div className="flex gap-1 opacity-0 group-hover/job:opacity-100 shrink-0">
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openJobEditor(job); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                                    <Button variant="ghost" size="icon" className={cn("h-6 w-6", job.status === 'archived' ? "text-emerald-600" : "text-slate-300")} onClick={(e) => { e.stopPropagation(); handleStatusChange('jobTitles', job, job.status === 'active' ? 'archived' : 'active'); }}>
+                                      {job.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                                    </Button>
+                                    {job.status === 'archived' && isSuperAdmin && (
+                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-red-600" onClick={(e) => { e.stopPropagation(); handleDeleteClick({ id: job.id, type: 'jobTitles', label: job.name }) }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })}
@@ -537,7 +585,7 @@ export default function UnifiedOrganizationPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Blueprint Editor Dialog */}
+      {/* Profile Editor Dialog */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">
@@ -547,7 +595,7 @@ export default function UnifiedOrganizationPage() {
                   <Briefcase className="w-6 h-6" />
                 </div>
                 <div className="min-w-0">
-                  <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight truncate">Blueprint: {jobName}</DialogTitle>
+                  <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight truncate">Stellenprofil: {jobName}</DialogTitle>
                   <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Standard-Rollen für dieses Profil</DialogDescription>
                 </div>
               </div>
@@ -562,7 +610,7 @@ export default function UnifiedOrganizationPage() {
                   <Input value={jobName} onChange={e => setJobName(e.target.value)} className="h-11 rounded-xl font-bold border-slate-200 bg-white" />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Beschreibung</Label>
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Stellenbeschreibung</Label>
                   <Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[100px] rounded-xl text-xs bg-white" />
                 </div>
               </div>
@@ -571,9 +619,9 @@ export default function UnifiedOrganizationPage() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
                     <Label className="text-[11px] font-bold text-primary flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4" /> Blueprint Rollen ({jobEntitlementIds.length} gewählt)
+                      <ShieldCheck className="w-4 h-4" /> Enthaltene Berechtigungen ({jobEntitlementIds.length} gewählt)
                     </Label>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Standard-Berechtigungen für diese Stelle.</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Standard-Zugriffe für diese Stelle.</p>
                   </div>
                   <div className="relative group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
@@ -610,7 +658,7 @@ export default function UnifiedOrganizationPage() {
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
             <Button variant="ghost" onClick={() => setIsEditorOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
             <Button onClick={saveJobEdits} disabled={isSavingJob} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2">
-              {isSavingJob ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Blueprint sichern
+              {isSavingJob ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -625,20 +673,34 @@ export default function UnifiedOrganizationPage() {
             </div>
             <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center">Permanent löschen?</AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">
-              Möchten Sie <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? 
-              <br/><br/>
-              <span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden.
+              {deleteErrors.length > 0 ? (
+                <div className="text-left space-y-4">
+                  <p className="font-bold text-red-600">Löschen nicht möglich. Folgende Abhängigkeiten bestehen:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    {deleteErrors.map((err, i) => <li key={i}>{err}</li>)}
+                  </ul>
+                  <p className="text-[10px] italic text-slate-400 pt-2">Hinweis: Bitte entfernen oder verschieben Sie zuerst diese Verknüpfungen.</p>
+                </div>
+              ) : (
+                <>
+                  Möchten Sie <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? 
+                  <br/><br/>
+                  <span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
             <AlertDialogCancel className="rounded-xl font-bold text-xs h-11 px-8 border-slate-200">Abbrechen</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={executeDelete} 
-              disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs h-11 px-10 gap-2 shadow-lg shadow-red-200"
-            >
-              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Permanent löschen
-            </AlertDialogAction>
+            {deleteErrors.length === 0 && (
+              <AlertDialogAction 
+                onClick={executeDelete} 
+                disabled={isDeleting}
+                className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs h-11 px-10 gap-2 shadow-lg shadow-red-200"
+              >
+                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Permanent löschen
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

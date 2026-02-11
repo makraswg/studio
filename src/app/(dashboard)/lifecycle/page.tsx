@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -200,7 +201,7 @@ export default function LifecyclePage() {
         await logAuditEventAction(dataSource, {
           tenantId: targetTenantId,
           actorUid: user?.email || 'system',
-          action: selectedBundle ? `Onboarding-Paket aktualisiert: ${bundleName}` : `Onboarding-Paket erstellt: ${bundleName}`,
+          action: selectedBundle ? `Profilpaket aktualisiert: ${bundleName}` : `Profilpaket erstellt: ${bundleName}`,
           entityType: 'bundle',
           entityId: bundleId,
           after: bundleData
@@ -241,7 +242,7 @@ export default function LifecyclePage() {
         await logAuditEventAction(dataSource, {
           tenantId: 'global',
           actorUid: user?.email || 'system',
-          action: `Onboarding-Paket permanent gelöscht: ${deleteTarget.label}`,
+          action: `Profilpaket permanent gelöscht: ${deleteTarget.label}`,
           entityType: 'bundle',
           entityId: deleteTarget.id
         });
@@ -308,8 +309,8 @@ export default function LifecyclePage() {
       jiraDescription += `- Rollenprofil: ${job?.name || 'Keine Angabe'}\n\n`;
       
       jiraDescription += `GEWÄHLTE PROFILE:\n`;
-      if (bundle) jiraDescription += `- Paket: ${bundle.name}\n`;
-      if (job) jiraDescription += `- Blueprint: ${job.name}\n`;
+      if (bundle) jiraDescription += `- Zusatzpaket: ${bundle.name}\n`;
+      if (job) jiraDescription += `- Stellenprofil (Basis): ${job.name}\n`;
       jiraDescription += `\nBENÖTIGTE BERECHTIGUNGEN (${entitlementList.length}):\n`;
 
       for (const eid of entitlementList) {
@@ -401,7 +402,7 @@ export default function LifecyclePage() {
           <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs gap-2" onClick={() => { 
             setSelectedBundle(null); setBundleName(''); setBundleDesc(''); setSelectedEntitlementIds([]); setIsBundleCreateOpen(true); 
           }}>
-            <Package className="w-3.5 h-3.5" /> Paket definieren
+            <Package className="w-3.5 h-3.5" /> Erweiterungs-Paket
           </Button>
         </div>
       </div>
@@ -415,7 +416,7 @@ export default function LifecyclePage() {
             <UserMinus className="w-3.5 h-3.5 mr-2" /> Offboarding
           </TabsTrigger>
           <TabsTrigger value="bundles" className="px-6 text-[11px] font-bold rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm">
-            <Package className="w-3.5 h-3.5 mr-2" /> Rollenpakete
+            <Package className="w-3.5 h-3.5 mr-2" /> Zusatz-Profile
           </TabsTrigger>
         </TabsList>
 
@@ -449,7 +450,7 @@ export default function LifecyclePage() {
                           <Input type="date" value={onboardingDate} onChange={e => setOnboardingDate(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-slate-50/50" />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-[9px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Rollenprofil</Label>
+                          <Label className="text-[9px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Stellenprofil (Basis)</Label>
                           <Select value={selectedJobId || ''} onValueChange={setSelectedJobId}>
                             <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white">
                               <SelectValue placeholder="Rolle wählen..." />
@@ -474,7 +475,7 @@ export default function LifecyclePage() {
                     <div className="space-y-1">
                       <p className="text-[11px] font-black uppercase text-slate-900 tracking-wider">Jira Gateway Aktiv</p>
                       <p className="text-[10px] text-slate-500 italic leading-relaxed">
-                        Das System erstellt automatisch ein Provisionierungsticket für die IT-Abteilung inklusive aller Blueprint-Berechtigungen.
+                        Das System erstellt automatisch ein Provisionierungsticket für die IT-Abteilung inklusive aller Basis-Berechtigungen.
                       </p>
                     </div>
                   </div>
@@ -482,8 +483,8 @@ export default function LifecyclePage() {
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Zusatz-Rollenpaket wählen</Label>
-                    <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black px-2 h-4 uppercase">Optionen</Badge>
+                    <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Erweiterungs-Paket wählen</Label>
+                    <Badge className="bg-primary/10 text-primary border-none rounded-full text-[8px] font-black px-2 h-4 uppercase">Optionen</Badge>
                   </div>
                   <ScrollArea className="h-[320px] rounded-2xl border border-slate-100 bg-slate-50/30 p-2 shadow-inner">
                     <div className="grid grid-cols-1 gap-2">
@@ -495,8 +496,8 @@ export default function LifecyclePage() {
                         onClick={() => setSelectedBundleId(null)}
                       >
                         <div>
-                          <span className="text-xs font-bold text-slate-800">Kein Zusatz-Paket</span>
-                          <p className="text-[9px] text-slate-400 font-medium mt-0.5">Nur Blueprint-Rollen verwenden</p>
+                          <span className="text-xs font-bold text-slate-800">Keine Erweiterung</span>
+                          <p className="text-[9px] text-slate-400 font-medium mt-0.5">Nur Basis-Rechte verwenden</p>
                         </div>
                         {!selectedBundleId && <CheckCircle2 className="w-4 h-4 text-slate-500" />}
                       </div>
@@ -587,7 +588,7 @@ export default function LifecyclePage() {
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b">
-                  <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Rollenpaket</TableHead>
+                  <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Erweiterungs-Paket</TableHead>
                   <TableHead className="font-bold text-[11px] text-slate-400">Mandant</TableHead>
                   <TableHead className="font-bold text-[11px] text-slate-400 text-center">Inhalt</TableHead>
                   <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
@@ -660,8 +661,8 @@ export default function LifecyclePage() {
                 <Package className="w-5 h-5" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-bold">{selectedBundle ? 'Onboarding-Paket bearbeiten' : 'Neues Paket definieren'}</DialogTitle>
-                <DialogDescription className="text-[10px] text-white/50 font-bold mt-0.5">Vordefinierte Systemrollen für neue Mitarbeiter</DialogDescription>
+                <DialogTitle className="text-lg font-bold">{selectedBundle ? 'Profilpaket bearbeiten' : 'Neues Paket definieren'}</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase mt-0.5">Vordefinierte Systemrollen für die Onboarding-Erweiterung</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -760,7 +761,7 @@ export default function LifecyclePage() {
             </div>
             <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center">Paket permanent löschen?</AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">
-              Möchten Sie das Onboarding-Paket <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? 
+              Möchten Sie das Zusatzpaket <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? 
               <br/><br/>
               <span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden. Bestehende Mitarbeiter-Accounts bleiben unberührt, aber das Paket kann nicht mehr für neue Eintritte genutzt werden.
             </AlertDialogDescription>

@@ -17,6 +17,7 @@ export const appSchema: AppSchema = {
     displayName: 'VARCHAR(255) NOT NULL',
     email: 'VARCHAR(255) NOT NULL',
     title: 'VARCHAR(255)',
+    department: 'VARCHAR(255)',
     enabled: 'BOOLEAN DEFAULT TRUE',
     },
   },

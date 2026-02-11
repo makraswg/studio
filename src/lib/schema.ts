@@ -12,13 +12,19 @@ export interface AppSchema {
 export const appSchema: AppSchema = {
   users: {
     columns: {
-    id: 'VARCHAR(255) PRIMARY KEY',
-    tenantId: 'VARCHAR(255) NOT NULL',
-    displayName: 'VARCHAR(255) NOT NULL',
-    email: 'VARCHAR(255) NOT NULL',
-    title: 'VARCHAR(255)',
-    department: 'VARCHAR(255)',
-    enabled: 'BOOLEAN DEFAULT TRUE',
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      externalId: 'VARCHAR(255)',
+      displayName: 'VARCHAR(255) NOT NULL',
+      email: 'VARCHAR(255) NOT NULL',
+      title: 'VARCHAR(255)',
+      department: 'VARCHAR(255)',
+      enabled: 'BOOLEAN DEFAULT TRUE',
+      status: 'VARCHAR(20) DEFAULT "active"',
+      onboardingDate: 'VARCHAR(50)',
+      offboardingDate: 'VARCHAR(50)',
+      lastSyncedAt: 'VARCHAR(50)',
+      adGroups: 'TEXT',
     },
   },
   tenants: {
@@ -652,5 +658,22 @@ export const appSchema: AppSchema = {
       description: 'LONGTEXT',
       contentHash: 'VARCHAR(255)'
     }
-  }
+  },
+  dataSubjectGroups: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      status: 'VARCHAR(20) DEFAULT "active"',
+    }
+  },
+  dataCategories: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      status: 'VARCHAR(20) DEFAULT "active"',
+      isGdprRelevant: 'BOOLEAN DEFAULT FALSE',
+    }
+  },
 };

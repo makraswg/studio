@@ -62,7 +62,7 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
             await connection.execute(addColumnSql);
             details.push(`      ✅ Spalte '${columnName}' erfolgreich hinzugefügt.`);
           } else {
-             details.push(`   ✔️ Spalte '${columnName}' existiert bereits.`);
+             // details.push(`   ✔️ Spalte '${columnName}' existiert bereits.`);
           }
         }
       }
@@ -108,6 +108,6 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
   } catch (error: any) {
     if (connection) connection.release();
     console.error("Database migration failed:", error);
-    return { success: false, message: `Fehler: ${error.message}`, details: [] };
+    return { success: false, message: `Fehler: ${error.message}`, details: details };
   }
 }

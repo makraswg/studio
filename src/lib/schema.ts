@@ -589,5 +589,57 @@ export const appSchema: AppSchema = {
       token_secret: 'TEXT',
       default_book_id: 'VARCHAR(50)',
     }
+  },
+  hazardMeasures: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      code: 'VARCHAR(50)',
+      title: 'TEXT',
+      baustein: 'VARCHAR(100)'
+    }
+  },
+  hazardMeasureRelations: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      measureId: 'VARCHAR(255)',
+      hazardCode: 'VARCHAR(50)'
+    }
+  },
+  importRuns: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      catalogId: 'VARCHAR(255)',
+      timestamp: 'VARCHAR(50)',
+      status: 'VARCHAR(20)',
+      itemCount: 'INT',
+      log: 'LONGTEXT'
+    }
+  },
+  catalogs: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      name: 'VARCHAR(255)',
+      version: 'VARCHAR(50)',
+      provider: 'VARCHAR(255)',
+      importedAt: 'VARCHAR(50)'
+    }
+  },
+  hazardModules: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      catalogId: 'VARCHAR(255)',
+      code: 'VARCHAR(50)',
+      title: 'TEXT'
+    }
+  },
+  hazards: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      moduleId: 'VARCHAR(255)',
+      code: 'VARCHAR(50)',
+      title: 'TEXT',
+      description: 'LONGTEXT',
+      contentHash: 'VARCHAR(255)'
+    }
   }
 };

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getMysqlConnection } from '@/lib/mysql';
@@ -49,7 +50,7 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
           const columnDefinition = tableDefinition.columns[columnName];
 
           const [columnExistsResult] = await connection.execute(
-            `SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?`,
+            `SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND LOWER(column_name) = LOWER(?)`,
             [dbName, tableName, columnName]
           );
 
@@ -102,7 +103,7 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
     }
 
     connection.release();
-    return { success: true, message: 'Migration erfolgreich.', details };
+    return { success: true, message: 'Migration erfolgreich abgeschlossen.', details };
 
   } catch (error: any) {
     if (connection) connection.release();

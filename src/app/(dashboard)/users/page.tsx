@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -77,6 +78,7 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   
   const [isDialogOpen, setIsAddOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const [displayName, setDisplayName] = useState('');
@@ -107,7 +109,7 @@ export default function UsersPage() {
     const job = jobTitles?.find(j => j.name === roleName && j.tenantId === roleTenantId);
     if (!job) return roleName;
     const dept = departmentsData?.find((d: any) => d.id === job.departmentId);
-    return dept ? `${dept.name} — ${job.name}` : job.name;
+    return dept ? `${dept.name} — ${role.name}` : job.name;
   };
 
   const sortedRoles = useMemo(() => {
@@ -154,6 +156,7 @@ export default function UsersPage() {
       return;
     }
 
+    setIsSaving(true);
     const userId = selectedUser?.id || `u-${Math.random().toString(36).substring(2, 9)}`;
     const isNew = !selectedUser;
     
@@ -169,22 +172,34 @@ export default function UsersPage() {
       lastSyncedAt: new Date().toISOString()
     };
 
-    if (dataSource === 'mysql') await saveCollectionRecord('users', userId, userData);
-    else setDocumentNonBlocking(doc(db, 'users', userId), userData);
+    try {
+      if (dataSource === 'mysql') {
+        const res = await saveCollectionRecord('users', userId, userData, dataSource);
+        if (!res.success) {
+          throw new Error(res.error || "MySQL-Speicherfehler");
+        }
+      } else {
+        setDocumentNonBlocking(doc(db, 'users', userId), userData);
+      }
 
-    await logAuditEventAction(dataSource, {
-      tenantId: tenantId,
-      actorUid: authUser?.email || 'system',
-      action: isNew ? 'Benutzer erstellt' : 'Benutzer aktualisiert',
-      entityType: 'user',
-      entityId: userId,
-      after: userData
-    });
+      await logAuditEventAction(dataSource, {
+        tenantId: tenantId,
+        actorUid: authUser?.email || 'system',
+        action: isNew ? 'Benutzer erstellt' : 'Benutzer aktualisiert',
+        entityType: 'user',
+        entityId: userId,
+        after: userData
+      });
 
-    toast({ title: selectedUser ? "Benutzer aktualisiert" : "Benutzer angelegt" });
-    setIsAddOpen(false);
-    resetForm();
-    setTimeout(() => { refreshUsers(); refreshAudit(); }, 200);
+      toast({ title: selectedUser ? "Benutzer aktualisiert" : "Benutzer angelegt" });
+      setIsAddOpen(false);
+      resetForm();
+      setTimeout(() => { refreshUsers(); refreshAudit(); }, 200);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Speichern fehlgeschlagen", description: e.message });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const resetForm = () => {
@@ -382,7 +397,7 @@ export default function UsersPage() {
         )}
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsAddOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={(val) => { if(!val && !isSaving) setIsAddOpen(false); }}>
         <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
             <div className="flex items-center gap-4">
@@ -395,15 +410,15 @@ export default function UsersPage() {
           <div className="p-6 space-y-6">
             <div className="space-y-2">
               <Label required className="text-[11px] font-bold text-slate-400 ml-1">Anzeigename</Label>
-              <Input value={displayName} onChange={e => setDisplayName(e.target.value)} className="rounded-md h-11 border-slate-200" />
+              <Input value={displayName} onChange={e => setDisplayName(e.target.value)} disabled={isSaving} className="rounded-md h-11 border-slate-200" />
             </div>
             <div className="space-y-2">
               <Label required className="text-[11px] font-bold text-slate-400 ml-1">E-Mail</Label>
-              <Input value={email} onChange={e => setEmail(e.target.value)} className="rounded-md h-11 border-slate-200" />
+              <Input value={email} onChange={e => setEmail(e.target.value)} disabled={isSaving} className="rounded-md h-11 border-slate-200" />
             </div>
             <div className="space-y-2">
               <Label required className="text-[11px] font-bold text-slate-400 ml-1">Mandant</Label>
-              <Select value={tenantId} onValueChange={setTenantId}>
+              <Select value={tenantId} onValueChange={setTenantId} disabled={isSaving}>
                 <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                 <SelectContent>
                   {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
@@ -412,7 +427,7 @@ export default function UsersPage() {
             </div>
             <div className="space-y-2">
               <Label required className="text-[11px] font-bold text-slate-400 ml-1">Rollenprofil</Label>
-              <Select value={userTitle} onValueChange={setUserTitle}>
+              <Select value={userTitle} onValueChange={setUserTitle} disabled={isSaving}>
                 <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
                 <SelectContent>
                   {sortedRoles?.filter((j: any) => tenantId === '' || tenantId === 'all' || j.tenantId === tenantId).map((j: any) => (
@@ -423,9 +438,10 @@ export default function UsersPage() {
             </div>
           </div>
           <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2">
-            <Button variant="ghost" onClick={() => setIsAddOpen(false)} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
-            <Button onClick={handleSaveUser} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
-              Speichern
+            <Button variant="ghost" onClick={() => setIsAddOpen(false)} disabled={isSaving} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
+            <Button onClick={handleSaveUser} disabled={isSaving} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {selectedUser ? 'Aktualisieren' : 'Speichern'}
             </Button>
           </DialogFooter>
         </DialogContent>

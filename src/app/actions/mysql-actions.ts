@@ -192,7 +192,14 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
   let connection;
   try {
     connection = await getMysqlConnection();
-    const preparedData = { ...data, id };
+    
+    // Create copy and remove undefined values to prevent SQL issues
+    const preparedData: any = { id };
+    Object.keys(data).forEach(key => {
+      if (data[key] !== undefined) {
+        preparedData[key] = data[key];
+      }
+    });
     
     const jsonFields: Record<string, string[]> = {
       groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
@@ -239,7 +246,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     return { success: true, error: null };
   } catch (error: any) {
     if (connection) connection.release();
-    console.error(`Error saving to ${tableName}:`, error);
+    console.error(`[MySQL Action] Error saving to ${tableName}:`, error);
     return { success: false, error: error.message };
   }
 }

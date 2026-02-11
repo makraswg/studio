@@ -31,14 +31,16 @@ import {
   Lock,
   Unlock,
   ShieldCheck,
-  ShieldAlert
+  ShieldAlert,
+  Workflow,
+  Shield
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { Tenant, Department, JobTitle, Entitlement, Resource } from '@/lib/types';
+import { Tenant, Department, JobTitle, Entitlement, Resource, Process, ProcessVersion } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
@@ -113,6 +115,7 @@ function generateOrgChartXml(tenants: Tenant[], depts: Department[], jobs: JobTi
 export default function UnifiedOrganizationPage() {
   const { dataSource, activeTenantId } = useSettings();
   const { user } = usePlatformAuth();
+  const router = useRouter();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState('list');
@@ -151,6 +154,8 @@ export default function UnifiedOrganizationPage() {
   const { data: jobTitles, refresh: refreshJobs, isLoading: jobsLoading, error: jobsError } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: resources } = usePluggableCollection<Resource>('resources');
+  const { data: processes } = usePluggableCollection<Process>('processes');
+  const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -195,6 +200,24 @@ export default function UnifiedOrganizationPage() {
                t.departments.some((d: any) => d.name.toLowerCase().includes(s) || d.jobs.some((j: any) => j.name.toLowerCase().includes(s)));
       });
   }, [tenants, departments, jobTitles, search, showArchived]);
+
+  // Helper to calculate process associations
+  const getJobProcessCount = useCallback((jobId: string) => {
+    if (!processes) return 0;
+    
+    const associated = processes.filter(p => {
+      // 1. Is owner?
+      if (p.ownerRoleId === jobId) return true;
+      
+      // 2. Is used in any step?
+      const ver = versions?.find(v => v.process_id === p.id && v.version === p.currentVersion);
+      if (ver?.model_json?.nodes?.some(n => n.roleId === jobId)) return true;
+      
+      return false;
+    });
+    
+    return associated.length;
+  }, [processes, versions]);
 
   const syncChart = useCallback(() => {
     if (!iframeRef.current || !isIframeReady) return;
@@ -404,24 +427,46 @@ export default function UnifiedOrganizationPage() {
                           </div>
                         </div>
                         <div className="bg-slate-50/30 px-8 pb-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pl-10 border-l-2 ml-4">
-                            {dept.jobs?.map((job: any) => (
-                              <div key={job.id} className="flex items-center justify-between p-3 bg-white rounded-xl border shadow-sm group/job hover:border-primary/30 cursor-pointer transition-all" onClick={() => openJobEditor(job)}>
-                                <div className="flex items-center gap-2 truncate">
-                                  <Briefcase className="w-3.5 h-3.5 text-slate-400" />
-                                  <div>
-                                    <p className="text-[11px] font-bold text-slate-700 truncate">{job.name}</p>
-                                    <p className="text-[8px] text-slate-400 font-black uppercase">{job.entitlementIds?.length || 0} Rechte</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pl-10 border-l-2 ml-4">
+                            {dept.jobs?.map((job: any) => {
+                              const jobProcCount = getJobProcessCount(job.id);
+                              return (
+                                <div key={job.id} className="flex items-center justify-between p-3 bg-white rounded-xl border shadow-sm group/job hover:border-primary/30 cursor-pointer transition-all" onClick={() => openJobEditor(job)}>
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 shrink-0 shadow-inner">
+                                      <Briefcase className="w-4 h-4" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-[11px] font-bold text-slate-800 truncate">{job.name}</p>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <button 
+                                          onClick={(e) => { e.stopPropagation(); router.push(`/assignments?search=${encodeURIComponent(job.name)}`); }}
+                                          className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors shadow-sm"
+                                        >
+                                          <Shield className="w-2.5 h-2.5" />
+                                          <span className="text-[8px] font-black uppercase">{job.entitlementIds?.length || 0} Rechte</span>
+                                        </button>
+                                        <button 
+                                          onClick={(e) => { e.stopPropagation(); router.push(`/processhub?search=${encodeURIComponent(job.name)}`); }}
+                                          className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors shadow-sm"
+                                        >
+                                          <Workflow className="w-2.5 h-2.5" />
+                                          <span className="text-[8px] font-black uppercase">{jobProcCount} Prozesse</span>
+                                        </button>
+                                      </div>
+                                    </div>
                                   </div>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover/job:opacity-100 shrink-0" onClick={(e) => { e.stopPropagation(); openJobEditor(job); }}><Pencil className="w-3.5 h-3.5" /></Button>
                                 </div>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover/job:opacity-100" onClick={(e) => { e.stopPropagation(); openJobEditor(job); }}><Pencil className="w-3.5 h-3.5" /></Button>
-                              </div>
-                            ))}
+                              );
+                            })}
                             {activeAddParent?.id === dept.id && activeAddParent.type === 'dept' && (
-                              <div className="col-span-full pt-2 flex gap-2">
-                                <Input autoFocus placeholder="Bezeichnung der Rolle..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-9 text-[11px] rounded-xl" />
-                                <Button size="sm" className="h-9 px-6 text-[10px] font-black uppercase rounded-xl" onClick={handleCreateSub}>Hinzufügen</Button>
-                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl" onClick={() => setActiveAddParent(null)}><X className="w-3.5 h-3.5" /></Button>
+                              <div className="col-span-full pt-2">
+                                <div className="flex gap-2 p-2 bg-white dark:bg-slate-950 rounded-lg border-2 border-primary shadow-sm">
+                                  <Input autoFocus placeholder="Bezeichnung der Rolle..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-8 border-none shadow-none text-[11px] font-bold" />
+                                  <Button size="sm" className="h-8 px-4 rounded-md font-bold text-[10px]" onClick={handleCreateSub}>Hinzufügen</Button>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setActiveAddParent(null)}><X className="w-3.5 h-3.5" /></Button>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -569,7 +614,7 @@ export default function UnifiedOrganizationPage() {
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
             <Button variant="ghost" onClick={() => setIsEditorOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
             <Button onClick={saveJobEdits} disabled={isSavingJob} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2">
-              {isSavingJob ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Blueprint sichern
+              {isSavingJob ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Blueprint sichern
             </Button>
           </DialogFooter>
         </DialogContent>

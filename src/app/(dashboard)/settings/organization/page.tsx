@@ -115,7 +115,7 @@ function generateOrgChartXml(tenants: Tenant[], depts: Department[], jobs: JobTi
 
 export default function UnifiedOrganizationPage() {
   const { dataSource, activeTenantId } = useSettings();
-  const { user } = usePlatformAuth();
+  const { user: authPlatformUser } = usePlatformAuth();
   const router = useRouter();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -163,7 +163,7 @@ export default function UnifiedOrganizationPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  const isSuperAdmin = user?.role === 'superAdmin';
+  const isSuperAdmin = authPlatformUser?.role === 'superAdmin';
 
   const anyError = tenantsError || deptsError || jobsError;
   const isInitialLoading = (tenantsLoading && tenants === null) || (deptsLoading && departments === null) || (jobsLoading && jobTitles === null);
@@ -172,31 +172,51 @@ export default function UnifiedOrganizationPage() {
   const groupedData = useMemo(() => {
     if (!tenants) return [];
     
+    // 1. Filter jobs by current view mode
     const jobsByDept = new Map<string, JobTitle[]>();
     (jobTitles || []).forEach(job => {
-      const matchStatus = showArchived ? job.status === 'archived' : job.status !== 'archived';
-      if (!matchStatus) return;
-      if (!jobsByDept.has(job.departmentId)) jobsByDept.set(job.departmentId, []);
-      jobsByDept.get(job.departmentId)?.push(job);
+      const isArchived = job.status === 'archived';
+      // In Archive mode, show if archived. In Active mode, show if active.
+      if (showArchived === isArchived) {
+        if (!jobsByDept.has(job.departmentId)) jobsByDept.set(job.departmentId, []);
+        jobsByDept.get(job.departmentId)?.push(job);
+      }
     });
 
+    // 2. Filter depts
     const deptsByTenant = new Map<string, any[]>();
     (departments || []).forEach(dept => {
-      const matchStatus = showArchived ? dept.status === 'archived' : dept.status !== 'archived';
-      if (!matchStatus) return;
-      if (!deptsByTenant.has(dept.tenantId)) deptsByTenant.set(dept.tenantId, []);
-      deptsByTenant.get(dept.tenantId)?.push({
-        ...dept,
-        jobs: jobsByDept.get(dept.id) || []
-      });
+      const isArchived = dept.status === 'archived';
+      const hasArchivedJobs = (jobTitles || []).some(j => j.departmentId === dept.id && j.status === 'archived');
+      
+      // Show in Archive View if dept is archived OR it contains archived jobs
+      // Show in Active View if dept is active
+      const matchesMode = showArchived ? (isArchived || hasArchivedJobs) : !isArchived;
+
+      if (matchesMode) {
+        if (!deptsByTenant.has(dept.tenantId)) deptsByTenant.set(dept.tenantId, []);
+        deptsByTenant.get(dept.tenantId)?.push({
+          ...dept,
+          jobs: jobsByDept.get(dept.id) || []
+        });
+      }
     });
 
+    // 3. Filter tenants
     return tenants
-      .filter(t => (showArchived ? t.status === 'archived' : t.status !== 'archived'))
-      .map(tenant => ({
-        ...tenant,
-        departments: deptsByTenant.get(tenant.id) || []
-      }))
+      .map(tenant => {
+        const isArchived = tenant.status === 'archived';
+        const tenantDepts = deptsByTenant.get(tenant.id) || [];
+        
+        // Show in Archive View if tenant is archived OR has departments/jobs to show
+        const matchesMode = showArchived ? (isArchived || tenantDepts.length > 0) : !isArchived;
+
+        if (matchesMode) {
+          return { ...tenant, departments: tenantDepts };
+        }
+        return null;
+      })
+      .filter((t): t is any => t !== null)
       .filter(t => {
         if (!search) return true;
         const s = search.toLowerCase();
@@ -207,14 +227,12 @@ export default function UnifiedOrganizationPage() {
 
   const getJobProcessCount = useCallback((jobId: string) => {
     if (!processes) return 0;
-    
     const associated = processes.filter(p => {
       if (p.ownerRoleId === jobId) return true;
       const ver = versions?.find(v => v.process_id === p.id && v.version === p.currentVersion);
       if (ver?.model_json?.nodes?.some(n => n.roleId === jobId)) return true;
       return false;
     });
-    
     return associated.length;
   }, [processes, versions]);
 
@@ -285,10 +303,10 @@ export default function UnifiedOrganizationPage() {
   const getBlockingRelations = (target: { id: string, type: string, label: string }) => {
     const errors: string[] = [];
     if (target.type === 'tenants') {
-      const hasDepts = departments?.some(d => d.tenantId === target.id);
+      const hasDepts = departments?.some(d => d.tenantId === target.id && d.status !== 'archived');
       if (hasDepts) errors.push("Mandant enthält noch aktive Abteilungen.");
     } else if (target.type === 'departments') {
-      const hasJobs = jobTitles?.some(j => j.departmentId === target.id);
+      const hasJobs = jobTitles?.some(j => j.departmentId === target.id && j.status !== 'archived');
       if (hasJobs) errors.push("Abteilung enthält noch aktive Stellenprofile.");
     } else if (target.type === 'jobTitles') {
       const hasUsers = users?.some((u: any) => u.title === target.label && u.tenantId === activeTenantId);
@@ -298,7 +316,7 @@ export default function UnifiedOrganizationPage() {
       const isUsedInNodes = versions?.some((v: any) => v.model_json?.nodes?.some((n: any) => n.roleId === target.id));
       if (isUsedInNodes) errors.push("Profil wird aktiv in Prozess-Schritten verwendet.");
       const isInBundle = bundles?.some((b: any) => b.entitlementIds?.includes(target.id));
-      if (isInBundle) errors.push("Profil ist Bestandteil eines Rollenpakets.");
+      if (isInBundle) errors.push("Profil ist Bestandteil eines Erweiterungs-Pakets.");
     }
     return errors;
   };
@@ -395,7 +413,7 @@ export default function UnifiedOrganizationPage() {
               <Input placeholder="Suchen..." className="pl-9 h-10 rounded-md border-slate-200 bg-white shadow-sm" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowArchived(!showArchived)} className={cn("h-9 font-bold text-[10px] uppercase", showArchived && "bg-orange-50 text-orange-600")}>{showArchived ? 'Aktive' : 'Archiv'}</Button>
+              <Button variant="outline" size="sm" onClick={() => setShowArchived(!showArchived)} className={cn("h-9 font-bold text-[10px] uppercase", showArchived && "bg-orange-50 text-orange-600")}>{showArchived ? 'Aktive Ansicht' : 'Archiv anzeigen'}</Button>
               <Button size="sm" className="h-9 font-bold text-[10px] uppercase px-6" onClick={() => { setEditingTenant(null); setTenantName(''); setTenantSlug(''); setIsTenantDialogOpen(true); }}><Plus className="w-3.5 h-3.5 mr-2" /> Neuer Mandant</Button>
             </div>
           </div>
@@ -556,36 +574,15 @@ export default function UnifiedOrganizationPage() {
             </div>
           </DialogHeader>
           <div className="p-8 space-y-6">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Unternehmensname</Label>
-              <Input value={tenantName} onChange={e => setTenantName(e.target.value)} className="h-11 rounded-xl font-bold" />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Regulatorik</Label>
-              <Select value={tenantRegion} onValueChange={setTenantRegion}>
-                <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  <SelectItem value="EU-DSGVO">EU-DSGVO</SelectItem>
-                  <SelectItem value="BSI-IT-Grundschutz">BSI-IT-Grundschutz</SelectItem>
-                  <SelectItem value="ISO-27001">ISO 27001</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">KI Kontext (Beschreibung)</Label>
-              <Textarea value={tenantDescription} onChange={e => setTenantDescription(e.target.value)} className="min-h-[100px] rounded-xl text-xs" />
-            </div>
+            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Unternehmensname</Label><Input value={tenantName} onChange={e => setTenantName(e.target.value)} className="h-11 rounded-xl font-bold" /></div>
+            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Regulatorik</Label><Select value={tenantRegion} onValueChange={setTenantRegion}><SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger><SelectContent className="rounded-xl"><SelectItem value="EU-DSGVO">EU-DSGVO</SelectItem><SelectItem value="BSI-IT-Grundschutz">BSI-IT-Grundschutz</SelectItem><SelectItem value="ISO-27001">ISO 27001</SelectItem></SelectContent></Select></div>
+            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">KI Kontext (Beschreibung)</Label><Textarea value={tenantDescription} onChange={e => setTenantDescription(e.target.value)} className="min-h-[100px] rounded-xl text-xs" /></div>
           </div>
-          <DialogFooter className="p-4 bg-slate-50 border-t">
-            <Button variant="ghost" onClick={() => setIsTenantDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
-            <Button onClick={handleSaveTenant} disabled={isSavingTenant || !tenantName} className="rounded-xl bg-primary text-white font-bold text-[10px] px-8 h-11 shadow-lg gap-2">
-              {isSavingTenant ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern
-            </Button>
-          </DialogFooter>
+          <DialogFooter className="p-4 bg-slate-50 border-t"><Button variant="ghost" onClick={() => setIsTenantDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button><Button onClick={handleSaveTenant} disabled={isSavingTenant || !tenantName} className="rounded-xl bg-primary text-white font-bold text-[10px] px-8 h-11 shadow-lg gap-2">{isSavingTenant ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Profile Editor Dialog */}
+      {/* Stellenprofil Editor Dialog */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">
@@ -605,62 +602,26 @@ export default function UnifiedOrganizationPage() {
           <ScrollArea className="flex-1 bg-slate-50/30">
             <div className="p-8 space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Bezeichnung</Label>
-                  <Input value={jobName} onChange={e => setJobName(e.target.value)} className="h-11 rounded-xl font-bold border-slate-200 bg-white" />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Stellenbeschreibung</Label>
-                  <Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[100px] rounded-xl text-xs bg-white" />
-                </div>
+                <div className="space-y-2 md:col-span-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Bezeichnung</Label><Input value={jobName} onChange={e => setJobName(e.target.value)} className="h-11 rounded-xl font-bold border-slate-200 bg-white" /></div>
+                <div className="space-y-2 md:col-span-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Stellenbeschreibung</Label><Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[100px] rounded-xl text-xs bg-white" /></div>
               </div>
-
               <div className="space-y-6 pt-6 border-t border-slate-200">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div>
-                    <Label className="text-[11px] font-bold text-primary flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4" /> Enthaltene Berechtigungen ({jobEntitlementIds.length} gewählt)
-                    </Label>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Standard-Zugriffe für diese Stelle.</p>
-                  </div>
-                  <div className="relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                    <Input placeholder="Rollen filtern..." value={roleSearch} onChange={e => setRoleSearch(e.target.value)} className="h-9 pl-9 text-[11px] rounded-lg min-w-[220px]" />
-                  </div>
+                  <div><Label className="text-[11px] font-bold text-primary flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Enthaltene Berechtigungen ({jobEntitlementIds.length} gewählt)</Label><p className="text-[10px] text-slate-400 mt-0.5">Standard-Zugriffe für diese Stelle.</p></div>
+                  <div className="relative group"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" /><Input placeholder="Rollen filtern..." value={roleSearch} onChange={e => setRoleSearch(e.target.value)} className="h-9 pl-9 text-[11px] rounded-lg min-w-[220px]" /></div>
                 </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {filteredEntitlements.map((ent) => {
                     const res = resources?.find(r => r.id === ent.resourceId);
                     return (
-                      <div 
-                        key={ent.id} 
-                        className={cn(
-                          "p-3 border rounded-xl cursor-pointer transition-all flex items-center gap-3 group shadow-sm",
-                          jobEntitlementIds.includes(ent.id) 
-                            ? "border-primary bg-primary/5 ring-1 ring-primary/10" 
-                            : "bg-white border-slate-100 hover:border-slate-200"
-                        )} 
-                        onClick={() => toggleEntitlement(ent.id)}
-                      >
-                        <Checkbox checked={jobEntitlementIds.includes(ent.id)} className="rounded-md" />
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-bold text-slate-800 truncate">{ent.name}</p>
-                          <p className="text-[8px] font-black uppercase text-slate-400 truncate">{res?.name}</p>
-                        </div>
-                      </div>
+                      <div key={ent.id} className={cn("p-3 border rounded-xl cursor-pointer transition-all flex items-center gap-3 group shadow-sm", jobEntitlementIds.includes(ent.id) ? "border-primary bg-primary/5 ring-1 ring-primary/10" : "bg-white border-slate-100 hover:border-slate-200")} onClick={() => toggleEntitlement(ent.id)}><Checkbox checked={jobEntitlementIds.includes(ent.id)} className="rounded-md" /><div className="min-w-0"><p className="text-[11px] font-bold text-slate-800 truncate">{ent.name}</p><p className="text-[8px] font-black uppercase text-slate-400 truncate">{res?.name}</p></div></div>
                     );
                   })}
                 </div>
               </div>
             </div>
           </ScrollArea>
-          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
-            <Button variant="ghost" onClick={() => setIsEditorOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
-            <Button onClick={saveJobEdits} disabled={isSavingJob} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2">
-              {isSavingJob ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern
-            </Button>
-          </DialogFooter>
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0"><Button variant="ghost" onClick={() => setIsEditorOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button><Button onClick={saveJobEdits} disabled={isSavingJob} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2">{isSavingJob ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -668,38 +629,24 @@ export default function UnifiedOrganizationPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(val) => !val && setDeleteTarget(null)}>
         <AlertDialogContent className="rounded-2xl border-none shadow-2xl p-8">
           <AlertDialogHeader>
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="w-6 h-6 text-red-600" />
-            </div>
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"><AlertTriangle className="w-6 h-6 text-red-600" /></div>
             <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center">Permanent löschen?</AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">
               {deleteErrors.length > 0 ? (
                 <div className="text-left space-y-4">
                   <p className="font-bold text-red-600">Löschen nicht möglich. Folgende Abhängigkeiten bestehen:</p>
-                  <ul className="list-disc list-inside space-y-1 text-xs">
-                    {deleteErrors.map((err, i) => <li key={i}>{err}</li>)}
-                  </ul>
+                  <ul className="list-disc list-inside space-y-1 text-xs">{deleteErrors.map((err, i) => <li key={i}>{err}</li>)}</ul>
                   <p className="text-[10px] italic text-slate-400 pt-2">Hinweis: Bitte entfernen oder verschieben Sie zuerst diese Verknüpfungen.</p>
                 </div>
               ) : (
-                <>
-                  Möchten Sie <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? 
-                  <br/><br/>
-                  <span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden.
-                </>
+                <>Möchten Sie <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? <br/><br/><span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden.</>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
             <AlertDialogCancel className="rounded-xl font-bold text-xs h-11 px-8 border-slate-200">Abbrechen</AlertDialogCancel>
             {deleteErrors.length === 0 && (
-              <AlertDialogAction 
-                onClick={executeDelete} 
-                disabled={isDeleting}
-                className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs h-11 px-10 gap-2 shadow-lg shadow-red-200"
-              >
-                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Permanent löschen
-              </AlertDialogAction>
+              <AlertDialogAction onClick={executeDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs h-11 px-10 gap-2 shadow-lg shadow-red-200">{isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Permanent löschen</AlertDialogAction>
             )}
           </AlertDialogFooter>
         </AlertDialogContent>

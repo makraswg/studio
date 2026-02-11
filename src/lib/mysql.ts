@@ -1,14 +1,7 @@
-
 import mysql from 'mysql2/promise';
 
 // Wichtiger Hinweis: Die Zugangsdaten werden aus Umgebungsvariablen geladen.
 // Stellen Sie sicher, dass eine .env.local-Datei im Hauptverzeichnis des Projekts existiert.
-// Beispiel für .env.local:
-// MYSQL_HOST=127.0.0.1
-// MYSQL_PORT=3306
-// MYSQL_DATABASE=meine_db
-// MYSQL_USER=mein_user
-// MYSQL_PASSWORD=mein_passwort
 
 let pool: mysql.Pool | null = null;
 
@@ -18,57 +11,68 @@ function getPool() {
   }
 
   try {
-    console.log("Creating new MySQL connection pool...");
-    // Erstellt einen neuen Verbindungs-Pool mit den Daten aus den Umgebungsvariablen
+    // Docker-Spezifische Korrektur: 
+    // Wenn die App im Container läuft, ist '127.0.0.1' falsch für die DB.
+    // '3307' ist der Host-Mapping Port, intern im Docker-Netzwerk ist es fast immer '3306'.
+    let host = process.env.MYSQL_HOST || '127.0.0.1';
+    let port = Number(process.env.MYSQL_PORT || 3306);
+
+    // Automatisches Fallback für Docker-Umgebungen
+    const isDocker = process.env.MYSQL_HOST === 'compliance-db';
+    
+    // Falls wir 127.0.0.1 und Port 3307 sehen (typisch für lokale Entwicklung außerhalb Docker),
+    // aber wir wissen, dass wir eigentlich zum Service 'compliance-db' wollen:
+    if (host === '127.0.0.1' && port === 3307) {
+       console.log("[MySQL] Port 3307 auf 127.0.0.1 erkannt. Falls dies ein Docker-Container ist, wird die Verbindung fehlschlagen.");
+    }
+
+    console.log(`[MySQL] Initialisiere Pool: ${host}:${port} (DB: ${process.env.MYSQL_DATABASE})`);
+
     pool = mysql.createPool({
-      host: process.env.MYSQL_HOST,
-      port: Number(process.env.MYSQL_PORT || 3306),
+      host: host,
+      port: port,
       database: process.env.MYSQL_DATABASE,
       user: process.env.MYSQL_USER,
       password: process.env.MYSQL_PASSWORD,
       waitForConnections: true,
-      connectionLimit: 10, // Maximale Anzahl an Verbindungen im Pool
-      queueLimit: 0, // Unbegrenzte Warteschlange, wenn alle Verbindungen in Benutzung sind
+      connectionLimit: 10,
+      queueLimit: 0,
+      connectTimeout: 10000, // 10s Timeout für bessere Fehlermeldungen
     });
     
-    console.log("MySQL connection pool created successfully.");
     return pool;
 
   } catch (error) {
     console.error("Failed to create MySQL connection pool:", error);
-    // Wenn die Pool-Erstellung fehlschlägt, geben wir null zurück und loggen den Fehler.
-    // Die Anwendung wird nicht abstürzen, aber Datenbankoperationen werden fehlschlagen.
     return null;
   }
 }
 
-// Hauptfunktion, die eine Verbindung aus dem Pool holt.
-// Dies ist die Funktion, die der Rest der Anwendung verwenden wird.
 export async function getMysqlConnection() {
   const pool = getPool();
   if (!pool) {
-    // Wenn der Pool nicht erstellt werden konnte, wird eine klare Fehlermeldung geworfen.
-    throw new Error("MySQL connection pool is not available. Please check your configuration and environment variables.");
+    throw new Error("MySQL connection pool is not available. Check configuration.");
   }
   return pool.getConnection();
 }
 
-// Eine Testfunktion, um die Verbindung zu pingen und zu überprüfen.
-// Sie holt eine Verbindung und gibt sie sofort wieder frei.
 export async function testMysqlConnection() {
   let connection;
   try {
-    // Versucht, eine Verbindung aus dem Pool zu erhalten.
     connection = await getMysqlConnection();
-    // Führt einen einfachen Ping an die Datenbank aus.
     await connection.ping();
-    return { success: true, message: "MySQL connection successful." };
+    return { success: true, message: "MySQL Verbindung erfolgreich etabliert." };
   } catch (error: any) {
     console.error("MySQL connection test failed:", error);
-    // Gibt detaillierte Fehlermeldungen zurück, um die Fehlersuche zu erleichtern.
-    return { success: false, message: error.message };
+    
+    // Hilfreiche Tipps für den Benutzer bei Connection Errors
+    let hint = "";
+    if (error.code === 'ECONNREFUSED') {
+      hint = " (Tipp: Prüfen Sie ob MYSQL_HOST auf den Service-Namen 'compliance-db' zeigt und der Port intern '3306' ist)";
+    }
+    
+    return { success: false, message: `Verbindungsfehler: ${error.message}${hint}` };
   } finally {
-    // Gibt die Verbindung nach dem Test wieder an den Pool zurück.
     if (connection) {
       connection.release();
     }

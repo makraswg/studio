@@ -35,6 +35,7 @@ import { usePlatformAuth } from '@/context/auth-context';
 import { usePathname, useRouter } from 'next/navigation';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { CommandMenu } from '@/components/layout/command-menu';
+import { checkSystemStatusAction } from '@/app/actions/migration-actions';
 
 function HeaderContent() {
   const { activeTenantId, setActiveTenantId, theme, setTheme } = useSettings();
@@ -161,20 +162,38 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+  const [isSystemInitialized, setIsSystemInitialized] = useState<boolean | null>(null);
 
   useEffect(() => {
     setMounted(true);
+    // Check initialization status on mount
+    checkSystemStatusAction().then(res => setIsSystemInitialized(res.initialized));
   }, []);
 
   // Route Protection logic
   useEffect(() => {
-    if (mounted && !isUserLoading && !user && pathname !== '/setup') {
-      router.push('/');
+    if (mounted && !isUserLoading && isSystemInitialized !== null) {
+      if (!user) {
+        // User is not logged in
+        if (pathname === '/setup') {
+          // If already initialized, don't allow unauthenticated access to /setup
+          if (isSystemInitialized) {
+            router.push('/');
+          }
+        } else {
+          // Redirect to login if system is initialized, otherwise to setup
+          if (isSystemInitialized) {
+            router.push('/');
+          } else {
+            router.push('/setup');
+          }
+        }
+      }
     }
-  }, [user, isUserLoading, router, mounted, pathname]);
+  }, [user, isUserLoading, isSystemInitialized, router, mounted, pathname]);
 
-  // Prevent flash of internal content while checking session
-  if (!mounted || isUserLoading) {
+  // Prevent flash of internal content while checking session or initialization
+  if (!mounted || isUserLoading || isSystemInitialized === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="flex flex-col items-center gap-4">
@@ -185,8 +204,8 @@ export default function DashboardLayout({
     );
   }
 
-  // Simplified layout for unauthenticated setup
-  if (!user && pathname === '/setup') {
+  // Simplified layout for unauthenticated setup (only if not initialized)
+  if (!user && pathname === '/setup' && !isSystemInitialized) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-12 overflow-auto">
         <div className="max-w-5xl mx-auto">

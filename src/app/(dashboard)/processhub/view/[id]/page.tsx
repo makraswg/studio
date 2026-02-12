@@ -81,7 +81,6 @@ export default function ProcessDetailViewPage() {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   
   const hasAutoCentered = useRef(false);
 
@@ -97,6 +96,15 @@ export default function ProcessDetailViewPage() {
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
 
+  const getFullRoleName = useCallback((roleId?: string) => {
+    if (!roleId) return '---';
+    const role = jobTitles?.find(j => j.id === roleId);
+    if (!role) return roleId;
+    const dept = departments?.find(d => d.id === role.departmentId);
+    return dept ? `${dept.name} — ${role.name}` : role.name;
+  }, [jobTitles, departments]);
+
+  // --- Grid Layout Logic ---
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
@@ -123,12 +131,34 @@ export default function ProcessDetailViewPage() {
       });
     }
 
-    return nodes.map(n => ({
-      ...n,
-      x: (cols[n.id] || 0) * 300,
-      y: (levels[n.id] || 0) * 160 // Compact vertical spacing
-    }));
-  }, [activeVersion]);
+    // Dynamic adjustment if a node is expanded
+    return nodes.map(n => {
+      const nodeCol = cols[n.id] || 0;
+      const nodeLevel = levels[n.id] || 0;
+      let xOffset = 0;
+      let yOffset = 0;
+
+      if (activeNodeId && guideMode === 'structure') {
+        const activeCol = cols[activeNodeId] || 0;
+        const activeLevel = levels[activeNodeId] || 0;
+        
+        // If a node in the same row is active, shift all nodes to the right of it
+        if (nodeLevel === activeLevel && nodeCol > activeCol) {
+          xOffset = 350; // Shift by expanded width difference
+        }
+        // If a node is active, shift all nodes in subsequent rows down
+        if (nodeLevel > activeLevel) {
+          yOffset = 250; // Shift down to accommodate expanded card
+        }
+      }
+
+      return {
+        ...n,
+        x: nodeCol * 300 + xOffset,
+        y: nodeLevel * 160 + yOffset
+      };
+    });
+  }, [activeVersion, activeNodeId, guideMode]);
 
   const resetViewport = useCallback(() => {
     if (gridNodes.length === 0 || !containerRef.current) return;
@@ -164,43 +194,56 @@ export default function ProcessDetailViewPage() {
         const OFFSET_Y = 2500;
         
         const isDecision = sNode.type === 'decision';
+        const sIsExpanded = sNode.id === activeNodeId;
+        const tIsExpanded = tNode.id === activeNodeId;
         
+        const sW = sIsExpanded ? 600 : 256;
+        const tW = tIsExpanded ? 600 : 256;
+
         // Output port selection
-        let sPortX = sNode.x + OFFSET_X + 128; 
-        let sPortY = sNode.y + OFFSET_Y + 80;  // Standard bottom middle
+        let sPortX = sNode.x + OFFSET_X + (sW / 2); 
+        let sPortY = sNode.y + OFFSET_Y + 80; // Standard bottom middle
+
+        // Input port selection
+        let tPortX = tNode.x + OFFSET_X + (tW / 2);
+        let tPortY = tNode.y + OFFSET_Y;
+
+        let controlPoint1 = { x: sPortX, y: sPortY + 40 };
+        let controlPoint2 = { x: tPortX, y: tPortY - 40 };
 
         // Decision logic: Always exit bottom
         if (!isDecision && Math.abs(tNode.x - sNode.x) > 100) {
           if (tNode.x > sNode.x) {
-            sPortX = sNode.x + OFFSET_X + 256;
+            sPortX = sNode.x + OFFSET_X + sW;
             sPortY = sNode.y + OFFSET_Y + 40;
+            controlPoint1 = { x: sPortX + 40, y: sPortY };
           } else {
             sPortX = sNode.x + OFFSET_X;
             sPortY = sNode.y + OFFSET_Y + 40;
+            controlPoint1 = { x: sPortX - 40, y: sPortY };
           }
         }
 
-        // Input port selection
-        let tPortX = tNode.x + OFFSET_X + 128;
-        let tPortY = tNode.y + OFFSET_Y;
-
+        // Target Side Entry logic
         if (Math.abs(tNode.x - sNode.x) > 100) {
           if (tNode.x > sNode.x) {
             tPortX = tNode.x + OFFSET_X;
             tPortY = tNode.y + OFFSET_Y + 40;
+            controlPoint2 = { x: tPortX - 40, y: tPortY };
           } else {
-            tPortX = tNode.x + OFFSET_X + 256;
+            tPortX = tNode.x + OFFSET_X + tW;
             tPortY = tNode.y + OFFSET_Y + 40;
+            controlPoint2 = { x: tPortX + 40, y: tPortY };
           }
         }
         
-        const path = `M ${sPortX} ${sPortY} C ${sPortX} ${sPortY + 40}, ${tPortX} ${tPortY - 40}, ${tPortX} ${tPortY}`;
+        const path = `M ${sPortX} ${sPortY} C ${controlPoint1.x} ${controlPoint1.y}, ${controlPoint2.x} ${controlPoint2.y}, ${tPortX} ${tPortY}`;
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target });
       }
     });
 
     setConnectionPaths(newPaths);
-  }, [activeVersion, gridNodes]);
+  }, [activeVersion, gridNodes, activeNodeId]);
 
   useEffect(() => { 
     setMounted(true); 
@@ -224,14 +267,12 @@ export default function ProcessDetailViewPage() {
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    setMousePos({ x: e.clientX, y: e.clientY });
     if (!isDragging || guideMode !== 'structure') return;
     setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
   };
 
   const handleMouseUp = () => setIsDragging(false);
 
-  // Zoom to cursor logic like Google Maps
   const handleWheel = (e: React.WheelEvent) => {
     if (guideMode !== 'structure') return;
     e.preventDefault();
@@ -245,7 +286,6 @@ export default function ProcessDetailViewPage() {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     
-    // Calculate pivot points in unscaled space
     const pivotX = (mouseX - position.x) / scale;
     const pivotY = (mouseY - position.y) / scale;
     
@@ -256,26 +296,19 @@ export default function ProcessDetailViewPage() {
     setPosition({ x: newX, y: newY });
   };
 
-  const getFullRoleName = useCallback((roleId?: string) => {
-    if (!roleId) return '---';
-    const role = jobTitles?.find(j => j.id === roleId);
-    if (!role) return roleId;
-    const dept = departments?.find(d => d.id === role.departmentId);
-    return dept ? `${dept.name} — ${role.name}` : role.name;
-  }, [jobTitles, departments]);
-
   if (!mounted) return null;
 
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body relative">
+      {/* Debug HUD */}
       <div className="fixed top-20 left-80 z-[100] bg-slate-900/90 text-white p-3 rounded-xl border border-white/10 shadow-2xl pointer-events-none font-mono text-[9px] space-y-1">
         <div className="flex items-center gap-2 border-b border-white/10 pb-1 mb-1">
           <Terminal className="w-3 h-3 text-primary" />
-          <span className="font-black uppercase tracking-widest">Map Monitor (Debug)</span>
+          <span className="font-black uppercase tracking-widest">Map Engine v2</span>
         </div>
-        <div className="flex justify-between gap-4"><span>Active ID:</span> <span className="text-primary">{activeNodeId || 'none'}</span></div>
+        <div className="flex justify-between gap-4"><span>Active Step:</span> <span className="text-primary">{activeNodeId || 'none'}</span></div>
         <div className="flex justify-between gap-4"><span>Scale:</span> <span>{scale.toFixed(2)}</span></div>
-        <div className="flex justify-between gap-4"><span>X / Y:</span> <span>{Math.floor(position.x)} / {Math.floor(position.y)}</span></div>
+        <div className="flex justify-between gap-4"><span>Nodes:</span> <span>{gridNodes.length}</span></div>
       </div>
 
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
@@ -286,7 +319,7 @@ export default function ProcessDetailViewPage() {
               <h1 className="text-lg font-headline font-bold text-slate-900">{currentProcess?.title}</h1>
               <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-full px-2 h-5 text-[10px] font-black uppercase tracking-widest">{currentProcess?.status}</Badge>
             </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">V{activeVersion?.version}.0 • Leitfaden</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">V{activeVersion?.version}.0 • Prozess-Dokumentation</p>
           </div>
         </div>
 
@@ -301,20 +334,20 @@ export default function ProcessDetailViewPage() {
       </header>
 
       <div className="flex-1 flex overflow-hidden h-full relative">
-        <aside className="w-80 border-r bg-white flex flex-col shrink-0 hidden lg:flex">
+        <aside className="w-80 border-r bg-white flex flex-col shrink-0 hidden lg:flex shadow-sm">
           <ScrollArea className="flex-1 p-6 space-y-8">
             <section className="space-y-3">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 border-b pb-2 flex items-center gap-2"><FileCheck className="w-3.5 h-3.5" /> DSGVO Kontext</h3>
-              <div className="p-3 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-2">
-                <Label className="text-[8px] font-black uppercase text-slate-400">Zweck (VVT)</Label>
-                <p className="text-[11px] font-bold text-slate-900">{vvts?.find(v => v.id === currentProcess?.vvtId)?.name || 'Nicht verknüpft'}</p>
+              <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-2 shadow-inner">
+                <Label className="text-[8px] font-black uppercase text-slate-400">Verarbeitungszweck (VVT)</Label>
+                <p className="text-[11px] font-bold text-slate-900 leading-relaxed">{vvts?.find(v => v.id === currentProcess?.vvtId)?.name || 'Kein VVT verknüpft'}</p>
               </div>
             </section>
             <section className="space-y-3">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2"><UserCircle className="w-3.5 h-3.5" /> Verantwortung</h3>
-              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
-                <p className="text-[8px] font-black uppercase text-slate-400">Owner Rolle</p>
-                <p className="text-[11px] font-bold text-slate-900">{getFullRoleName(currentProcess?.ownerRoleId)}</p>
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2 shadow-inner">
+                <p className="text-[8px] font-black uppercase text-slate-400">Strategischer Eigner (Rolle)</p>
+                <p className="text-[11px] font-bold text-slate-900 leading-relaxed">{getFullRoleName(currentProcess?.ownerRoleId)}</p>
               </div>
             </section>
           </ScrollArea>
@@ -344,7 +377,7 @@ export default function ProcessDetailViewPage() {
             </ScrollArea>
           ) : (
             <div 
-              className="absolute inset-0 transition-transform duration-75 origin-top-left"
+              className="absolute inset-0 transition-transform duration-300 origin-top-left"
               style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`, width: '5000px', height: '5000px' }}
             >
               <svg className="absolute inset-0 pointer-events-none w-full h-full overflow-visible">
@@ -354,11 +387,11 @@ export default function ProcessDetailViewPage() {
                   </marker>
                 </defs>
                 {connectionPaths.map((p, i) => (
-                  <path key={i} d={p.path} fill="none" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
+                  <path key={i} d={p.path} fill="none" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" className="transition-all duration-300" />
                 ))}
               </svg>
               {gridNodes.map(node => (
-                <div key={node.id} className="absolute" style={{ left: node.x + 2500, top: node.y + 2500 }}>
+                <div key={node.id} className="absolute transition-all duration-300" style={{ left: node.x + 2500, top: node.y + 2500 }}>
                   <ProcessStepCard node={node} isMapMode activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} resources={resources} allFeatures={allFeatures} getFullRoleName={getFullRoleName} />
                 </div>
               ))}
@@ -391,8 +424,8 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
     <Card 
       className={cn(
         "rounded-2xl border transition-all duration-300 bg-white cursor-pointer relative overflow-hidden",
-        isActive ? "ring-4 ring-primary border-primary shadow-lg" : "border-slate-100 shadow-sm hover:border-primary/20",
-        isMapMode && (isActive ? "w-[600px] z-50 scale-110" : "w-64 z-10")
+        isActive ? "ring-4 ring-primary border-primary shadow-2xl z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20",
+        isMapMode && (isActive ? "w-[600px]" : "w-64")
       )}
       onClick={(e) => {
         e.stopPropagation();
@@ -421,7 +454,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
         </div>
         {isExpanded && (
           <div className="flex gap-1.5 shrink-0">
-            {nodeResources?.slice(0, 3).map((res:any) => (
+            {nodeResources?.slice(0, 2).map((res:any) => (
               <Badge key={res.id} className="bg-indigo-50 text-indigo-700 text-[8px] font-black border-none h-5 px-1.5 rounded-md shadow-none">{res.name}</Badge>
             ))}
           </div>
@@ -429,21 +462,21 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
       </CardHeader>
 
       {isExpanded && (
-        <CardContent className="p-0 animate-in fade-in zoom-in-95 duration-200">
+        <CardContent className="p-0 animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-100">
             <div className="md:col-span-7 p-6 space-y-6">
               <div className="space-y-2">
-                <Label className="text-[9px] font-black uppercase text-slate-400">Beschreibung</Label>
-                <p className="text-sm text-slate-700 leading-relaxed font-medium italic">"{node.description || 'Keine Beschreibung'}"</p>
+                <Label className="text-[9px] font-black uppercase text-slate-400">Tätigkeitsbeschreibung</Label>
+                <p className="text-sm text-slate-700 leading-relaxed font-medium italic">"{node.description || 'Keine detaillierte Beschreibung vorhanden.'}"</p>
               </div>
               {node.checklist && node.checklist.length > 0 && (
                 <div className="space-y-3">
-                  <Label className="text-[9px] font-black uppercase text-emerald-600">Checkliste</Label>
+                  <Label className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-2"><CheckCircle2 className="w-3 h-3" /> Operative Checkliste</Label>
                   <div className="space-y-2">
                     {node.checklist.map((item:any, idx:number) => (
-                      <div key={idx} className="flex items-center gap-3 p-3 bg-emerald-50/30 border border-emerald-100/50 rounded-xl">
-                        <Checkbox id={`${node.id}-check-${idx}`} onClick={(e:any) => e.stopPropagation()} />
-                        <span className="text-xs font-bold text-slate-700">{item}</span>
+                      <div key={idx} className="flex items-center gap-3 p-3 bg-emerald-50/30 border border-emerald-100/50 rounded-xl group/check">
+                        <Checkbox id={`${node.id}-check-${idx}`} onClick={(e:any) => e.stopPropagation()} className="data-[state=checked]:bg-emerald-600" />
+                        <span className="text-xs font-bold text-slate-700 group-data-[state=checked]/check:line-through opacity-80">{item}</span>
                       </div>
                     ))}
                   </div>
@@ -452,15 +485,15 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
             </div>
             <div className="md:col-span-5 p-6 bg-slate-50/30 space-y-6">
               <div className="space-y-4">
-                <Label className="text-[9px] font-black uppercase text-blue-600">Expertise</Label>
-                {node.tips && <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-[10px] text-blue-700 italic">Tipp: {node.tips}</div>}
-                {node.errors && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-[10px] text-red-700 italic">Fehlerquelle: {node.errors}</div>}
+                <Label className="text-[9px] font-black uppercase text-blue-600 flex items-center gap-2"><Zap className="w-3 h-3" /> Prozesstipps</Label>
+                {node.tips && <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl text-[10px] text-blue-700 italic font-medium leading-relaxed">Tipp: {node.tips}</div>}
+                {node.errors && <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-[10px] text-red-700 italic font-medium leading-relaxed">Achtung: {node.errors}</div>}
               </div>
               <div className="space-y-4 pt-4 border-t border-slate-100">
-                <Label className="text-[9px] font-black uppercase text-slate-400">Systeme & Daten</Label>
+                <Label className="text-[9px] font-black uppercase text-slate-400">Verknüpfte Ressourcen</Label>
                 <div className="flex flex-wrap gap-1.5">
-                  {nodeResources?.map((res:any) => <Badge key={res.id} variant="outline" className="bg-white text-indigo-700 text-[8px] font-black h-5">{res.name}</Badge>)}
-                  {nodeFeatures?.map((f:any) => <Badge key={f.id} variant="outline" className="bg-white text-sky-700 text-[8px] font-black h-5">{f.name}</Badge>)}
+                  {nodeResources?.map((res:any) => <Badge key={res.id} variant="outline" className="bg-white text-indigo-700 text-[8px] font-black h-5 border-indigo-100">{res.name}</Badge>)}
+                  {nodeFeatures?.map((f:any) => <Badge key={f.id} variant="outline" className="bg-white text-sky-700 text-[8px] font-black h-5 border-sky-100">{f.name}</Badge>)}
                 </div>
               </div>
             </div>

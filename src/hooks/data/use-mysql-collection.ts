@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -32,6 +33,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
     if (!enabled || isFetchingRef.current || !isMounted.current) return;
     
     isFetchingRef.current = true;
+    // Only show loading state if it's the very first fetch and we have no data
     if (!silent && !prevDataString.current) {
       setIsLoading(true);
     }
@@ -83,7 +85,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
 
     fetchData();
 
-    // Background polling (every 15s)
+    // Background polling (every 15s) - silent update
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchData(true); 

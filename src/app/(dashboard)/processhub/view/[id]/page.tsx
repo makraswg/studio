@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -107,7 +108,8 @@ export default function ProcessDetailViewPage() {
   }, [jobTitles, departments]);
 
   /**
-   * Hierarchical Layout Engine with branching support.
+   * Enhanced Hierarchical Layout Engine.
+   * Forces branches to be side-by-side using unique lanes.
    */
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
@@ -115,10 +117,10 @@ export default function ProcessDetailViewPage() {
     const edges = activeVersion.model_json.edges || [];
     
     const levels: Record<string, number> = {};
-    const columns: Record<string, number> = {};
-    const levelOccupancy: Record<number, number> = {};
+    const lanes: Record<string, number> = {};
+    const occupiedLanesPerLevel = new Map<number, Set<number>>();
 
-    // 1. Level Calculation (Ranks) using Longest Path to handle merges correctly
+    // 1. Level Calculation (Longest Path)
     nodes.forEach(n => levels[n.id] = 0);
     let changed = true;
     let limit = nodes.length * 2;
@@ -133,14 +135,33 @@ export default function ProcessDetailViewPage() {
       limit--;
     }
 
-    // 2. Column Assignment (Horizontal spreading for branches)
-    const sortedNodes = [...nodes].sort((a, b) => levels[a.id] - levels[b.id]);
-    sortedNodes.forEach(node => {
-      const lv = levels[node.id];
-      const col = levelOccupancy[lv] || 0;
-      columns[node.id] = col;
-      levelOccupancy[lv] = col + 1;
-    });
+    // 2. Lane Assignment (Breadth-First to handle branching)
+    const processed = new Set<string>();
+    const queue = nodes.filter(n => !edges.some(e => e.target === n.id)).map(n => ({ id: n.id, lane: 0 }));
+    
+    while (queue.length > 0) {
+      const { id, lane } = queue.shift()!;
+      if (processed.has(id)) continue;
+      
+      const lv = levels[id];
+      let finalLane = lane;
+      
+      if (!occupiedLanesPerLevel.has(lv)) occupiedLanesPerLevel.set(lv, new Set());
+      const levelOccupancy = occupiedLanesPerLevel.get(lv)!;
+      
+      while (levelOccupancy.has(finalLane)) {
+        finalLane++; // Find next free lane at this level
+      }
+      
+      lanes[id] = finalLane;
+      levelOccupancy.add(finalLane);
+      processed.add(id);
+
+      const children = edges.filter(e => e.source === id).map(e => e.target);
+      children.forEach((childId, idx) => {
+        queue.push({ id: childId, lane: finalLane + idx });
+      });
+    }
 
     // 3. Coordinate Projection
     const H_GAP = 450;
@@ -149,25 +170,25 @@ export default function ProcessDetailViewPage() {
     const COLLAPSED_W = 256;
     const EXTRA_W = (EXPANDED_W - COLLAPSED_W);
 
-    return sortedNodes.map(n => {
-      const lvSize = levelOccupancy[levels[n.id]];
-      const startX = -(lvSize - 1) * (H_GAP / 2);
+    return nodes.map(n => {
+      const lane = lanes[n.id] || 0;
+      const lv = levels[n.id] || 0;
       
-      let x = startX + columns[n.id] * H_GAP;
-      let y = levels[n.id] * V_GAP;
+      // Horizontal centering around start point
+      let x = (lane * H_GAP);
+      let y = lv * V_GAP;
 
-      // Symmetrical Shifting if a node is expanded
+      // Symmetrical Expansion handling
       if (activeNodeId) {
-        const activeNode = nodes.find(an => an.id === activeNodeId);
-        const aLv = levels[activeNodeId];
-        const aCol = columns[activeNodeId];
+        const activeLv = levels[activeNodeId];
+        const activeLane = lanes[activeNodeId];
         
-        if (levels[n.id] === aLv) {
-          if (columns[n.id] > aCol) x += (EXTRA_W / 2) + 20;
-          if (columns[n.id] < aCol) x -= (EXTRA_W / 2) + 20;
+        if (lv === activeLv) {
+          if (lane > activeLane) x += (EXTRA_W / 2) + 20;
+          if (lane < activeLane) x -= (EXTRA_W / 2) + 20;
         }
-        if (levels[n.id] > aLv) {
-          y += 350; // Push following levels down
+        if (lv > activeLv) {
+          y += 350; // Push lower levels down
         }
       }
 

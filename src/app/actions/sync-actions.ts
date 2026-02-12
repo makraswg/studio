@@ -65,7 +65,7 @@ export async function updateJobStatusAction(
       name: existingJob?.name || jobId,
       lastRun: new Date().toISOString(),
       lastStatus: status,
-      lastMessage: message.substring(0, 2000) 
+      lastMessage: message.substring(0, 5000) // Erhöhtes Limit für Logs
     };
 
     await saveCollectionRecord('syncJobs', jobId, updateData, dataSource);
@@ -82,63 +82,96 @@ export async function updateJobStatusAction(
  * Bildet das technische Herzstück des Identitäts-Imports.
  */
 export async function triggerSyncJobAction(jobId: string, dataSource: DataSource = 'mysql', actorUid: string = 'system') {
-  await updateJobStatusAction(jobId, 'running', 'Synchronisation gestartet...', dataSource);
+  const log: string[] = [];
+  const addLog = (msg: string) => {
+    const time = new Date().toLocaleTimeString();
+    log.push(`[${time}] ${msg}`);
+    console.log(`[SYNC-LOG] ${msg}`);
+  };
+
+  addLog(`SYNC START: Initialisiere Job '${jobId}' (Datenquelle: ${dataSource})`);
+  await updateJobStatusAction(jobId, 'running', 'Synchronisation wird gestartet...', dataSource);
 
   try {
     if (jobId === 'job-ldap-sync') {
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
+      addLog("Lade Mandanten-Konfigurationen...");
       const tenantsRes = await getCollectionData('tenants', dataSource);
       const allTenants = (tenantsRes.data || []) as Tenant[];
-      const configTenant = allTenants.find(t => !!t.ldapEnabled);
       
-      if (!configTenant || !configTenant.ldapEnabled) {
-        throw new Error("LDAP-MODUL DEAKTIVIERT: Keine aktive Konfiguration gefunden.");
+      const configTenant = allTenants.find(t => t.ldapEnabled === 1 || t.ldapEnabled === true);
+      
+      if (!configTenant) {
+        throw new Error("ABBRUCH: Kein Mandant mit aktivem LDAP-Modul gefunden. Bitte LDAP in den Einstellungen aktivieren.");
       }
 
-      // Simulation: Wir "finden" Nutzer im AD mit Firmen-Attributen
+      addLog(`Konfiguration gefunden für Mandant: ${configTenant.name} (${configTenant.id})`);
+      addLog(`Verbinde zu LDAP: ${configTenant.ldapUrl} / BaseDN: ${configTenant.ldapBaseDn}`);
+
+      // Simulation: AD-Suche
+      addLog("Simuliere LDAP-Search-Operation...");
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
       const adUsers = [
         { 
           username: 'm.mustermann', 
           first: 'Max', 
           last: 'Mustermann', 
-          email: 'm.mustermann@firma.de', 
-          dept: 'IT Administration',
+          email: 'm.mustermann@compliance-hub.local', 
+          dept: 'IT & Digitalisierung',
           title: 'Systemadministrator',
-          company: 'Wohnbau Nord GmbH', // Matcht auf Tenant Name
+          company: configTenant.name, 
           groups: ['G_IT_ADMIN', 'G_WODIS_KEYUSER'] 
         },
         { 
           username: 'e.beispiel', 
           first: 'Erika', 
           last: 'Beispiel', 
-          email: 'e.beispiel@firma.de', 
-          dept: 'Rechtsabteilung',
-          title: 'Justiziarin',
-          company: 'ComplianceHub Global', // Matcht auf Tenant Name
-          groups: ['G_RECHT_LESER'] 
+          email: 'e.beispiel@compliance-hub.local', 
+          dept: 'Recht & Datenschutz',
+          title: 'Datenschutzkoordinatorin',
+          company: configTenant.name,
+          groups: ['G_LEGAL_READ', 'G_VVT_EDITOR'] 
+        },
+        { 
+          username: 'j.schmidt', 
+          first: 'Julia', 
+          last: 'Schmidt', 
+          email: 'j.schmidt@compliance-hub.local', 
+          dept: 'Finanzbuchhaltung',
+          title: 'Bilanzbuchhalterin',
+          company: configTenant.name,
+          groups: ['G_FIBU_USER'] 
         }
       ];
 
+      addLog(`${adUsers.length} Identitäten im Active Directory gefunden.`);
+
       let updateCount = 0;
       let newCount = 0;
+      let errorCount = 0;
 
       const usersRes = await getCollectionData('users', dataSource);
       const existingUsers = usersRes.data || [];
 
       for (const adUser of adUsers) {
         const userId = `u-ad-${adUser.username}`;
+        addLog(`Verarbeite Nutzer: ${adUser.username} (${adUser.email})`);
+        
         const exists = existingUsers.some((u: any) => u.id === userId);
         
-        // --- INTELLIGENTES MANDANTEN MATCHING ---
-        // Suche Mandanten, dessen Name mit dem AD-Firmennamen übereinstimmt
-        const matchedTenant = allTenants.find(t => 
+        // Mandanten-Matching Logik
+        let matchedTenant = allTenants.find(t => 
           t.name.toLowerCase() === adUser.company.toLowerCase()
-        ) || configTenant;
+        );
 
-        if (exists) updateCount++; else newCount++;
+        if (!matchedTenant) {
+          addLog(`  WARNUNG: Kein Mandant für Firma '${adUser.company}' gefunden. Nutze Standard-Mandant '${configTenant.name}'.`);
+          matchedTenant = configTenant;
+        } else {
+          addLog(`  Matching: Nutzer wird Mandant '${matchedTenant.name}' zugeordnet.`);
+        }
 
-        const userData: Partial<User> = {
+        const userData: any = {
           id: userId,
           tenantId: matchedTenant.id,
           externalId: adUser.username,
@@ -146,21 +179,38 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
           email: adUser.email,
           department: adUser.dept,
           title: adUser.title, 
-          enabled: 1,
+          enabled: true,
           status: 'active',
           lastSyncedAt: new Date().toISOString(),
           adGroups: adUser.groups
         };
         
-        await saveCollectionRecord('users', userId, userData, dataSource);
+        addLog(`  Speichere in Datenbank (${dataSource})...`);
+        const saveRes = await saveCollectionRecord('users', userId, userData, dataSource);
+        
+        if (saveRes.success) {
+          if (exists) {
+            updateCount++;
+            addLog(`  ERFOLG: Bestehender Nutzer aktualisiert.`);
+          } else {
+            newCount++;
+            addLog(`  ERFOLG: Neuer Nutzer angelegt.`);
+          }
+        } else {
+          errorCount++;
+          addLog(`  FEHLER beim Speichern: ${saveRes.error}`);
+        }
       }
 
-      const msg = `LDAP Sync erfolgreich: ${newCount} neue Identitäten angelegt, ${updateCount} aktualisiert. Mandanten-Matching via Attribut '${configTenant.ldapAttrCompany || 'company'}' durchgeführt.`;
-      await updateJobStatusAction(jobId, 'success', msg, dataSource);
+      const finalMsg = `SYNC COMPLETE: ${newCount} neu, ${updateCount} aktualisiert, ${errorCount} Fehler.`;
+      addLog(finalMsg);
+      await updateJobStatusAction(jobId, errorCount === adUsers.length ? 'error' : 'success', log.join('\n'), dataSource);
     } 
     else if (jobId === 'job-jira-sync') {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      await updateJobStatusAction(jobId, 'success', 'Jira Gateway erfolgreich abgefragt.', dataSource);
+      addLog("Start Jira Queue Sync...");
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      addLog("Ticket-Status-Abfrage erfolgreich.");
+      await updateJobStatusAction(jobId, 'success', log.join('\n'), dataSource);
     }
 
     await logAuditEventAction(dataSource, {
@@ -173,8 +223,8 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
 
     return { success: true };
   } catch (e: any) {
-    const errorLog = `SYNC-FEHLER AM ${new Date().toLocaleString()}:\nUrsache: ${e.message}`;
-    await updateJobStatusAction(jobId, 'error', errorLog, dataSource);
+    addLog(`KRITISCHER FEHLER: ${e.message}`);
+    await updateJobStatusAction(jobId, 'error', log.join('\n'), dataSource);
     return { success: false, error: e.message };
   }
 }

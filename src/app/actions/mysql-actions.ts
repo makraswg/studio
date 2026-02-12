@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
@@ -196,6 +197,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     return { success: true, error: null };
   } catch (error: any) {
     if (connection) connection.release();
+    console.error(`[MySQL-Error] ${tableName}:`, error.message);
     return { success: false, error: error.message };
   }
 }

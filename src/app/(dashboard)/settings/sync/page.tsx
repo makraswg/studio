@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -244,8 +245,12 @@ export default function SyncSettingsPage() {
                 <Input value={tenantDraft.ldapAttrLastname || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrLastname: e.target.value})} placeholder="sn" className="rounded-xl h-12" />
               </div>
               <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase text-indigo-600 ml-1">Attribut: Gruppen (AD: memberOf)</Label>
+                <Label className="text-[10px] font-black uppercase text-indigo-600 ml-1">Attribut: Gruppen (memberOf)</Label>
                 <Input value={tenantDraft.ldapAttrGroups || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrGroups: e.target.value})} placeholder="memberOf" className="rounded-xl h-12 border-indigo-100" />
+              </div>
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase text-blue-600 ml-1">Attribut: Firma / Organisation</Label>
+                <Input value={tenantDraft.ldapAttrCompany || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrCompany: e.target.value})} placeholder="company" className="rounded-xl h-12 border-blue-100" />
               </div>
             </div>
           </div>

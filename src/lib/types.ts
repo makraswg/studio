@@ -27,7 +27,8 @@ export interface Tenant {
   ldapAttrUsername?: string;
   ldapAttrFirstname?: string;
   ldapAttrLastname?: string;
-  ldapAttrGroups?: string; // Neu: Für memberOf / Groups
+  ldapAttrGroups?: string; 
+  ldapAttrCompany?: string; // Neu: Für Mandanten-Matching
 }
 
 export interface Department {

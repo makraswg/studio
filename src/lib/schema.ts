@@ -1,3 +1,4 @@
+
 export interface TableDefinition {
   columns: {
     [columnName: string]: string;
@@ -52,6 +53,7 @@ export const appSchema: AppSchema = {
       ldapAttrFirstname: 'VARCHAR(100)',
       ldapAttrLastname: 'VARCHAR(100)',
       ldapAttrGroups: 'TEXT',
+      ldapAttrCompany: 'VARCHAR(100)',
     },
   },
   departments: {
@@ -571,7 +573,7 @@ export const appSchema: AppSchema = {
       description: 'TEXT',
       riskLevel: 'VARCHAR(50)',
       isAdmin: 'BOOLEAN DEFAULT FALSE',
-      isSharedAccount: 'BOOLEAN DEFAULT FALSE',
+      isSharedAccount?: 'BOOLEAN DEFAULT FALSE',
       tenantId: 'VARCHAR(255)',
       externalMapping: 'VARCHAR(255)'
     }

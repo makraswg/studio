@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -76,7 +77,7 @@ export default function ProcessDetailViewPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   
   const [mounted, setMounted] = useState(false);
-  const [guideMode, setGuideMode] = useState<'list' | 'structure'>('list');
+  const [guideMode, setGuideMode] = useState<'list' | 'structure'>('structure');
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [connectionPaths, setConnectionPaths] = useState<{ path: string, sourceId: string, targetId: string, label?: string, isActive: boolean }[]>([]);
 
@@ -154,7 +155,7 @@ export default function ProcessDetailViewPage() {
 
       const children = edges.filter(e => {
         const targetNode = nodes.find(n => n.id === e.target);
-        return e.source === id && targetNode?.type !== 'subprocess'; // Prevent looping back logic for simple DAG
+        return e.source === id && targetNode?.type !== 'subprocess';
       }).map(e => e.target);
 
       children.forEach((childId, idx) => {
@@ -210,10 +211,8 @@ export default function ProcessDetailViewPage() {
         const tIsExp = tNode.id === activeNodeId;
         const isPathActive = sIsExp || tIsExp;
         
-        // Accurate height detection for anchors - expanded height is fixed to 420px for predictability
         const sH = sIsExp ? 420 : 82; 
 
-        // Both anchor points are at x + 128 (center of 256px) relative to original left because expansion is symmetrical via translate
         const sX = sNode.x + OFFSET_X + 128;
         const sY = sNode.y + OFFSET_Y + sH;
 
@@ -221,7 +220,7 @@ export default function ProcessDetailViewPage() {
         const tY = tNode.y + OFFSET_Y;
 
         const dy = tY - sY;
-        const stub = 80; // Steep vertical entry
+        const stub = 40; 
         
         const path = `M ${sX} ${sY} L ${sX} ${sY + stub} C ${sX} ${sY + dy/2}, ${tX} ${tY - dy/2}, ${tX} ${tY - stub} L ${tX} ${tY}`;
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target, label: edge.label, isActive: isPathActive });
@@ -313,13 +312,12 @@ export default function ProcessDetailViewPage() {
   };
 
   const handleNodeClick = (nodeId: string) => {
-    if (hasMovedDuringClick) return; // Ignore clicks that were actually drags
+    if (hasMovedDuringClick) return; 
     
     if (activeNodeId === nodeId) {
       setActiveNodeId(null);
     } else {
       setActiveNodeId(nodeId);
-      // Center and zoom after state update propagates
       setTimeout(() => centerOnNode(nodeId), 50);
     }
   };
@@ -327,7 +325,7 @@ export default function ProcessDetailViewPage() {
   if (!mounted) return null;
 
   return (
-    <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body relative">
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden bg-slate-50 font-body relative">
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl transition-all">
@@ -381,6 +379,7 @@ export default function ProcessDetailViewPage() {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
+          onWheel={handleWheel}
           onClick={(e) => { 
             if (!hasMovedDuringClick) setActiveNodeId(null); 
           }}
@@ -491,8 +490,9 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
       className={cn(
         "rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden",
         isActive ? "ring-4 ring-primary border-primary shadow-2xl z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20",
-        isMapMode && (isActive ? "w-[600px] -translate-x-[172px] h-[420px]" : "w-64 h-[82px]")
+        isMapMode && (isActive ? "w-[600px] h-[420px]" : "w-64 h-[82px]")
       )}
+      style={isMapMode && isActive ? { transform: 'translateX(-172px)' } : {}}
       onClick={(e) => {
         e.stopPropagation();
         setActiveNodeId(node.id);

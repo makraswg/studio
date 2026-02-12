@@ -149,77 +149,10 @@ export default function DashboardPage() {
     return { resilienceScore, riskCoverage, deptRanking: deptStats };
   }, [filteredData, depts, activeTenantId]);
 
-  const riskPieData = useMemo(() => {
-    if (!filteredData.risks) return [];
-    const low = filteredData.risks.filter((r: any) => (r.impact * r.probability) < 8).length;
-    const medium = filteredData.risks.filter((r: any) => (r.impact * r.probability) >= 8 && (r.impact * r.probability) < 15).length;
-    const high = filteredData.risks.filter((r: any) => (r.impact * r.probability) >= 15).length;
-    
-    return [
-      { name: 'Niedrig', value: low, color: '#10b981' },
-      { name: 'Mittel', value: '#FF9800', color: '#FF9800' },
-      { name: 'Hoch', value: high, color: '#ef4444' },
-    ].filter(d => d.value > 0);
-  }, [filteredData.risks]);
-
   if (!mounted) return null;
 
-  const handleExport = async (format: 'pdf' | 'excel', mode: 'user' | 'resource') => {
-    setIsExporting(true);
-    try {
-      if (format === 'pdf') {
-        await exportFullComplianceReportPdf(filteredData.users, filteredData.resources, entitlements || [], filteredData.assignments, mode);
-      } else {
-        if (mode === 'user') await exportUsersExcel(filteredData.users, tenants || []);
-        else await exportResourcesExcel(filteredData.resources);
-      }
-      toast({ title: "Bericht erstellt" });
-      setIsReportDialogOpen(false);
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Export fehlgeschlagen", description: e.message });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const StatCard = ({ id, value, icon: Icon, label, color, bg, loading, help }: any) => (
-    <Card id={id} className="group border shadow-sm bg-white dark:bg-slate-900 rounded-2xl overflow-hidden hover:border-primary/20 transition-all">
-      <CardContent className="p-6">
-        {loading ? (
-          <div className="flex items-center gap-4">
-            <Skeleton className="w-10 h-10 rounded-lg" />
-            <div className="flex-1 space-y-1.5"><Skeleton className="h-2 w-12" /><Skeleton className="h-6 w-10" /></div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-all group-hover:scale-110", bg, color)}>
-                <Icon className="w-5 h-5" />
-              </div>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-primary"><Info className="w-3.5 h-3.5" /></Button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-[180px] bg-slate-900 text-white text-[10px] font-bold p-2 border-none rounded-md">
-                    {help}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <div>
-              <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{label}</p>
-              <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">{value}</h3>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-
   return (
-    <div className="space-y-6 pb-10">
-      {/* Header Section */}
+    <div className="p-4 md:p-8 space-y-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
           <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold">Control Center</Badge>
@@ -236,7 +169,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Resilience Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="rounded-2xl border-2 border-primary/20 shadow-sm bg-white dark:bg-slate-900 overflow-hidden relative group">
             <CardContent className="p-8 space-y-6 relative z-10">

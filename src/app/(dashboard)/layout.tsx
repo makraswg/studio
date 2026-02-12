@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -56,7 +57,7 @@ function HeaderContent() {
   if (!mounted) return <header className="h-14 border-b bg-card shrink-0" />;
 
   return (
-    <header className="glass-header h-14 flex items-center justify-between px-4 md:px-6 border-b border-slate-200 dark:border-slate-800">
+    <header className="glass-header h-14 flex items-center justify-between px-4 md:px-6 border-b border-slate-200 dark:border-slate-800 shrink-0">
       <div className="flex items-center gap-3">
         {isMobile && (
           <Sheet>
@@ -157,19 +158,17 @@ export default function DashboardLayout({
   const isMobile = useIsMobile();
 
   return (
-    <div className="flex min-h-screen bg-background selection:bg-primary/20 transition-colors duration-500">
+    <div className="flex min-h-screen bg-background selection:bg-primary/20 transition-colors duration-500 overflow-hidden">
       <CommandMenu />
       {!isMobile && (
         <aside className="w-60 shrink-0 border-r bg-white dark:bg-slate-900/20 hidden md:block sticky top-0 h-screen z-50">
           <AppSidebar />
         </aside>
       )}
-      <div className="flex-1 flex flex-col min-w-0 relative">
+      <div className="flex-1 flex flex-col min-w-0 relative h-screen overflow-hidden">
         <HeaderContent />
-        <main className="flex-1 overflow-x-hidden">
-          <div className="p-4 md:p-6 lg:p-8 w-full animate-in fade-in duration-500">
-            {children}
-          </div>
+        <main className="flex-1 overflow-auto relative">
+          {children}
         </main>
       </div>
     </div>

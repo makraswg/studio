@@ -573,7 +573,7 @@ export const appSchema: AppSchema = {
       description: 'TEXT',
       riskLevel: 'VARCHAR(50)',
       isAdmin: 'BOOLEAN DEFAULT FALSE',
-      isSharedAccount?: 'BOOLEAN DEFAULT FALSE',
+      isSharedAccount: 'BOOLEAN DEFAULT FALSE',
       tenantId: 'VARCHAR(255)',
       externalMapping: 'VARCHAR(255)'
     }

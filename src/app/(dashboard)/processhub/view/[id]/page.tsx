@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -167,7 +166,7 @@ export default function ProcessDetailViewPage() {
     }
 
     const H_GAP = 350;
-    const V_GAP = 160; // Smaller vertical distance as requested
+    const V_GAP = 160; 
     const EXPANDED_WIDTH = 600;
     const COLLAPSED_WIDTH = 256;
     const WIDTH_DIFF = EXPANDED_WIDTH - COLLAPSED_WIDTH;
@@ -188,7 +187,7 @@ export default function ProcessDetailViewPage() {
           if (lane < activeLane) x -= (WIDTH_DIFF / 2) + 40;
         }
         if (lv > activeLv) {
-          y += 340; // Reduced vertical push to keep it compact
+          y += 340; 
         }
       }
 
@@ -216,7 +215,6 @@ export default function ProcessDetailViewPage() {
         
         const sH = sIsExp ? 420 : 82; 
 
-        // Always center lines on the box width (256/2 = 128)
         const sX = sNode.x + OFFSET_X + 128;
         const sY = sNode.y + OFFSET_Y + sH;
 
@@ -225,7 +223,6 @@ export default function ProcessDetailViewPage() {
 
         const dy = tY - sY;
         
-        // Pure smooth Bezier curve directly axis-to-axis
         const path = `M ${sX} ${sY} C ${sX} ${sY + dy/2}, ${tX} ${tY - dy/2}, ${tX} ${tY}`;
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target, label: edge.label, isActive: isPathActive });
       }
@@ -248,7 +245,6 @@ export default function ProcessDetailViewPage() {
       y: -(node.y + OFFSET_Y) * targetScale + containerHeight / 2 - (150 * targetScale)
     });
     setScale(targetScale);
-    // Reset programmatic move flag after animation duration
     setTimeout(() => setIsProgrammaticMove(false), 850);
   }, [gridNodes]);
 
@@ -282,7 +278,7 @@ export default function ProcessDetailViewPage() {
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0 || guideMode !== 'structure') return;
-    setIsProgrammaticMove(false); // Disable animation during drag
+    setIsProgrammaticMove(false); 
     setIsDragging(true);
     setMouseDownTime(Date.now());
     setLastMousePos({ x: e.clientX, y: e.clientY });
@@ -301,7 +297,7 @@ export default function ProcessDetailViewPage() {
   const handleWheel = (e: React.WheelEvent) => {
     if (guideMode !== 'structure') return;
     e.preventDefault();
-    setIsProgrammaticMove(false); // Direct feedback for wheel
+    setIsProgrammaticMove(false); 
     
     const delta = e.deltaY * -0.001;
     const newScale = Math.min(Math.max(0.2, scale + delta), 2);

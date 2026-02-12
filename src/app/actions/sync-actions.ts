@@ -74,12 +74,12 @@ export async function updateJobStatusAction(
 }
 
 /**
- * Triggert eine Synchronisation.
- * Diese Funktion simuliert das Auslesen von AD-Identitäten und deren Gruppen.
+ * Triggert eine Synchronisation der Identitäten aus dem Active Directory.
+ * Bildet das technische Herzstück des Identitäts-Imports.
  */
 export async function triggerSyncJobAction(jobId: string, dataSource: DataSource = 'mysql', actorUid: string = 'system') {
   // 1. Markiere als laufend
-  await updateJobStatusAction(jobId, 'running', 'Synchronisation wurde manuell gestartet...', dataSource);
+  await updateJobStatusAction(jobId, 'running', 'Synchronisation der Identitäten gestartet...', dataSource);
 
   try {
     if (jobId === 'job-ldap-sync') {
@@ -93,33 +93,62 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
         throw new Error("LDAP ist für diesen Mandanten nicht aktiviert.");
       }
 
-      // Simulation: Wir "finden" 3 Nutzer im AD
+      // Simulation: Wir "finden" 3 Nutzer im AD, die wir importieren/aktualisieren
+      // In einer echten Umgebung würden hier die Attribute 'sAMAccountName', 'givenName', 'sn' und 'memberOf' gemappt.
       const adUsers = [
-        { username: 'm.mustermann', first: 'Max', last: 'Mustermann', email: 'm.mustermann@firma.de', groups: ['G_IT_ADMIN', 'G_WODIS_KEYUSER'] },
-        { username: 'e.beispiel', first: 'Erika', last: 'Beispiel', email: 'e.beispiel@firma.de', groups: ['G_RECHT_LESER'] },
-        { username: 'j.doe', first: 'John', last: 'Doe', email: 'j.doe@firma.de', groups: ['G_FINANZ_BUCHHALTUNG'] }
+        { 
+          username: 'm.mustermann', 
+          first: 'Max', 
+          last: 'Mustermann', 
+          email: 'm.mustermann@firma.de', 
+          dept: 'IT Administration',
+          title: 'Systemadministrator',
+          groups: ['G_IT_ADMIN', 'G_WODIS_KEYUSER'] 
+        },
+        { 
+          username: 'e.beispiel', 
+          first: 'Erika', 
+          last: 'Beispiel', 
+          email: 'e.beispiel@firma.de', 
+          dept: 'Rechtsabteilung',
+          title: 'Justiziarin',
+          groups: ['G_RECHT_LESER'] 
+        },
+        { 
+          username: 'j.doe', 
+          first: 'John', 
+          last: 'Doe', 
+          email: 'j.doe@firma.de', 
+          dept: 'Finanzen',
+          title: 'Buchhalter',
+          groups: ['G_FINANZ_BUCHHALTUNG'] 
+        }
       ];
 
       let updateCount = 0;
       for (const adUser of adUsers) {
         const userId = `u-ad-${adUser.username}`;
+        
+        // Mapping AD-Daten -> Hub User Modell
         const userData: Partial<User> = {
           id: userId,
           tenantId: tenant.id,
           externalId: adUser.username,
           displayName: `${adUser.first} ${adUser.last}`,
           email: adUser.email,
+          department: adUser.dept,
+          title: adUser.title, // Initiales Mapping, kann im Hub überschrieben werden
           enabled: 1,
           status: 'active',
           lastSyncedAt: new Date().toISOString(),
-          adGroups: adUser.groups // Hier werden die memberOf Daten gespeichert
+          adGroups: adUser.groups // Synchronisierte Gruppen für die Drift-Detection
         };
         
         await saveCollectionRecord('users', userId, userData, dataSource);
         updateCount++;
       }
 
-      const msg = `LDAP/AD Sync erfolgreich. ${updateCount} Identitäten wurden abgeglichen. Gruppen-Zugehörigkeiten (memberOf) wurden für die Drift-Detection aktualisiert.`;
+      const msg = `LDAP Sync erfolgreich: ${updateCount} Identitäten verarbeitet. Gruppen-Mitgliedschaften wurden für die Drift-Detection aktualisiert.`;
       await updateJobStatusAction(jobId, 'success', msg, dataSource);
     } 
     else if (jobId === 'job-jira-sync') {
@@ -133,7 +162,7 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
     await logAuditEventAction(dataSource as any, {
       tenantId: 'global',
       actorUid,
-      action: `Sync-Job manuell ausgeführt: ${jobId}`,
+      action: `Sync-Job ausgeführt: ${jobId}`,
       entityType: 'sync-job',
       entityId: jobId
     });

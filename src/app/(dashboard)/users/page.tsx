@@ -35,7 +35,9 @@ import {
   Eye,
   ArrowRight,
   Trash2,
-  Save
+  Save,
+  RefreshCw,
+  Clock
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -97,9 +99,14 @@ export default function UsersPage() {
   const { data: entitlements } = usePluggableCollection<any>('entitlements');
   const { data: jobTitles } = usePluggableCollection<any>('jobTitles');
   const { data: departmentsData } = usePluggableCollection<any>('departments');
+  const { data: syncJobs } = usePluggableCollection<any>('syncJobs');
   const { refresh: refreshAudit } = usePluggableCollection<any>('auditEvents');
 
   useEffect(() => { setMounted(true); }, []);
+
+  const lastSync = useMemo(() => {
+    return syncJobs?.find((j: any) => j.id === 'job-ldap-sync');
+  }, [syncJobs]);
 
   const getTenantSlug = (id?: string | null) => {
     if (!id || id === 'null' || id === 'undefined') return '—';
@@ -257,6 +264,13 @@ export default function UsersPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-slate-50 border rounded-xl mr-2">
+            <RefreshCw className={cn("w-3.5 h-3.5 text-slate-400", lastSync?.lastStatus === 'running' && "animate-spin")} />
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black uppercase text-slate-400">Letzter AD-Sync</span>
+              <span className="text-[10px] font-bold text-slate-700">{lastSync?.lastRun ? new Date(lastSync.lastRun).toLocaleString() : 'Nie'}</span>
+            </div>
+          </div>
           <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 active:scale-95" onClick={() => exportUsersExcel(filteredUsers, tenants || [])}>
             <Download className="w-3.5 h-3.5 mr-2" /> Excel
           </Button>
@@ -381,7 +395,7 @@ export default function UsersPage() {
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-xl border">
+                          <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
                             <DropdownMenuItem onSelect={() => router.push(`/users/${u.id}`)} className="rounded-md py-2 gap-2 text-xs font-bold"><Eye className="w-3.5 h-3.5 text-primary" /> Profil ansehen</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => openEdit(u)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
                             <DropdownMenuItem className="text-indigo-600 rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => router.push(`/reviews?search=${u.displayName}`)}><Zap className="w-3.5 h-3.5" /> Review anstoßen</DropdownMenuItem>

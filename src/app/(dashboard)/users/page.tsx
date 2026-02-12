@@ -371,11 +371,11 @@ export default function UsersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
-                      <div className="flex justify-end items-center gap-1.5">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => router.push(`/users/${u.id}`)}>
+                      <div className="flex justify-end items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white shadow-sm" onClick={() => router.push(`/users/${u.id}`)}>
                           <Eye className="w-3.5 h-3.5 text-primary" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => openEdit(u)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white shadow-sm" onClick={() => openEdit(u)}>
                           <Pencil className="w-3.5 h-3.5 text-slate-400" />
                         </Button>
                         <DropdownMenu>

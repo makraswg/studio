@@ -66,6 +66,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 
+const OFFSET_X = 2500;
+const OFFSET_Y = 2500;
+
 export default function ProcessDetailViewPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -104,16 +107,17 @@ export default function ProcessDetailViewPage() {
     return dept ? `${dept.name} — ${role.name}` : role.name;
   }, [jobTitles, departments]);
 
-  // --- Grid Layout Logic (Longest Path) ---
+  // --- Hierarchical Layout Engine (Handles branches and merges) ---
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
     const edges = activeVersion.model_json.edges || [];
     
     const levels: Record<string, number> = {};
-    const cols: Record<string, number> = {};
-    
-    // 1. Calculate Levels (Longest Path to handle merges)
+    const levelCounts: Record<number, number> = {};
+    const nodeConfigs: any[] = [];
+
+    // 1. Calculate Levels (Longest path to handle branches merging back)
     const computeLevels = () => {
       nodes.forEach(n => levels[n.id] = 0);
       let changed = true;
@@ -131,67 +135,49 @@ export default function ProcessDetailViewPage() {
     };
     computeLevels();
 
-    // 2. Calculate Columns (Horizontal distribution)
-    const levelCounts: Record<number, number> = {};
+    // 2. Assign horizontal positions within levels
     nodes.sort((a, b) => levels[a.id] - levels[b.id]).forEach(n => {
       const lv = levels[n.id];
       if (levelCounts[lv] === undefined) levelCounts[lv] = 0;
-      cols[n.id] = levelCounts[lv];
+      const cl = levelCounts[lv];
       levelCounts[lv]++;
+      nodeConfigs.push({ ...n, level: lv, col: cl });
     });
 
-    // 3. Position Calculation with Symmetric Expansion
+    // 3. Grid positioning with symmetrical expansion
     const BASE_H_GAP = 450;
     const BASE_V_GAP = 180;
     const COLLAPSED_W = 256;
     const EXPANDED_W = 600;
     const EXTRA_W = (EXPANDED_W - COLLAPSED_W);
 
-    return nodes.map(n => {
-      const lv = levels[n.id];
-      const cl = cols[n.id];
-      const totalInLv = levelCounts[lv];
-      
+    return nodeConfigs.map(n => {
+      const totalInLv = levelCounts[n.level];
       const startX = -(totalInLv - 1) * (BASE_H_GAP / 2);
-      let x = startX + cl * BASE_H_GAP;
-      let y = lv * BASE_V_GAP;
+      
+      let x = startX + n.col * BASE_H_GAP;
+      let y = n.level * BASE_V_GAP;
 
-      // Symmetric Shifting Logic
+      // Symmetric Shifting for the active (expanded) node
       if (activeNodeId) {
-        const aNode = nodes.find(an => an.id === activeNodeId);
-        const aLv = levels[activeNodeId];
-        const aCl = cols[activeNodeId];
-        
-        if (lv === aLv) {
-          // Push neighbors in same row left and right
-          if (cl > aCl) x += (EXTRA_W / 2) + 40;
-          if (cl < aCl) x -= (EXTRA_W / 2) + 40;
-        }
-        if (lv > aLv) {
-          // Push all rows below the expanded card down
-          y += 350; 
+        const aConfig = nodeConfigs.find(ac => ac.id === activeNodeId);
+        if (aConfig) {
+          const aLv = aConfig.level;
+          const aCl = aConfig.col;
+          
+          if (n.level === aLv) {
+            if (n.col > aCl) x += (EXTRA_W / 2) + 40;
+            if (n.col < aCl) x -= (EXTRA_W / 2) + 40;
+          }
+          if (n.level > aLv) {
+            y += 350; // Push rows below down
+          }
         }
       }
 
       return { ...n, x, y };
     });
   }, [activeVersion, activeNodeId]);
-
-  const resetViewport = useCallback(() => {
-    if (gridNodes.length === 0 || !containerRef.current) return;
-    
-    let targetNode = gridNodes.find(n => n.id === activeNodeId) || gridNodes.find(n => n.type === 'start') || gridNodes[0];
-    const containerWidth = containerRef.current.clientWidth;
-    const containerHeight = containerRef.current.clientHeight;
-
-    const OFFSET_X = 2500;
-    const OFFSET_Y = 2500;
-
-    setPosition({
-      x: -(targetNode.x + OFFSET_X) * scale + containerWidth / 2 - (128 * scale),
-      y: -(targetNode.y + OFFSET_Y) * scale + containerHeight / 2 - (40 * scale)
-    });
-  }, [gridNodes, scale, activeNodeId]);
 
   const updateFlowLines = useCallback(() => {
     if (!activeVersion || gridNodes.length === 0) {
@@ -207,9 +193,6 @@ export default function ProcessDetailViewPage() {
       const tNode = gridNodes.find(n => n.id === edge.target);
       
       if (sNode && tNode) {
-        const OFFSET_X = 2500;
-        const OFFSET_Y = 2500;
-        
         const sIsExpanded = sNode.id === activeNodeId;
         const tIsExpanded = tNode.id === activeNodeId;
         
@@ -217,15 +200,15 @@ export default function ProcessDetailViewPage() {
         const tW = tIsExpanded ? 600 : 256;
         const sH = sIsExpanded ? 400 : 80;
 
-        // Top-Entry / Bottom-Exit Logic
+        // Top-Entry / Bottom-Exit logic
         const sX = sNode.x + OFFSET_X + (sW / 2);
         const sY = sNode.y + OFFSET_Y + sH;
 
         const tX = tNode.x + OFFSET_X + (tW / 2);
         const tY = tNode.y + OFFSET_Y;
 
-        const dy = Math.abs(tY - sY);
-        const cpOffset = Math.max(dy * 0.4, 80); 
+        const dy = tY - sY;
+        const cpOffset = Math.max(dy * 0.4, 60); 
         
         const path = `M ${sX} ${sY} C ${sX} ${sY + cpOffset}, ${tX} ${tY - cpOffset}, ${tX} ${tY}`;
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target });
@@ -235,14 +218,27 @@ export default function ProcessDetailViewPage() {
     setConnectionPaths(newPaths);
   }, [activeVersion, gridNodes, activeNodeId]);
 
+  const resetViewport = useCallback(() => {
+    if (gridNodes.length === 0 || !containerRef.current) return;
+    
+    const targetNode = gridNodes.find(n => n.type === 'start') || gridNodes[0];
+    const containerWidth = containerRef.current.clientWidth;
+    const containerHeight = containerRef.current.clientHeight;
+
+    setPosition({
+      x: -(targetNode.x + OFFSET_X) * scale + containerWidth / 2 - (128 * scale),
+      y: -(targetNode.y + OFFSET_Y) * scale + containerHeight / 2 - (40 * scale)
+    });
+  }, [gridNodes, scale]);
+
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    if (mounted && guideMode === 'structure' && !hasAutoCentered.current) {
+    if (mounted && guideMode === 'structure' && !hasAutoCentered.current && gridNodes.length > 0) {
       resetViewport();
       hasAutoCentered.current = true;
     }
-  }, [guideMode, mounted, resetViewport]);
+  }, [guideMode, mounted, gridNodes, resetViewport]);
 
   useEffect(() => {
     updateFlowLines();
@@ -366,7 +362,7 @@ export default function ProcessDetailViewPage() {
                 ))}
               </svg>
               {gridNodes.map(node => (
-                <div key={node.id} className="absolute transition-all duration-300" style={{ left: node.x + 2500, top: node.y + 2500 }}>
+                <div key={node.id} className="absolute transition-all duration-300" style={{ left: node.x + OFFSET_X, top: node.y + OFFSET_Y }}>
                   <ProcessStepCard node={node} isMapMode activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} resources={resources} allFeatures={allFeatures} getFullRoleName={getFullRoleName} />
                 </div>
               ))}

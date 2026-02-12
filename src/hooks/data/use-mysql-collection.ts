@@ -49,6 +49,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
         const newDataString = JSON.stringify(newData);
         
         // STABILITY CHECK: Only update state if content is truly different
+        // This prevents the "flickering" when hovering or moving mouse
         if (newDataString !== prevDataString.current) {
           setData(newData);
           prevDataString.current = newDataString;

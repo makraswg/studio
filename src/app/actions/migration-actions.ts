@@ -67,15 +67,15 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
     }
 
     // SEEDING: Default Tenant
-    details.push('🌱 Prüfe auf initialen Mandanten...');
+    details.push('🌱 Prüfe auf Organisationen...');
     const [tenantRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `tenants`');
     if (tenantRows[0].count === 0) {
       const now = new Date().toISOString();
       await connection.execute(
         'INSERT INTO `tenants` (id, name, slug, createdAt, status, region) VALUES (?, ?, ?, ?, ?, ?)',
-        ['t1', 'Hauptmandant', 'hauptmandant', now, 'active', 'EU-DSGVO']
+        ['t1', 'Meine Organisation', 'meine-organisation', now, 'active', 'EU-DSGVO']
       );
-      details.push('   ✅ Initialer Mandant erstellt (ID: t1).');
+      details.push('   ✅ Initialer Mandant erstellt. Sie können diesen in den Einstellungen umbenennen.');
     }
 
     // SEEDING: Prozesstypen

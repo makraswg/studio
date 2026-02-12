@@ -414,7 +414,7 @@ export default function UnifiedOrganizationPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6 pb-10 w-full mx-auto">
+    <div className="space-y-6 pb-10 w-full mx-auto px-4 md:px-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
           <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">Organisationsstruktur</Badge>
@@ -422,8 +422,8 @@ export default function UnifiedOrganizationPage() {
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung der Standorte, Abteilungen und Rollen-Zuweisungsprofile.</p>
         </div>
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1 h-10 rounded-xl border gap-1">
-          <button className={cn("px-4 rounded-lg text-[10px] font-bold uppercase transition-all", activeTab === 'list' ? "bg-white dark:bg-slate-700 shadow-sm text-primary" : "text-slate-500 hover:text-slate-700")} onClick={() => setActiveTab('list')}>Liste</button>
-          <button className={cn("px-4 rounded-lg text-[10px] font-bold uppercase transition-all", activeTab === 'chart' ? "bg-white dark:bg-slate-700 shadow-sm text-primary" : "text-slate-500 hover:text-slate-700")} onClick={() => setActiveTab('chart')}>Stammbaum</button>
+          <button className={cn("px-4 rounded-lg text-[10px] font-bold uppercase transition-all", activeTab === 'list' ? "bg-white dark:bg-slate-700 shadow-sm text-primary" : "text-slate-500 hover:text-slate-900")} onClick={() => setActiveTab('list')}>Liste</button>
+          <button className={cn("px-4 rounded-lg text-[10px] font-bold uppercase transition-all", activeTab === 'chart' ? "bg-white dark:bg-slate-700 shadow-sm text-primary" : "text-slate-500 hover:text-slate-900")} onClick={() => setActiveTab('chart')}>Stammbaum</button>
         </div>
       </div>
 
@@ -436,7 +436,7 @@ export default function UnifiedOrganizationPage() {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => setShowArchived(!showArchived)} className={cn("h-9 font-bold text-[10px] uppercase", showArchived && "bg-orange-50 text-orange-600")}>{showArchived ? 'Aktive Ansicht' : 'Archiv anzeigen'}</Button>
-              <Button size="sm" className="h-9 font-bold text-[10px] uppercase px-6" onClick={() => { resetForm(); setEditingTenant(null); setIsTenantDialogOpen(true); }}><Plus className="w-3.5 h-3.5 mr-2" /> Neuer Mandant</Button>
+              <Button size="sm" className="h-9 font-bold text-[10px] uppercase px-6" onClick={() => { resetForm(); setEditingTenant(null); setTenantName(''); setTenantSlug(''); setIsTenantDialogOpen(true); }}><Plus className="w-3.5 h-3.5 mr-2" /> Neuer Mandant</Button>
             </div>
           </div>
 
@@ -673,7 +673,7 @@ export default function UnifiedOrganizationPage() {
           <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
             <AlertDialogCancel className="rounded-xl font-bold text-xs h-11 px-8 border-slate-200">Abbrechen</AlertDialogCancel>
             {deleteErrors.length === 0 && (
-              <AlertDialogAction onClick={executeDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs h-11 px-10 gap-2 shadow-lg shadow-red-200">{isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Permanent löschen</AlertDialogAction>
+              <AlertDialogAction onClick={executeDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs h-11 px-10 gap-2 shadow-lg shadow-red-200">{isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Permanent löschen</AlertDialogAction>
             )}
           </AlertDialogFooter>
         </AlertDialogContent>

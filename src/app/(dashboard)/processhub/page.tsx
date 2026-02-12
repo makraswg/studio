@@ -59,7 +59,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Progress } from '@/components/ui/progress';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function ProcessHubOverview() {
@@ -85,7 +85,6 @@ export default function ProcessHubOverview() {
   useEffect(() => { setMounted(true); }, []);
 
   const handleCreate = async () => {
-    // Falls kein Mandant ausgewählt ist, nutzen wir den ersten verfügbaren oder geben eine Meldung aus
     const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
     
     if (!user) {
@@ -110,7 +109,6 @@ export default function ProcessHubOverview() {
   // Automatischer Erstellungs-Workflow bei Parameter ?action=create
   useEffect(() => {
     if (mounted && searchParams.get('action') === 'create' && !isCreating) {
-      // Kurze Verzögerung für Hydration-Abschluss
       const timer = setTimeout(() => {
         handleCreate();
         // Parameter aus URL entfernen

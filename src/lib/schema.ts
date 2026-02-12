@@ -1,4 +1,3 @@
-
 export interface TableDefinition {
   columns: {
     [columnName: string]: string;

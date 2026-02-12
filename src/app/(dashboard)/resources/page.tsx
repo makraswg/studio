@@ -724,7 +724,7 @@ function ResourcesPageContent() {
                     </div>
                     {backupRequired && (
                       <div className="space-y-4">
-                        <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold gap-2 border-orange-200 text-orange-700 hover:bg-orange-50" onClick={() => handleOpenBackupModal()}>
+                        <Button size="sm" variant="outline" type="button" className="h-8 text-[10px] font-bold gap-2 border-orange-200 text-orange-700 hover:bg-orange-50" onClick={() => handleOpenBackupModal()}>
                           <PlusCircle className="w-3.5 h-3.5" /> Backup-Job anlegen
                         </Button>
                         <div className="grid grid-cols-1 gap-3">
@@ -746,8 +746,8 @@ function ResourcesPageContent() {
                                 </div>
                               </div>
                               <div className="flex gap-1">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400" onClick={() => handleOpenBackupModal(idx)}><Pencil className="w-3.5 h-3.5" /></Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400" onClick={() => setLocalBackupJobs(prev => prev.filter((_, i) => i !== idx))}><Trash2 className="w-3.5 h-3.5" /></Button>
+                                <Button variant="ghost" size="icon" type="button" className="h-8 w-8 text-slate-400" onClick={() => handleOpenBackupModal(idx)}><Pencil className="w-3.5 h-3.5" /></Button>
+                                <Button variant="ghost" size="icon" type="button" className="h-8 w-8 text-red-400" onClick={() => setLocalBackupJobs(prev => prev.filter((_, i) => i !== idx))}><Trash2 className="w-3.5 h-3.5" /></Button>
                               </div>
                             </div>
                           ))}
@@ -779,7 +779,7 @@ function ResourcesPageContent() {
                               className="h-6 text-[8px] font-black uppercase text-blue-600 hover:bg-blue-50 gap-1 rounded-md" 
                               onClick={handleOpenNewProcessTab}
                             >
-                              <PlusCircle className="w-3 h-3" /> Prozess anlegen
+                              <PlusCircle className="w-3.5 h-3.5" /> Prozess anlegen
                             </Button>
                           </div>
                           <div className="relative group flex-1">
@@ -819,8 +819,8 @@ function ResourcesPageContent() {
               </div>
             </ScrollArea>
             <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] h-11 uppercase">Abbrechen</Button>
-              <Button size="sm" onClick={handleSave} disabled={isSaving} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2">
+              <Button variant="ghost" size="sm" type="button" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button>
+              <Button size="sm" type="button" onClick={handleSave} disabled={isSaving} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2">
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern
               </Button>
             </DialogFooter>
@@ -862,7 +862,7 @@ function ResourcesPageContent() {
                       className="h-6 text-[8px] font-black uppercase text-orange-600 hover:bg-orange-50 gap-1 rounded-md" 
                       onClick={handleOpenNewProcessTab}
                     >
-                      <PlusCircle className="w-3 h-3" /> Prozess anlegen
+                      <PlusCircle className="w-3.5 h-3.5" /> Prozess anlegen
                     </Button>
                   </div>
                   <div className="relative group flex-1 mb-1.5">
@@ -878,8 +878,8 @@ function ResourcesPageContent() {
             </div>
           </ScrollArea>
           <DialogFooter className="p-4 bg-slate-50 border-t flex gap-2">
-            <Button variant="ghost" onClick={() => setIsBackupModalOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
-            <Button onClick={saveBackupForm} className="rounded-xl h-11 px-12 bg-orange-600 hover:bg-orange-700 text-white font-bold text-[10px] uppercase shadow-lg">Job Speichern</Button>
+            <Button variant="ghost" type="button" onClick={() => setIsBackupModalOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
+            <Button type="button" onClick={saveBackupForm} className="rounded-xl h-11 px-12 bg-orange-600 hover:bg-orange-700 text-white font-bold text-[10px] uppercase shadow-lg">Job Speichern</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

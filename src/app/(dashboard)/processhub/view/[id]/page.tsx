@@ -42,7 +42,8 @@ import {
   HelpCircle,
   Maximize2,
   Minus,
-  Plus
+  Plus,
+  Edit3
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -82,7 +83,7 @@ export default function ProcessDetailViewPage() {
   const [viewMode, setViewMode] = useState<'guide' | 'risks'>('guide');
   const [guideMode, setGuideMode] = useState<'list' | 'structure'>('list');
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
-  const [connectionPaths, setConnectionPaths] = useState<{ path: string, highlight: boolean, label?: string }[]>([]);
+  const [connectionPaths, setConnectionPaths] = useState<{ path: string, highlight: boolean, label?: string, sourceId: string, targetId: string }[]>([]);
 
   // Map States
   const [scale, setScale] = useState(1);
@@ -98,12 +99,11 @@ export default function ProcessDetailViewPage() {
   const { data: allFeatures } = usePluggableCollection<Feature>('features');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
-  const { data: dataCategories } = usePluggableCollection<DataCategory>('dataCategories');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
 
-  // --- Grid Layout Logic (Compact) ---
+  // --- Grid Layout Logic ---
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
@@ -130,12 +130,11 @@ export default function ProcessDetailViewPage() {
 
     return nodes.map(n => ({
       ...n,
-      x: (cols[n.id] || 0) * 300, // Reduced from 350
-      y: (levels[n.id] || 0) * 200  // Reduced from 250
+      x: (cols[n.id] || 0) * 300,
+      y: (levels[n.id] || 0) * 200
     }));
   }, [activeVersion]);
 
-  // --- Map Controls ---
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0 || guideMode !== 'structure') return;
     setIsDragging(true);
@@ -168,18 +167,11 @@ export default function ProcessDetailViewPage() {
     const containerWidth = containerRef.current?.clientWidth || 800;
     const containerHeight = containerRef.current?.clientHeight || 600;
 
-    // Center the target node (considering the 1000/500 offset in rendering)
     setPosition({
       x: -(targetNode.x + 1000) * scale + containerWidth / 2 - (150 * scale),
       y: -(targetNode.y + 500) * scale + containerHeight / 2 - (50 * scale)
     });
   }, [gridNodes, scale, activeNodeId]);
-
-  useEffect(() => {
-    if (guideMode === 'structure' && mounted) {
-      setTimeout(resetViewport, 100);
-    }
-  }, [guideMode, mounted, resetViewport]);
 
   const updateFlowLines = useCallback(() => {
     if (!activeVersion || viewMode !== 'guide' || !containerRef.current) {
@@ -188,43 +180,42 @@ export default function ProcessDetailViewPage() {
     }
 
     const edges = activeVersion.model_json.edges || [];
-    const newPaths: { path: string, highlight: boolean, label?: string }[] = [];
+    const newPaths: { path: string, highlight: boolean, label?: string, sourceId: string, targetId: string }[] = [];
 
     edges.forEach(edge => {
       const sourceNode = gridNodes.find(n => n.id === edge.source);
       const targetNode = gridNodes.find(n => n.id === edge.target);
       
       if (sourceNode && targetNode) {
-        // Offset logic matching the absolute positioning in JSX
         const OFFSET_X = 1000;
         const OFFSET_Y = 500;
-        const NODE_W = activeNodeId === sourceNode.id ? 600 : (guideMode === 'structure' ? 256 : 800); // approximated
-        const NODE_H = activeNodeId === sourceNode.id ? 400 : 80;
+        const dx = targetNode.x - sourceNode.x;
+        const dy = targetNode.y - sourceNode.y;
 
         let sX, sY, tX, tY;
         let path = '';
 
-        // BPMN-style routing logic: check if next node is mostly to the side or below
-        const dx = targetNode.x - sourceNode.x;
-        const dy = targetNode.y - sourceNode.y;
-
         if (Math.abs(dx) > Math.abs(dy) * 1.5) {
-          // Horizontal flow
-          sX = sourceNode.x + OFFSET_X + (dx > 0 ? (activeNodeId === sourceNode.id ? 600 : 256) : 0);
+          sX = sourceNode.x + OFFSET_X + (dx > 0 ? 256 : 0);
           sY = sourceNode.y + OFFSET_Y + 40;
           tX = targetNode.x + OFFSET_X + (dx > 0 ? 0 : 256);
           tY = targetNode.y + OFFSET_Y + 40;
           path = `M ${sX} ${sY} L ${sX + dx/2} ${sY} L ${sX + dx/2} ${tY} L ${tX} ${tY}`;
         } else {
-          // Vertical flow
-          sX = sourceNode.x + OFFSET_X + (activeNodeId === sourceNode.id ? 300 : 128);
-          sY = sourceNode.y + OFFSET_Y + (activeNodeId === sourceNode.id ? 400 : 80);
-          tX = targetNode.x + OFFSET_X + (activeNodeId === targetNode.id ? 300 : 128);
+          sX = sourceNode.x + OFFSET_X + 128;
+          sY = sourceNode.y + OFFSET_Y + 80;
+          tX = targetNode.x + OFFSET_X + 128;
           tY = targetNode.y + OFFSET_Y;
           path = `M ${sX} ${sY} C ${sX} ${sY + 40}, ${tX} ${tY - 40}, ${tX} ${tY}`;
         }
 
-        newPaths.push({ path, highlight: activeNodeId === edge.source || activeNodeId === edge.target, label: edge.label });
+        newPaths.push({ 
+          path, 
+          highlight: activeNodeId === edge.source || activeNodeId === edge.target, 
+          label: edge.label,
+          sourceId: edge.source,
+          targetId: edge.target
+        });
       }
     });
 
@@ -274,7 +265,7 @@ export default function ProcessDetailViewPage() {
         id={isMapMode ? `map-node-${node.id}` : `card-${node.id}`}
         className={cn(
           "rounded-2xl border shadow-sm transition-all duration-300 bg-white group cursor-pointer relative",
-          isActive ? "ring-4 ring-primary/10 border-primary shadow-xl z-50 w-[600px]" : "hover:border-primary/20 w-full max-w-4xl",
+          isActive ? "ring-4 ring-primary/10 border-primary shadow-xl z-50 w-[600px]" : "hover:border-primary/20 w-full",
           isMapMode && !isActive && "w-64"
         )}
         onClick={(e) => {
@@ -374,8 +365,7 @@ export default function ProcessDetailViewPage() {
             <Button variant={guideMode === 'structure' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-bold uppercase px-3" onClick={() => setGuideMode('structure')}><LayoutGrid className="w-3.5 h-3.5 mr-1.5" /> Landkarte</Button>
           </div>
           <div className="w-px h-8 bg-slate-200" />
-          <Button variant={viewMode === 'guide' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('guide')}><ListChecks className="w-3.5 h-3.5 mr-1.5" /> Leitfaden</Button>
-          <Button variant={viewMode === 'risks' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('risks')}><ShieldAlert className="w-3.5 h-3.5 mr-1.5" /> Risiken</Button>
+          <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4 gap-2 border-primary/20 text-primary hover:bg-primary/5 shadow-sm" onClick={() => router.push(`/processhub/${id}`)}><Edit3 className="w-3.5 h-3.5" /> Designer öffnen</Button>
         </div>
       </header>
 
@@ -421,9 +411,9 @@ export default function ProcessDetailViewPage() {
           {viewMode === 'guide' ? (
             guideMode === 'list' ? (
               <ScrollArea className="flex-1 p-6 md:p-10">
-                <div className="max-w-4xl mx-auto space-y-4 pb-64">
+                <div className="max-w-full mx-auto space-y-4 pb-64">
                   {activeVersion?.model_json?.nodes?.map((node: ProcessNode) => (
-                    <div key={node.id} className="flex justify-center">
+                    <div key={node.id} className="flex justify-center w-full">
                       <GuideCard node={node} />
                     </div>
                   ))}
@@ -446,17 +436,23 @@ export default function ProcessDetailViewPage() {
                       <polygon points="0 0, 8 3, 0 6" fill="currentColor" className="text-slate-900" />
                     </marker>
                   </defs>
-                  {connectionPaths.map((pathObj, i) => (
-                    <path 
-                      key={i}
-                      d={pathObj.path} 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth={pathObj.highlight ? "3" : "1.5"} 
-                      className={cn("transition-all duration-300", pathObj.highlight ? "text-primary opacity-100" : "text-slate-400 opacity-30")}
-                      markerEnd="url(#arrowhead-modern)"
-                    />
-                  ))}
+                  {connectionPaths.map((pathObj, i) => {
+                    // Only show paths related to the active node
+                    if (activeNodeId && (activeNodeId === pathObj.sourceId || activeNodeId === pathObj.targetId)) {
+                      return (
+                        <path 
+                          key={i}
+                          d={pathObj.path} 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth="3" 
+                          className="transition-all duration-300 text-primary opacity-100"
+                          markerEnd="url(#arrowhead-modern)"
+                        />
+                      );
+                    }
+                    return null;
+                  })}
                 </svg>
                 
                 {gridNodes.map(node => (

@@ -274,10 +274,11 @@ export default function LifecyclePage() {
     try {
       const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
       const timestamp = new Date().toISOString();
-      const userId = `u-${Math.random().toString(36).substring(2, 9)}`;
+      const userId = `u-onb-${Math.random().toString(36).substring(2, 9)}`;
       
       const bundle = bundles?.find(b => b.id === selectedBundleId);
       const job = jobs?.find(j => j.id === selectedJobId);
+      const dept = departments?.find((d: any) => d.id === job?.departmentId);
       
       const allEntitlementIds = new Set<string>();
       bundle?.entitlementIds.forEach(id => allEntitlementIds.add(id));
@@ -285,24 +286,29 @@ export default function LifecyclePage() {
 
       const entitlementList = Array.from(allEntitlementIds);
 
+      // 1. Identität anlegen (Eintrag im Benutzerverzeichnis)
       const userData = { 
         id: userId, 
         tenantId: targetTenantId, 
+        externalId: `onb-${newUserEmail.split('@')[0]}`,
         displayName: newUserName, 
         email: newUserEmail, 
         enabled: true, 
         status: 'active', 
         onboardingDate, 
+        department: dept?.name || '',
         title: job?.name || '',
         lastSyncedAt: timestamp 
       };
       await saveCollectionRecord('users', userId, userData, dataSource);
 
+      // 2. Jira Provisionierungsticket (optional)
       let jiraDescription = `Automatisches Onboarding-Ticket erstellt via ComplianceHub Gateway.\n\n`;
       jiraDescription += `BENUTZERDATEN:\n`;
       jiraDescription += `- Name: ${newUserName}\n`;
       jiraDescription += `- E-Mail: ${newUserEmail}\n`;
       jiraDescription += `- Eintrittsdatum: ${onboardingDate}\n`;
+      jiraDescription += `- Abteilung: ${dept?.name || '---'}\n`;
       jiraDescription += `- Haupt-Zuweisung: ${job?.name || 'Keine Angabe'}\n\n`;
       
       jiraDescription += `GEWÄHLTE PROFILE:\n`;
@@ -325,6 +331,7 @@ export default function LifecyclePage() {
         if (res.success) jiraKey = res.key!;
       }
 
+      // 3. Berechtigungs-Anfragen verknüpfen (Status: requested)
       for (const eid of entitlementList) {
         const assId = `ass-onb-${userId}-${eid}`.substring(0, 50);
         const assData = { 
@@ -341,7 +348,7 @@ export default function LifecyclePage() {
         entityType: 'user', entityId: userId, after: userData
       });
 
-      toast({ title: "Onboarding gestartet" });
+      toast({ title: "Onboarding gestartet", description: "Der Nutzer wurde im Verzeichnis angelegt." });
       setNewUserName(''); setNewEmail(''); setSelectedBundleId(null); setSelectedJobId(null);
       setTimeout(() => { refreshUsers(); refreshAssignments(); }, 300);
     } catch (error: any) {
@@ -458,7 +465,7 @@ export default function LifecyclePage() {
             <div className="p-6 border-t bg-slate-50/50 dark:bg-slate-800/50 flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 italic">
                 <Info className="w-3.5 h-3.5" />
-                Initial-Passwort wird automatisch generiert und per E-Mail versendet.
+                Der Nutzer wird sofort im Benutzerverzeichnis angelegt.
               </div>
               <Button 
                 onClick={startOnboarding} 

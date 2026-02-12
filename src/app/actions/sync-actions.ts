@@ -94,7 +94,6 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
       }
 
       // Simulation: Wir "finden" 3 Nutzer im AD, die wir importieren/aktualisieren
-      // In einer echten Umgebung würden hier die Attribute 'sAMAccountName', 'givenName', 'sn' und 'memberOf' gemappt.
       const adUsers = [
         { 
           username: 'm.mustermann', 
@@ -103,7 +102,7 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
           email: 'm.mustermann@firma.de', 
           dept: 'IT Administration',
           title: 'Systemadministrator',
-          groups: ['G_IT_ADMIN', 'G_WODIS_KEYUSER'] 
+          groups: ['G_IT_ADMIN', 'G_WODIS_KEYUSER', 'Domain Users'] 
         },
         { 
           username: 'e.beispiel', 
@@ -112,7 +111,7 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
           email: 'e.beispiel@firma.de', 
           dept: 'Rechtsabteilung',
           title: 'Justiziarin',
-          groups: ['G_RECHT_LESER'] 
+          groups: ['G_RECHT_LESER', 'Domain Users'] 
         },
         { 
           username: 'j.doe', 
@@ -121,14 +120,23 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
           email: 'j.doe@firma.de', 
           dept: 'Finanzen',
           title: 'Buchhalter',
-          groups: ['G_FINANZ_BUCHHALTUNG'] 
+          groups: ['G_FINANZ_BUCHHALTUNG', 'Domain Users'] 
         }
       ];
 
       let updateCount = 0;
+      let newCount = 0;
+
+      // Abrufen bestehender Nutzer zur Prüfung (Create vs Update)
+      const usersRes = await getCollectionData('users', dataSource);
+      const existingUsers = usersRes.data || [];
+
       for (const adUser of adUsers) {
         const userId = `u-ad-${adUser.username}`;
+        const exists = existingUsers.some((u: any) => u.id === userId || u.externalId === adUser.username);
         
+        if (exists) updateCount++; else newCount++;
+
         // Mapping AD-Daten -> Hub User Modell
         const userData: Partial<User> = {
           id: userId,
@@ -137,18 +145,17 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
           displayName: `${adUser.first} ${adUser.last}`,
           email: adUser.email,
           department: adUser.dept,
-          title: adUser.title, // Initiales Mapping, kann im Hub überschrieben werden
+          title: adUser.title, 
           enabled: 1,
           status: 'active',
           lastSyncedAt: new Date().toISOString(),
-          adGroups: adUser.groups // Synchronisierte Gruppen für die Drift-Detection
+          adGroups: adUser.groups // memberOf Mapping für Drift-Detection
         };
         
         await saveCollectionRecord('users', userId, userData, dataSource);
-        updateCount++;
       }
 
-      const msg = `LDAP Sync erfolgreich: ${updateCount} Identitäten verarbeitet. Gruppen-Mitgliedschaften wurden für die Drift-Detection aktualisiert.`;
+      const msg = `LDAP Sync erfolgreich: ${newCount} neue Identitäten angelegt, ${updateCount} aktualisiert. Gruppen-Mitgliedschaften für Drift-Detection synchronisiert.`;
       await updateJobStatusAction(jobId, 'success', msg, dataSource);
     } 
     else if (jobId === 'job-jira-sync') {

@@ -1,5 +1,5 @@
 
-"use client";
+'use client';
 
 import { useState, useEffect } from 'react';
 import { AppSidebar } from '@/components/layout/app-sidebar';
@@ -159,6 +159,7 @@ export default function DashboardLayout({
   const isMobile = useIsMobile();
   const { user, isUserLoading } = usePlatformAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -167,10 +168,10 @@ export default function DashboardLayout({
 
   // Route Protection logic
   useEffect(() => {
-    if (mounted && !isUserLoading && !user) {
+    if (mounted && !isUserLoading && !user && pathname !== '/setup') {
       router.push('/');
     }
-  }, [user, isUserLoading, router, mounted]);
+  }, [user, isUserLoading, router, mounted, pathname]);
 
   // Prevent flash of internal content while checking session
   if (!mounted || isUserLoading) {
@@ -179,6 +180,17 @@ export default function DashboardLayout({
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-10 h-10 animate-spin text-primary" />
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 animate-pulse">Sitzung wird geprüft...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Simplified layout for unauthenticated setup
+  if (!user && pathname === '/setup') {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-12 overflow-auto">
+        <div className="max-w-5xl mx-auto">
+          {children}
         </div>
       </div>
     );

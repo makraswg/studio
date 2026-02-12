@@ -7,6 +7,22 @@ import { PoolConnection } from 'mysql2/promise';
 import bcrypt from 'bcryptjs';
 
 /**
+ * Prüft, ob das System bereits initialisiert wurde.
+ */
+export async function checkSystemStatusAction(): Promise<{ initialized: boolean }> {
+  let connection;
+  try {
+    connection = await getMysqlConnection();
+    const [rows]: any = await connection.execute('SELECT COUNT(*) as count FROM `tenants`');
+    connection.release();
+    return { initialized: rows[0].count > 0 };
+  } catch (e) {
+    if (connection) connection.release();
+    return { initialized: false };
+  }
+}
+
+/**
  * Führt eine Datenbank-Migration basierend auf dem definierten App-Schema durch.
  * Diese Funktion ist idempotent und kann sicher mehrfach ausgeführt werden.
  */

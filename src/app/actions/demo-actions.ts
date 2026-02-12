@@ -27,7 +27,6 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       name: 'Wohnbau Nord GmbH', 
       slug: 'wohnbau-nord', 
       status: 'active', 
-      region: 'EU-DSGVO', 
       createdAt: offsetDate(60),
       companyDescription: 'Mittelständische Wohnungsbaugesellschaft mit ca. 5.000 Wohneinheiten. Fokus auf Mietverwaltung, Bestandsentwicklung und soziale Stadtentwicklung. IT-Strategie: Cloud-First mit ERP-Fokus auf Aareon Wodis Sigma.'
     }, dataSource);
@@ -136,7 +135,7 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
         automationLevel: 'partial', dataVolume: 'medium', processingFrequency: 'daily'
       }, dataSource);
 
-      // --- BRANCHING LOGIC FOR INSTANDHALTUNG ---
+      // --- BRANCHING LOGIC ---
       let nodes: ProcessNode[] = [];
       let edges: any[] = [];
       let positions: any = {};
@@ -144,33 +143,12 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       if (p.complex) {
         nodes = [
           { id: 'start', type: 'start', title: 'Meldungseingang' },
-          { 
-            id: 'step1', type: 'step', title: 'Schadensaufnahme', 
-            roleId: 'j-tech-ref', resourceIds: ['res-m365'], 
-            dataCategoryIds: p.cats, subjectGroupIds: p.groups,
-            description: 'Der technische Mitarbeiter prüft den Mangel vor Ort oder per Foto.',
-            tips: 'Achten Sie auf Versicherungsschäden (Leitungswasser).',
-            checklist: ['Schadensbild dokumentieren', 'Kostenschätzung erstellen']
-          },
-          { 
-            id: 'dec1', type: 'decision', title: 'Großauftrag > 1.000€?', 
-            description: 'Überschreiten die geschätzten Kosten die Kompetenzgrenze des Referenten?'
-          },
-          { 
-            id: 'step2a', type: 'step', title: 'Freigabe Geschäftsführung', 
-            roleId: 'j-gf', resourceIds: ['res-m365'], 
-            description: 'Manuelle Genehmigung durch die Geschäftsleitung erforderlich.',
-            errors: 'Häufig wird die Kostenschätzung nicht angehängt.'
-          },
-          { 
-            id: 'step3', type: 'step', title: 'Beauftragung Handwerker', 
-            roleId: 'j-tech-ref', resourceIds: ['res-mareon', 'res-wodis'], 
-            description: 'Erstellung des Auftrags im Mareon Portal.',
-            checklist: ['Handwerker wählen', 'Termin avisieren', 'Auftrag in Wodis buchen']
-          },
+          { id: 'step1', type: 'step', title: 'Schadensaufnahme', roleId: 'j-tech-ref', resourceIds: ['res-m365'] },
+          { id: 'dec1', type: 'decision', title: 'Großauftrag > 1.000€?' },
+          { id: 'step2a', type: 'step', title: 'Freigabe Geschäftsführung', roleId: 'j-gf', resourceIds: ['res-m365'] },
+          { id: 'step3', type: 'step', title: 'Beauftragung Handwerker', roleId: 'j-tech-ref', resourceIds: ['res-mareon', 'res-wodis'] },
           { id: 'end', type: 'end', title: 'Abschluss' }
         ];
-
         edges = [
           { id: 'e1', source: 'start', target: 'step1' },
           { id: 'e2', source: 'step1', target: 'dec1' },
@@ -179,37 +157,20 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
           { id: 'e5', source: 'step2a', target: 'step3' },
           { id: 'e6', source: 'step3', target: 'end' }
         ];
-
         positions = {
-          start: { x: 50, y: 150 },
-          step1: { x: 200, y: 150 },
-          dec1: { x: 450, y: 150 },
-          step2a: { x: 450, y: 300 },
-          step3: { x: 700, y: 150 },
-          end: { x: 950, y: 150 }
+          start: { x: 50, y: 150 }, step1: { x: 200, y: 150 }, dec1: { x: 450, y: 150 },
+          step2a: { x: 450, y: 300 }, step3: { x: 700, y: 150 }, end: { x: 950, y: 150 }
         };
       } else {
         nodes = [
           { id: 'start', type: 'start', title: 'Start' },
-          { 
-            id: 'step1', type: 'step', title: 'Datenerfassung', 
-            roleId: 'j-immo-kfm', resourceIds: ['res-m365'], 
-            dataCategoryIds: p.cats, subjectGroupIds: p.groups,
-            description: 'Erfassung der notwendigen Informationen.' 
-          },
-          { 
-            id: 'step2', type: 'step', title: 'System-Eintrag', 
-            roleId: 'j-immo-kfm', resourceIds: ['res-wodis'], 
-            dataCategoryIds: p.cats, subjectGroupIds: p.groups,
-            description: 'Übernahme in das führende ERP System.' 
-          },
+          { id: 'step1', type: 'step', title: 'Datenerfassung', roleId: 'j-immo-kfm', resourceIds: ['res-m365'] },
+          { id: 'step2', type: 'step', title: 'System-Eintrag', roleId: 'j-immo-kfm', resourceIds: ['res-wodis'] },
           { id: 'end', type: p.next ? 'subprocess' : 'end', title: p.next ? 'Weiterleitung' : 'Ende', targetProcessId: p.next || undefined }
         ];
-
         edges = [
           {id:'e1',source:'start',target:'step1'}, {id:'e2',source:'step1',target:'step2'}, {id:'e3',source:'step2',target:'end'}
         ];
-
         positions = {start:{x:50,y:100},step1:{x:200,y:100},step2:{x:450,y:100},end:{x:700,y:100}};
       }
 
@@ -232,7 +193,7 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
     const m1Id = 'msr-backup';
     await saveCollectionRecord('riskMeasures', m1Id, {
       id: m1Id, riskIds: [r1Id], resourceIds: ['res-wodis'], title: 'Revisionssicheres Backup & Restore', 
-      description: 'Regelmäßige Sicherung der SQL-Datenbanken und der Dateisysteme auf getrennten Speichermedien.',
+      description: 'Regelmäßige Sicherung der SQL-Datenbanken.',
       owner: 'Aareon Support', status: 'completed', isTom: true, tomCategory: 'Verfügbarkeitskontrolle', 
       dueDate: in30Days, effectiveness: 5
     }, dataSource);
@@ -240,35 +201,16 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
     await saveCollectionRecord('riskControls', 'ctrl-backup-01', {
       id: 'ctrl-backup-01', measureId: m1Id, title: 'Wöchentlicher Backup-Report Check', 
       owner: 'IT-Leitung', status: 'completed', isEffective: true, checkType: 'Review',
-      lastCheckDate: today, nextCheckDate: in30Days, evidenceDetails: 'Report vom Sonntag liegt vor. Keine Fehler.'
-    }, dataSource);
-
-    const m2Id = 'msr-mfa';
-    await saveCollectionRecord('riskMeasures', m2Id, {
-      id: m2Id, riskIds: [r1Id], resourceIds: ['res-m365', 'res-wodis'], title: 'Multi-Faktor Authentifizierung (MFA)',
-      description: 'Zwingende Nutzung von MFA für alle administrativen und externen Zugriffe.',
-      owner: 'IT-Security', status: 'active', isTom: true, tomCategory: 'Zugriffskontrolle',
-      dueDate: in30Days, effectiveness: 4
+      lastCheckDate: today, nextCheckDate: in30Days, evidenceDetails: 'Report liegt vor.'
     }, dataSource);
 
     // --- 9. AUDIT LOG ---
-    for (let i = 0; i < 15; i++) {
-      const lid = `audit-seed-${i}`;
-      await saveCollectionRecord('auditEvents', lid, {
-        id: lid, tenantId: t1Id, actorUid: actorEmail, 
-        action: `Demo-Aktion #${i}: Konfiguration angepasst.`,
-        entityType: 'system', entityId: 'setup',
-        timestamp: offsetDate(i),
-        before: { step: i }, after: { step: i + 1 }
-      }, dataSource);
-    }
-
     await logAuditEventAction(dataSource, {
-      tenantId: 'global', actorUid: actorEmail, action: 'High-Fidelity Demo-Daten eingespielt (Branching-Prozesse + GRC).',
-      entityType: 'system', entityId: 'seed-v8'
+      tenantId: 'global', actorUid: actorEmail, action: 'Enterprise-Demo-Szenario erfolgreich geladen.',
+      entityType: 'system', entityId: 'seed-v9'
     });
 
-    return { success: true, message: "Enterprise Szenario V8 (Branching Logic) erfolgreich geladen. Prüfen Sie den Prozess 'Instandsetzungsauftrag' für die neue Weichen-Visualisierung." };
+    return { success: true, message: "Enterprise Szenario erfolgreich geladen." };
   } catch (e: any) {
     console.error("Seeding Error:", e);
     return { success: false, error: e.message };

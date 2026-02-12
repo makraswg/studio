@@ -96,6 +96,7 @@ export default function ProcessDetailViewPage() {
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
 
+  // --- Grid Layout Logic ---
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
@@ -196,7 +197,7 @@ export default function ProcessDetailViewPage() {
       const timer = setTimeout(resetViewport, 100);
       return () => clearTimeout(timer);
     }
-  }, [guideMode, mounted]);
+  }, [guideMode, mounted, resetViewport]);
 
   useEffect(() => {
     updateFlowLines();

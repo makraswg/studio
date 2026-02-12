@@ -131,7 +131,7 @@ export default function ProcessDetailViewPage() {
       });
     }
 
-    // Dynamic adjustment if a node is expanded
+    // Symmetrical Centered Expansion logic
     return nodes.map(n => {
       const nodeCol = cols[n.id] || 0;
       const nodeLevel = levels[n.id] || 0;
@@ -141,21 +141,23 @@ export default function ProcessDetailViewPage() {
       if (activeNodeId && guideMode === 'structure') {
         const activeCol = cols[activeNodeId] || 0;
         const activeLevel = levels[activeNodeId] || 0;
-        
-        // If a node in the same row is active, shift all nodes to the right of it
-        if (nodeLevel === activeLevel && nodeCol > activeCol) {
-          xOffset = 350; // Shift by expanded width difference
+        const expansionShiftX = (600 - 256) / 2 + 40; // Card width delta halved + buffer
+
+        if (nodeLevel === activeLevel) {
+          if (nodeCol > activeCol) xOffset = expansionShiftX;
+          if (nodeCol < activeCol) xOffset = -expansionShiftX;
         }
-        // If a node is active, shift all nodes in subsequent rows down
+        
+        // Shift lower levels down significantly
         if (nodeLevel > activeLevel) {
-          yOffset = 250; // Shift down to accommodate expanded card
+          yOffset = 500; 
         }
       }
 
       return {
         ...n,
-        x: nodeCol * 300 + xOffset,
-        y: nodeLevel * 160 + yOffset
+        x: nodeCol * 450 + xOffset, // Increased horizontal gap to 450
+        y: nodeLevel * 180 + yOffset  // Increased vertical gap to 180
       };
     });
   }, [activeVersion, activeNodeId, guideMode]);
@@ -202,7 +204,7 @@ export default function ProcessDetailViewPage() {
 
         // Output port selection
         let sPortX = sNode.x + OFFSET_X + (sW / 2); 
-        let sPortY = sNode.y + OFFSET_Y + 80; // Standard bottom middle
+        let sPortY = sNode.y + OFFSET_Y + 80;
 
         // Input port selection
         let tPortX = tNode.x + OFFSET_X + (tW / 2);
@@ -211,29 +213,24 @@ export default function ProcessDetailViewPage() {
         let controlPoint1 = { x: sPortX, y: sPortY + 40 };
         let controlPoint2 = { x: tPortX, y: tPortY - 40 };
 
-        // Decision logic: Always exit bottom
-        if (!isDecision && Math.abs(tNode.x - sNode.x) > 100) {
+        // Horizontal routing for siblings or offset columns
+        if (Math.abs(tNode.x - sNode.x) > 50) {
           if (tNode.x > sNode.x) {
             sPortX = sNode.x + OFFSET_X + sW;
             sPortY = sNode.y + OFFSET_Y + 40;
-            controlPoint1 = { x: sPortX + 40, y: sPortY };
+            controlPoint1 = { x: sPortX + 60, y: sPortY };
+            
+            tPortX = tNode.x + OFFSET_X;
+            tPortY = tNode.y + OFFSET_Y + 40;
+            controlPoint2 = { x: tPortX - 60, y: tPortY };
           } else {
             sPortX = sNode.x + OFFSET_X;
             sPortY = sNode.y + OFFSET_Y + 40;
-            controlPoint1 = { x: sPortX - 40, y: sPortY };
-          }
-        }
-
-        // Target Side Entry logic
-        if (Math.abs(tNode.x - sNode.x) > 100) {
-          if (tNode.x > sNode.x) {
-            tPortX = tNode.x + OFFSET_X;
-            tPortY = tNode.y + OFFSET_Y + 40;
-            controlPoint2 = { x: tPortX - 40, y: tPortY };
-          } else {
+            controlPoint1 = { x: sPortX - 60, y: sPortY };
+            
             tPortX = tNode.x + OFFSET_X + tW;
             tPortY = tNode.y + OFFSET_Y + 40;
-            controlPoint2 = { x: tPortX + 40, y: tPortY };
+            controlPoint2 = { x: tPortX + 60, y: tPortY };
           }
         }
         
@@ -300,17 +297,6 @@ export default function ProcessDetailViewPage() {
 
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body relative">
-      {/* Debug HUD */}
-      <div className="fixed top-20 left-80 z-[100] bg-slate-900/90 text-white p-3 rounded-xl border border-white/10 shadow-2xl pointer-events-none font-mono text-[9px] space-y-1">
-        <div className="flex items-center gap-2 border-b border-white/10 pb-1 mb-1">
-          <Terminal className="w-3 h-3 text-primary" />
-          <span className="font-black uppercase tracking-widest">Map Engine v2</span>
-        </div>
-        <div className="flex justify-between gap-4"><span>Active Step:</span> <span className="text-primary">{activeNodeId || 'none'}</span></div>
-        <div className="flex justify-between gap-4"><span>Scale:</span> <span>{scale.toFixed(2)}</span></div>
-        <div className="flex justify-between gap-4"><span>Nodes:</span> <span>{gridNodes.length}</span></div>
-      </div>
-
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl transition-all"><ChevronLeft className="w-6 h-6" /></Button>

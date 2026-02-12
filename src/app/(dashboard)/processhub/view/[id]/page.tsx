@@ -305,6 +305,14 @@ export default function ProcessDetailViewPage() {
     }
   }, [activeNodeId, centerOnNode]);
 
+  const getFullRoleName = useCallback((roleId?: string) => {
+    if (!roleId) return '---';
+    const role = jobTitles?.find(j => j.id === roleId);
+    if (!role) return roleId;
+    const dept = departments?.find(d => d.id === role.departmentId);
+    return dept ? `${dept.name} — ${role.name}` : role.name;
+  }, [jobTitles, departments]);
+
   if (!mounted) return null;
 
   return (
@@ -333,8 +341,17 @@ export default function ProcessDetailViewPage() {
         <aside className="w-80 border-r bg-white flex flex-col shrink-0 hidden lg:flex shadow-sm">
           <ScrollArea className="flex-1 p-6 space-y-10">
             <section className="space-y-4">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2 flex items-center gap-2"><Info className="w-3.5 h-3.5" /> Info</h3>
-              <div className="p-3 bg-slate-50 rounded-xl border"><p className="text-[11px] font-bold text-slate-900">{currentProcess?.status?.toUpperCase()}</p></div>
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2 flex items-center gap-2"><Info className="w-3.5 h-3.5" /> Stammdaten</h3>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
+                  <p className="text-xs font-bold text-slate-800">{departments?.find(d => d.id === currentProcess?.responsibleDepartmentId)?.name || '---'}</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase text-slate-400">Process Owner</Label>
+                  <p className="text-xs font-bold text-slate-800">{getFullRoleName(currentProcess?.ownerRoleId)}</p>
+                </div>
+              </div>
             </section>
           </ScrollArea>
         </aside>
@@ -349,7 +366,7 @@ export default function ProcessDetailViewPage() {
               <div className="max-w-5xl mx-auto space-y-12 pb-40">
                 {gridNodes.map((node, i) => (
                   <div key={node.id} id={`list-node-${node.id}`} className="relative">
-                    <ProcessStepCard node={node} activeNodeId={activeNodeId} setActiveNodeId={handleNodeClick} resources={resources} allFeatures={allFeatures} mediaFiles={mediaFiles} expandedByDefault />
+                    <ProcessStepCard node={node} activeNodeId={activeNodeId} setActiveNodeId={handleNodeClick} resources={resources} allFeatures={allFeatures} mediaFiles={mediaFiles} getFullRoleName={getFullRoleName} expandedByDefault />
                     {i < gridNodes.length - 1 && (
                       <div className="absolute left-1/2 -bottom-12 -translate-x-1/2 flex flex-col items-center">
                         <div className={cn("w-0.5 h-12 bg-slate-200 relative", activeNodeId === node.id && "bg-primary")}></div>
@@ -376,7 +393,7 @@ export default function ProcessDetailViewPage() {
                   </g>
                 ))}
               </svg>
-              {gridNodes.map(node => (<div key={node.id} className="absolute transition-all duration-500" style={{ left: node.x + OFFSET_X, top: node.y + OFFSET_Y }}><ProcessStepCard node={node} isMapMode activeNodeId={activeNodeId} setActiveNodeId={handleNodeClick} resources={resources} allFeatures={allFeatures} mediaFiles={mediaFiles} /></div>))}
+              {gridNodes.map(node => (<div key={node.id} className="absolute transition-all duration-500" style={{ left: node.x + OFFSET_X, top: node.y + OFFSET_Y }}><ProcessStepCard node={node} isMapMode activeNodeId={activeNodeId} setActiveNodeId={handleNodeClick} resources={resources} allFeatures={allFeatures} mediaFiles={mediaFiles} getFullRoleName={getFullRoleName} /></div>))}
             </div>
           )}
           {guideMode === 'structure' && (
@@ -393,12 +410,13 @@ export default function ProcessDetailViewPage() {
   );
 }
 
-function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, mediaFiles, expandedByDefault = false }: any) {
+function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, mediaFiles, getFullRoleName, expandedByDefault = false }: any) {
   const isActive = activeNodeId === node.id;
   const isExpanded = expandedByDefault || (isMapMode && isActive);
   const nodeResources = resources?.filter((r:any) => node.resourceIds?.includes(r.id));
   const nodeFeatures = allFeatures?.filter((f:any) => node.featureIds?.includes(f.id));
   const nodeMedia = mediaFiles?.filter((m: any) => m.subEntityId === node.id);
+  const roleName = getFullRoleName(node.roleId);
 
   return (
     <Card className={cn("rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden", isActive ? "border-primary border-2 shadow-lg z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20", isMapMode && (isActive ? "w-[600px] h-[420px]" : "w-64 h-[82px]"))} style={isMapMode && isActive ? { transform: 'translateX(-172px)' } : {}} onClick={(e) => { e.stopPropagation(); setActiveNodeId(node.id); }}>
@@ -407,7 +425,13 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
           <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border", node.type === 'start' ? "bg-emerald-50 text-emerald-600" : node.type === 'decision' ? "bg-amber-50 text-amber-600" : node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary/5 text-primary")}>
             {node.type === 'start' ? <PlayCircle className="w-6 h-6" /> : node.type === 'decision' ? <HelpCircle className="w-6 h-6" /> : node.type === 'subprocess' ? <RefreshCw className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
           </div>
-          <h4 className={cn("font-black uppercase tracking-tight text-slate-900 truncate", isMapMode && !isActive ? "text-[10px]" : "text-sm")}>{node.title}</h4>
+          <div className="min-w-0">
+            <h4 className={cn("font-black uppercase tracking-tight text-slate-900 truncate", isMapMode && !isActive ? "text-[10px]" : "text-sm")}>{node.title}</h4>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Briefcase className="w-3 h-3 text-slate-400" />
+              <span className="text-[10px] font-bold text-slate-500 truncate max-w-[150px]">{roleName}</span>
+            </div>
+          </div>
         </div>
         {nodeMedia && nodeMedia.length > 0 && !isExpanded && <Badge className="bg-indigo-50 text-indigo-600 border-none rounded-full h-4 px-1.5"><Paperclip className="w-2.5 h-2.5" /></Badge>}
       </CardHeader>
@@ -418,7 +442,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
               <div className="space-y-1">
                 <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Tätigkeit</Label>
                 <ScrollArea className="max-h-[100px] pr-2">
-                  <p className="text-sm text-slate-700 leading-relaxed font-medium italic">"{node.description || '---'}"</p>
+                  <p className="text-sm text-slate-700 leading-relaxed font-medium italic">"{node.description || 'Keine Beschreibung hinterlegt.'}"</p>
                 </ScrollArea>
               </div>
               

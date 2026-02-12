@@ -84,6 +84,30 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 const OFFSET_X = 2500;
 const OFFSET_Y = 2500;
 
+/**
+ * Hilfsfunktion zur Generierung einer eindeutigen ID innerhalb eines Modells.
+ */
+function ensureUniqueId(requestedId: string | null | undefined, usedIds: Set<string>, prefix: string = 'node'): string {
+  const idStr = String(requestedId || '').trim().toLowerCase();
+  const isInvalid = !requestedId || 
+                    idStr === 'undefined' || 
+                    idStr === 'null' || 
+                    idStr === '' ||
+                    idStr === '[object object]';
+
+  let baseId = isInvalid 
+    ? `${prefix}-${Math.random().toString(36).substring(2, 7)}` 
+    : String(requestedId);
+  
+  let finalId = baseId;
+  let counter = 1;
+  while (usedIds.has(finalId)) {
+    finalId = `${baseId}-${counter}`;
+    counter++;
+  }
+  return finalId;
+}
+
 export default function ProcessDesignerPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -178,7 +202,27 @@ export default function ProcessDesignerPage() {
     return uiConfigs[0].enableAdvancedAnimations === true || uiConfigs[0].enableAdvancedAnimations === 1;
   }, [uiConfigs]);
 
-  // Map Calculation Logic
+  // Master Data Effect
+  useEffect(() => {
+    if (currentProcess) {
+      setMetaTitle(currentProcess.title);
+      setMetaDesc(currentProcess.description || '');
+      setMetaTypeId(currentProcess.process_type_id || 'none');
+      setMetaInputs(currentProcess.inputs || '');
+      setMetaOutputs(currentProcess.outputs || '');
+      setMetaKpis(currentProcess.kpis || '');
+      setMetaTags(currentProcess.tags || '');
+      setMetaOpenQuestions(currentProcess.openQuestions || '');
+      setMetaDeptId(currentProcess.responsibleDepartmentId || 'none');
+      setMetaOwnerRoleId(currentProcess.ownerRoleId || 'none');
+      setMetaFramework(currentProcess.regulatoryFramework || 'none');
+      setMetaAutomation(currentProcess.automationLevel || 'manual');
+      setMetaDataVolume(currentProcess.dataVolume || 'low');
+      setMetaFrequency(currentProcess.processingFrequency || 'on_demand');
+    }
+  }, [currentProcess]);
+
+  // Map Calculation Logic (Topological Layout)
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];

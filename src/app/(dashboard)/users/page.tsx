@@ -381,7 +381,7 @@ export default function UsersPage() {
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-56 rounded-lg p-1 shadow-xl border">
+                          <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-xl border">
                             <DropdownMenuItem onSelect={() => router.push(`/users/${u.id}`)} className="rounded-md py-2 gap-2 text-xs font-bold"><Eye className="w-3.5 h-3.5 text-primary" /> Profil ansehen</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => openEdit(u)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
                             <DropdownMenuItem className="text-indigo-600 rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => router.push(`/reviews?search=${u.displayName}`)}><Zap className="w-3.5 h-3.5" /> Review anstoßen</DropdownMenuItem>

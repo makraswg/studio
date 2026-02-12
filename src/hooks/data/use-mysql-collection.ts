@@ -27,11 +27,13 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const prevDataString = useRef<string>(mysqlCache[collectionName]?.stringified || "");
+  const isFetchingRef = useRef(false);
 
   const fetchData = useCallback(async (silent = false) => {
-    if (!enabled) return;
+    if (!enabled || isFetchingRef.current) return;
     
-    if (!silent && !data) {
+    isFetchingRef.current = true;
+    if (!silent && !prevDataString.current) {
       setIsLoading(true);
     }
     
@@ -59,8 +61,9 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
       setError(e.message || "Datenbankfehler");
     } finally {
       setIsLoading(false);
+      isFetchingRef.current = false;
     }
-  }, [collectionName, enabled, data]);
+  }, [collectionName, enabled]);
 
   const refresh = useCallback(() => {
     delete mysqlCache[collectionName];

@@ -67,7 +67,6 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 
 export default function ProcessDetailViewPage() {
-  // --- 1. Hooks (Top Level) ---
   const { id } = useParams();
   const router = useRouter();
   const { dataSource, activeTenantId } = useSettings();
@@ -78,7 +77,6 @@ export default function ProcessDetailViewPage() {
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [connectionPaths, setConnectionPaths] = useState<{ path: string, sourceId: string, targetId: string }[]>([]);
 
-  // Map States
   const [scale, setScale] = useState(0.8);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -201,9 +199,6 @@ export default function ProcessDetailViewPage() {
       resetViewport();
       hasAutoCentered.current = true;
     }
-    if (guideMode !== 'structure') {
-      hasAutoCentered.current = false;
-    }
   }, [guideMode, mounted, resetViewport]);
 
   useEffect(() => {
@@ -231,111 +226,18 @@ export default function ProcessDetailViewPage() {
     setScale(newScale);
   };
 
-  const getFullRoleName = (roleId?: string) => {
+  const getFullRoleName = useCallback((roleId?: string) => {
     if (!roleId) return '---';
     const role = jobTitles?.find(j => j.id === roleId);
     if (!role) return roleId;
     const dept = departments?.find(d => d.id === role.departmentId);
     return dept ? `${dept.name} — ${role.name}` : role.name;
-  };
-
-  const GuideCard = ({ node, isMapMode = false }: { node: ProcessNode, isMapMode?: boolean }) => {
-    const isActive = activeNodeId === node.id;
-    const isExpanded = !isMapMode || isActive;
-    
-    const roleName = getFullRoleName(node.roleId);
-    const nodeResources = resources?.filter(r => node.resourceIds?.includes(r.id));
-    const nodeFeatures = allFeatures?.filter(f => node.featureIds?.includes(f.id));
-
-    return (
-      <Card 
-        className={cn(
-          "rounded-2xl border transition-all duration-300 bg-white cursor-pointer relative",
-          isActive ? "ring-4 ring-primary border-primary shadow-lg" : "border-slate-100 shadow-sm hover:border-primary/20",
-          isMapMode && (isActive ? "w-[600px] z-50 scale-110" : "w-64 z-10")
-        )}
-        onClick={(e) => {
-          e.stopPropagation(); // Verhindert, dass der Hintergrund-Klick die Auswahl aufhebt
-          setActiveNodeId(isActive ? null : node.id);
-        }}
-      >
-        <CardHeader className={cn("p-4 border-b flex flex-row items-center justify-between gap-4 rounded-t-2xl bg-white", isExpanded && "bg-slate-50/50")}>
-          <div className="flex items-center gap-4 min-w-0">
-            <div className={cn(
-              "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-inner",
-              node.type === 'start' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : 
-              node.type === 'end' ? "bg-red-50 text-red-600 border-red-100" :
-              node.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : "bg-primary/5 text-primary border-primary/10"
-            )}>
-              {node.type === 'start' ? <PlayCircle className="w-6 h-6" /> : 
-               node.type === 'end' ? <StopCircle className="w-6 h-6" /> :
-               node.type === 'decision' ? <HelpCircle className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
-            </div>
-            <div className="min-w-0">
-              <h4 className={cn("font-black uppercase tracking-tight text-slate-900 truncate", isMapMode && !isActive ? "text-[10px]" : "text-sm")}>{node.title}</h4>
-              <div className="flex items-center gap-2 mt-0.5">
-                <Briefcase className="w-3 h-3 text-slate-400" />
-                <span className="text-[10px] font-bold text-slate-500 truncate max-w-[150px]">{roleName}</span>
-              </div>
-            </div>
-          </div>
-          {isExpanded && (
-            <div className="flex gap-1.5 shrink-0">
-              {nodeResources?.slice(0, 3).map(res => (
-                <Badge key={res.id} className="bg-indigo-50 text-indigo-700 text-[8px] font-black border-none h-5 px-1.5 rounded-md shadow-none">{res.name}</Badge>
-              ))}
-            </div>
-          )}
-        </CardHeader>
-
-        {isExpanded && (
-          <CardContent className="p-0 animate-in fade-in zoom-in-95 duration-200">
-            <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-              <div className="md:col-span-7 p-6 space-y-6">
-                <div className="space-y-2">
-                  <Label className="text-[9px] font-black uppercase text-slate-400">Beschreibung</Label>
-                  <p className="text-sm text-slate-700 leading-relaxed font-medium italic">"{node.description || 'Keine Beschreibung'}"</p>
-                </div>
-                {node.checklist && node.checklist.length > 0 && (
-                  <div className="space-y-3">
-                    <Label className="text-[9px] font-black uppercase text-emerald-600">Checkliste</Label>
-                    <div className="space-y-2">
-                      {node.checklist.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-3 p-3 bg-emerald-50/30 border border-emerald-100/50 rounded-xl">
-                          <Checkbox id={`${node.id}-check-${idx}`} onClick={(e) => e.stopPropagation()} />
-                          <span className="text-xs font-bold text-slate-700">{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="md:col-span-5 p-6 bg-slate-50/30 space-y-6">
-                <div className="space-y-4">
-                  <Label className="text-[9px] font-black uppercase text-blue-600">Expertise</Label>
-                  {node.tips && <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-[10px] text-blue-700 italic">Tipp: {node.tips}</div>}
-                  {node.errors && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-[10px] text-red-700 italic">Fehlerquelle: {node.errors}</div>}
-                </div>
-                <div className="space-y-4 pt-4 border-t border-slate-100">
-                  <Label className="text-[9px] font-black uppercase text-slate-400">Systeme & Daten</Label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {nodeResources?.map(res => <Badge key={res.id} variant="outline" className="bg-white text-indigo-700 text-[8px] font-black h-5">{res.name}</Badge>)}
-                    {nodeFeatures?.map(f => <Badge key={f.id} variant="outline" className="bg-white text-sky-700 text-[8px] font-black h-5">{f.name}</Badge>)}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        )}
-      </Card>
-    );
-  };
+  }, [jobTitles, departments]);
 
   if (!mounted) return null;
 
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body relative">
-      {/* Debug Monitor HUD */}
       <div className="fixed top-20 left-80 z-[100] bg-slate-900/90 text-white p-3 rounded-xl border border-white/10 shadow-2xl pointer-events-none font-mono text-[9px] space-y-1">
         <div className="flex items-center gap-2 border-b border-white/10 pb-1 mb-1">
           <Terminal className="w-3 h-3 text-primary" />
@@ -407,7 +309,7 @@ export default function ProcessDetailViewPage() {
             <ScrollArea className="h-full p-10">
               <div className="max-w-5xl mx-auto space-y-8 pb-40">
                 {gridNodes.map(node => (
-                  <GuideCard key={node.id} node={node} />
+                  <ProcessStepCard key={node.id} node={node} activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} resources={resources} allFeatures={allFeatures} getFullRoleName={getFullRoleName} />
                 ))}
               </div>
             </ScrollArea>
@@ -428,7 +330,7 @@ export default function ProcessDetailViewPage() {
               </svg>
               {gridNodes.map(node => (
                 <div key={node.id} className="absolute" style={{ left: node.x + 2500, top: node.y + 2500 }}>
-                  <GuideCard node={node} isMapMode />
+                  <ProcessStepCard node={node} isMapMode activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} resources={resources} allFeatures={allFeatures} getFullRoleName={getFullRoleName} />
                 </div>
               ))}
             </div>
@@ -445,5 +347,97 @@ export default function ProcessDetailViewPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, getFullRoleName }: any) {
+  const isActive = activeNodeId === node.id;
+  const isExpanded = !isMapMode || isActive;
+  
+  const roleName = getFullRoleName(node.roleId);
+  const nodeResources = resources?.filter((r:any) => node.resourceIds?.includes(r.id));
+  const nodeFeatures = allFeatures?.filter((f:any) => node.featureIds?.includes(f.id));
+
+  return (
+    <Card 
+      className={cn(
+        "rounded-2xl border transition-all duration-300 bg-white cursor-pointer relative",
+        isActive ? "ring-4 ring-primary border-primary shadow-lg" : "border-slate-100 shadow-sm hover:border-primary/20",
+        isMapMode && (isActive ? "w-[600px] z-50 scale-110" : "w-64 z-10")
+      )}
+      onClick={(e) => {
+        e.stopPropagation();
+        setActiveNodeId(isActive ? null : node.id);
+      }}
+    >
+      <CardHeader className={cn("p-4 border-b flex flex-row items-center justify-between gap-4 rounded-t-2xl bg-white", isExpanded && "bg-slate-50/50")}>
+        <div className="flex items-center gap-4 min-w-0">
+          <div className={cn(
+            "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-inner",
+            node.type === 'start' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : 
+            node.type === 'end' ? "bg-red-50 text-red-600 border-red-100" :
+            node.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : "bg-primary/5 text-primary border-primary/10"
+          )}>
+            {node.type === 'start' ? <PlayCircle className="w-6 h-6" /> : 
+             node.type === 'end' ? <StopCircle className="w-6 h-6" /> :
+             node.type === 'decision' ? <HelpCircle className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
+          </div>
+          <div className="min-w-0">
+            <h4 className={cn("font-black uppercase tracking-tight text-slate-900 truncate", isMapMode && !isActive ? "text-[10px]" : "text-sm")}>{node.title}</h4>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Briefcase className="w-3 h-3 text-slate-400" />
+              <span className="text-[10px] font-bold text-slate-500 truncate max-w-[150px]">{roleName}</span>
+            </div>
+          </div>
+        </div>
+        {isExpanded && (
+          <div className="flex gap-1.5 shrink-0">
+            {nodeResources?.slice(0, 3).map((res:any) => (
+              <Badge key={res.id} className="bg-indigo-50 text-indigo-700 text-[8px] font-black border-none h-5 px-1.5 rounded-md shadow-none">{res.name}</Badge>
+            ))}
+          </div>
+        )}
+      </CardHeader>
+
+      {isExpanded && (
+        <CardContent className="p-0 animate-in fade-in zoom-in-95 duration-200">
+          <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+            <div className="md:col-span-7 p-6 space-y-6">
+              <div className="space-y-2">
+                <Label className="text-[9px] font-black uppercase text-slate-400">Beschreibung</Label>
+                <p className="text-sm text-slate-700 leading-relaxed font-medium italic">"{node.description || 'Keine Beschreibung'}"</p>
+              </div>
+              {node.checklist && node.checklist.length > 0 && (
+                <div className="space-y-3">
+                  <Label className="text-[9px] font-black uppercase text-emerald-600">Checkliste</Label>
+                  <div className="space-y-2">
+                    {node.checklist.map((item:any, idx:number) => (
+                      <div key={idx} className="flex items-center gap-3 p-3 bg-emerald-50/30 border border-emerald-100/50 rounded-xl">
+                        <Checkbox id={`${node.id}-check-${idx}`} onClick={(e:any) => e.stopPropagation()} />
+                        <span className="text-xs font-bold text-slate-700">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="md:col-span-5 p-6 bg-slate-50/30 space-y-6">
+              <div className="space-y-4">
+                <Label className="text-[9px] font-black uppercase text-blue-600">Expertise</Label>
+                {node.tips && <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-[10px] text-blue-700 italic">Tipp: {node.tips}</div>}
+                {node.errors && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-[10px] text-red-700 italic">Fehlerquelle: {node.errors}</div>}
+              </div>
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <Label className="text-[9px] font-black uppercase text-slate-400">Systeme & Daten</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {nodeResources?.map((res:any) => <Badge key={res.id} variant="outline" className="bg-white text-indigo-700 text-[8px] font-black h-5">{res.name}</Badge>)}
+                  {nodeFeatures?.map((f:any) => <Badge key={f.id} variant="outline" className="bg-white text-sky-700 text-[8px] font-black h-5">{f.name}</Badge>)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      )}
+    </Card>
   );
 }

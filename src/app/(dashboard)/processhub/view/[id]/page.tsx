@@ -236,7 +236,7 @@ export default function ProcessDetailViewPage() {
     const containerHeight = containerRef.current.clientHeight;
     setPosition({
       x: -(startNode.x + OFFSET_X) * scale + containerWidth / 2 - (128 * scale),
-      y: -(startNode.y + OFFSET_Y) * scale + containerHeight / 2 - (40 * scale)
+      y: -(startNode.y + OFFSET_Y) * containerHeight / 2 - (40 * scale)
     });
     setTimeout(() => setIsProgrammaticMove(false), 850);
   }, [gridNodes, scale, guideMode]);

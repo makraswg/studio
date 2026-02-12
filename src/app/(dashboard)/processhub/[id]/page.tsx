@@ -90,6 +90,7 @@ export default function ProcessDesignerPage() {
   const { dataSource, activeTenantId } = useSettings();
   const { user } = usePlatformAuth();
   const containerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [mounted, setMounted] = useState(false);
   const [leftWidth] = useState(380);
@@ -344,7 +345,6 @@ export default function ProcessDesignerPage() {
     setEditResIds(node.resourceIds || []);
     setEditFeatIds(node.featureIds || []);
     setEditChecklist(node.checklist || []);
-    setEditChecklist(node.checklist || []);
     setEditTips(node.tips || '');
     setEditErrors(node.errors || '');
     setEditTargetProcessId(node.targetProcessId || '');
@@ -561,10 +561,10 @@ export default function ProcessDesignerPage() {
     if (selectedNodeId === nodeId) setSelectedNodeId(null);
   };
 
-  const handleQuickAdd = (type: 'step' | 'decision' | 'end' | 'subprocess') => {
+  const handleQuickAdd = (type: 'step' | 'decision' | 'subprocess') => {
     if (!activeVersion) return;
     const newId = `${type}-${Date.now()}`;
-    const titles = { step: 'Neuer Schritt', decision: 'Entscheidung?', end: 'Ende', subprocess: 'Referenz' };
+    const titles = { step: 'Neuer Schritt', decision: 'Entscheidung?', subprocess: 'Referenz' };
     const nodes = activeVersion.model_json.nodes || [];
     
     const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : (nodes.length > 0 ? nodes[nodes.length - 1] : null);
@@ -683,18 +683,15 @@ export default function ProcessDesignerPage() {
                   </p>
                 </div>
                 <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Element hinzufügen</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2 border-slate-200" onClick={() => handleQuickAdd('step')}>
-                    <PlusCircle className="w-3.5 h-3.5 text-primary" /> Arbeitsschritt
+                    <PlusCircle className="w-3.5 h-3.5 text-primary" /> Schritt
                   </Button>
                   <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2 border-slate-200" onClick={() => handleQuickAdd('decision')}>
-                    <GitBranch className="w-3.5 h-3.5 text-amber-600" /> Weiche (OR)
+                    <GitBranch className="w-3.5 h-3.5 text-amber-600" /> Weiche
                   </Button>
                   <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2 border-slate-200" onClick={() => handleQuickAdd('subprocess')}>
                     <RefreshCw className="w-3.5 h-3.5 text-indigo-600" /> Referenz
-                  </Button>
-                  <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2 border-slate-200" onClick={() => handleQuickAdd('end')}>
-                    <StopCircle className="w-3.5 h-3.5 text-red-600" /> Ende
                   </Button>
                 </div>
               </div>
@@ -709,13 +706,11 @@ export default function ProcessDesignerPage() {
                         <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-inner", 
                           node.type === 'decision' ? "bg-amber-50 text-amber-600" : 
                           node.type === 'start' ? "bg-emerald-50 text-emerald-600" :
-                          node.type === 'end' ? "bg-red-50 text-red-600" :
                           node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-slate-50 text-slate-500"
                         )}>
                           {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : 
                            node.type === 'start' ? <PlayCircle className="w-4 h-4" /> :
-                           node.type === 'subprocess' ? <RefreshCw className="w-4 h-4" /> :
-                           node.type === 'end' ? <StopCircle className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                           node.type === 'subprocess' ? <RefreshCw className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -810,13 +805,16 @@ export default function ProcessDesignerPage() {
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-[10px] font-black uppercase text-slate-400">Regulatorischer Rahmen</Label>
-                        <Input value={metaFramework} onChange={e => setMetaFramework(e.target.value)} placeholder="z.B. ISO 9001, BSI Grundschutz" className="h-10 text-xs rounded-xl" />
+                        <div className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-100 rounded-xl">
+                          <Scale className="w-4 h-4 text-slate-400" />
+                          <Input value={metaFramework} onChange={e => setMetaFramework(e.target.value)} placeholder="z.B. ISO 9001, BSI Grundschutz" className="h-8 border-none bg-transparent shadow-none text-xs font-bold" />
+                        </div>
                       </div>
                     </section>
 
                     <section className="space-y-4">
                       <h3 className="text-[10px] font-black uppercase text-emerald-600 border-b pb-2 flex items-center gap-2">
-                        <FileCheck className="w-3.5 h-3.5" /> Compliance-Metriken
+                        <FileCheck className="w-3.5 h-3.5" /> Compliance & VVT
                       </h3>
                       <div className="grid grid-cols-1 gap-4 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
                         <div className="space-y-1">
@@ -959,9 +957,9 @@ export default function ProcessDesignerPage() {
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
             <div className="flex items-center gap-5">
               <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shadow-lg border border-primary/20", 
-                editType === 'decision' ? "bg-amber-500 text-white" : editType === 'end' ? "bg-red-50 text-white" : editType === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary text-white"
+                editType === 'decision' ? "bg-amber-500 text-white" : editType === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary text-white"
               )}>
-                {editType === 'decision' ? <GitBranch className="w-6 h-6" /> : editType === 'subprocess' ? <RefreshCw className="w-6 h-6" /> : editType === 'end' ? <StopCircle className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
+                {editType === 'decision' ? <GitBranch className="w-6 h-6" /> : editType === 'subprocess' ? <RefreshCw className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
               </div>
               <div className="min-w-0">
                 <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Schritt konfigurieren</DialogTitle>
@@ -1001,7 +999,6 @@ export default function ProcessDesignerPage() {
                           <SelectItem value="step">Arbeitsschritt (Schritt)</SelectItem>
                           <SelectItem value="decision">Entscheidung (Weiche)</SelectItem>
                           <SelectItem value="subprocess">Referenz (Teilprozess)</SelectItem>
-                          <SelectItem value="end">Abschluss (Ende)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1263,8 +1260,17 @@ export default function ProcessDesignerPage() {
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="p-8 border-2 border-dashed rounded-2xl bg-slate-50 flex flex-col items-center justify-center text-center gap-3 transition-all hover:bg-white hover:border-primary/30 relative">
-                        <Input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileUpload} disabled={isUploading} />
+                      <div 
+                        className="p-8 border-2 border-dashed rounded-2xl bg-slate-50 flex flex-col items-center justify-center text-center gap-3 transition-all hover:bg-white hover:border-primary/30 relative cursor-pointer"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <input 
+                          type="file" 
+                          ref={fileInputRef}
+                          className="hidden" 
+                          onChange={handleFileUpload} 
+                          disabled={isUploading} 
+                        />
                         {isUploading ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : <FileUp className="w-8 h-8 text-slate-300" />}
                         <div>
                           <p className="text-xs font-bold text-slate-700">Klicken oder Datei ziehen</p>
@@ -1273,12 +1279,12 @@ export default function ProcessDesignerPage() {
                       </div>
                       <div className="space-y-2">
                         {mediaFiles?.filter(m => m.subEntityId === editingNode?.id).map(file => (
-                          <div key={file.id} className="p-3 bg-slate-50 border rounded-xl flex items-center justify-between group shadow-sm">
+                          <div key={file.id} className="p-3 bg-white border rounded-xl flex items-center justify-between group shadow-sm">
                             <div className="flex items-center gap-3">
                               {file.fileType.includes('image') ? <ImageIcon className="w-4 h-4 text-primary" /> : <FileText className="w-4 h-4 text-indigo-600" />}
                               <span className="text-[11px] font-bold text-slate-700 truncate max-w-[150px]">{file.fileName}</span>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover:opacity-100 transition-all" onClick={() => { if(confirm("Datei permanent löschen?")) deleteMediaAction(file.id, file.tenantId, user?.email || 'admin', dataSource).then(() => refreshMedia()); }}><Trash2 className="w-3.5 h-3.5" /></Button>
                           </div>
                         ))}
                         {(!mediaFiles || mediaFiles.filter(m => m.subEntityId === editingNode?.id).length === 0) && (

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -42,7 +43,8 @@ import {
   ArrowRightCircle,
   ArrowLeftCircle,
   Terminal,
-  Focus
+  Focus,
+  BrainCircuit
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -86,6 +88,7 @@ export default function ProcessDetailViewPage() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
   const [mouseDownTime, setMouseDownTime] = useState(0);
+  const [isProgrammaticMove, setIsProgrammaticMove] = useState(false);
   
   const hasAutoCentered = useRef(false);
 
@@ -164,7 +167,7 @@ export default function ProcessDetailViewPage() {
     }
 
     const H_GAP = 350;
-    const V_GAP = 220;
+    const V_GAP = 160; // Smaller vertical distance as requested
     const EXPANDED_WIDTH = 600;
     const COLLAPSED_WIDTH = 256;
     const WIDTH_DIFF = EXPANDED_WIDTH - COLLAPSED_WIDTH;
@@ -185,7 +188,7 @@ export default function ProcessDetailViewPage() {
           if (lane < activeLane) x -= (WIDTH_DIFF / 2) + 40;
         }
         if (lv > activeLv) {
-          y += 350; 
+          y += 340; // Reduced vertical push to keep it compact
         }
       }
 
@@ -222,7 +225,7 @@ export default function ProcessDetailViewPage() {
 
         const dy = tY - sY;
         
-        // Pure smooth Bezier curve without artificial straight segments
+        // Pure smooth Bezier curve directly axis-to-axis
         const path = `M ${sX} ${sY} C ${sX} ${sY + dy/2}, ${tX} ${tY - dy/2}, ${tX} ${tY}`;
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target, label: edge.label, isActive: isPathActive });
       }
@@ -235,6 +238,7 @@ export default function ProcessDetailViewPage() {
     const node = gridNodes.find(n => n.id === nodeId);
     if (!node || !containerRef.current) return;
 
+    setIsProgrammaticMove(true);
     const targetScale = 1.0;
     const containerWidth = containerRef.current.clientWidth;
     const containerHeight = containerRef.current.clientHeight;
@@ -244,11 +248,14 @@ export default function ProcessDetailViewPage() {
       y: -(node.y + OFFSET_Y) * targetScale + containerHeight / 2 - (150 * targetScale)
     });
     setScale(targetScale);
+    // Reset programmatic move flag after animation duration
+    setTimeout(() => setIsProgrammaticMove(false), 850);
   }, [gridNodes]);
 
   const resetViewport = useCallback(() => {
     if (gridNodes.length === 0 || !containerRef.current) return;
     
+    setIsProgrammaticMove(true);
     const startNode = gridNodes.find(n => n.type === 'start') || gridNodes[0];
     const containerWidth = containerRef.current.clientWidth;
     const containerHeight = containerRef.current.clientHeight;
@@ -257,6 +264,7 @@ export default function ProcessDetailViewPage() {
       x: -(startNode.x + OFFSET_X) * scale + containerWidth / 2 - (128 * scale),
       y: -(startNode.y + OFFSET_Y) * scale + containerHeight / 2 - (40 * scale)
     });
+    setTimeout(() => setIsProgrammaticMove(false), 850);
   }, [gridNodes, scale]);
 
   useEffect(() => { setMounted(true); }, []);
@@ -274,6 +282,7 @@ export default function ProcessDetailViewPage() {
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0 || guideMode !== 'structure') return;
+    setIsProgrammaticMove(false); // Disable animation during drag
     setIsDragging(true);
     setMouseDownTime(Date.now());
     setLastMousePos({ x: e.clientX, y: e.clientY });
@@ -287,19 +296,12 @@ export default function ProcessDetailViewPage() {
 
   const handleMouseUp = (e: React.MouseEvent) => {
     setIsDragging(false);
-    
-    // Logic to distinguish between click and drag
-    const dist = Math.sqrt(Math.pow(e.clientX - lastMousePos.x, 2) + Math.pow(e.clientY - lastMousePos.y, 2));
-    const duration = Date.now() - mouseDownTime;
-    
-    if (dist < 5 && duration < 250) {
-      // It's a click! Let the bubbling or direct check handle it
-    }
   };
 
   const handleWheel = (e: React.WheelEvent) => {
     if (guideMode !== 'structure') return;
     e.preventDefault();
+    setIsProgrammaticMove(false); // Direct feedback for wheel
     
     const delta = e.deltaY * -0.001;
     const newScale = Math.min(Math.max(0.2, scale + delta), 2);
@@ -388,7 +390,6 @@ export default function ProcessDetailViewPage() {
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
           onClick={(e) => { 
-            // Distinguish click from drag
             const dist = Math.sqrt(Math.pow(e.clientX - lastMousePos.x, 2) + Math.pow(e.clientY - lastMousePos.y, 2));
             if (dist < 5) setActiveNodeId(null); 
           }}
@@ -404,12 +405,18 @@ export default function ProcessDetailViewPage() {
           ) : (
             <div 
               className="absolute inset-0 origin-top-left"
-              style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`, width: '5000px', height: '5000px', zIndex: 10 }}
+              style={{ 
+                transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`, 
+                width: '5000px', 
+                height: '5000px', 
+                zIndex: 10,
+                transition: isProgrammaticMove ? 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)' : 'none'
+              }}
             >
               <svg className="absolute inset-0 pointer-events-none w-full h-full overflow-visible">
                 <defs>
-                  <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                    <polygon points="0 0, 6 3, 0 6" fill="currentColor" />
+                  <marker id="arrowhead" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+                    <polygon points="0 0, 5 2.5, 0 5" fill="currentColor" />
                   </marker>
                 </defs>
                 {connectionPaths.map((p, i) => (
@@ -417,14 +424,14 @@ export default function ProcessDetailViewPage() {
                     key={i} 
                     d={p.path} 
                     fill="none" 
-                    stroke={p.isActive ? "hsl(var(--primary))" : "#cbd5e1"} 
+                    stroke={p.isActive ? "hsl(var(--primary))" : "#94a3b8"} 
                     strokeWidth={p.isActive ? "3" : "1.5"} 
                     markerEnd="url(#arrowhead)" 
                     className={cn(
                       "transition-all duration-500",
                       p.isActive && "animate-flow-dash"
                     )}
-                    style={p.isActive ? { strokeDasharray: "10, 5", color: "hsl(var(--primary))" } : { color: "#cbd5e1" }}
+                    style={p.isActive ? { strokeDasharray: "10, 5", color: "hsl(var(--primary))" } : { color: "#94a3b8" }}
                   />
                 ))}
               </svg>
@@ -449,13 +456,13 @@ export default function ProcessDetailViewPage() {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-slate-100" onClick={(e) => { e.stopPropagation(); setScale(s => Math.min(2, s + 0.1)); }}><Plus className="w-5 h-5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-slate-100" onClick={(e) => { e.stopPropagation(); setIsProgrammaticMove(false); setScale(s => Math.min(2, s + 0.1)); }}><Plus className="w-5 h-5" /></Button>
                   </TooltipTrigger>
                   <TooltipContent side="left"><p className="text-[10px] font-bold uppercase">Vergrößern</p></TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-slate-100" onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(0.2, s - 0.1)); }}><Minus className="w-5 h-5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-slate-100" onClick={(e) => { e.stopPropagation(); setIsProgrammaticMove(false); setScale(s => Math.max(0.2, s - 0.1)); }}><Minus className="w-5 h-5" /></Button>
                   </TooltipTrigger>
                   <TooltipContent side="left"><p className="text-[10px] font-bold uppercase">Verkleinern</p></TooltipContent>
                 </Tooltip>
@@ -499,7 +506,8 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
       <CardHeader className={cn("p-4 border-b flex flex-row items-center justify-between gap-4 bg-white", isExpanded && "bg-slate-50/50")}>
         <div className="flex items-center gap-4 min-w-0">
           <div className={cn(
-            "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-inner",
+            "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-inner transition-transform duration-500",
+            isActive && "scale-110",
             node.type === 'start' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : 
             node.type === 'end' ? "bg-red-50 text-red-600 border-red-100" :
             node.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : "bg-primary/5 text-primary border-primary/10"

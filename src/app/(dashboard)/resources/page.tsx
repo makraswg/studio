@@ -409,14 +409,14 @@ function ResourcesPageContent() {
   if (!mounted) return null;
 
   return (
-    <div className="p-4 md:p-8 space-y-6 pb-10">
+    <div className="p-4 md:p-8 space-y-6 pb-10 max-w-[1800px] mx-auto">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
             <Layers className="w-6 h-6" />
           </div>
           <div>
-            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-wider">Resource Catalog</Badge>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">Resource Catalog</Badge>
             <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Ressourcenkatalog</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale IT-Assets Verwaltung.</p>
           </div>

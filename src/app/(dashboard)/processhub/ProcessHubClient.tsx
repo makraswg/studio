@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -151,7 +150,7 @@ export default function ProcessHubClient() {
   if (!mounted) return null;
 
   return (
-    <div className="p-4 md:p-8 space-y-6 pb-10 max-w-[1600px] mx-auto">
+    <div className="p-4 md:p-8 space-y-6 pb-10 max-w-[1800px] mx-auto">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">

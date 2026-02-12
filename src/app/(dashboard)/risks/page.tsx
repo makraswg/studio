@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense, useRef } from 'react';
@@ -117,7 +116,6 @@ function RiskDashboardContent() {
   const [taskDesc, setTaskDesc] = useState('');
   const [taskAssigneeId, setTaskAssigneeId] = useState('');
   const [taskPriority, setTaskPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('medium');
-  const [taskDueDate, setTaskDueDate] = useState('');
   const [taskTargetRisk, setTaskTargetRisk] = useState<Risk | null>(null);
 
   // Form State
@@ -134,19 +132,12 @@ function RiskDashboardContent() {
   const [treatmentStrategy, setTreatmentStrategy] = useState<Risk['treatmentStrategy']>('mitigate');
   const [hazardId, setHazardId] = useState('');
 
-  // Catalog Browser State (Quick Add Measure)
-  const [isCatalogLoading, setIsCatalogLoading] = useState(false);
-  const [catalogSuggestions, setCatalogSuggestions] = useState<any[]>([]);
-  const [isCatalogDialogOpen, setIsCatalogDialogOpen] = useState(false);
-
   const { data: risks, isLoading, refresh } = usePluggableCollection<Risk>('risks');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: hazards } = usePluggableCollection<Hazard>('hazards');
   const { data: pUsers } = usePluggableCollection<PlatformUser>('platformUsers');
   const { data: allMeasures, refresh: refreshMeasures } = usePluggableCollection<RiskMeasure>('riskMeasures');
-  const { data: hMeasures } = usePluggableCollection<any>('hazardMeasures');
-  const { data: hRelations } = usePluggableCollection<any>('hazardMeasureRelations');
 
   useEffect(() => { 
     setMounted(true); 
@@ -267,14 +258,14 @@ function RiskDashboardContent() {
   if (!mounted) return null;
 
   return (
-    <div className="p-4 md:p-8 space-y-6 pb-10">
+    <div className="p-4 md:p-8 space-y-6 pb-10 max-w-[1800px] mx-auto">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-accent/10 text-accent flex items-center justify-center rounded-xl border border-accent/10 shadow-sm transition-transform hover:scale-105"><ShieldAlert className="w-6 h-6" /></div>
           <div><Badge className="mb-1 rounded-full px-2 py-0 bg-accent/10 text-accent text-[9px] font-bold border-none uppercase tracking-wider">RiskHub Governance</Badge><h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Risikoinventar</h1><p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Bedrohungslage.</p></div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs" onClick={() => exportRisksExcel(risks || [], resources || [])}><Download className="w-3.5 h-3.5 mr-2" /> Excel</Button>
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 active:scale-95" onClick={() => exportRisksExcel(risks || [], resources || [])}><Download className="w-3.5 h-3.5 mr-2" /> Excel</Button>
           <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-accent hover:bg-accent/90 text-white shadow-lg shadow-accent/20" onClick={() => { resetForm(); setIsRiskDialogOpen(true); }}><Plus className="w-3.5 h-3.5 mr-2" /> Risiko erfassen</Button>
         </div>
       </div>

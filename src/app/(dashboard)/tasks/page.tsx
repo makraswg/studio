@@ -180,7 +180,7 @@ export default function TasksPage() {
   if (!mounted) return null;
 
   return (
-    <div className="p-4 md:p-8 space-y-6 pb-10">
+    <div className="p-4 md:p-8 space-y-6 pb-10 max-w-[1800px] mx-auto">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
@@ -188,7 +188,7 @@ export default function TasksPage() {
             <ClipboardList className="w-6 h-6" />
           </div>
           <div>
-            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-wider">Governance Ops</Badge>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">Governance Ops</Badge>
             <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Aufgabenverwaltung</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Steuerung und Tracking von Compliance-Tasks.</p>
           </div>

@@ -185,7 +185,7 @@ export default function GdprPage() {
   if (!mounted) return null;
 
   return (
-    <div className="p-4 md:p-8 space-y-6 pb-10">
+    <div className="p-4 md:p-8 space-y-6 pb-10 max-w-[1800px] mx-auto">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-emerald-500/10 text-emerald-600 flex items-center justify-center rounded-xl border border-emerald-500/10 shadow-sm transition-transform hover:scale-105">
@@ -390,7 +390,7 @@ export default function GdprPage() {
                     {heritage.automatedToms.map(tom => (
                       <div key={tom.id} className="p-5 bg-white border rounded-2xl shadow-sm flex items-center justify-between group hover:border-emerald-300 transition-all">
                         <div className="flex items-center gap-4"><div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border shadow-inner", tom.isEffective ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-red-50 text-red-600 border-red-100")}><CheckCircle2 className="w-5 h-5" /></div><div><h5 className="font-bold text-sm text-slate-800">{tom.title}</h5><div className="flex gap-2 mt-1"><Badge variant="outline" className="text-[8px] font-black uppercase text-slate-400 h-4">{tom.tomCategory}</Badge>{tom.isEffective && <Badge className="bg-emerald-500 text-white border-none text-[8px] font-black h-4">EFFEKTIV</Badge>}</div></div></div>
-                        <Button variant="outline" size="sm" className="h-9 rounded-xl text-[9px] font-black uppercase border-slate-200" onClick={() => router.push(`/risks/measures?search=${tom.title}`)}>Nachweis <ArrowRight className="w-3 h-3 ml-2" /></Button>
+                        <Button variant="outline" size="sm" className="h-9 rounded-xl text-[9px] font-black uppercase border-slate-200" onClick={() => router.push(`/risks/measures/${tom.id}`)}>Nachweis <ArrowRight className="w-3 h-3 ml-2" /></Button>
                       </div>
                     ))}
                   </div>
@@ -416,12 +416,7 @@ export default function GdprPage() {
               </div>
             </ScrollArea>
           </Tabs>
-          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button>
-            <Button size="sm" onClick={handleSave} disabled={isSaving || !name} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-12 h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg active:scale-95 gap-2 uppercase">
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern
-            </Button>
-          </DialogFooter>
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2"><Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button><Button size="sm" onClick={handleSave} disabled={isSaving || !name} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-12 h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg active:scale-95 gap-2 uppercase">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

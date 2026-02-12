@@ -116,7 +116,7 @@ export default function AuditLogPage() {
   if (!mounted) return null;
 
   return (
-    <div className="p-4 md:p-8 space-y-6 pb-10">
+    <div className="p-4 md:p-8 space-y-6 pb-10 max-w-[1800px] mx-auto">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
@@ -262,7 +262,7 @@ export default function AuditLogPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <h4 className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-1.5 ml-1">
-                    <FileJson className="w-3 h-3 text-slate-300" /> Vorher
+                    <FileCode className="w-3 h-3 text-slate-300" /> Vorher
                   </h4>
                   <div className="rounded-xl bg-slate-50 p-4 h-60 border border-slate-100 shadow-inner">
                     <ScrollArea className="h-full w-full">

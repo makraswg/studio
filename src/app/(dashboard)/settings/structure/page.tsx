@@ -90,7 +90,7 @@ export default function StructureSettingsPage() {
     } else {
       const dept = departments?.find(d => d.id === activeAddParent.id);
       if (!dept) return;
-      await saveCollectionRecord('jobTitles', id, { id, tenantId: dept.tenantId, departmentId: activeAddParent.id, name: newName, status: 'active' }, dataSource);
+      await saveCollectionRecord('jobTitles', id, { id, tenantId: dept.tenantId, departmentId: activeAddParent.id, name: newName, status: 'active', entitlementIds: [] }, dataSource);
       refreshJobs();
     }
     setNewName('');
@@ -132,12 +132,12 @@ export default function StructureSettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-[1600px] mx-auto p-4 md:p-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
           <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold">Org Structure</Badge>
           <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Struktur & Stellen</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Hierarchischer Stellenplan der Organisationseinheiten.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Hierarchischer Stellenplan der Organisationseinheiten.</p>
         </div>
         <Button 
           variant="outline" 
@@ -259,7 +259,7 @@ export default function StructureSettingsPage() {
               </Card>
             ))}
           </div>
-        )}
+        </div>
       </div>
 
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>

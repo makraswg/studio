@@ -154,7 +154,6 @@ export default function ProcessDesignerPage() {
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
-  const [resSearch, setResSearch] = useState('');
   
   const [localNodeEdits, setLocalNodeEdits] = useState({ 
     id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '', type: 'step', targetProcessId: '', resourceIds: [] as string[], featureIds: [] as string[], subjectGroupIds: [] as string[], dataCategoryIds: [] as string[], predecessorIds: [] as string[], successorIds: [] as string[], customFields: {} as Record<string, string>
@@ -176,46 +175,14 @@ export default function ProcessDesignerPage() {
   const [metaVvtId, setMetaVvtId] = useState('');
   const [metaOwnerRoleId, setMetaOwnerRoleId] = useState('');
 
-  // Task Creation State
-  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
-  const [taskTitle, setTaskTitle] = useState('');
-  const [taskAssigneeId, setTaskAssigneeId] = useState('');
-  const [isSavingTask, setIsSavingTask] = useState(false);
-
-  // Media States
-  const [isUploading, setIsUploading] = useState(false);
-  const [isOcring, setIsOcring] = useState(false);
-
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
   const { data: versions, refresh: refreshVersion } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: departments } = usePluggableCollection<Department>('departments');
-  const { data: resources } = usePluggableCollection<Resource>('resources');
-  const { data: allFeatures } = usePluggableCollection<Feature>('features');
-  const { data: mediaFiles, refresh: refreshMedia } = usePluggableCollection<MediaFile>('media');
-  const { data: featureLinks, refresh: refreshFeatureLinks } = usePluggableCollection<any>('feature_process_steps');
-  const { data: tasks, refresh: refreshTasks } = usePluggableCollection<Task>('tasks');
-  const { data: pUsers } = usePluggableCollection<PlatformUser>('platformUsers');
-  const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
-  const { data: regulatoryOptions } = usePluggableCollection<RegulatoryOption>('regulatory_options');
+  const { data: featureLinks } = usePluggableCollection<any>('feature_process_steps');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
-  
-  const processTasks = useMemo(() => 
-    tasks?.filter(t => t.entityId === id && t.entityType === 'process') || [],
-    [tasks, id]
-  );
-
-  const sortedRoles = useMemo(() => {
-    if (!jobTitles || !departments) return [];
-    return [...jobTitles].sort((a, b) => {
-      const deptA = departments.find(d => d.id === a.departmentId)?.name || '';
-      const deptB = departments.find(d => d.id === b.departmentId)?.name || '';
-      if (deptA !== deptB) return deptA.localeCompare(deptB);
-      return a.name.localeCompare(b.name);
-    });
-  }, [jobTitles, departments]);
 
   useEffect(() => {
     if (currentProcess) {
@@ -305,23 +272,6 @@ export default function ProcessDesignerPage() {
     }
   };
 
-  const handleReorder = async (nodeId: string, direction: 'up' | 'down') => {
-    if (!currentVersion) return;
-    const nodes = [...(currentVersion.model_json.nodes || [])];
-    const idx = nodes.findIndex(n => n.id === nodeId);
-    if (idx === -1) return;
-    if (direction === 'up' && idx === 0) return;
-    if (direction === 'down' && idx === nodes.length - 1) return;
-
-    const newIdx = direction === 'up' ? idx - 1 : idx + 1;
-    const temp = nodes[idx];
-    nodes[idx] = nodes[newIdx];
-    nodes[newIdx] = temp;
-
-    const ops: ProcessOperation[] = [{ type: 'REORDER_NODES', payload: { orderedNodeIds: nodes.map(n => n.id) } }];
-    await handleApplyOps(ops);
-  };
-
   const handleDeleteNode = async (nodeId: string) => {
     if (!confirm("Arbeitsschritt permanent löschen?")) return;
     const ops: ProcessOperation[] = [{ type: 'REMOVE_NODE', payload: { nodeId } }];
@@ -354,31 +304,6 @@ export default function ProcessDesignerPage() {
       }
     } finally {
       setIsSavingMeta(false);
-    }
-  };
-
-  const handleCreateTask = async () => {
-    if (!taskTitle || !taskAssigneeId) return;
-    setIsSavingTask(true);
-    try {
-      const res = await saveTaskAction({
-        tenantId: currentProcess?.tenantId || 'global',
-        title: taskTitle,
-        status: 'todo',
-        priority: 'medium',
-        assigneeId: taskAssigneeId,
-        creatorId: user?.id || 'system',
-        entityType: 'process',
-        entityId: id as string
-      }, dataSource, user?.email || 'system');
-      if (res.success) {
-        toast({ title: "Aufgabe erstellt" });
-        setIsTaskDialogOpen(false);
-        setTaskTitle('');
-        refreshTasks();
-      }
-    } finally {
-      setIsSavingTask(false);
     }
   };
 
@@ -421,33 +346,6 @@ export default function ProcessDesignerPage() {
       ops.push({ type: 'ADD_EDGE', payload: { edge: { id: `edge-${Date.now()}`, source: predecessor.id, target: newId } } });
     }
     handleApplyOps(ops).then(s => { if(s) { setSelectedNodeId(newId); setIsStepDialogOpen(true); } });
-  };
-
-  const handleSaveNodeEdits = async () => {
-    if (!selectedNodeId) return;
-    
-    const ops: ProcessOperation[] = [{
-      type: 'UPDATE_NODE',
-      payload: {
-        nodeId: selectedNodeId,
-        patch: {
-          title: localNodeEdits.title,
-          roleId: localNodeEdits.roleId,
-          resourceIds: localNodeEdits.resourceIds,
-          description: localNodeEdits.description,
-          tips: localNodeEdits.tips,
-          errors: localNodeEdits.errors,
-          targetProcessId: localNodeEdits.targetProcessId,
-          checklist: localNodeEdits.checklist.split('\n').filter(l => l.trim() !== '')
-        }
-      }
-    }];
-    
-    const success = await handleApplyOps(ops);
-    if (success) {
-      toast({ title: "Schritt aktualisiert" });
-      setIsStepDialogOpen(false);
-    }
   };
 
   const getFullRoleName = (roleId: string) => {
@@ -493,7 +391,7 @@ export default function ProcessDesignerPage() {
             {isDiagramLocked ? 'Layout gesperrt' : 'Layout frei'}
           </Button>
           <Button size="sm" className="rounded-md h-8 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-6 shadow-sm transition-all gap-2" onClick={handleCommitVersion} disabled={isCommitting}>
-            {isCommitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ClipboardCheck className="w-3.5 h-3.5" />} 
+            {isCommitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} 
             Speichern & Loggen
           </Button>
         </div>
@@ -505,7 +403,6 @@ export default function ProcessDesignerPage() {
             <TabsList className="h-11 bg-slate-50 border-b gap-0 p-0 w-full justify-start shrink-0 rounded-none overflow-x-auto no-scrollbar">
               <TabsTrigger value="meta" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-blue-600"><Info className="w-3.5 h-3.5" /> Stammdaten</TabsTrigger>
               <TabsTrigger value="steps" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-primary"><ClipboardList className="w-3.5 h-3.5" /> Ablauf</TabsTrigger>
-              <TabsTrigger value="tasks" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-amber-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-amber-600"><CheckCircle className="w-3.5 h-3.5" /> Aufgaben</TabsTrigger>
             </TabsList>
             
             <TabsContent value="meta" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">

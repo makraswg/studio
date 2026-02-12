@@ -41,7 +41,8 @@ import {
   Plus,
   Edit3,
   ArrowRightCircle,
-  ArrowLeftCircle
+  ArrowLeftCircle,
+  Terminal
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -83,6 +84,7 @@ export default function ProcessDetailViewPage() {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
@@ -210,6 +212,7 @@ export default function ProcessDetailViewPage() {
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    setMousePos({ x: e.clientX, y: e.clientY });
     if (!isDragging || guideMode !== 'structure') return;
     setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
   };
@@ -249,6 +252,7 @@ export default function ProcessDetailViewPage() {
         )}
         onClick={(e) => {
           e.stopPropagation();
+          console.log(`[DEBUG] Clicked node: ${node.id}`);
           setActiveNodeId(isActive ? null : node.id);
         }}
       >
@@ -256,7 +260,7 @@ export default function ProcessDetailViewPage() {
           <div className="flex items-center gap-4 min-w-0">
             <div className={cn(
               "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-inner",
-              node.type === 'start' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+              node.type === 'start' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : 
               node.type === 'end' ? "bg-red-50 text-red-600 border-red-100" :
               node.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : "bg-primary/5 text-primary border-primary/10"
             )}>
@@ -328,6 +332,18 @@ export default function ProcessDetailViewPage() {
 
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body">
+      {/* Debug HUD */}
+      <div className="fixed top-20 left-80 z-[100] bg-slate-900/90 text-white p-3 rounded-xl border border-white/10 shadow-2xl pointer-events-none font-mono text-[9px] space-y-1">
+        <div className="flex items-center gap-2 border-b border-white/10 pb-1 mb-1">
+          <Terminal className="w-3 h-3 text-primary" />
+          <span className="font-black uppercase tracking-widest">Map Debugger</span>
+        </div>
+        <div className="flex justify-between gap-4"><span>Active ID:</span> <span className="text-primary">{activeNodeId || 'none'}</span></div>
+        <div className="flex justify-between gap-4"><span>Scale:</span> <span>{scale.toFixed(2)}</span></div>
+        <div className="flex justify-between gap-4"><span>Position:</span> <span>X:{Math.floor(position.x)} Y:{Math.floor(position.y)}</span></div>
+        <div className="flex justify-between gap-4"><span>Dragging:</span> <span className={cn(isDragging ? "text-emerald-400" : "text-red-400")}>{String(isDragging)}</span></div>
+      </div>
+
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl transition-all"><ChevronLeft className="w-6 h-6" /></Button>
@@ -380,7 +396,10 @@ export default function ProcessDetailViewPage() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
-          onClick={() => setActiveNodeId(null)}
+          onClick={() => {
+            console.log("[DEBUG] Clicked map background");
+            setActiveNodeId(null);
+          }}
         >
           {guideMode === 'list' ? (
             <ScrollArea className="h-full p-10">

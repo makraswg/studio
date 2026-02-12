@@ -1,4 +1,3 @@
-
 'use server';
 
 import { saveCollectionRecord, getCollectionData } from './mysql-actions';
@@ -23,7 +22,11 @@ export async function testLdapConnectionAction(config: Partial<Tenant>): Promise
     }
 
     if (config.ldapBindPassword === 'wrong') {
-      return { success: false, message: 'Authentifizierungsfehler: Bind DN oder Passwort ungültig.' };
+      return { success: false, message: 'LDAP-FEHLER: Authentifizierungsfehler. Der Bind-DN oder das Passwort ist ungültig.' };
+    }
+
+    if (!config.ldapBaseDn) {
+      return { success: false, message: 'LDAP-FEHLER: Base DN fehlt. Die Suche kann nicht initialisiert werden.' };
     }
 
     return { 
@@ -31,7 +34,7 @@ export async function testLdapConnectionAction(config: Partial<Tenant>): Promise
       message: `Verbindung zu ${config.ldapUrl}:${config.ldapPort} erfolgreich etabliert. Domäne ${config.ldapDomain || 'unbekannt'} erreicht. Bind für ${config.ldapBindDn || 'nutzer'} erfolgreich.` 
     };
   } catch (e: any) {
-    return { success: false, message: `Verbindungsfehler: ${e.message}` };
+    return { success: false, message: `NETZWERK-FEHLER: ${e.message}. Der LDAP-Server ist nicht erreichbar oder verweigert die Verbindung.` };
   }
 }
 
@@ -61,7 +64,7 @@ export async function updateJobStatusAction(
       name: existingJob?.name || jobId,
       lastRun: new Date().toISOString(),
       lastStatus: status,
-      lastMessage: message.substring(0, 1000)
+      lastMessage: message.substring(0, 2000) // Erhöhtes Limit für Logs
     };
 
     await saveCollectionRecord('syncJobs', jobId, updateData, dataSource);
@@ -79,7 +82,7 @@ export async function updateJobStatusAction(
  */
 export async function triggerSyncJobAction(jobId: string, dataSource: DataSource = 'mysql', actorUid: string = 'system') {
   // 1. Markiere als laufend
-  await updateJobStatusAction(jobId, 'running', 'Synchronisation der Identitäten gestartet...', dataSource);
+  await updateJobStatusAction(jobId, 'running', 'Synchronisation gestartet...', dataSource);
 
   try {
     if (jobId === 'job-ldap-sync') {
@@ -90,7 +93,11 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
       const tenant = tenantsRes.data?.[0] as Tenant;
       
       if (!tenant || !tenant.ldapEnabled) {
-        throw new Error("LDAP ist für diesen Mandanten nicht aktiviert.");
+        throw new Error("LDAP-MODUL DEAKTIVIERT: Die Synchronisation kann nicht durchgeführt werden, da LDAP für diesen Mandanten in den Einstellungen nicht aktiviert wurde.");
+      }
+
+      if (!tenant.ldapUrl) {
+        throw new Error("KONFIGURATIONS-FEHLER: Keine LDAP-Server URL hinterlegt.");
       }
 
       // Simulation: Wir "finden" 3 Nutzer im AD, die wir importieren/aktualisieren
@@ -163,7 +170,7 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
       await updateJobStatusAction(jobId, 'success', 'Jira Gateway erfolgreich abgefragt. Warteschlange ist aktuell.', dataSource);
     }
     else {
-      await updateJobStatusAction(jobId, 'error', `Job-Logik für '${jobId}' noch nicht implementiert.`, dataSource);
+      await updateJobStatusAction(jobId, 'error', `DIAGNOSE: Unbekannter Job-Typ '${jobId}'. Die Job-Logik wurde im System nicht gefunden.`, dataSource);
     }
 
     await logAuditEventAction(dataSource as any, {
@@ -176,7 +183,8 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
 
     return { success: true };
   } catch (e: any) {
-    await updateJobStatusAction(jobId, 'error', `Fehler bei Ausführung: ${e.message}`, dataSource);
+    const errorLog = `SYNC-FEHLER AM ${new Date().toLocaleString()}:\nUrsache: ${e.message}\n\nPrüfen Sie die Netzwerkverbindung zum LDAP-Server und die Gültigkeit des Bind-Passworts.`;
+    await updateJobStatusAction(jobId, 'error', errorLog, dataSource);
     return { success: false, error: e.message };
   }
 }

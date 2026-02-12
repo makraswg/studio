@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -25,7 +24,10 @@ import {
   FileCheck,
   Send,
   Users,
-  Info
+  Info,
+  AlertTriangle,
+  FileText,
+  X
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +43,14 @@ import { usePlatformAuth } from '@/context/auth-context';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogDescription
+} from '@/components/ui/dialog';
 
 export default function SyncSettingsPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -50,6 +60,7 @@ export default function SyncSettingsPage() {
   const [isJobRunning, setIsJobRunning] = useState<string | null>(null);
   
   const [tenantDraft, setTenantDraft] = useState<Partial<Tenant>>({});
+  const [selectedJobMessage, setSelectedJobMessage] = useState<string | null>(null);
 
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<Tenant>('tenants');
   const { data: syncJobs, refresh: refreshJobs } = usePluggableCollection<SyncJob>('syncJobs');
@@ -93,6 +104,9 @@ export default function SyncSettingsPage() {
       const res = await triggerSyncJobAction(jobId, dataSource, authUser?.email || 'system');
       if (res.success) {
         toast({ title: "Job abgeschlossen" });
+        refreshJobs();
+      } else {
+        toast({ variant: "destructive", title: "Job fehlgeschlagen", description: res.error });
         refreshJobs();
       }
     } finally {
@@ -216,16 +230,6 @@ export default function SyncSettingsPage() {
                 <Input value={tenantDraft.ldapAttrGroups || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrGroups: e.target.value})} placeholder="memberOf" className="rounded-xl h-12 border-indigo-100" />
               </div>
             </div>
-            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-3">
-              <Users className="w-5 h-5 text-indigo-600 shrink-0" />
-              <div className="space-y-1">
-                <p className="text-[11px] font-black uppercase text-indigo-900">Gruppen-Synchronisation</p>
-                <p className="text-[10px] text-indigo-700 italic leading-relaxed">
-                  Die ausgelesenen Gruppen werden für die <strong>Drift-Detection</strong> verwendet. 
-                  Der Hub vergleicht die tatsächlichen AD-Mitgliedschaften mit den im System definierten Rollen-Blueprints.
-                </p>
-              </div>
-            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row justify-between items-center pt-10 border-t border-slate-100 dark:border-slate-800 gap-6">
@@ -263,7 +267,7 @@ export default function SyncSettingsPage() {
                 <TableHead className="py-4 px-6 text-[9px] font-black uppercase text-slate-400 tracking-widest">Sync-Job</TableHead>
                 <TableHead className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Letzter Lauf</TableHead>
                 <TableHead className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Status</TableHead>
-                <TableHead className="text-right px-6"></TableHead>
+                <TableHead className="text-right px-6 font-bold text-[9px] text-slate-400 uppercase">Aktion</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -285,18 +289,34 @@ export default function SyncSettingsPage() {
                       {dbJob?.lastRun ? new Date(dbJob.lastRun).toLocaleString() : '---'}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={cn(
-                        "text-[8px] font-black uppercase rounded-full border-none px-3 h-5", 
-                        dbJob?.lastStatus === 'success' ? "bg-emerald-50 text-emerald-700 shadow-sm" : "bg-slate-100 text-slate-500"
-                      )}>
-                        {dbJob?.lastStatus || 'IDLE'}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={cn(
+                          "text-[8px] font-black uppercase rounded-full border-none px-3 h-5", 
+                          dbJob?.lastStatus === 'success' ? "bg-emerald-50 text-emerald-700 shadow-sm" : 
+                          dbJob?.lastStatus === 'error' ? "bg-red-50 text-red-700 shadow-sm" :
+                          "bg-slate-100 text-slate-500"
+                        )}>
+                          {dbJob?.lastStatus || 'IDLE'}
+                        </Badge>
+                        {dbJob?.lastStatus === 'error' && (
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-600 animate-pulse" onClick={() => setSelectedJobMessage(dbJob.lastMessage || 'Kein Log vorhanden')}>
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right px-6">
-                      <Button size="sm" variant="ghost" className="h-9 font-black uppercase text-[10px] tracking-widest px-6 gap-2 hover:bg-primary/10 hover:text-primary transition-all rounded-lg opacity-0 group-hover:opacity-100" disabled={isRunning} onClick={() => handleRunJob(job.id)}>
-                        {isRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-                        Trigger Job
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        {dbJob?.lastMessage && (
+                          <Button variant="ghost" size="sm" className="h-8 text-[9px] font-black uppercase text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setSelectedJobMessage(dbJob.lastMessage!)}>
+                            <FileText className="w-3 h-3 mr-1.5" /> Log
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" className="h-9 font-black uppercase text-[10px] tracking-widest px-6 gap-2 hover:bg-primary/10 hover:text-primary transition-all rounded-lg opacity-0 group-hover:opacity-100" disabled={isRunning} onClick={() => handleRunJob(job.id)}>
+                          {isRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                          Trigger Job
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -305,6 +325,46 @@ export default function SyncSettingsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Log Detail Dialog */}
+      <Dialog open={!!selectedJobMessage} onOpenChange={v => !v && setSelectedJobMessage(null)}>
+        <DialogContent className="max-w-2xl rounded-2xl p-0 overflow-hidden border-none shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center text-primary shadow-lg border border-white/10">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">System Log & Diagnose</DialogTitle>
+                  <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Letzter Lauf Ergebnis</DialogDescription>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" className="h-10 w-10 text-white/50 hover:text-white" onClick={() => setSelectedJobMessage(null)}>
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+          </DialogHeader>
+          <div className="p-8">
+            <div className="rounded-2xl bg-slate-50 border p-6 shadow-inner">
+              <ScrollArea className="max-h-[300px]">
+                <pre className="text-xs font-mono text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  {selectedJobMessage}
+                </pre>
+              </ScrollArea>
+            </div>
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
+              <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-blue-700 font-medium leading-relaxed italic">
+                Falls der Fehler weiterhin besteht, prüfen Sie bitte die Firewall-Freischaltungen für den LDAP-Port und stellen Sie sicher, dass der Bind-Nutzer nicht gesperrt ist.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="p-4 bg-slate-50 border-t">
+            <Button className="w-full sm:w-auto rounded-xl font-bold text-xs h-11 px-10 bg-slate-900" onClick={() => setSelectedJobMessage(null)}>Schließen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

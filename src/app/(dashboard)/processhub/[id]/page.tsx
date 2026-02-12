@@ -35,7 +35,9 @@ import {
   CheckCircle2,
   Save,
   ArrowLeftCircle,
-  ArrowRightCircle
+  ArrowRightCircle,
+  Edit3,
+  Check
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -87,8 +89,21 @@ export default function ProcessDesignerPage() {
   const [isCommitting, setIsCommitting] = useState(false);
   const [isSavingMeta, setIsSavingMeta] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
+  const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false);
+  const [editingNode, setEditingNode] = useState<ProcessNode | null>(null);
   const [connectionPaths, setConnectionPaths] = useState<{ path: string, sourceId: string, targetId: string, label?: string, isActive: boolean }[]>([]);
+
+  // Node Editor Form State
+  const [editTitle, setEditTitle] = useState('');
+  const [editType, setEditType] = useState<ProcessNode['type']>('step');
+  const [editDesc, setEditDesc] = useState('');
+  const [editRoleId, setEditRoleId] = useState('');
+  const [editResIds, setEditResIds] = useState<string[]>([]);
+  const [editFeatIds, setEditFeatIds] = useState<string[]>([]);
+  const [editChecklist, setEditChecklist] = useState<string[]>([]);
+  const [newCheckItem, setNewCheckItem] = useState('');
+  const [editTips, setEditTips] = useState('');
+  const [editErrors, setEditErrors] = useState('');
 
   // Master Data Form State
   const [metaTitle, setMetaTitle] = useState('');
@@ -218,7 +233,6 @@ export default function ProcessDesignerPage() {
         const tX = tNode.x + OFFSET_X + 128;
         const tY = tNode.y + OFFSET_Y;
         
-        // Dynamic path calculation for smooth Bezier curves
         const dy = tY - sY;
         const path = `M ${sX} ${sY} C ${sX} ${sY + dy/2}, ${tX} ${tY - dy/2}, ${tX} ${tY}`;
         
@@ -253,6 +267,54 @@ export default function ProcessDesignerPage() {
       setTimeout(() => centerOnNode(nodeId), 50);
     }
   }, [selectedNodeId, centerOnNode]);
+
+  // --- Node Editor Logic ---
+  const openNodeEditor = (node: ProcessNode) => {
+    setEditingNode(node);
+    setEditTitle(node.title || '');
+    setEditType(node.type || 'step');
+    setEditDesc(node.description || '');
+    setEditRoleId(node.roleId || '');
+    setEditResIds(node.resourceIds || []);
+    setEditFeatIds(node.featureIds || []);
+    setEditChecklist(node.checklist || []);
+    setEditTips(node.tips || '');
+    setEditErrors(node.errors || '');
+    setIsNodeEditorOpen(true);
+  };
+
+  const handleSaveNode = async () => {
+    if (!editingNode) return;
+    const ops: ProcessOperation[] = [{
+      type: 'UPDATE_NODE',
+      payload: {
+        nodeId: editingNode.id,
+        patch: {
+          title: editTitle,
+          type: editType,
+          description: editDesc,
+          roleId: editRoleId,
+          resourceIds: editResIds,
+          featureIds: editFeatIds,
+          checklist: editChecklist,
+          tips: editTips,
+          errors: editErrors
+        }
+      }
+    }];
+    const success = await handleApplyOps(ops);
+    if (success) setIsNodeEditorOpen(false);
+  };
+
+  const addCheckItem = () => {
+    if (!newCheckItem.trim()) return;
+    setEditChecklist([...editChecklist, newCheckItem.trim()]);
+    setNewCheckItem('');
+  };
+
+  const removeCheckItem = (idx: number) => {
+    setEditChecklist(editChecklist.filter((_, i) => i !== idx));
+  };
 
   // --- Interaction Handlers ---
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -333,7 +395,12 @@ export default function ProcessDesignerPage() {
     if (predecessor) {
       ops.push({ type: 'ADD_EDGE', payload: { edge: { id: `edge-${Date.now()}`, source: predecessor.id, target: newId } } });
     }
-    handleApplyOps(ops).then(s => { if(s) handleNodeClick(newId); });
+    handleApplyOps(ops).then(s => { 
+      if(s) {
+        handleNodeClick(newId);
+        openNodeEditor(newNode);
+      }
+    });
   };
 
   const handleSaveMetadata = async () => {
@@ -401,12 +468,57 @@ export default function ProcessDesignerPage() {
 
       <div className="flex-1 flex overflow-hidden h-full relative">
         <aside className="border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar h-full shadow-sm hidden md:flex" style={{ width: `${leftWidth}px` }}>
-          <Tabs defaultValue="meta" className="h-full flex flex-col overflow-hidden">
+          <Tabs defaultValue="steps" className="h-full flex flex-col overflow-hidden">
             <TabsList className="h-11 bg-slate-50 border-b gap-0 p-0 w-full justify-start shrink-0 rounded-none overflow-x-auto no-scrollbar">
-              <TabsTrigger value="meta" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-blue-600 uppercase">Stammdaten</TabsTrigger>
               <TabsTrigger value="steps" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-primary uppercase">Modellierung</TabsTrigger>
+              <TabsTrigger value="meta" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-blue-600 uppercase">Stammdaten</TabsTrigger>
             </TabsList>
             
+            <TabsContent value="steps" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
+              <div className="px-6 py-4 border-b bg-white space-y-4 shrink-0">
+                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Element hinzufügen</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2 border-slate-200" onClick={() => handleQuickAdd('step')}>
+                    <PlusCircle className="w-3.5 h-3.5 text-primary" /> Arbeitsschritt
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2 border-slate-200" onClick={() => handleQuickAdd('decision')}>
+                    <GitBranch className="w-3.5 h-3.5 text-amber-600" /> Weiche (OR)
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2 border-slate-200" onClick={() => handleQuickAdd('subprocess')}>
+                    <RefreshCw className="w-3.5 h-3.5 text-indigo-600" /> Referenz
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2 border-slate-200" onClick={() => handleQuickAdd('end')}>
+                    <StopCircle className="w-3.5 h-3.5 text-red-600" /> Ende
+                  </Button>
+                </div>
+              </div>
+              <ScrollArea className="flex-1 bg-slate-50/30">
+                <div className="p-4 space-y-2 pb-32">
+                  {(activeVersion?.model_json?.nodes || []).map((node: any) => (
+                    <div key={node.id} className={cn("group flex items-center gap-3 p-2 rounded-xl border transition-all cursor-pointer bg-white shadow-sm hover:border-primary/20", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => handleNodeClick(node.id)}>
+                      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-inner", 
+                        node.type === 'decision' ? "bg-amber-50 text-amber-600" : 
+                        node.type === 'start' ? "bg-emerald-50 text-emerald-600" :
+                        node.type === 'end' ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-500"
+                      )}>
+                        {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : 
+                         node.type === 'start' ? <PlayCircle className="w-4 h-4" /> :
+                         node.type === 'end' ? <StopCircle className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{node.title}</p>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">{node.type}</p>
+                      </div>
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/5" onClick={(e) => { e.stopPropagation(); openNodeEditor(node); }}><Edit3 className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
             <TabsContent value="meta" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
               <ScrollArea className="flex-1 bg-white">
                 <div className="p-6 space-y-6 pb-10">
@@ -443,30 +555,6 @@ export default function ProcessDesignerPage() {
                   Metadaten sichern
                 </Button>
               </div>
-            </TabsContent>
-
-            <TabsContent value="steps" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
-              <div className="px-6 py-3 border-b bg-white flex items-center justify-start shrink-0">
-                <div className="flex gap-1.5">
-                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md shadow-sm" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
-                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md shadow-sm" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
-                </div>
-              </div>
-              <ScrollArea className="flex-1 bg-slate-50/30">
-                <div className="p-4 space-y-2 pb-32">
-                  {(activeVersion?.model_json?.nodes || []).map((node: any) => (
-                    <div key={node.id} className={cn("group flex items-center gap-3 p-2 rounded-xl border transition-all cursor-pointer bg-white shadow-sm hover:border-primary/20", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => handleNodeClick(node.id)}>
-                      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-inner", node.type === 'decision' ? "bg-amber-50 text-amber-600" : "bg-slate-50 text-slate-500")}>
-                        {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
-                      </div>
-                      <div className="flex-1 min-w-0"><p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{node.title}</p></div>
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}><Trash2 className="w-3.5 h-3.5" /></Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
             </TabsContent>
           </Tabs>
         </aside>
@@ -515,7 +603,10 @@ export default function ProcessDesignerPage() {
               <div key={node.id} className="absolute transition-all duration-500 ease-in-out" style={{ left: node.x + OFFSET_X, top: node.y + OFFSET_Y }}>
                 <ProcessStepCard 
                   node={node} isMapMode activeNodeId={selectedNodeId} 
-                  setActiveNodeId={handleNodeClick} 
+                  setActiveNodeId={(id: string) => {
+                    handleNodeClick(id);
+                    if (selectedNodeId === id) openNodeEditor(node);
+                  }} 
                   resources={resources} allFeatures={allFeatures} 
                   getFullRoleName={getFullRoleName} 
                   animationsEnabled={animationsEnabled}
@@ -534,6 +625,180 @@ export default function ProcessDesignerPage() {
           </div>
         </main>
       </div>
+
+      {/* Node Editor Dialog */}
+      <Dialog open={isNodeEditorOpen} onOpenChange={setIsNodeEditorOpen}>
+        <DialogContent className="max-w-4xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-5">
+                <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shadow-lg border border-white/10", 
+                  editType === 'decision' ? "bg-amber-500" : editType === 'end' ? "bg-red-500" : "bg-primary"
+                )}>
+                  {editType === 'decision' ? <GitBranch className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
+                </div>
+                <div>
+                  <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Schritt konfigurieren</DialogTitle>
+                  <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">ID: {editingNode?.id}</DialogDescription>
+                </div>
+              </div>
+              <AiFormAssistant formType="process" currentData={{ title: editTitle, description: editDesc }} onApply={(s) => { if(s.title) setEditTitle(s.title); if(s.description) setEditDesc(s.description); }} />
+            </div>
+          </DialogHeader>
+
+          <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
+            <div className="px-6 border-b shrink-0 bg-white">
+              <TabsList className="h-12 bg-transparent gap-8 p-0">
+                <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Basis & Typ</TabsTrigger>
+                <TabsTrigger value="roles" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600 transition-all">Zuständigkeiten</TabsTrigger>
+                <TabsTrigger value="grc" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600 transition-all">Ressourcen & Daten</TabsTrigger>
+                <TabsTrigger value="checklist" className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-600 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-orange-600 transition-all">Checkliste & Hilfen</TabsTrigger>
+              </TabsList>
+            </div>
+
+            <ScrollArea className="flex-1 bg-slate-50/30">
+              <div className="p-8 space-y-10">
+                <TabsContent value="base" className="mt-0 space-y-8 animate-in fade-in">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2 md:col-span-2">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Bezeichnung des Schritts</Label>
+                      <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white shadow-sm" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Knoten-Typ</Label>
+                      <Select value={editType} onValueChange={(v:any) => setEditType(v)}>
+                        <SelectTrigger className="rounded-xl h-11 bg-white border-slate-200"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="start">Startpunkt (Play)</SelectItem>
+                          <SelectItem value="step">Arbeitsschritt (Step)</SelectItem>
+                          <SelectItem value="decision">Entscheidung (Diamond)</SelectItem>
+                          <SelectItem value="subprocess">Teilprozess / Referenz</SelectItem>
+                          <SelectItem value="end">Abschluss (End)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Anweisung / Beschreibung</Label>
+                      <Textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} className="min-h-[120px] rounded-2xl p-4 text-xs bg-white" placeholder="Was genau passiert in diesem Schritt?" />
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="roles" className="mt-0 space-y-8 animate-in fade-in">
+                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
+                    <div className="flex items-center gap-3 border-b pb-3">
+                      <Briefcase className="w-5 h-5 text-indigo-600" />
+                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Ausführende Rolle</h4>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verantwortliche Stelle</Label>
+                      <Select value={editRoleId} onValueChange={setEditRoleId}>
+                        <SelectTrigger className="rounded-xl h-11 bg-white border-slate-200"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-xl max-h-[300px]">
+                          <SelectItem value="none">Keine spezifische Rolle</SelectItem>
+                          {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => (
+                            <SelectItem key={j.id} value={j.id}>{getFullRoleName(j.id)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="grc" className="mt-0 space-y-10 animate-in fade-in">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <Label className="text-[10px] font-black uppercase text-primary tracking-widest flex items-center gap-2 ml-1">
+                        <Layers className="w-3.5 h-3.5" /> IT-Systeme (Assets)
+                      </Label>
+                      <div className="p-4 rounded-2xl border bg-white shadow-inner">
+                        <ScrollArea className="h-64">
+                          <div className="space-y-1.5">
+                            {resources?.filter(res => activeTenantId === 'all' || res.tenantId === activeTenantId || res.tenantId === 'global').map(res => (
+                              <div key={res.id} className={cn(
+                                "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border",
+                                editResIds.includes(res.id) ? "bg-primary/5 border-primary/20" : "bg-white border-transparent hover:bg-slate-50"
+                              )} onClick={() => setEditResIds(prev => editResIds.includes(res.id) ? prev.filter(id => id !== res.id) : [...prev, res.id])}>
+                                <Checkbox checked={editResIds.includes(res.id)} />
+                                <div className="min-w-0">
+                                  <p className="text-[11px] font-bold text-slate-800 truncate">{res.name}</p>
+                                  <p className="text-[8px] font-black uppercase text-slate-400">{res.assetType}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <Label className="text-[10px] font-black uppercase text-emerald-600 tracking-widest flex items-center gap-2 ml-1">
+                        <Database className="w-3.5 h-3.5" /> Datenobjekte (Features)
+                      </Label>
+                      <div className="p-4 rounded-2xl border bg-white shadow-inner">
+                        <ScrollArea className="h-64">
+                          <div className="space-y-1.5">
+                            {allFeatures?.filter(f => activeTenantId === 'all' || f.tenantId === activeTenantId).map(f => (
+                              <div key={f.id} className={cn(
+                                "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border",
+                                editFeatIds.includes(f.id) ? "bg-emerald-50 border-emerald-200" : "bg-white border-transparent hover:bg-slate-50"
+                              )} onClick={() => setEditFeatIds(prev => editFeatIds.includes(f.id) ? prev.filter(id => id !== f.id) : [...prev, f.id])}>
+                                <Checkbox checked={editFeatIds.includes(f.id)} />
+                                <div className="min-w-0">
+                                  <p className="text-[11px] font-bold text-slate-800 truncate">{f.name}</p>
+                                  <p className="text-[8px] font-black uppercase text-slate-400">{f.carrier}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="checklist" className="mt-0 space-y-10 animate-in fade-in pb-20">
+                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
+                    <Label className="text-[10px] font-black uppercase text-slate-900 tracking-widest flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Operative Checkliste
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input placeholder="Neuen Prüfpunkt hinzufügen..." value={newCheckItem} onChange={e => setNewCheckItem(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCheckItem()} className="h-11 rounded-xl" />
+                      <Button onClick={addCheckItem} className="h-11 rounded-xl px-6 bg-emerald-600 hover:bg-emerald-700 text-white"><Plus className="w-4 h-4" /></Button>
+                    </div>
+                    <div className="space-y-2">
+                      {editChecklist.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl group/item">
+                          <span className="text-xs font-medium text-slate-700">{item}</span>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover/item:opacity-100" onClick={() => removeCheckItem(idx)}><X className="w-3.5 h-3.5" /></Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-blue-600 ml-1">Tipps zur Durchführung</Label>
+                      <Textarea value={editTips} onChange={e => setEditTips(e.target.value)} className="min-h-[100px] rounded-2xl bg-blue-50/20 border-blue-100 text-xs italic" placeholder="Expertentipps..." />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-red-600 ml-1">Bekannte Fehlerquellen</Label>
+                      <Textarea value={editErrors} onChange={e => setEditErrors(e.target.value)} className="min-h-[100px] rounded-2xl bg-red-50/20 border-red-100 text-xs italic" placeholder="Worauf ist besonders zu achten?..." />
+                    </div>
+                  </div>
+                </TabsContent>
+              </div>
+            </ScrollArea>
+
+            <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setIsNodeEditorOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button>
+              <Button onClick={handleSaveNode} disabled={isApplying} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2 active:scale-95 transition-all">
+                {isApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Änderungen übernehmen
+              </Button>
+            </DialogFooter>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -570,6 +835,9 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
             <div className="flex items-center gap-2 mt-0.5"><Briefcase className="w-3 h-3 text-slate-400" /><span className="text-[10px] font-bold text-slate-500 truncate max-w-[150px]">{roleName}</span></div>
           </div>
         </div>
+        {isActive && (
+          <Badge className="bg-primary text-white border-none rounded-full h-5 px-3 text-[8px] font-black uppercase tracking-widest animate-pulse">Edit Mode</Badge>
+        )}
       </CardHeader>
       {isExpanded && (
         <CardContent className="p-0 animate-in fade-in slide-in-from-top-2 duration-500">
@@ -601,6 +869,11 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
                 <div className="flex flex-wrap gap-1.5">
                   {nodeResources?.map((res:any) => <Badge key={res.id} variant="outline" className="bg-white text-indigo-700 text-[8px] font-black h-5 border-indigo-100">{res.name}</Badge>)}
                 </div>
+              </div>
+              <div className="pt-4 border-t flex justify-center">
+                <Button variant="outline" size="sm" className="h-8 rounded-xl text-[9px] font-black uppercase border-primary/20 text-primary">
+                  Details bearbeiten <ChevronRight className="w-3 h-3 ml-1" />
+                </Button>
               </div>
             </div>
           </div>

@@ -116,6 +116,13 @@ export default function ProcessDesignerPage() {
   const [editPredecessorIds, setEditPredecessorIds] = useState<string[]>([]);
   const [editSuccessorIds, setEditSuccessorIds] = useState<string[]>([]);
 
+  // Node Editor Search States
+  const [resSearch, setResSearch] = useState('');
+  const [featSearch, setFeatSearch] = useState('');
+  const [predSearch, setPredSearch] = useState('');
+  const [succSearch, setSuccSearch] = useState('');
+  const [subProcSearch, setSubProcSearch] = useState('');
+
   // Master Data Form State
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDesc, setMetaDesc] = useState('');
@@ -213,7 +220,9 @@ export default function ProcessDesignerPage() {
       let x = lane * H_GAP;
       let y = lv * V_GAP;
 
-      if (selectedNodeId) {
+      if (selectedNodeId === n.id) {
+        // No movement for selected node itself
+      } else if (selectedNodeId) {
         const activeLv = levels[selectedNodeId];
         const activeLane = lanes[selectedNodeId];
         if (lv === activeLv) {
@@ -293,6 +302,13 @@ export default function ProcessDesignerPage() {
     setEditErrors(node.errors || '');
     setEditTargetProcessId(node.targetProcessId || '');
     
+    // Reset searches
+    setResSearch('');
+    setFeatSearch('');
+    setPredSearch('');
+    setSuccSearch('');
+    setSubProcSearch('');
+
     const preds = activeVersion?.model_json?.edges?.filter((e: any) => e.target === node.id).map((e: any) => e.source) || [];
     const succs = activeVersion?.model_json?.edges?.filter((e: any) => e.source === node.id).map((e: any) => e.target) || [];
     setEditPredecessorIds(preds);
@@ -722,8 +738,8 @@ export default function ProcessDesignerPage() {
 
           <div className="absolute bottom-8 right-8 z-50 bg-white/95 backdrop-blur-md border rounded-2xl p-1.5 shadow-2xl flex flex-col gap-1.5">
             <TooltipProvider>
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setScale(s => Math.min(2, s + 0.1)); }}><Plus className="w-5 h-5" /></Button></TooltipTrigger><TooltipContent side="left">Zoom In</TooltipContent></Tooltip>
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(0.2, s - 0.1)); }}><Minus className="w-5 h-5" /></Button></TooltipTrigger><TooltipContent side="left">Zoom Out</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setScale(s => Math.min(2, s + 0.1)); }}><Plus className="w-5 h-5" /></Button></TooltipTrigger><TooltipContent side="left">Vergrößern</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(0.2, s - 0.1)); }}><Minus className="w-5 h-5" /></Button></TooltipTrigger><TooltipContent side="left">Verkleinern</TooltipContent></Tooltip>
               <Separator className="my-1" />
               <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-primary" onClick={(e) => { e.stopPropagation(); if(gridNodes.length > 0) centerOnNode(gridNodes[0].id); }}><Maximize2 className="w-5 h-5" /></Button></TooltipTrigger><TooltipContent side="left">Zentrieren</TooltipContent></Tooltip>
             </TooltipProvider>
@@ -775,11 +791,11 @@ export default function ProcessDesignerPage() {
                       <Select value={editType} onValueChange={(v:any) => setEditType(v)}>
                         <SelectTrigger className="rounded-xl h-11 bg-white border-slate-200"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-xl">
-                          <SelectItem value="start">Startpunkt (Play)</SelectItem>
-                          <SelectItem value="step">Arbeitsschritt (Step)</SelectItem>
-                          <SelectItem value="decision">Entscheidung (Diamond)</SelectItem>
+                          <SelectItem value="start">Startpunkt (Start)</SelectItem>
+                          <SelectItem value="step">Arbeitsschritt (Schritt)</SelectItem>
+                          <SelectItem value="decision">Entscheidung (Weiche)</SelectItem>
                           <SelectItem value="subprocess">Referenz (Teilprozess)</SelectItem>
-                          <SelectItem value="end">Abschluss (End)</SelectItem>
+                          <SelectItem value="end">Abschluss (Ende)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -787,11 +803,15 @@ export default function ProcessDesignerPage() {
                     {editType === 'subprocess' && (
                       <div className="space-y-2 animate-in slide-in-from-top-2">
                         <Label className="text-[10px] font-bold uppercase text-indigo-600 ml-1">Ziel-Prozess auswählen</Label>
+                        <div className="relative group mb-1.5">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                          <Input placeholder="Prozesse durchsuchen..." value={subProcSearch} onChange={e => setSubProcSearch(e.target.value)} className="h-8 pl-8 text-[10px] rounded-lg" />
+                        </div>
                         <Select value={editTargetProcessId} onValueChange={handleSubprocessSelect}>
                           <SelectTrigger className="rounded-xl h-11 bg-indigo-50 border-indigo-100"><SelectValue placeholder="Prozess wählen..." /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">Kein Bezug</SelectItem>
-                            {processes?.filter(p => p.id !== id).map(p => (
+                            {processes?.filter(p => p.id !== id && p.title.toLowerCase().includes(subProcSearch.toLowerCase())).map(p => (
                               <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
                             ))}
                           </SelectContent>
@@ -850,13 +870,19 @@ export default function ProcessDesignerPage() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
-                      <Label className="text-[10px] font-black uppercase text-primary tracking-widest flex items-center gap-2 ml-1">
-                        <Layers className="w-3.5 h-3.5" /> IT-Systeme (Assets)
-                      </Label>
+                      <div className="space-y-2 ml-1">
+                        <Label className="text-[10px] font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                          <Layers className="w-3.5 h-3.5" /> IT-Systeme (Assets)
+                        </Label>
+                        <div className="relative group">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                          <Input placeholder="Systeme suchen..." value={resSearch} onChange={e => setResSearch(e.target.value)} className="h-8 pl-8 text-[10px] rounded-lg" />
+                        </div>
+                      </div>
                       <div className="p-4 rounded-2xl border bg-white shadow-inner">
                         <ScrollArea className="h-64">
                           <div className="space-y-1.5">
-                            {resources?.filter(res => activeTenantId === 'all' || res.tenantId === activeTenantId || res.tenantId === 'global').map(res => (
+                            {resources?.filter(res => (activeTenantId === 'all' || res.tenantId === activeTenantId || res.tenantId === 'global') && res.name.toLowerCase().includes(resSearch.toLowerCase())).map(res => (
                               <div key={res.id} className={cn(
                                 "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border",
                                 editResIds.includes(res.id) ? "bg-primary/5 border-primary/20" : "bg-white border-transparent hover:bg-slate-50"
@@ -874,13 +900,19 @@ export default function ProcessDesignerPage() {
                     </div>
 
                     <div className="space-y-4">
-                      <Label className="text-[10px] font-black uppercase text-emerald-600 tracking-widest flex items-center gap-2 ml-1">
-                        <Database className="w-3.5 h-3.5" /> Datenobjekte (Features)
-                      </Label>
+                      <div className="space-y-2 ml-1">
+                        <Label className="text-[10px] font-black uppercase text-emerald-600 tracking-widest flex items-center gap-2">
+                          <Database className="w-3.5 h-3.5" /> Datenobjekte (Features)
+                        </Label>
+                        <div className="relative group">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                          <Input placeholder="Daten suchen..." value={featSearch} onChange={e => setFeatSearch(e.target.value)} className="h-8 pl-8 text-[10px] rounded-lg" />
+                        </div>
+                      </div>
                       <div className="p-4 rounded-2xl border bg-white shadow-inner">
                         <ScrollArea className="h-64">
                           <div className="space-y-1.5">
-                            {allFeatures?.filter(f => activeTenantId === 'all' || f.tenantId === activeTenantId).map(f => (
+                            {allFeatures?.filter(f => (activeTenantId === 'all' || f.tenantId === activeTenantId) && f.name.toLowerCase().includes(featSearch.toLowerCase())).map(f => (
                               <div key={f.id} className={cn(
                                 "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border",
                                 editFeatIds.includes(f.id) ? "bg-emerald-50 border-emerald-200" : "bg-white border-transparent hover:bg-slate-50"
@@ -911,13 +943,19 @@ export default function ProcessDesignerPage() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
-                      <Label className="text-[10px] font-black uppercase text-amber-600 tracking-widest flex items-center gap-2 ml-1">
-                        <ArrowUpCircle className="w-4 h-4" /> Eingang (Vorgänger)
-                      </Label>
+                      <div className="space-y-2 ml-1">
+                        <Label className="text-[10px] font-black uppercase text-amber-600 tracking-widest flex items-center gap-2">
+                          <ArrowUpCircle className="w-4 h-4" /> Eingang (Vorgänger)
+                        </Label>
+                        <div className="relative group">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                          <Input placeholder="Schritte suchen..." value={predSearch} onChange={e => setPredSearch(e.target.value)} className="h-8 pl-8 text-[10px] rounded-lg" />
+                        </div>
+                      </div>
                       <div className="p-4 rounded-2xl border bg-white shadow-inner">
                         <ScrollArea className="h-64">
                           <div className="space-y-1.5">
-                            {activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id).map((n: any) => (
+                            {activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id && n.title.toLowerCase().includes(predSearch.toLowerCase())).map((n: any) => (
                               <div key={n.id} className={cn(
                                 "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border",
                                 editPredecessorIds.includes(n.id) ? "bg-amber-50 border-amber-200" : "bg-white border-transparent hover:bg-slate-50"
@@ -935,13 +973,19 @@ export default function ProcessDesignerPage() {
                     </div>
 
                     <div className="space-y-4">
-                      <Label className="text-[10px] font-black uppercase text-amber-600 tracking-widest flex items-center gap-2 ml-1">
-                        <ArrowDownCircle className="w-4 h-4" /> Ausgang (Nachfolger)
-                      </Label>
+                      <div className="space-y-2 ml-1">
+                        <Label className="text-[10px] font-black uppercase text-amber-600 tracking-widest flex items-center gap-2">
+                          <ArrowDownCircle className="w-4 h-4" /> Ausgang (Nachfolger)
+                        </Label>
+                        <div className="relative group">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                          <Input placeholder="Schritte suchen..." value={succSearch} onChange={e => setSuccSearch(e.target.value)} className="h-8 pl-8 text-[10px] rounded-lg" />
+                        </div>
+                      </div>
                       <div className="p-4 rounded-2xl border bg-white shadow-inner">
                         <ScrollArea className="h-64">
                           <div className="space-y-1.5">
-                            {activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id).map((n: any) => (
+                            {activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id && n.title.toLowerCase().includes(succSearch.toLowerCase())).map((n: any) => (
                               <div key={n.id} className={cn(
                                 "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border",
                                 editSuccessorIds.includes(n.id) ? "bg-amber-50 border-amber-200" : "bg-white border-transparent hover:bg-slate-50"
@@ -1083,7 +1127,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
               </div>
               <div className="pt-4 border-t flex justify-center">
                 <Button variant="outline" size="sm" className="h-8 rounded-xl text-[9px] font-black uppercase border-primary/20 text-primary">
-                  Details bearbeiten <ChevronRight className="w-3 h-3 ml-1" />
+                  Details bearbeiten <ChevronRight className="w-3.5 h-3.5 ml-1" />
                 </Button>
               </div>
             </div>

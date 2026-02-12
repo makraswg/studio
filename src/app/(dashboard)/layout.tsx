@@ -53,15 +53,6 @@ function HeaderContent() {
     return current ? current.name : 'Unbekannter Mandant';
   };
 
-  // Hilfsfunktion zur Vermeidung von Regex-Parser-Problemen
-  const getContextString = (path: string) => {
-    if (path.indexOf('processhub') !== -1) return 'Prozessmanagement';
-    if (path.indexOf('risks') !== -1) return 'Risikomanagement';
-    if (path.indexOf('users') !== -1) return 'Identitäten';
-    if (path.indexOf('gdpr') !== -1) return 'Datenschutz';
-    return 'Allgemein';
-  };
-
   if (!mounted) return <header className="h-14 border-b bg-card shrink-0" />;
 
   return (
@@ -176,7 +167,7 @@ export default function DashboardLayout({
       <div className="flex-1 flex flex-col min-w-0 relative">
         <HeaderContent />
         <main className="flex-1 overflow-x-hidden">
-          <div className="p-4 md:p-6 lg:p-8 max-w-[1440px] mx-auto animate-in fade-in duration-500">
+          <div className="p-4 md:p-6 lg:p-8 w-full animate-in fade-in duration-500">
             {children}
           </div>
         </main>

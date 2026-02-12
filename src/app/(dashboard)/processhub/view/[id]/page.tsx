@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -153,7 +152,11 @@ export default function ProcessDetailViewPage() {
       levelOccupancy.add(finalLane);
       processed.add(id);
 
-      const children = edges.filter(e => e.source === id).map(e => e.target);
+      const children = edges.filter(e => {
+        const targetNode = nodes.find(n => n.id === e.target);
+        return e.source === id && targetNode?.type !== 'subprocess'; // Prevent looping back logic for simple DAG
+      }).map(e => e.target);
+
       children.forEach((childId, idx) => {
         queue.push({ id: childId, lane: finalLane + idx });
       });
@@ -207,12 +210,10 @@ export default function ProcessDetailViewPage() {
         const tIsExp = tNode.id === activeNodeId;
         const isPathActive = sIsExp || tIsExp;
         
-        const sW = sIsExp ? 600 : 256;
-        const tW = tIsExp ? 600 : 256;
-        // Accurate height detection for anchors
-        const sH = sIsExp ? 450 : 80; 
+        // Accurate height detection for anchors - expanded height is fixed to 420px for predictability
+        const sH = sIsExp ? 420 : 82; 
 
-        // Both anchor points are at x + 128 relative to original left because expansion is symmetrical via translate
+        // Both anchor points are at x + 128 (center of 256px) relative to original left because expansion is symmetrical via translate
         const sX = sNode.x + OFFSET_X + 128;
         const sY = sNode.y + OFFSET_Y + sH;
 
@@ -220,7 +221,7 @@ export default function ProcessDetailViewPage() {
         const tY = tNode.y + OFFSET_Y;
 
         const dy = tY - sY;
-        const stub = 80; // Longer stub for cleaner vertical entry
+        const stub = 80; // Steep vertical entry
         
         const path = `M ${sX} ${sY} L ${sX} ${sY + stub} C ${sX} ${sY + dy/2}, ${tX} ${tY - dy/2}, ${tX} ${tY - stub} L ${tX} ${tY}`;
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target, label: edge.label, isActive: isPathActive });
@@ -490,7 +491,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
       className={cn(
         "rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden",
         isActive ? "ring-4 ring-primary border-primary shadow-2xl z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20",
-        isMapMode && (isActive ? "w-[600px] -translate-x-[172px]" : "w-64")
+        isMapMode && (isActive ? "w-[600px] -translate-x-[172px] h-[420px]" : "w-64 h-[82px]")
       )}
       onClick={(e) => {
         e.stopPropagation();

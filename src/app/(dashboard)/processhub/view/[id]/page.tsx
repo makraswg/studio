@@ -140,29 +140,36 @@ export default function ProcessDetailViewPage() {
       levelCounts[lv]++;
     });
 
-    // 3. Absolute Position with Dynamic Expansion Offset
+    // 3. Position Calculation with Symmetric Expansion
+    const BASE_H_GAP = 450;
+    const BASE_V_GAP = 180;
+    const COLLAPSED_W = 256;
+    const EXPANDED_W = 600;
+    const EXTRA_W = (EXPANDED_W - COLLAPSED_W);
+
     return nodes.map(n => {
       const lv = levels[n.id];
       const cl = cols[n.id];
       const totalInLv = levelCounts[lv];
       
-      // Center the row
-      const startX = -(totalInLv - 1) * 225;
-      let x = startX + cl * 450;
-      let y = lv * 220;
+      const startX = -(totalInLv - 1) * (BASE_H_GAP / 2);
+      let x = startX + cl * BASE_H_GAP;
+      let y = lv * BASE_V_GAP;
 
-      // Expand context
+      // Symmetric Shifting Logic
       if (activeNodeId) {
         const aNode = nodes.find(an => an.id === activeNodeId);
         const aLv = levels[activeNodeId];
         const aCl = cols[activeNodeId];
         
         if (lv === aLv) {
-          if (cl > aCl) x += 180;
-          if (cl < aCl) x -= 180;
+          // Push neighbors in same row left and right
+          if (cl > aCl) x += (EXTRA_W / 2) + 40;
+          if (cl < aCl) x -= (EXTRA_W / 2) + 40;
         }
         if (lv > aLv) {
-          y += 400; 
+          // Push all rows below the expanded card down
+          y += 350; 
         }
       }
 
@@ -210,17 +217,15 @@ export default function ProcessDetailViewPage() {
         const tW = tIsExpanded ? 600 : 256;
         const sH = sIsExpanded ? 400 : 80;
 
-        // EXIT: Always bottom center
+        // Top-Entry / Bottom-Exit Logic
         const sX = sNode.x + OFFSET_X + (sW / 2);
         const sY = sNode.y + OFFSET_Y + sH;
 
-        // ENTRY: Always top center (Clean vertical flow)
         const tX = tNode.x + OFFSET_X + (tW / 2);
         const tY = tNode.y + OFFSET_Y;
 
-        // Curve Calculation with steeper approach to avoid "flat" look
         const dy = Math.abs(tY - sY);
-        const cpOffset = Math.max(dy * 0.5, 60); 
+        const cpOffset = Math.max(dy * 0.4, 80); 
         
         const path = `M ${sX} ${sY} C ${sX} ${sY + cpOffset}, ${tX} ${tY - cpOffset}, ${tX} ${tY}`;
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target });
@@ -230,9 +235,7 @@ export default function ProcessDetailViewPage() {
     setConnectionPaths(newPaths);
   }, [activeVersion, gridNodes, activeNodeId]);
 
-  useEffect(() => { 
-    setMounted(true); 
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (mounted && guideMode === 'structure' && !hasAutoCentered.current) {
@@ -248,7 +251,7 @@ export default function ProcessDetailViewPage() {
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0 || guideMode !== 'structure') return;
     setIsDragging(true);
-    setDragStart({ x: e.clientX - position.x, y: e.clientY - dragStart.y });
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -397,7 +400,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
       className={cn(
         "rounded-2xl border transition-all duration-300 bg-white cursor-pointer relative overflow-hidden",
         isActive ? "ring-4 ring-primary border-primary shadow-2xl z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20",
-        isMapMode && (isActive ? "w-[600px]" : "w-64")
+        isMapMode && (isActive ? "w-[600px] -translate-x-[172px]" : "w-64")
       )}
       onClick={(e) => {
         e.stopPropagation();

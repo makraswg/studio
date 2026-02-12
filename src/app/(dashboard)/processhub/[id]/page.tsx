@@ -46,7 +46,12 @@ import {
   AlertTriangle,
   FileCheck,
   Scale,
-  Network
+  Network,
+  Target,
+  Tag,
+  ListFilter,
+  FileCode,
+  MessageSquare
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -61,7 +66,7 @@ import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
 import { applyProcessOpsAction, updateProcessMetadataAction, commitProcessVersionAction } from '@/app/actions/process-actions';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessNode, ProcessOperation, ProcessVersion, Department, Resource, Feature, UiConfig } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessNode, ProcessOperation, ProcessVersion, Department, Resource, Feature, UiConfig, ProcessType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -123,9 +128,15 @@ export default function ProcessDesignerPage() {
   const [succSearch, setSuccSearch] = useState('');
   const [subProcSearch, setSubProcSearch] = useState('');
 
-  // Master Data Form State
+  // Master Data Form State (Comprehensive according to DB schema)
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDesc, setMetaDesc] = useState('');
+  const [metaTypeId, setMetaTypeId] = useState('none');
+  const [metaInputs, setMetaInputs] = useState('');
+  const [metaOutputs, setMetaOutputs] = useState('');
+  const [metaKpis, setMetaKpis] = useState('');
+  const [metaTags, setMetaTags] = useState('');
+  const [metaOpenQuestions, setMetaOpenQuestions] = useState('');
   const [metaDeptId, setMetaDeptId] = useState('none');
   const [metaOwnerRoleId, setMetaOwnerRoleId] = useState('none');
   const [metaFramework, setMetaFramework] = useState('none');
@@ -140,6 +151,7 @@ export default function ProcessDesignerPage() {
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: allFeatures } = usePluggableCollection<Feature>('features');
+  const { data: processTypes } = usePluggableCollection<ProcessType>('process_types');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
@@ -154,6 +166,12 @@ export default function ProcessDesignerPage() {
     if (currentProcess) {
       setMetaTitle(currentProcess.title || '');
       setMetaDesc(currentProcess.description || '');
+      setMetaTypeId(currentProcess.process_type_id || 'none');
+      setMetaInputs(currentProcess.inputs || '');
+      setMetaOutputs(currentProcess.outputs || '');
+      setMetaKpis(currentProcess.kpis || '');
+      setMetaTags(currentProcess.tags || '');
+      setMetaOpenQuestions(currentProcess.openQuestions || '');
       setMetaDeptId(currentProcess.responsibleDepartmentId || 'none');
       setMetaOwnerRoleId(currentProcess.ownerRoleId || 'none');
       setMetaFramework(currentProcess.regulatoryFramework || 'none');
@@ -492,14 +510,28 @@ export default function ProcessDesignerPage() {
     setIsSavingMeta(true);
     try {
       const res = await updateProcessMetadataAction(id as string, {
-        title: metaTitle, description: metaDesc,
+        title: metaTitle, 
+        description: metaDesc,
+        process_type_id: metaTypeId === 'none' ? undefined : metaTypeId,
+        inputs: metaInputs,
+        outputs: metaOutputs,
+        kpis: metaKpis,
+        tags: metaTags,
+        openQuestions: metaOpenQuestions,
         responsibleDepartmentId: metaDeptId === 'none' ? undefined : metaDeptId,
         ownerRoleId: metaOwnerRoleId === 'none' ? undefined : metaOwnerRoleId,
         regulatoryFramework: metaFramework === 'none' ? undefined : metaFramework,
-        automationLevel: metaAutomation, dataVolume: metaVolume, processingFrequency: metaFrequency
+        automationLevel: metaAutomation, 
+        dataVolume: metaVolume, 
+        processingFrequency: metaFrequency
       }, dataSource);
-      if (res.success) { toast({ title: "Stammdaten gespeichert" }); refreshProc(); }
-    } finally { setIsSavingMeta(false); }
+      if (res.success) { 
+        toast({ title: "Stammdaten gespeichert" }); 
+        refreshProc(); 
+      }
+    } finally { 
+      setIsSavingMeta(false); 
+    }
   };
 
   const handleCommitVersion = async () => {
@@ -564,7 +596,7 @@ export default function ProcessDesignerPage() {
                 <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
                   <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                   <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                    Markieren Sie einen Schritt, um neue Elemente automatisch danach einzufügen.
+                    Markieren Sie einen Schritt, um neue Elemente automatisch danach einzufügen. Relevante GRC-Daten werden dabei vererbt.
                   </p>
                 </div>
                 <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Element hinzufügen</Label>
@@ -590,10 +622,12 @@ export default function ProcessDesignerPage() {
                       <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-inner", 
                         node.type === 'decision' ? "bg-amber-50 text-amber-600" : 
                         node.type === 'start' ? "bg-emerald-50 text-emerald-600" :
-                        node.type === 'end' ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-500"
+                        node.type === 'end' ? "bg-red-50 text-red-600" :
+                        node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-slate-50 text-slate-500"
                       )}>
                         {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : 
                          node.type === 'start' ? <PlayCircle className="w-4 h-4" /> :
+                         node.type === 'subprocess' ? <RefreshCw className="w-4 h-4" /> :
                          node.type === 'end' ? <StopCircle className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -612,47 +646,87 @@ export default function ProcessDesignerPage() {
 
             <TabsContent value="meta" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
               <ScrollArea className="flex-1 bg-white">
-                <div className="p-6 space-y-6 pb-10">
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Prozesstitel</Label>
-                      <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="h-10 text-xs font-bold rounded-xl shadow-sm border-slate-200" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Kurzbeschreibung</Label>
-                      <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[80px] text-xs leading-relaxed rounded-2xl shadow-inner border-slate-100" />
-                    </div>
-                    <Separator />
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
-                      <Select value={metaDeptId} onValueChange={setMetaDeptId}>
-                        <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          <SelectItem value="none">Nicht zugewiesen</SelectItem>
-                          {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Strategischer Eigner (Rolle)</Label>
-                      <Select value={metaOwnerRoleId} onValueChange={setMetaOwnerRoleId}>
-                        <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          <SelectItem value="none">Nicht zugewiesen</SelectItem>
-                          {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Separator />
-                    <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl space-y-3">
-                      <div className="flex items-center gap-2">
-                        <FileCheck className="w-4 h-4 text-emerald-600" />
-                        <h4 className="text-[10px] font-black uppercase text-emerald-800">Compliance & VVT</h4>
+                <div className="p-6 space-y-8 pb-10">
+                  <div className="space-y-6">
+                    <section className="space-y-4">
+                      <h3 className="text-[10px] font-black uppercase text-slate-400 border-b pb-2 flex items-center gap-2">
+                        <Info className="w-3.5 h-3.5" /> Stammdaten & Typisierung
+                      </h3>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Prozesstitel</Label>
+                        <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="h-10 text-xs font-bold rounded-xl shadow-sm border-slate-200" />
                       </div>
-                      <p className="text-[9px] text-emerald-700 leading-relaxed italic">Diese Felder sind für den Rechenschaftsbericht nach Art. 30 DSGVO essenziell.</p>
-                      <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Prozesstyp</Label>
+                        <Select value={metaTypeId} onValueChange={setMetaTypeId}>
+                          <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger>
+                          <SelectContent className="rounded-xl">
+                            <SelectItem value="none">Nicht spezifiziert</SelectItem>
+                            {processTypes?.filter(t => t.enabled).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Zusammenfassung</Label>
+                        <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[80px] text-xs leading-relaxed rounded-2xl shadow-inner border-slate-100" />
+                      </div>
+                    </section>
+
+                    <section className="space-y-4">
+                      <h3 className="text-[10px] font-black uppercase text-indigo-600 border-b pb-2 flex items-center gap-2">
+                        <Target className="w-3.5 h-3.5" /> Abgrenzung & Schnittstellen
+                      </h3>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Input-Faktoren</Label>
+                        <Textarea value={metaInputs} onChange={e => setMetaInputs(e.target.value)} placeholder="Was wird zum Start benötigt?" className="min-h-[60px] text-xs rounded-xl" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Ergebnisse (Outputs)</Label>
+                        <Textarea value={metaOutputs} onChange={e => setMetaOutputs(e.target.value)} placeholder="Was ist das Ergebnis?" className="min-h-[60px] text-xs rounded-xl" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Messgrößen (KPIs)</Label>
+                        <Input value={metaKpis} onChange={e => setMetaKpis(e.target.value)} placeholder="z.B. Durchlaufzeit < 24h" className="h-10 text-xs rounded-xl" />
+                      </div>
+                    </section>
+
+                    <section className="space-y-4">
+                      <h3 className="text-[10px] font-black uppercase text-primary border-b pb-2 flex items-center gap-2">
+                        <UserCircle className="w-3.5 h-3.5" /> Governance & Verantwortung
+                      </h3>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
+                        <Select value={metaDeptId} onValueChange={setMetaDeptId}>
+                          <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger>
+                          <SelectContent className="rounded-xl">
+                            <SelectItem value="none">Nicht zugewiesen</SelectItem>
+                            {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Strategischer Eigner (Rolle)</Label>
+                        <Select value={metaOwnerRoleId} onValueChange={setMetaOwnerRoleId}>
+                          <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger>
+                          <SelectContent className="rounded-xl">
+                            <SelectItem value="none">Nicht zugewiesen</SelectItem>
+                            {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => <SelectItem key={j.id} value={j.id}>{getFullRoleName(j.id)}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Regulatorischer Rahmen</Label>
+                        <Input value={metaFramework} onChange={e => setMetaFramework(e.target.value)} placeholder="z.B. ISO 9001, BSI Grundschutz" className="h-10 text-xs rounded-xl" />
+                      </div>
+                    </section>
+
+                    <section className="space-y-4">
+                      <h3 className="text-[10px] font-black uppercase text-emerald-600 border-b pb-2 flex items-center gap-2">
+                        <FileCheck className="w-3.5 h-3.5" /> Compliance-Metriken
+                      </h3>
+                      <div className="grid grid-cols-1 gap-4 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
                         <div className="space-y-1">
-                          <Label className="text-[8px] font-bold text-emerald-600 uppercase">Automatisierung</Label>
+                          <Label className="text-[8px] font-bold text-emerald-600 uppercase">Automatisierungsgrad</Label>
                           <Select value={metaAutomation} onValueChange={(v:any) => setMetaAutomation(v)}>
                             <SelectTrigger className="h-8 text-[10px] bg-white"><SelectValue /></SelectTrigger>
                             <SelectContent><SelectItem value="manual">Manuell</SelectItem><SelectItem value="partial">Teilautomatisiert</SelectItem><SelectItem value="full">Vollautomatisiert</SelectItem></SelectContent>
@@ -665,15 +739,41 @@ export default function ProcessDesignerPage() {
                             <SelectContent><SelectItem value="low">Gering (Ad-hoc)</SelectItem><SelectItem value="medium">Mittel</SelectItem><SelectItem value="high">Hoch (Massenverarb.)</SelectItem></SelectContent>
                           </Select>
                         </div>
+                        <div className="space-y-1">
+                          <Label className="text-[8px] font-bold text-emerald-600 uppercase">Frequenz</Label>
+                          <Select value={metaFrequency} onValueChange={(v:any) => setMetaFrequency(v)}>
+                            <SelectTrigger className="h-8 text-[10px] bg-white"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="on_demand">Auf Abruf</SelectItem>
+                              <SelectItem value="daily">Täglich</SelectItem>
+                              <SelectItem value="weekly">Wöchentlich</SelectItem>
+                              <SelectItem value="monthly">Monatlich</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
-                    </div>
+                    </section>
+
+                    <section className="space-y-4">
+                      <h3 className="text-[10px] font-black uppercase text-amber-600 border-b pb-2 flex items-center gap-2">
+                        <MessageSquare className="w-3.5 h-3.5" /> Review & Organisation
+                      </h3>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Offene Fragen / Punkte</Label>
+                        <Textarea value={metaOpenQuestions} onChange={e => setMetaOpenQuestions(e.target.value)} placeholder="Was muss noch geklärt werden?" className="min-h-[80px] text-xs rounded-xl" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Tags / Schlagworte</Label>
+                        <Input value={metaTags} onChange={e => setMetaTags(e.target.value)} placeholder="Tag1, Tag2..." className="h-10 text-xs rounded-xl" />
+                      </div>
+                    </section>
                   </div>
                 </div>
               </ScrollArea>
               <div className="p-4 border-t bg-slate-50 shrink-0">
                 <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase gap-2 shadow-lg active:scale-95 transition-all">
                   {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} 
-                  Metadaten sichern
+                  Stammdaten sichern
                 </Button>
               </div>
             </TabsContent>
@@ -932,7 +1032,7 @@ export default function ProcessDesignerPage() {
                 </TabsContent>
 
                 <TabsContent value="rel" className="mt-0 space-y-10 animate-in fade-in">
-                  <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-4">
+                  <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-4 shadow-inner">
                     <Network className="w-6 h-6 text-amber-600 shrink-0" />
                     <div>
                       <p className="text-xs font-bold text-amber-900 uppercase">Handover-Punkte</p>
@@ -1014,14 +1114,14 @@ export default function ProcessDesignerPage() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Input placeholder="Neuen Prüfpunkt hinzufügen..." value={newCheckItem} onChange={e => setNewCheckItem(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCheckItem()} className="h-11 rounded-xl" />
-                      <Button onClick={addCheckItem} className="h-11 rounded-xl px-6 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-100"><Plus className="w-4 h-4" /></Button>
+                      <Input placeholder="Neuen Prüfpunkt hinzufügen..." value={newCheckItem} onChange={e => setNewCheckItem(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCheckItem()} className="h-11 rounded-xl shadow-sm" />
+                      <Button onClick={addCheckItem} className="h-11 rounded-xl px-6 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-100 transition-all active:scale-95"><Plus className="w-4 h-4" /></Button>
                     </div>
                     <div className="space-y-2">
                       {editChecklist.map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl group/item">
+                        <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl group/item shadow-sm">
                           <span className="text-xs font-medium text-slate-700">{item}</span>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover/item:opacity-100" onClick={() => removeCheckItem(idx)}><X className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover/item:opacity-100 transition-opacity" onClick={() => removeCheckItem(idx)}><X className="w-3.5 h-3.5" /></Button>
                         </div>
                       ))}
                     </div>
@@ -1030,11 +1130,11 @@ export default function ProcessDesignerPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-blue-600 ml-1">Experten-Tipps</Label>
-                      <Textarea value={editTips} onChange={e => setEditTips(e.target.value)} className="min-h-[100px] rounded-2xl bg-blue-50/20 border-blue-100 text-xs italic" placeholder="Geben Sie Kollegen wertvolle Tipps zur Durchführung..." />
+                      <Textarea value={editTips} onChange={e => setEditTips(e.target.value)} className="min-h-[100px] rounded-2xl bg-blue-50/20 border-blue-100 text-xs italic p-4 shadow-inner" placeholder="Geben Sie Kollegen wertvolle Tipps zur Durchführung..." />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-red-600 ml-1">Typische Fehler</Label>
-                      <Textarea value={editErrors} onChange={e => setEditErrors(e.target.value)} className="min-h-[100px] rounded-2xl bg-red-50/20 border-red-100 text-xs italic" placeholder="Vor welchen Stolperfallen möchten Sie warnen?..." />
+                      <Textarea value={editErrors} onChange={e => setEditErrors(e.target.value)} className="min-h-[100px] rounded-2xl bg-red-50/20 border-red-100 text-xs italic p-4 shadow-inner" placeholder="Vor welchen Stolperfallen möchten Sie warnen?..." />
                     </div>
                   </div>
                 </TabsContent>
@@ -1042,8 +1142,8 @@ export default function ProcessDesignerPage() {
             </ScrollArea>
 
             <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setIsNodeEditorOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button>
-              <Button onClick={handleSaveNode} disabled={isApplying} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2 active:scale-95 transition-all">
+              <Button variant="ghost" size="sm" onClick={() => setIsNodeEditorOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 uppercase tracking-widest text-slate-400 hover:bg-white transition-all">Abbrechen</Button>
+              <Button onClick={handleSaveNode} disabled={isApplying} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2 active:scale-95 transition-all tracking-widest">
                 {isApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Änderungen übernehmen
               </Button>
             </DialogFooter>
@@ -1075,10 +1175,10 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
           <div className={cn(
             "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-inner transition-transform duration-500",
             isActive && "scale-110",
-            node.type === 'start' ? "bg-emerald-50 text-emerald-600" : 
-            node.type === 'end' ? "bg-red-50 text-red-600" :
-            node.type === 'decision' ? "bg-amber-50 text-amber-600" :
-            node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary/5 text-primary"
+            node.type === 'start' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : 
+            node.type === 'end' ? "bg-red-50 text-red-600 border-red-100" :
+            node.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" :
+            node.type === 'subprocess' ? "bg-indigo-600 text-white shadow-lg border-none" : "bg-primary/5 text-primary border-primary/10"
           )}>
             {node.type === 'start' ? <PlayCircle className="w-6 h-6" /> : 
              node.type === 'end' ? <StopCircle className="w-6 h-6" /> : 
@@ -1091,7 +1191,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
           </div>
         </div>
         {isActive && (
-          <Badge className="bg-primary text-white border-none rounded-full h-5 px-3 text-[8px] font-black uppercase tracking-widest animate-pulse">Edit Mode</Badge>
+          <Badge className="bg-primary text-white border-none rounded-full h-5 px-3 text-[8px] font-black uppercase tracking-widest animate-pulse shadow-sm">Edit Mode</Badge>
         )}
       </CardHeader>
       {isExpanded && (
@@ -1106,7 +1206,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
                 <Label className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-2"><CheckCircle2 className="w-3 h-3" /> Operative Checkliste</Label>
                 <div className="space-y-2">
                   {(node.checklist || []).map((item:any, idx:number) => (
-                    <div key={idx} className="flex items-center gap-3 p-3 bg-emerald-50/30 border border-emerald-100/50 rounded-xl">
+                    <div key={idx} className="flex items-center gap-3 p-3 bg-emerald-50/30 border border-emerald-100/50 rounded-xl shadow-sm">
                       <Checkbox disabled className="data-[state=checked]:bg-emerald-600" />
                       <span className="text-xs font-bold text-slate-700">{item}</span>
                     </div>
@@ -1114,19 +1214,19 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
                 </div>
               </div>
             </div>
-            <div className="md:col-span-5 p-6 bg-slate-50/30 space-y-6">
+            <div className="md:col-span-5 p-6 bg-slate-50/30 space-y-6 shadow-inner">
               <div className="space-y-4">
                 <Label className="text-[9px] font-black uppercase text-blue-600 flex items-center gap-2"><Zap className="w-3 h-3" /> Prozesstipps</Label>
-                {node.tips && <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl text-[10px] text-blue-700 italic font-medium leading-relaxed">Tipp: {node.tips}</div>}
+                {node.tips && <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl text-[10px] text-blue-700 italic font-medium leading-relaxed shadow-sm">Tipp: {node.tips}</div>}
               </div>
               <div className="space-y-4 pt-4 border-t border-slate-100">
                 <Label className="text-[9px] font-black uppercase text-slate-400">IT-Ressourcen</Label>
                 <div className="flex flex-wrap gap-1.5">
-                  {nodeResources?.map((res:any) => <Badge key={res.id} variant="outline" className="bg-white text-indigo-700 text-[8px] font-black h-5 border-indigo-100">{res.name}</Badge>)}
+                  {nodeResources?.map((res:any) => <Badge key={res.id} variant="outline" className="bg-white text-indigo-700 text-[8px] font-black h-5 border-indigo-100 shadow-sm">{res.name}</Badge>)}
                 </div>
               </div>
               <div className="pt-4 border-t flex justify-center">
-                <Button variant="outline" size="sm" className="h-8 rounded-xl text-[9px] font-black uppercase border-primary/20 text-primary">
+                <Button variant="outline" size="sm" className="h-8 rounded-xl text-[9px] font-black uppercase border-primary/20 text-primary hover:bg-primary hover:text-white transition-all shadow-sm">
                   Details bearbeiten <ChevronRight className="w-3.5 h-3.5 ml-1" />
                 </Button>
               </div>

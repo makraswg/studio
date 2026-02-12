@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -949,7 +950,7 @@ export default function ProcessDesignerPage() {
                           />
                         </div>
                         <ScrollArea className="h-[300px] border rounded-2xl bg-slate-50/30 p-4 shadow-inner">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 gap-3">
                             {filteredResources.map(res => (
                               <div key={res.id} className={cn("p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-sm group", localNodeEdits.resourceIds.includes(res.id) ? "border-indigo-500 bg-indigo-50/20" : "bg-white border-slate-100 hover:border-slate-200")} onClick={() => setLocalNodeEdits(prev => ({ ...prev, resourceIds: prev.resourceIds.includes(res.id) ? prev.resourceIds.filter(id => id !== res.id) : [...prev.resourceIds, res.id] }))}>
                                 <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -969,38 +970,13 @@ export default function ProcessDesignerPage() {
                     <TabsContent value="data" className="mt-0 space-y-10">
                       <div className="space-y-4">
                         <Label className="text-[10px] font-black uppercase text-sky-600 flex items-center gap-2 ml-1"><Tag className="w-4 h-4" /> Verarbeitete Daten</Label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3">
                           {allFeatures?.filter(f => f.status !== 'archived').map(feat => (
                             <div key={feat.id} className={cn("p-3 border rounded-xl flex items-center justify-between cursor-pointer shadow-sm", localNodeEdits.featureIds.includes(feat.id) ? "border-sky-500 bg-sky-50/20" : "bg-white border-slate-100 hover:border-slate-200")} onClick={() => setLocalNodeEdits(prev => ({ ...prev, featureIds: prev.featureIds.includes(feat.id) ? prev.featureIds.filter(id => id !== feat.id) : [...prev.featureIds, feat.id] }))}>
                               <Checkbox checked={localNodeEdits.featureIds.includes(feat.id)} className="rounded-md" />
                               <div className="min-w-0 flex-1 ml-3"><p className="text-[11px] font-bold text-slate-800 truncate">{feat.name}</p></div>
                             </div>
                           ))}
-                        </div>
-                      </div>
-                      <Separator />
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-emerald-600 flex items-center gap-2 ml-1"><UserCircle className="w-4 h-4" /> Betroffene Personengruppen</Label>
-                          <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
-                            {subjectGroups?.filter(g => g.status === 'active').map(g => (
-                              <div key={g.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, subjectGroupIds: prev.subjectGroupIds.includes(g.id) ? prev.subjectGroupIds.filter(id => id !== g.id) : [...prev.subjectGroupIds, g.id] }))}>
-                                <Checkbox checked={localNodeEdits.subjectGroupIds.includes(g.id)} className="rounded-md" />
-                                <span className="text-[11px] font-bold truncate">{g.name}</span>
-                              </div>
-                            ))}
-                          </ScrollArea>
-                        </div>
-                        <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-2 ml-1"><Layers className="w-4 h-4" /> Datenkategorien (DSGVO)</Label>
-                          <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
-                            {dataCategories?.filter(c => c.status === 'active').map(c => (
-                              <div key={c.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, dataCategoryIds: prev.dataCategoryIds.includes(c.id) ? prev.dataCategoryIds.filter(id => id !== c.id) : [...prev.dataCategoryIds, c.id] }))}>
-                                <Checkbox checked={localNodeEdits.dataCategoryIds.includes(c.id)} className="rounded-md" />
-                                <span className="text-[11px] font-bold truncate">{c.name}</span>
-                              </div>
-                            ))}
-                          </ScrollArea>
                         </div>
                       </div>
                     </TabsContent>
@@ -1014,23 +990,6 @@ export default function ProcessDesignerPage() {
                         <div className="space-y-4">
                           <Label className="text-[10px] font-black uppercase text-red-600 flex items-center gap-2 ml-1"><AlertCircle className="w-3.5 h-3.5" /> Häufige Fehler</Label>
                           <Textarea value={localNodeEdits.errors} onChange={e => setLocalNodeEdits({...localNodeEdits, errors: e.target.value})} className="text-xs min-h-[100px] rounded-xl bg-red-50/20" />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2 ml-1"><FileStack className="w-3.5 h-3.5" /> Anhänge & Medien</Label>
-                        <div className="p-6 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-3 bg-slate-50/50 relative">
-                          <Upload className="w-6 h-6 text-slate-400" />
-                          <p className="text-[10px] font-bold uppercase">Klicken zum Hochladen</p>
-                          <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileUpload} disabled={isUploading} />
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {selectedNodeMedia.map(file => (
-                            <div key={file.id} className="p-3 bg-white border rounded-xl flex items-center justify-between">
-                              <span className="text-[10px] font-bold truncate">{file.fileName}</span>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteMediaAction(file.id, file.tenantId, user?.email || 'admin', dataSource).then(() => refreshMedia())}><Trash2 className="w-3 h-3" /></Button>
-                            </div>
-                          ))}
                         </div>
                       </div>
                     </TabsContent>

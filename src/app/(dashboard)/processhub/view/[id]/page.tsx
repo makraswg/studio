@@ -107,7 +107,7 @@ export default function ProcessDetailViewPage() {
     return dept ? `${dept.name} — ${role.name}` : role.name;
   }, [jobTitles, departments]);
 
-  // --- Hierarchical Layout Engine (Handles branches and merges) ---
+  // --- Hierarchische Layout-Engine (Longest Path Prinzip) ---
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
@@ -117,48 +117,44 @@ export default function ProcessDetailViewPage() {
     const levelCounts: Record<number, number> = {};
     const nodeConfigs: any[] = [];
 
-    // 1. Calculate Levels (Longest path to handle branches merging back)
-    const computeLevels = () => {
-      nodes.forEach(n => levels[n.id] = 0);
-      let changed = true;
-      let iterations = 0;
-      while (changed && iterations < nodes.length) {
-        changed = false;
-        edges.forEach(edge => {
-          if (levels[edge.target] <= levels[edge.source]) {
-            levels[edge.target] = levels[edge.source] + 1;
-            changed = true;
-          }
-        });
-        iterations++;
-      }
-    };
-    computeLevels();
+    // 1. Level-Berechnung (Longest Path zur Behandlung von Verzweigungen/Merges)
+    nodes.forEach(n => levels[n.id] = 0);
+    let changed = true;
+    let limit = nodes.length;
+    while (changed && limit > 0) {
+      changed = false;
+      edges.forEach(edge => {
+        if (levels[edge.target] <= levels[edge.source]) {
+          levels[edge.target] = levels[edge.source] + 1;
+          changed = true;
+        }
+      });
+      limit--;
+    }
 
-    // 2. Assign horizontal positions within levels
+    // 2. Horizontale Zuweisung (Zentriert innerhalb der Ebene)
     nodes.sort((a, b) => levels[a.id] - levels[b.id]).forEach(n => {
       const lv = levels[n.id];
-      if (levelCounts[lv] === undefined) levelCounts[lv] = 0;
-      const cl = levelCounts[lv];
-      levelCounts[lv]++;
+      const cl = levelCounts[lv] || 0;
+      levelCounts[lv] = cl + 1;
       nodeConfigs.push({ ...n, level: lv, col: cl });
     });
 
-    // 3. Grid positioning with symmetrical expansion
-    const BASE_H_GAP = 450;
-    const BASE_V_GAP = 180;
+    // 3. Grid-Positionierung mit symmetrischer Expansion
+    const H_GAP = 450;
+    const V_GAP = 180;
     const COLLAPSED_W = 256;
     const EXPANDED_W = 600;
     const EXTRA_W = (EXPANDED_W - COLLAPSED_W);
 
     return nodeConfigs.map(n => {
       const totalInLv = levelCounts[n.level];
-      const startX = -(totalInLv - 1) * (BASE_H_GAP / 2);
+      const startX = -(totalInLv - 1) * (H_GAP / 2);
       
-      let x = startX + n.col * BASE_H_GAP;
-      let y = n.level * BASE_V_GAP;
+      let x = startX + n.col * H_GAP;
+      let y = n.level * V_GAP;
 
-      // Symmetric Shifting for the active (expanded) node
+      // Symmetrisches Shifting für den aktiven (erweiterten) Knoten
       if (activeNodeId) {
         const aConfig = nodeConfigs.find(ac => ac.id === activeNodeId);
         if (aConfig) {
@@ -170,7 +166,7 @@ export default function ProcessDetailViewPage() {
             if (n.col < aCl) x -= (EXTRA_W / 2) + 40;
           }
           if (n.level > aLv) {
-            y += 350; // Push rows below down
+            y += 350; // Nachfolgende Ebenen nach unten schieben
           }
         }
       }
@@ -193,14 +189,14 @@ export default function ProcessDetailViewPage() {
       const tNode = gridNodes.find(n => n.id === edge.target);
       
       if (sNode && tNode) {
-        const sIsExpanded = sNode.id === activeNodeId;
-        const tIsExpanded = tNode.id === activeNodeId;
+        const sIsExp = sNode.id === activeNodeId;
+        const tIsExp = tNode.id === activeNodeId;
         
-        const sW = sIsExpanded ? 600 : 256;
-        const tW = tIsExpanded ? 600 : 256;
-        const sH = sIsExpanded ? 400 : 80;
+        const sW = sIsExp ? 600 : 256;
+        const tW = tIsExp ? 600 : 256;
+        const sH = sIsExp ? 400 : 80;
 
-        // Top-Entry / Bottom-Exit logic
+        // Top-Entry / Bottom-Exit Logik
         const sX = sNode.x + OFFSET_X + (sW / 2);
         const sY = sNode.y + OFFSET_Y + sH;
 
@@ -208,8 +204,9 @@ export default function ProcessDetailViewPage() {
         const tY = tNode.y + OFFSET_Y;
 
         const dy = tY - sY;
-        const cpOffset = Math.max(dy * 0.4, 60); 
+        const cpOffset = Math.max(dy * 0.5, 60); 
         
+        // Cubic Bezier Pfad für elegante Kurven
         const path = `M ${sX} ${sY} C ${sX} ${sY + cpOffset}, ${tX} ${tY - cpOffset}, ${tX} ${tY}`;
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target });
       }
@@ -257,6 +254,7 @@ export default function ProcessDetailViewPage() {
 
   const handleMouseUp = () => setIsDragging(false);
 
+  // Google Maps Style Zoom (Zoom to Cursor)
   const handleWheel = (e: React.WheelEvent) => {
     if (guideMode !== 'structure') return;
     e.preventDefault();
@@ -349,7 +347,7 @@ export default function ProcessDetailViewPage() {
           ) : (
             <div 
               className="absolute inset-0 transition-transform duration-300 origin-top-left"
-              style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`, width: '5000px', height: '5000px' }}
+              style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`, width: '5000px', height: '5000px', zIndex: 10 }}
             >
               <svg className="absolute inset-0 pointer-events-none w-full h-full overflow-visible">
                 <defs>

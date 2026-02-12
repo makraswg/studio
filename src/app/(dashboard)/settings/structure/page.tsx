@@ -200,7 +200,7 @@ export default function StructureSettingsPage() {
                 <CardContent className="p-0">
                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {tenant.departments.map(dept => (
-                      <div key={dept.id} className="group/dept">
+                      <div key={dept.id} className="group">
                         <div className="flex items-center justify-between p-4 px-8 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 flex items-center justify-center border border-emerald-100 dark:border-emerald-900/30">
@@ -208,7 +208,7 @@ export default function StructureSettingsPage() {
                             </div>
                             <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">{dept.name}</h4>
                           </div>
-                          <div className="flex items-center gap-2 opacity-0 group-hover/dept:opacity-100">
+                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100">
                             <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 gap-1" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}>
                               <Plus className="w-3 h-3" /> Stelle
                             </Button>
@@ -221,12 +221,12 @@ export default function StructureSettingsPage() {
                         <div className="bg-slate-50/30 dark:bg-slate-900/30 px-8 pb-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pl-10 border-l-2 border-slate-100 dark:border-slate-800 ml-4">
                             {dept.jobs.map(job => (
-                              <div key={job.id} className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-950 rounded-lg border shadow-sm group/job hover:border-primary/30 transition-all cursor-pointer" onClick={() => openJobEditor(job)}>
+                              <div key={job.id} className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-950 rounded-lg border shadow-sm group hover:border-primary/30 transition-all cursor-pointer" onClick={() => openJobEditor(job)}>
                                 <div className="flex items-center gap-2 min-w-0">
                                   <Briefcase className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                   <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate">{job.name}</p>
                                 </div>
-                                <div className="flex gap-1 opacity-0 group-hover/job:opacity-100">
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100">
                                   <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openJobEditor(job); }}><Pencil className="w-3.5 h-3.5" /></Button>
                                   <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400" onClick={(e) => { e.stopPropagation(); handleStatusChange('jobTitles', job, job.status === 'active' ? 'archived' : 'active'); }}><Archive className="w-3.5 h-3.5" /></Button>
                                 </div>
@@ -259,7 +259,7 @@ export default function StructureSettingsPage() {
               </Card>
             ))}
           </div>
-        </div>
+        )}
       </div>
 
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>

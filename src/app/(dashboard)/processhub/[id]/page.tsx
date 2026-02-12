@@ -37,7 +37,8 @@ import {
   ArrowLeftCircle,
   ArrowRightCircle,
   Edit3,
-  Check
+  Check,
+  Database
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -793,7 +794,7 @@ export default function ProcessDesignerPage() {
             <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
               <Button variant="ghost" size="sm" onClick={() => setIsNodeEditorOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button>
               <Button onClick={handleSaveNode} disabled={isApplying} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2 active:scale-95 transition-all">
-                {isApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Änderungen übernehmen
+                {isApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Änderungen übernehmen
               </Button>
             </DialogFooter>
           </Tabs>

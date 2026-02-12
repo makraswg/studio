@@ -1,3 +1,4 @@
+
 import mysql from 'mysql2/promise';
 
 // Wichtiger Hinweis: Die Zugangsdaten werden aus Umgebungsvariablen geladen.

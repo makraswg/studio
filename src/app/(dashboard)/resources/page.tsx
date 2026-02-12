@@ -71,6 +71,16 @@ import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const dynamic = 'force-dynamic';
 
@@ -150,7 +160,6 @@ function ResourcesPageContent() {
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: assignments } = usePluggableCollection<Assignment>('assignments');
   const { data: users } = usePluggableCollection<any>('users');
-  const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   const { data: features } = usePluggableCollection<Feature>('features');
   const { data: featureLinks } = usePluggableCollection<any>('feature_process_steps');
 
@@ -680,9 +689,9 @@ function ResourcesPageContent() {
                       </div>
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">System Owner (Intern)</Label>
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">System Owner (Rollen-Standardzuweisung)</Label>
                           <Select value={systemOwnerRoleId} onValueChange={setSystemOwnerRoleId}>
-                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Standard-Zuweisung wählen..." /></SelectTrigger>
+                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Standardzuweisung wählen..." /></SelectTrigger>
                             <SelectContent className="rounded-xl">
                               <SelectItem value="none">Keine</SelectItem>
                               {sortedRoles?.map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
@@ -690,9 +699,9 @@ function ResourcesPageContent() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Risk Owner (Intern)</Label>
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Risk Owner (Rollen-Standardzuweisung)</Label>
                           <Select value={riskOwnerRoleId} onValueChange={setRiskOwnerRoleId}>
-                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Standard-Zuweisung wählen..." /></SelectTrigger>
+                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Standardzuweisung wählen..." /></SelectTrigger>
                             <SelectContent className="rounded-xl">
                               <SelectItem value="none">Keine</SelectItem>
                               {sortedRoles?.map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
@@ -796,14 +805,19 @@ function ResourcesPageContent() {
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Verknüpfte Update-Prozesse</Label>
-                          <div className="relative group mb-3">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                            <Input 
-                              placeholder="Update-Prozesse suchen..." 
-                              value={updateProcSearch} 
-                              onChange={e => setUpdateProcSearch(e.target.value)}
-                              className="h-8 pl-8 text-[10px]"
-                            />
+                          <div className="flex gap-2 items-center mb-3">
+                            <div className="relative group flex-1">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                              <Input 
+                                placeholder="Update-Prozesse suchen..." 
+                                value={updateProcSearch} 
+                                onChange={e => setUpdateProcSearch(e.target.value)}
+                                className="h-8 pl-8 text-[10px]"
+                              />
+                            </div>
+                            <Button variant="outline" size="icon" className="h-8 w-8 rounded-md shrink-0 border-blue-200 text-blue-600 hover:bg-blue-50" onClick={() => router.push('/processhub')}>
+                              <Plus className="w-3.5 h-3.5" />
+                            </Button>
                           </div>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -901,9 +915,9 @@ function ResourcesPageContent() {
 
                   {backupForm.responsible_type === 'internal' ? (
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Interne Rolle</Label>
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Interne Rollen-Standardzuweisung</Label>
                       <Select value={backupForm.responsible_id || 'none'} onValueChange={v => setBackupForm({...backupForm, responsible_id: v})}>
-                        <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue placeholder="Rollen-Standardzuweisung wählen..." /></SelectTrigger>
+                        <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue placeholder="Standardzuweisung wählen..." /></SelectTrigger>
                         <SelectContent className="rounded-xl">
                           <SelectItem value="none">Nicht zugewiesen</SelectItem>
                           {sortedRoles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
@@ -931,14 +945,19 @@ function ResourcesPageContent() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Zugehöriger Backup-Prozess</Label>
-                  <div className="relative group mb-1.5">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                    <Input 
-                      placeholder="Backup-Prozesse filtern..." 
-                      value={backupProcSearch} 
-                      onChange={e => setBackupProcSearch(e.target.value)}
-                      className="h-8 pl-8 text-[10px]"
-                    />
+                  <div className="flex gap-2 items-center mb-1.5">
+                    <div className="relative group flex-1">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                      <Input 
+                        placeholder="Backup-Prozesse filtern..." 
+                        value={backupProcSearch} 
+                        onChange={e => setBackupProcSearch(e.target.value)}
+                        className="h-8 pl-8 text-[10px]"
+                      />
+                    </div>
+                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-md shrink-0 border-orange-200 text-orange-600 hover:bg-orange-50" onClick={() => router.push('/processhub')}>
+                      <Plus className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
                   <Select value={backupForm.it_process_id || 'none'} onValueChange={v => setBackupForm({...backupForm, it_process_id: v})}>
                     <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Prozess wählen..." /></SelectTrigger>
@@ -1012,18 +1031,6 @@ function ResourcesPageContent() {
     </div>
   );
 }
-
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 export default function ResourcesPage() {
   return (

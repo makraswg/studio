@@ -285,15 +285,6 @@ function ResourcesPageContent() {
     setBlockerInfo({ title: "Permanent löschen?", items: blockers, isDelete: true, targetId: res.id });
   };
 
-  const executeDelete = async () => {
-    if (!blockerInfo?.targetId) return;
-    setIsSaving(true);
-    try {
-      const res = await deleteCollectionRecord('resources', blockerInfo.targetId, dataSource);
-      if (res.success) { toast({ title: "Ressource gelöscht" }); setBlockerInfo(null); refresh(); }
-    } finally { setIsSaving(false); }
-  };
-
   const handleSave = async () => {
     if (!name || !assetType) { toast({ variant: "destructive", title: "Fehler", description: "Bitte Name und Typ angeben." }); return; }
     setIsSaving(true);
@@ -511,8 +502,8 @@ function ResourcesPageContent() {
                     </TableCell>
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md" onClick={() => openEdit(res)}><Pencil className="w-3.5 h-3.5" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md" onClick={() => router.push(`/resources/${res.id}`)}><Eye className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => openEdit(res)}><Pencil className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => router.push(`/resources/${res.id}`)}><Eye className="w-3.5 h-3.5" /></Button>
                         <Button 
                           variant="ghost" 
                           size="icon" 

@@ -447,11 +447,11 @@ export default function UnifiedOrganizationPage() {
                     <Button size="sm" variant="ghost" className="h-8 text-[10px] font-black uppercase hover:bg-primary/5 gap-1.5" onClick={() => setActiveAddParent({ id: tenant.id, type: 'tenant' })}>
                       <PlusCircle className="w-3.5 h-3.5 text-primary" /> Abteilung
                     </Button>
-                    <Button variant="ghost" size="icon" className={cn("h-8 w-8", tenant.status === 'archived' ? "text-emerald-600" : "text-slate-400")} onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}>
+                    <Button variant="ghost" size="icon" className={cn("h-8 w-8 transition-opacity opacity-0 group-hover:opacity-100", tenant.status === 'archived' ? "text-emerald-600" : "text-slate-400")} onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}>
                       {tenant.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
                     </Button>
                     {tenant.status === 'archived' && isSuperAdmin && (
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => handleDeleteClick({ id: tenant.id, type: 'tenants', label: tenant.name })}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 transition-opacity opacity-0 group-hover:opacity-100" onClick={() => handleDeleteClick({ id: tenant.id, type: 'tenants', label: tenant.name })}><Trash2 className="w-3.5 h-3.5" /></Button>
                     )}
                   </div>
                 </CardHeader>
@@ -461,7 +461,7 @@ export default function UnifiedOrganizationPage() {
                       <div key={dept.id}>
                         <div className="flex items-center justify-between p-4 px-8 hover:bg-slate-50 transition-colors group/dept">
                           <div className="flex items-center gap-3"><Layers className="w-4 h-4 text-emerald-600" /><h4 className="text-xs font-bold">{dept.name}</h4></div>
-                          <div className="flex items-center gap-2 opacity-0 group-hover/dept:opacity-100">
+                          <div className="flex items-center gap-2 opacity-0 group-hover/dept:opacity-100 transition-opacity">
                             <Button variant="ghost" size="sm" className="h-7 text-[10px] font-black uppercase text-emerald-600 hover:bg-emerald-50 gap-1" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}><Plus className="w-3.5 h-3.5" /> Zuweisung</Button>
                             <Button variant="ghost" size="icon" className={cn("h-7 w-7", dept.status === 'archived' ? "text-emerald-600" : "text-slate-300")} onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}>
                               {dept.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
@@ -501,7 +501,7 @@ export default function UnifiedOrganizationPage() {
                                       </div>
                                     </div>
                                   </div>
-                                  <div className="flex gap-1 opacity-0 group-hover/job:opacity-100 shrink-0">
+                                  <div className="flex gap-1 opacity-0 group-hover/job:opacity-100 transition-opacity shrink-0">
                                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openJobEditor(job); }}><Pencil className="w-3.5 h-3.5" /></Button>
                                     <Button variant="ghost" size="icon" className={cn("h-6 w-6", job.status === 'archived' ? "text-emerald-600" : "text-slate-300")} onClick={(e) => { e.stopPropagation(); handleStatusChange('jobTitles', job, job.status === 'active' ? 'archived' : 'active'); }}>
                                       {job.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}

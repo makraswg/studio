@@ -15,7 +15,7 @@ function getPool() {
     const user = process.env.MYSQL_USER;
     const password = process.env.MYSQL_PASSWORD;
 
-    // Docker Fix: Wenn der Host der interne Service-Name ist, 
+    // Docker Fix: Wenn der Host der interne Service-Name ist (compliance-db), 
     // muss immer der interne Port 3306 genutzt werden, auch wenn in .env 3307 steht.
     if (host === 'compliance-db' && port === 3307) {
       port = 3306;

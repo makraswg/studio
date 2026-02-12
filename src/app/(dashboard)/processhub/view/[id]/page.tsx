@@ -1,10 +1,9 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
-  Workflow, 
   ChevronLeft, 
   Loader2, 
   ShieldCheck,
@@ -75,7 +74,6 @@ export default function ProcessDetailViewPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   
   const [mounted, setMounted] = useState(false);
-  const [viewMode, setViewMode] = useState<'guide' | 'risks'>('guide');
   const [guideMode, setGuideMode] = useState<'list' | 'structure'>('list');
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [connectionPaths, setConnectionPaths] = useState<{ path: string, sourceId: string, targetId: string }[]>([]);
@@ -126,8 +124,8 @@ export default function ProcessDetailViewPage() {
 
     return nodes.map(n => ({
       ...n,
-      x: (cols[n.id] || 0) * 280,
-      y: (levels[n.id] || 0) * 180
+      x: (cols[n.id] || 0) * 320,
+      y: (levels[n.id] || 0) * 220
     }));
   }, [activeVersion]);
 
@@ -138,8 +136,8 @@ export default function ProcessDetailViewPage() {
     const containerWidth = containerRef.current.clientWidth;
     const containerHeight = containerRef.current.clientHeight;
 
-    const OFFSET_X = 1000;
-    const OFFSET_Y = 500;
+    const OFFSET_X = 2500;
+    const OFFSET_Y = 2500;
 
     setPosition({
       x: -(targetNode.x + OFFSET_X) * scale + containerWidth / 2 - (140 * scale),
@@ -156,7 +154,7 @@ export default function ProcessDetailViewPage() {
     const edges = activeVersion.model_json.edges || [];
     const newPaths: { path: string, sourceId: string, targetId: string }[] = [];
 
-    // Only show edges connected to the active node
+    // Filter relevant edges: only those where the active node is involved
     const relevantEdges = edges.filter(e => e.source === activeNodeId || e.target === activeNodeId);
 
     relevantEdges.forEach(edge => {
@@ -164,14 +162,31 @@ export default function ProcessDetailViewPage() {
       const tNode = gridNodes.find(n => n.id === edge.target);
       
       if (sNode && tNode) {
-        const OFFSET_X = 1000;
-        const OFFSET_Y = 500;
-        const sX = sNode.x + OFFSET_X + 128;
-        const sY = sNode.y + OFFSET_Y + 80;
-        const tX = tNode.x + OFFSET_X + 128;
-        const tY = tNode.y + OFFSET_Y;
+        const OFFSET_X = 2500;
+        const OFFSET_Y = 2500;
         
-        const path = `M ${sX} ${sY} C ${sX} ${sY + 40}, ${tX} ${tY - 40}, ${tX} ${tY}`;
+        // Port determination logic
+        let sPortX = sNode.x + OFFSET_X + 128; // Center
+        let sPortY = sNode.y + OFFSET_Y + 80;  // Bottom
+        let tPortX = tNode.x + OFFSET_X + 128; // Center
+        let tPortY = tNode.y + OFFSET_Y;       // Top
+
+        // If target is significantly to the right, use side ports
+        if (Math.abs(tNode.x - sNode.x) > 100) {
+          if (tNode.x > sNode.x) {
+            sPortX = sNode.x + OFFSET_X + 256;
+            sPortY = sNode.y + OFFSET_Y + 40;
+            tPortX = tNode.x + OFFSET_X;
+            tPortY = tNode.y + OFFSET_Y + 40;
+          } else {
+            sPortX = sNode.x + OFFSET_X;
+            sPortY = sNode.y + OFFSET_Y + 40;
+            tPortX = tNode.x + OFFSET_X + 256;
+            tPortY = tNode.y + OFFSET_Y + 40;
+          }
+        }
+        
+        const path = `M ${sPortX} ${sPortY} C ${sPortX} ${sPortY + 40}, ${tPortX} ${tPortY - 40}, ${tPortX} ${tPortY}`;
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target });
       }
     });
@@ -396,7 +411,7 @@ export default function ProcessDetailViewPage() {
                 ))}
               </svg>
               {gridNodes.map(node => (
-                <div key={node.id} className="absolute" style={{ left: node.x + 1000, top: node.y + 500 }}>
+                <div key={node.id} className="absolute" style={{ left: node.x + 2500, top: node.y + 2500 }}>
                   <GuideCard node={node} isMapMode />
                 </div>
               ))}

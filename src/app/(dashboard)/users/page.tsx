@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Table, 
   TableBody, 
@@ -63,7 +64,7 @@ import {
 import { doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
+import { useRouter as useNextRouter } from 'next/navigation';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';

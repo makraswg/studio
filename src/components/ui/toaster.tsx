@@ -8,8 +8,7 @@ import {
   ToastProvider,
   ToastTitle,
   ToastViewport,
-  ToastAction,
-  ToastClose
+  ToastAction
 } from "@/components/ui/toast"
 import { Copy, Check } from "lucide-react"
 import { useState } from "react"
@@ -57,7 +56,6 @@ export function Toaster() {
               )}
               {action}
             </div>
-            <ToastClose />
           </Toast>
         )
       })}

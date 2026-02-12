@@ -1,6 +1,8 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Table, 
   TableBody, 
@@ -34,7 +36,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { useRouter } from 'next/navigation';
 import { createProcessAction, deleteProcessAction } from '@/app/actions/process-actions';
 import { usePlatformAuth } from '@/context/auth-context';
 import { toast } from '@/hooks/use-toast';
@@ -64,6 +65,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 export default function ProcessHubOverview() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { dataSource, activeTenantId } = useSettings();
   const { user } = usePlatformAuth();
   
@@ -101,6 +103,16 @@ export default function ProcessHubOverview() {
       setIsCreating(false);
     }
   };
+
+  // Handle URL Action trigger
+  useEffect(() => {
+    if (mounted && searchParams.get('action') === 'create' && !isCreating) {
+      handleCreate();
+      const url = new URL(window.location.href);
+      url.searchParams.delete('action');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [mounted, searchParams]);
 
   const handleDelete = async () => {
     if (!processToDelete) return;

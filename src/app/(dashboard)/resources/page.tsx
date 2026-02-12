@@ -211,7 +211,7 @@ function ResourcesPageContent() {
     let maxClass: Resource['dataClassification'] = 'internal';
     let maxCV = 0;
     linkedFeats.forEach(f => {
-      const v = classOrder[f.dataClassification as keyof typeof classOrder] || 0;
+      const v = classOrder[f.dataClassification as keyof typeof classificationOrder] || 0;
       if (v > maxCV) { maxCV = v; maxClass = f.dataClassification as any; }
     });
     const reqOrder = { high: 3, medium: 2, low: 1 };
@@ -236,23 +236,16 @@ function ResourcesPageContent() {
 
   const checkDependencies = (resId: string) => {
     const blockers: string[] = [];
-    
-    // 1. Roles & Active Assignments
     const resRoles = entitlements?.filter(e => e.resourceId === resId) || [];
     const resRoleIds = new Set(resRoles.map(r => r.id));
     const activeAssignments = assignments?.filter(a => resRoleIds.has(a.entitlementId) && a.status === 'active') || [];
-    
     if (activeAssignments.length > 0) {
       blockers.push(`${activeAssignments.length} Mitarbeiter haben noch aktive Berechtigungen für dieses System.`);
     }
-
-    // 2. Active Risks
     const resRisks = risks?.filter(r => r.assetId === resId && r.status !== 'closed') || [];
     if (resRisks.length > 0) {
       blockers.push(`${resRisks.length} offene Risiken sind mit diesem System verknüpft.`);
     }
-
-    // 3. Active Processes
     const activeProcs = allProcesses?.filter(p => p.status !== 'archived') || [];
     const usedInProcNames: string[] = [];
     activeProcs.forEach(p => {
@@ -261,37 +254,26 @@ function ResourcesPageContent() {
         usedInProcNames.push(p.title);
       }
     });
-
     if (usedInProcNames.length > 0) {
       blockers.push(`Das System wird in ${usedInProcNames.length} aktiven Prozessen verwendet: ${usedInProcNames.slice(0, 3).join(', ')}${usedInProcNames.length > 3 ? '...' : ''}`);
     }
-
     return blockers;
   };
 
   const handleStatusToggle = async (res: Resource) => {
     if (res.status !== 'archived') {
-      // Trying to archive
       const blockers = checkDependencies(res.id);
       if (blockers.length > 0) {
         setBlockerInfo({ title: "Archivierung nicht möglich", items: blockers });
         return;
       }
-      
       const updated = { ...res, status: 'archived' as const };
       const result = await saveCollectionRecord('resources', res.id, updated, dataSource);
-      if (result.success) {
-        toast({ title: "Ressource archiviert" });
-        refresh();
-      }
+      if (result.success) { toast({ title: "Ressource archiviert" }); refresh(); }
     } else {
-      // Re-activate
       const updated = { ...res, status: 'active' as const };
       const result = await saveCollectionRecord('resources', res.id, updated, dataSource);
-      if (result.success) {
-        toast({ title: "Ressource reaktiviert" });
-        refresh();
-      }
+      if (result.success) { toast({ title: "Ressource reaktiviert" }); refresh(); }
     }
   };
 
@@ -309,21 +291,12 @@ function ResourcesPageContent() {
     setIsSaving(true);
     try {
       const res = await deleteCollectionRecord('resources', blockerInfo.targetId, dataSource);
-      if (res.success) {
-        toast({ title: "Ressource gelöscht" });
-        setBlockerInfo(null);
-        refresh();
-      }
-    } finally {
-      setIsSaving(false);
-    }
+      if (res.success) { toast({ title: "Ressource gelöscht" }); setBlockerInfo(null); refresh(); }
+    } finally { setIsSaving(false); }
   };
 
   const handleSave = async () => {
-    if (!name || !assetType) {
-      toast({ variant: "destructive", title: "Fehler", description: "Bitte Name und Typ angeben." });
-      return;
-    }
+    if (!name || !assetType) { toast({ variant: "destructive", title: "Fehler", description: "Bitte Name und Typ angeben." }); return; }
     setIsSaving(true);
     const id = selectedResource?.id || `res-${Math.random().toString(36).substring(2, 9)}`;
     const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
@@ -357,7 +330,6 @@ function ResourcesPageContent() {
         for (const oj of oldJobs) await deleteCollectionRecord('backup_jobs', oj.id, dataSource);
         const oldUpdates = allUpdateLinks?.filter(u => u.resourceId === id) || [];
         for (const ou of oldUpdates) await deleteCollectionRecord('resource_update_processes', ou.id, dataSource);
-
         for (const job of localBackupJobs) {
           const jobId = job.id || `bj-${Math.random().toString(36).substring(2, 7)}`;
           await saveCollectionRecord('backup_jobs', jobId, { ...job, id: jobId, resourceId: id, updatedAt: new Date().toISOString(), createdAt: job.createdAt || new Date().toISOString() }, dataSource);
@@ -370,9 +342,7 @@ function ResourcesPageContent() {
         setIsDialogOpen(false);
         refresh(); refreshBackups(); refreshUpdates();
       }
-    } finally {
-      setIsSaving(false);
-    }
+    } finally { setIsSaving(false); }
   };
 
   const openEdit = (res: Resource) => {
@@ -398,10 +368,7 @@ function ResourcesPageContent() {
   };
 
   const handleOpenBackupModal = (idx: number | null = null) => {
-    if (idx !== null) {
-      setBackupForm(localBackupJobs[idx]);
-      setCurrentBackupIdx(idx);
-    } else {
+    if (idx !== null) { setBackupForm(localBackupJobs[idx]); setCurrentBackupIdx(idx); } else {
       setBackupForm({
         name: '', cycle: 'Täglich', custom_cycle: '', storage_location: '', description: '', 
         responsible_type: 'internal', responsible_id: 'none', external_contact_id: 'none',
@@ -409,20 +376,14 @@ function ResourcesPageContent() {
       });
       setCurrentBackupIdx(null);
     }
-    setBackupProcSearch('');
-    setIsBackupModalOpen(true);
+    setBackupProcSearch(''); setIsBackupModalOpen(true);
   };
 
   const saveBackupForm = () => {
-    if (!backupForm.name) {
-      toast({ variant: "destructive", title: "Fehler", description: "Name ist erforderlich." });
-      return;
-    }
+    if (!backupForm.name) { toast({ variant: "destructive", title: "Fehler", description: "Name ist erforderlich." }); return; }
     const next = [...localBackupJobs];
-    if (currentBackupIdx !== null) next[currentBackupIdx] = backupForm;
-    else next.push({ ...backupForm, createdAt: new Date().toISOString() });
-    setLocalBackupJobs(next);
-    setIsBackupModalOpen(false);
+    if (currentBackupIdx !== null) next[currentBackupIdx] = backupForm; else next.push({ ...backupForm, createdAt: new Date().toISOString() });
+    setLocalBackupJobs(next); setIsBackupModalOpen(false);
   };
 
   const filteredResources = useMemo(() => {
@@ -446,6 +407,12 @@ function ResourcesPageContent() {
     allProcesses?.filter(p => p.process_type_id === 'pt-update' && p.title.toLowerCase().includes(updateProcSearch.toLowerCase())),
     [allProcesses, updateProcSearch]
   );
+
+  const handleOpenNewProcessTab = () => {
+    if (confirm("Möchten Sie den ProcessHub in einem neuen Tab öffnen, um einen neuen Prozess anzulegen? Ihre aktuellen Eingaben in diesem Formular bleiben erhalten.")) {
+      window.open('/processhub?action=create', '_blank');
+    }
+  };
 
   if (!mounted) return null;
 
@@ -743,7 +710,6 @@ function ResourcesPageContent() {
                 </TabsContent>
 
                 <TabsContent value="maintenance" className="mt-0 space-y-10 pb-20">
-                  {/* Datensicherung Section */}
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
                     <div className="flex items-center justify-between border-b pb-3">
                       <div className="flex items-center gap-2">
@@ -789,7 +755,6 @@ function ResourcesPageContent() {
                     )}
                   </div>
 
-                  {/* Patch-Management Section */}
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
                     <div className="flex items-center justify-between border-b pb-3">
                       <div className="flex items-center gap-2">
@@ -815,7 +780,7 @@ function ResourcesPageContent() {
                                 className="h-8 pl-8 text-[10px]"
                               />
                             </div>
-                            <Button variant="outline" size="icon" className="h-8 w-8 rounded-md shrink-0 border-blue-200 text-blue-600 hover:bg-blue-50" onClick={() => router.push('/processhub')}>
+                            <Button variant="outline" size="icon" className="h-8 w-8 rounded-md shrink-0 border-blue-200 text-blue-600 hover:bg-blue-50" onClick={handleOpenNewProcessTab}>
                               <Plus className="w-3.5 h-3.5" />
                             </Button>
                           </div>
@@ -839,11 +804,6 @@ function ResourcesPageContent() {
                               </div>
                             </div>
                           ))}
-                          {updateProcesses?.length === 0 && (
-                            <div className="col-span-full py-6 text-center border border-dashed rounded-xl opacity-30">
-                              <p className="text-[10px] font-bold uppercase">Keine Update-Prozesse gefunden</p>
-                            </div>
-                          )}
                         </div>
                       </div>
                     )}
@@ -861,7 +821,6 @@ function ResourcesPageContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Backup Job Modal */}
       <Dialog open={isBackupModalOpen} onOpenChange={setIsBackupModalOpen}>
         <DialogContent className="max-w-3xl rounded-2xl p-0 overflow-hidden bg-white shadow-2xl border-none">
           <DialogHeader className="p-6 bg-orange-600 text-white shrink-0">
@@ -876,102 +835,32 @@ function ResourcesPageContent() {
                 <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1">Job-Bezeichnung</Label>
                 <Input value={backupForm.name} onChange={e => setBackupForm({...backupForm, name: e.target.value})} placeholder="z.B. SQL Full Dump" className="h-11 rounded-xl font-bold" />
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Sicherungs-Zyklus</Label>
                   <Select value={backupForm.cycle} onValueChange={(v:any) => setBackupForm({...backupForm, cycle: v})}>
                     <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {['Täglich', 'Wöchentlich', 'Monatlich', 'Manuell', 'Benutzerdefiniert'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
+                    <SelectContent>{['Täglich', 'Wöchentlich', 'Monatlich', 'Manuell', 'Benutzerdefiniert'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                {backupForm.cycle === 'Benutzerdefiniert' && (
-                  <div className="space-y-2 animate-in slide-in-from-top-1">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Eigener Zyklus</Label>
-                    <Input value={backupForm.custom_cycle} onChange={e => setBackupForm({...backupForm, custom_cycle: e.target.value})} placeholder="z.B. Alle 12 Stunden" className="h-11 rounded-xl" />
-                  </div>
-                )}
               </div>
-
-              <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 space-y-6">
-                <div className="flex items-center gap-3 border-b pb-3">
-                  <UserCircle className="w-4 h-4 text-orange-600" />
-                  <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Verantwortliche Stelle</h4>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Art der Verantwortung</Label>
-                    <Select value={backupForm.responsible_type} onValueChange={(v:any) => setBackupForm({...backupForm, responsible_type: v, responsible_id: 'none', external_contact_id: 'none'})}>
-                      <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="internal">Intern (Organisation)</SelectItem>
-                        <SelectItem value="external">Extern (Dienstleister)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {backupForm.responsible_type === 'internal' ? (
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Interne Rollen-Standardzuweisung</Label>
-                      <Select value={backupForm.responsible_id || 'none'} onValueChange={v => setBackupForm({...backupForm, responsible_id: v})}>
-                        <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue placeholder="Standardzuweisung wählen..." /></SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          <SelectItem value="none">Nicht zugewiesen</SelectItem>
-                          {sortedRoles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Externer Ansprechpartner</Label>
-                      <Select value={backupForm.external_contact_id || 'none'} onValueChange={v => setBackupForm({...backupForm, external_contact_id: v})}>
-                        <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue placeholder="Kontakt wählen..." /></SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          <SelectItem value="none">Nicht zugewiesen</SelectItem>
-                          {contacts?.map(c => {
-                            const partner = partners?.find(p => p.id === c.partnerId);
-                            return <SelectItem key={c.id} value={c.id}>{partner?.name}: {c.name}</SelectItem>;
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </div>
-              </div>
-
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Zugehöriger Backup-Prozess</Label>
                   <div className="flex gap-2 items-center mb-1.5">
                     <div className="relative group flex-1">
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                      <Input 
-                        placeholder="Backup-Prozesse filtern..." 
-                        value={backupProcSearch} 
-                        onChange={e => setBackupProcSearch(e.target.value)}
-                        className="h-8 pl-8 text-[10px]"
-                      />
+                      <Input placeholder="Backup-Prozesse filtern..." value={backupProcSearch} onChange={e => setBackupProcSearch(e.target.value)} className="h-8 pl-8 text-[10px]" />
                     </div>
-                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-md shrink-0 border-orange-200 text-orange-600 hover:bg-orange-50" onClick={() => router.push('/processhub')}>
+                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-md shrink-0 border-orange-200 text-orange-600 hover:bg-orange-50" onClick={handleOpenNewProcessTab}>
                       <Plus className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                   <Select value={backupForm.it_process_id || 'none'} onValueChange={v => setBackupForm({...backupForm, it_process_id: v})}>
                     <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Prozess wählen..." /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Kein Bezug</SelectItem>
-                      {backupProcesses?.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
-                    </SelectContent>
+                    <SelectContent><SelectItem value="none">Kein Bezug</SelectItem>{backupProcesses?.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Physischer Speicherort</Label>
-                <Input value={backupForm.storage_location} onChange={e => setBackupForm({...backupForm, storage_location: e.target.value})} placeholder="/backup/path/..." className="h-11 rounded-xl font-mono text-xs" />
               </div>
             </div>
           </ScrollArea>
@@ -982,49 +871,25 @@ function ResourcesPageContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Dependency / Blocker Dialog */}
       <AlertDialog open={!!blockerInfo} onOpenChange={(val) => !val && setBlockerInfo(null)}>
         <AlertDialogContent className="rounded-2xl border-none shadow-2xl p-8 max-w-lg">
           <AlertDialogHeader>
-            <div className={cn(
-              "w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4",
-              blockerInfo?.isDelete ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600"
-            )}>
+            <div className={cn("w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4", blockerInfo?.isDelete ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600")}>
               {blockerInfo?.isDelete ? <Trash2 className="w-7 h-7" /> : <ShieldAlert className="w-7 h-7" />}
             </div>
-            <AlertDialogTitle className="text-xl font-headline font-bold text-center">
-              {blockerInfo?.title}
-            </AlertDialogTitle>
+            <AlertDialogTitle className="text-xl font-headline font-bold text-center">{blockerInfo?.title}</AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-4 text-center" asChild>
               <div className="space-y-4">
                 <p>Die Aktion kann nicht durchgeführt werden, da folgende aktive Abhängigkeiten bestehen:</p>
                 <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-left space-y-2">
-                  {blockerInfo?.items.map((item, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs font-bold text-slate-700">
-                      <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />
-                      {item}
-                    </div>
-                  ))}
+                  {blockerInfo?.items.map((item, i) => <div key={i} className="flex items-start gap-2 text-xs font-bold text-slate-700"><div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />{item}</div>)}
                 </div>
-                {blockerInfo?.isDelete && blockerInfo.items.length === 0 && (
-                  <p className="text-red-600 font-black uppercase text-[10px]">
-                    Warnung: Diese Ressource wird permanent gelöscht. Dies kann nicht rückgängig gemacht werden.
-                  </p>
-                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
             <AlertDialogCancel className="rounded-xl font-bold text-xs h-11 px-8 border-slate-200">Abbrechen</AlertDialogCancel>
-            {blockerInfo?.isDelete && blockerInfo.items.length === 0 && (
-              <AlertDialogAction 
-                onClick={executeDelete} 
-                className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs h-11 px-10 shadow-lg"
-              >
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
-                Permanent löschen
-              </AlertDialogAction>
-            )}
+            {blockerInfo?.isDelete && blockerInfo.items.length === 0 && <AlertDialogAction onClick={executeDelete} className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs h-11 px-10 shadow-lg">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}Permanent löschen</AlertDialogAction>}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

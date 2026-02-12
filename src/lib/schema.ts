@@ -1,4 +1,3 @@
-
 export interface TableDefinition {
   columns: {
     [columnName: string]: string;
@@ -52,7 +51,7 @@ export const appSchema: AppSchema = {
       ldapAttrUsername: 'VARCHAR(100)',
       ldapAttrFirstname: 'VARCHAR(100)',
       ldapAttrLastname: 'VARCHAR(100)',
-      ldapAttrGroups: 'VARCHAR(100)',
+      ldapAttrGroups: 'TEXT',
     },
   },
   departments: {

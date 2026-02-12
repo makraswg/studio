@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getMysqlConnection } from '@/lib/mysql';
@@ -61,14 +60,24 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
             details.push(`   🏃 Spalte '${columnName}' in '${tableName}' nicht gefunden, wird hinzugefügt...`);
             await connection.execute(addColumnSql);
             details.push(`      ✅ Spalte '${columnName}' erfolgreich hinzugefügt.`);
-          } else {
-             // details.push(`   ✔️ Spalte '${columnName}' existiert bereits.`);
           }
         }
       }
     }
 
-    // SEEDING: Prozesstypen (System-Typen mit festen IDs für Filter-Integrität)
+    // SEEDING: Default Tenant
+    details.push('🌱 Prüfe auf initialen Mandanten...');
+    const [tenantRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `tenants`');
+    if (tenantRows[0].count === 0) {
+      const now = new Date().toISOString();
+      await connection.execute(
+        'INSERT INTO `tenants` (id, name, slug, createdAt, status, region) VALUES (?, ?, ?, ?, ?, ?)',
+        ['t1', 'ComplianceHub Global', 'global', now, 'active', 'EU-DSGVO']
+      );
+      details.push('   ✅ Initialer Mandant erstellt (ID: t1).');
+    }
+
+    // SEEDING: Prozesstypen
     details.push('🌱 Prüfe auf Prozesstypen...');
     const [typeRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `process_types`');
     if (typeRows[0].count === 0) {

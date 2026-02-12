@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
@@ -64,7 +63,8 @@ const collectionToTableMap: { [key: string]: string } = {
   task_comments: 'task_comments',
   media: 'media',
   backup_jobs: 'backup_jobs',
-  resource_update_processes: 'resource_update_processes'
+  resource_update_processes: 'resource_update_processes',
+  aiAuditCriteria: 'aiAuditCriteria'
 };
 
 function normalizeRecord(item: any, tableName: string) {
@@ -72,6 +72,7 @@ function normalizeRecord(item: any, tableName: string) {
   const normalized = { ...item };
   
   const jsonFields: Record<string, string[]> = {
+    users: ['adGroups'],
     groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
     bundles: ['entitlementIds'],
     auditEvents: ['before', 'after'],
@@ -194,7 +195,6 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
   try {
     connection = await getMysqlConnection();
     
-    // Create copy and remove undefined values to prevent SQL issues
     const preparedData: any = { id };
     Object.keys(data).forEach(key => {
       if (data[key] !== undefined) {
@@ -203,6 +203,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     });
     
     const jsonFields: Record<string, string[]> = {
+      users: ['adGroups'],
       groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
       bundles: ['entitlementIds'],
       auditEvents: ['before', 'after'],

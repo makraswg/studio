@@ -51,8 +51,10 @@ import {
   DialogFooter,
   DialogDescription
 } from '@/components/ui/dialog';
+import { useRouter } from 'next/navigation';
 
 export default function SyncSettingsPage() {
+  const router = useRouter();
   const { dataSource, activeTenantId } = useSettings();
   const { user: authUser } = usePlatformAuth();
   const [isSaving, setIsSaving] = useState(false);
@@ -62,7 +64,7 @@ export default function SyncSettingsPage() {
   const [tenantDraft, setTenantDraft] = useState<Partial<Tenant>>({});
   const [selectedJobMessage, setSelectedJobMessage] = useState<string | null>(null);
 
-  const { data: tenants, refresh: refreshTenants } = usePluggableCollection<Tenant>('tenants');
+  const { data: tenants, refresh: refreshTenants, isLoading: isTenantsLoading } = usePluggableCollection<Tenant>('tenants');
   const { data: syncJobs, refresh: refreshJobs } = usePluggableCollection<SyncJob>('syncJobs');
 
   useEffect(() => {
@@ -71,7 +73,10 @@ export default function SyncSettingsPage() {
   }, [tenants, activeTenantId]);
 
   const handleSaveLdap = async () => {
-    if (!tenantDraft.id) return;
+    if (!tenantDraft.id) {
+      toast({ variant: "destructive", title: "Speichern nicht möglich", description: "Kein Mandant geladen. Bitte unter 'Setup' initialisieren." });
+      return;
+    }
     setIsSaving(true);
     try {
       const res = await saveCollectionRecord('tenants', tenantDraft.id, tenantDraft, dataSource);
@@ -113,6 +118,19 @@ export default function SyncSettingsPage() {
       setIsJobRunning(null);
     }
   };
+
+  if (!tenantDraft.id && !isTenantsLoading) {
+    return (
+      <div className="p-12 text-center border-2 border-dashed rounded-2xl bg-slate-50">
+        <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+        <h3 className="font-bold text-lg text-slate-900">Kein Mandant für Konfiguration gefunden</h3>
+        <p className="text-sm text-slate-500 max-w-md mx-auto mt-2 leading-relaxed">
+          Es konnte kein Mandanten-Datensatz für die Speicherung der LDAP-Daten identifiziert werden. Bitte führen Sie zuerst die Datenbank-Initialisierung unter „Setup“ durch.
+        </p>
+        <Button className="mt-6 rounded-xl font-bold px-8 bg-slate-900" onClick={() => router.push('/setup')}>Zum Setup-Center</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-10">

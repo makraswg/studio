@@ -33,7 +33,6 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
     if (!enabled || isFetchingRef.current || !isMounted.current) return;
     
     isFetchingRef.current = true;
-    // Only show loading state if it's the very first fetch and we have no data
     if (!silent && !prevDataString.current) {
       setIsLoading(true);
     }
@@ -44,11 +43,16 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
 
       if (result.error) {
         setError(result.error);
+        // Retry logic for transient failures
+        if (!silent) {
+          setTimeout(() => {
+            if (isMounted.current) setVersion(v => v + 1);
+          }, 2000);
+        }
       } else {
         const newData = (result.data || []) as T[];
         const newDataString = JSON.stringify(newData);
         
-        // STABILITY CHECK: Only update state if content is truly different
         if (newDataString !== prevDataString.current) {
           setData(newData);
           prevDataString.current = newDataString;
@@ -85,7 +89,6 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
 
     fetchData();
 
-    // Background polling (every 15s) - silent update
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchData(true); 

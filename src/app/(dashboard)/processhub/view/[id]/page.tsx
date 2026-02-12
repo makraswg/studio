@@ -131,7 +131,6 @@ export default function ProcessDetailViewPage() {
       });
     }
 
-    // Symmetrical Centered Expansion logic
     return nodes.map(n => {
       const nodeCol = cols[n.id] || 0;
       const nodeLevel = levels[n.id] || 0;
@@ -141,14 +140,13 @@ export default function ProcessDetailViewPage() {
       if (activeNodeId && guideMode === 'structure') {
         const activeCol = cols[activeNodeId] || 0;
         const activeLevel = levels[activeNodeId] || 0;
-        const expansionShiftX = (600 - 256) / 2 + 40; // Card width delta halved + buffer
+        const expansionShiftX = (600 - 256) / 2 + 40; 
 
         if (nodeLevel === activeLevel) {
           if (nodeCol > activeCol) xOffset = expansionShiftX;
           if (nodeCol < activeCol) xOffset = -expansionShiftX;
         }
         
-        // Shift lower levels down significantly
         if (nodeLevel > activeLevel) {
           yOffset = 500; 
         }
@@ -156,8 +154,8 @@ export default function ProcessDetailViewPage() {
 
       return {
         ...n,
-        x: nodeCol * 450 + xOffset, // Increased horizontal gap to 450
-        y: nodeLevel * 180 + yOffset  // Increased vertical gap to 180
+        x: nodeCol * 450 + xOffset,
+        y: nodeLevel * 180 + yOffset
       };
     });
   }, [activeVersion, activeNodeId, guideMode]);
@@ -204,7 +202,7 @@ export default function ProcessDetailViewPage() {
 
         // Output port selection
         let sPortX = sNode.x + OFFSET_X + (sW / 2); 
-        let sPortY = sNode.y + OFFSET_Y + 80;
+        let sPortY = sNode.y + OFFSET_Y + 80; // Bottom port
 
         // Input port selection
         let tPortX = tNode.x + OFFSET_X + (tW / 2);
@@ -213,8 +211,9 @@ export default function ProcessDetailViewPage() {
         let controlPoint1 = { x: sPortX, y: sPortY + 40 };
         let controlPoint2 = { x: tPortX, y: tPortY - 40 };
 
-        // Horizontal routing for siblings or offset columns
-        if (Math.abs(tNode.x - sNode.x) > 50) {
+        // For non-decision nodes, we allow side routing if it's cleaner. 
+        // For decision nodes, we follow the rule: "lines always go out of bottom"
+        if (!isDecision && Math.abs(tNode.x - sNode.x) > 50) {
           if (tNode.x > sNode.x) {
             sPortX = sNode.x + OFFSET_X + sW;
             sPortY = sNode.y + OFFSET_Y + 40;
@@ -231,6 +230,20 @@ export default function ProcessDetailViewPage() {
             tPortX = tNode.x + OFFSET_X + tW;
             tPortY = tNode.y + OFFSET_Y + 40;
             controlPoint2 = { x: tPortX + 60, y: tPortY };
+          }
+        } else if (isDecision) {
+          // If it's a decision, ensure exit is bottom, but target could be side for loops
+          if (Math.abs(tNode.x - sNode.x) > 100) {
+             // Target port side if far away
+             if (tNode.x > sNode.x) {
+                tPortX = tNode.x + OFFSET_X;
+                tPortY = tNode.y + OFFSET_Y + 40;
+                controlPoint2 = { x: tPortX - 60, y: tPortY };
+             } else {
+                tPortX = tNode.x + OFFSET_X + tW;
+                tPortY = tNode.y + OFFSET_Y + 40;
+                controlPoint2 = { x: tPortX + 60, y: tPortY };
+             }
           }
         }
         

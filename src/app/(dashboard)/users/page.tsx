@@ -282,7 +282,7 @@ export default function UsersPage() {
             { id: 'all', label: 'Alle' },
             { id: 'active', label: 'Aktiv' },
             { id: 'disabled', label: 'Inaktiv' },
-            { id: 'drift', label: 'AD Drift ⚡' }
+            { id: 'drift', label: 'Rollen-Drift ⚡' }
           ].map(f => (
             <button 
               key={f.id} 
@@ -443,7 +443,7 @@ export default function UsersPage() {
             <Button variant="ghost" onClick={() => setIsAddOpen(false)} disabled={isSaving} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
             <Button onClick={handleSaveUser} disabled={isSaving} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-sm">
               {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              {selectedUser ? 'Aktualisieren' : 'Speichern'}
+              {selectedUser ? 'Aktualisierung' : 'Speichern'}
             </Button>
           </DialogFooter>
         </DialogContent>

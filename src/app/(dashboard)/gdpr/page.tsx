@@ -185,7 +185,7 @@ export default function GdprPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="p-4 md:p-8 space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-emerald-500/10 text-emerald-600 flex items-center justify-center rounded-xl border border-emerald-500/10 shadow-sm transition-transform hover:scale-105">
@@ -371,7 +371,7 @@ export default function GdprPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                       {heritage.aggregatedResources.map(res => (
                         <div key={res.id} className="p-4 bg-white border border-slate-100 rounded-xl shadow-sm flex items-center gap-3">
-                          <Server className="w-4 h-4 text-slate-400" />
+                          <Server className="w-4 h-4" />
                           <div className="min-w-0"><p className="text-[11px] font-bold text-slate-800 truncate">{res.name}</p><Badge variant="outline" className="text-[7px] font-black h-3.5 px-1 uppercase">{res.assetType}</Badge></div>
                         </div>
                       ))}

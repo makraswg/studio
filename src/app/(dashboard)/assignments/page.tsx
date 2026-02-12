@@ -17,7 +17,7 @@ import {
   Plus, 
   MoreHorizontal, 
   ShieldAlert,
-  Loader2,
+  Loader2, 
   Ticket,
   AlertTriangle,
   Layers,
@@ -286,7 +286,7 @@ function AssignmentsPageContent() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="p-4 md:p-8 space-y-6 pb-10">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
@@ -489,7 +489,7 @@ function AssignmentsPageContent() {
                   <SelectContent className="rounded-md">
                     <ScrollArea className="h-48">
                       {resources?.filter(r => r.tenantId === 'global' || activeTenantId === 'all' || r.tenantId === activeTenantId).map(r => (
-                        <SelectItem key={r.id} value={r.id} className="text-xs">{r.name}</SelectItem>
+                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                       ))}
                     </ScrollArea>
                   </SelectContent>
@@ -624,23 +624,24 @@ function AssignmentsPageContent() {
             <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mb-3 mx-auto shadow-sm">
               <AlertTriangle className="w-5 h-5 text-red-600" />
             </div>
+            <Badge className="bg-red-600 text-white border-none rounded-full h-4 px-2 text-[8px] font-black uppercase tracking-widest mx-auto mb-2">Entzug erforderlich</Badge>
             <DialogTitle className="text-base font-headline font-bold text-red-600 text-center">Zugriff entziehen</DialogTitle>
           </DialogHeader>
           <div className="p-6 space-y-6">
             <div className="p-4 rounded-xl bg-slate-50 border shadow-inner">
-              <p className="text-[10px] font-bold text-slate-400 mb-0.5">Mitarbeiter</p>
+              <p className="text-[10px] font-bold text-slate-400 mb-0.5 uppercase tracking-widest">Betroffene Identität</p>
               <p className="text-xs font-bold text-slate-800">{users?.find(u => u.id === assignmentToRevoke?.userId)?.displayName}</p>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[10px] font-bold text-slate-400 ml-1">Wirksam bis</Label>
+              <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Wirksam bis</Label>
               <Input type="date" value={revokeValidUntil} onChange={e => setRevokeValidUntil(e.target.value)} className="rounded-md h-10 border-slate-200" />
             </div>
           </div>
           <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col gap-2">
-            <Button size="sm" onClick={confirmRevokeAssignment} disabled={isSaving} className="w-full rounded-md bg-red-600 hover:bg-red-700 text-white font-bold text-xs h-11">
+            <Button size="sm" onClick={confirmRevokeAssignment} disabled={isSaving} className="w-full rounded-md bg-red-600 hover:bg-red-700 text-white font-bold text-xs h-11 shadow-lg shadow-red-100">
               {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5 mr-1.5" />} Widerrufen
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setIsRevokeOpen(false)} className="w-full h-8 text-[10px] font-bold text-slate-400">Abbrechen</Button>
+            <Button variant="ghost" size="sm" onClick={() => setIsRevokeOpen(false)} className="w-full h-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Abbrechen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

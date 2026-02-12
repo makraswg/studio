@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -15,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   Search, 
-  Plus,
+  Plus, 
   Loader2,
   Pencil,
   UserCircle,
@@ -111,7 +110,7 @@ export default function UsersPage() {
     const job = jobTitles?.find((j: any) => j.name === roleName && j.tenantId === roleTenantId);
     if (!job) return roleName;
     const dept = departmentsData?.find((d: any) => d.id === job.departmentId);
-    return dept ? `${dept.name} — ${job.name}` : job.name;
+    return dept ? `${dept.name} — ${roleName}` : roleName;
   };
 
   const sortedRoles = useMemo(() => {
@@ -244,7 +243,7 @@ export default function UsersPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="p-4 md:p-8 space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">

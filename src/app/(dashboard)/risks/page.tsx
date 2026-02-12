@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense, useRef } from 'react';
@@ -586,7 +585,7 @@ function RiskDashboardContent() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="p-4 md:p-8 space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-accent/10 text-accent flex items-center justify-center rounded-xl border border-accent/10 shadow-sm transition-transform hover:scale-105">
@@ -863,7 +862,7 @@ function RiskDashboardContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Quick Assessment Dialog OMITTED for brevity, but should be maintained if not broken */}
+      {/* Quick Assessment Dialog OMITTED for brevity */}
       {/* AI Advisor Modal OMITTED for brevity */}
       {/* Standardized Task Creation Dialog OMITTED for brevity */}
     </div>

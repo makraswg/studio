@@ -349,7 +349,7 @@ export default function ProcessDetailViewPage() {
               <div className="max-w-5xl mx-auto space-y-12 pb-40">
                 {gridNodes.map((node, i) => (
                   <div key={node.id} id={`list-node-${node.id}`} className="relative">
-                    <ProcessStepCard node={node} activeNodeId={activeNodeId} setActiveNodeId={handleNodeClick} resources={resources} mediaFiles={mediaFiles} expandedByDefault />
+                    <ProcessStepCard node={node} activeNodeId={activeNodeId} setActiveNodeId={handleNodeClick} resources={resources} allFeatures={allFeatures} mediaFiles={mediaFiles} expandedByDefault />
                     {i < gridNodes.length - 1 && (
                       <div className="absolute left-1/2 -bottom-12 -translate-x-1/2 flex flex-col items-center">
                         <div className={cn("w-0.5 h-12 bg-slate-200 relative", activeNodeId === node.id && "bg-primary")}></div>
@@ -376,7 +376,7 @@ export default function ProcessDetailViewPage() {
                   </g>
                 ))}
               </svg>
-              {gridNodes.map(node => (<div key={node.id} className="absolute transition-all duration-500" style={{ left: node.x + OFFSET_X, top: node.y + OFFSET_Y }}><ProcessStepCard node={node} isMapMode activeNodeId={activeNodeId} setActiveNodeId={handleNodeClick} resources={resources} mediaFiles={mediaFiles} /></div>))}
+              {gridNodes.map(node => (<div key={node.id} className="absolute transition-all duration-500" style={{ left: node.x + OFFSET_X, top: node.y + OFFSET_Y }}><ProcessStepCard node={node} isMapMode activeNodeId={activeNodeId} setActiveNodeId={handleNodeClick} resources={resources} allFeatures={allFeatures} mediaFiles={mediaFiles} /></div>))}
             </div>
           )}
           {guideMode === 'structure' && (
@@ -393,10 +393,11 @@ export default function ProcessDetailViewPage() {
   );
 }
 
-function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, mediaFiles, expandedByDefault = false }: any) {
+function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, mediaFiles, expandedByDefault = false }: any) {
   const isActive = activeNodeId === node.id;
   const isExpanded = expandedByDefault || (isMapMode && isActive);
   const nodeResources = resources?.filter((r:any) => node.resourceIds?.includes(r.id));
+  const nodeFeatures = allFeatures?.filter((f:any) => node.featureIds?.includes(f.id));
   const nodeMedia = mediaFiles?.filter((m: any) => m.subEntityId === node.id);
 
   return (
@@ -408,16 +409,70 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
           </div>
           <h4 className={cn("font-black uppercase tracking-tight text-slate-900 truncate", isMapMode && !isActive ? "text-[10px]" : "text-sm")}>{node.title}</h4>
         </div>
+        {nodeMedia && nodeMedia.length > 0 && !isExpanded && <Badge className="bg-indigo-50 text-indigo-600 border-none rounded-full h-4 px-1.5"><Paperclip className="w-2.5 h-2.5" /></Badge>}
       </CardHeader>
       {isExpanded && (
-        <CardContent className="p-6 space-y-6 animate-in fade-in">
-          <div className="space-y-4">
-            <Label className="text-[9px] font-black uppercase text-slate-400">Tätigkeit</Label>
-            <p className="text-sm text-slate-700 leading-relaxed font-medium italic">"{node.description || '---'}"</p>
+        <CardContent className="p-6 space-y-6 animate-in fade-in overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+            <div className="space-y-4 overflow-hidden flex flex-col">
+              <div className="space-y-1">
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Tätigkeit</Label>
+                <ScrollArea className="max-h-[100px] pr-2">
+                  <p className="text-sm text-slate-700 leading-relaxed font-medium italic">"{node.description || '---'}"</p>
+                </ScrollArea>
+              </div>
+              
+              <div className="space-y-2 flex-1 min-h-0">
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Prüfschritte</Label>
+                <ScrollArea className="h-full pr-2">
+                  <div className="space-y-1.5">
+                    {node.checklist?.map((item: string, i: number) => (
+                      <div key={i} className="flex items-start gap-2 p-2 bg-slate-50 rounded-lg border border-slate-100">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5" />
+                        <span className="text-[11px] font-bold text-slate-700">{item}</span>
+                      </div>
+                    ))}
+                    {(!node.checklist || node.checklist.length === 0) && <p className="text-[10px] text-slate-300 italic">Keine Checkliste</p>}
+                  </div>
+                </ScrollArea>
+              </div>
+            </div>
+
+            <div className="space-y-4 flex flex-col">
+              <div className="space-y-2">
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Infrastruktur & Daten</Label>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">IT-Systeme</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {nodeResources?.map((res:any) => <Badge key={res.id} variant="outline" className="text-[8px] font-black h-5 border-indigo-100 bg-indigo-50/30 text-indigo-700 uppercase">{res.name}</Badge>)}
+                      {nodeResources?.length === 0 && <span className="text-[9px] text-slate-300 italic">Keine Systeme</span>}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">Datenobjekte</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {nodeFeatures?.map((f:any) => <Badge key={f.id} variant="outline" className="text-[8px] font-black h-5 border-emerald-100 bg-emerald-50/30 text-emerald-700 uppercase">{f.name}</Badge>)}
+                      {nodeFeatures?.length === 0 && <span className="text-[9px] text-slate-300 italic">Keine Datenobjekte</span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {nodeMedia && nodeMedia.length > 0 && (
+                <div className="pt-4 border-t space-y-2">
+                  <Label className="text-[9px] font-black uppercase text-indigo-600 tracking-widest">Materialien ({nodeMedia.length})</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {nodeMedia.map((f: any) => (
+                      <div key={f.id} className="p-2 bg-slate-50 rounded-lg border text-[10px] font-bold flex items-center gap-2 shadow-sm hover:bg-white transition-all" onClick={(e) => { e.stopPropagation(); window.open(f.fileUrl, '_blank'); }}>
+                        <ImageIcon className="w-3 h-3 text-indigo-400" /> {f.fileName}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-          {nodeMedia && nodeMedia.length > 0 && (
-            <div className="pt-4 border-t"><Label className="text-[9px] font-black uppercase text-slate-400 mb-2 block">Materialien</Label><div className="flex flex-wrap gap-2">{nodeMedia.map((f: any) => (<div key={f.id} className="p-2 bg-slate-50 rounded-lg border text-[10px] font-bold flex items-center gap-2 shadow-sm hover:bg-white transition-all" onClick={(e) => { e.stopPropagation(); window.open(f.fileUrl, '_blank'); }}><ImageIcon className="w-3 h-3 text-indigo-400" /> {f.fileName}</div>))}</div></div>
-          )}
         </CardContent>
       )}
     </Card>

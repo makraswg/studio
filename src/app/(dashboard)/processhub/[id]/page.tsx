@@ -178,26 +178,6 @@ export default function ProcessDesignerPage() {
     return uiConfigs[0].enableAdvancedAnimations === true || uiConfigs[0].enableAdvancedAnimations === 1;
   }, [uiConfigs]);
 
-  // Load Metadata into form
-  useEffect(() => {
-    if (currentProcess) {
-      setMetaTitle(currentProcess.title);
-      setMetaDesc(currentProcess.description || '');
-      setMetaTypeId(currentProcess.process_type_id || 'none');
-      setMetaInputs(currentProcess.inputs || '');
-      setMetaOutputs(currentProcess.outputs || '');
-      setMetaKpis(currentProcess.kpis || '');
-      setMetaTags(currentProcess.tags || '');
-      setMetaOpenQuestions(currentProcess.openQuestions || '');
-      setMetaDeptId(currentProcess.responsibleDepartmentId || 'none');
-      setMetaOwnerRoleId(currentProcess.ownerRoleId || 'none');
-      setMetaFramework(currentProcess.regulatoryFramework || 'none');
-      setMetaAutomation(currentProcess.automationLevel || 'manual');
-      setMetaDataVolume(currentProcess.dataVolume || 'low');
-      setMetaFrequency(currentProcess.processingFrequency || 'on_demand');
-    }
-  }, [currentProcess]);
-
   // Map Calculation Logic
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
@@ -892,7 +872,7 @@ export default function ProcessDesignerPage() {
 
             <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex gap-2">
               <Button variant="ghost" onClick={() => setIsNodeEditorOpen(false)} className="rounded-xl font-bold text-[10px] px-8">Abbrechen</Button>
-              <Button onClick={handleSaveNode} disabled={isApplying} className="rounded-xl bg-primary text-white font-bold text-[10px] px-12 shadow-lg gap-2">{isApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Übernehmen</Button>
+              <Button onClick={handleSaveNode} disabled={isApplying} className="rounded-xl bg-primary text-white font-bold text-[10px] px-12 shadow-lg gap-2">{isApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Übernehmen</Button>
             </DialogFooter>
           </Tabs>
         </DialogContent>
@@ -906,6 +886,7 @@ function ProcessStepCard({ node, activeNodeId, setActiveNodeId, resources, allFe
   const isExpanded = isMapMode && isActive;
   const roleName = getFullRoleName(node.roleId);
   const nodeResources = resources?.filter((r:any) => node.resourceIds?.includes(r.id));
+  const nodeFeatures = allFeatures?.filter((f: any) => node.featureIds?.includes(f.id));
 
   return (
     <Card 
@@ -930,15 +911,59 @@ function ProcessStepCard({ node, activeNodeId, setActiveNodeId, resources, allFe
         {mediaCount > 0 && !isExpanded && <Badge className="bg-indigo-50 text-indigo-600 border-none rounded-full h-4 px-1.5"><Paperclip className="w-2.5 h-2.5" /></Badge>}
       </CardHeader>
       {isExpanded && (
-        <CardContent className="p-6 space-y-6 animate-in fade-in slide-in-from-top-2">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <Label className="text-[9px] font-black uppercase text-slate-400">Beschreibung</Label>
-              <p className="text-sm text-slate-700 leading-relaxed font-medium italic">"{node.description || '---'}"</p>
+        <CardContent className="p-6 space-y-6 animate-in fade-in slide-in-from-top-2 overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full overflow-hidden">
+            <div className="space-y-4 overflow-hidden flex flex-col">
+              <div className="space-y-1 shrink-0">
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Tätigkeit</Label>
+                <ScrollArea className="max-h-[100px] pr-2">
+                  <p className="text-sm text-slate-700 leading-relaxed font-medium italic">"{node.description || 'Keine Beschreibung hinterlegt.'}"</p>
+                </ScrollArea>
+              </div>
+              
+              <div className="space-y-2 flex-1 min-h-0 overflow-hidden">
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Prüfschritte</Label>
+                <ScrollArea className="h-full pr-2">
+                  <div className="space-y-1.5">
+                    {node.checklist?.map((item: string, i: number) => (
+                      <div key={i} className="flex items-start gap-2 p-2 bg-slate-50 rounded-lg border border-slate-100">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5" />
+                        <span className="text-[11px] font-bold text-slate-700">{item}</span>
+                      </div>
+                    ))}
+                    {(!node.checklist || node.checklist.length === 0) && <p className="text-[10px] text-slate-300 italic">Keine Checkliste</p>}
+                  </div>
+                </ScrollArea>
+              </div>
             </div>
-            <div className="space-y-4">
-              <Label className="text-[9px] font-black uppercase text-slate-400">IT-Ressourcen</Label>
-              <div className="flex flex-wrap gap-1.5">{nodeResources?.map((res:any) => <Badge key={res.id} variant="outline" className="text-[8px] font-black h-5 border-indigo-100">{res.name}</Badge>)}</div>
+
+            <div className="space-y-4 flex flex-col">
+              <div className="space-y-2">
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Infrastruktur & Daten</Label>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">IT-Systeme</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {nodeResources?.map((res:any) => <Badge key={res.id} variant="outline" className="text-[8px] font-black h-5 border-indigo-100 bg-indigo-50/30 text-indigo-700 uppercase">{res.name}</Badge>)}
+                      {nodeResources?.length === 0 && <span className="text-[9px] text-slate-300 italic">Keine Systeme</span>}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">Datenobjekte</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {nodeFeatures?.map((f:any) => <Badge key={f.id} variant="outline" className="text-[8px] font-black h-5 border-emerald-100 bg-emerald-50/30 text-emerald-700 uppercase">{f.name}</Badge>)}
+                      {nodeFeatures?.length === 0 && <span className="text-[9px] text-slate-300 italic">Keine Datenobjekte</span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {mediaCount > 0 && (
+                <div className="pt-4 border-t space-y-2">
+                  <Label className="text-[9px] font-black uppercase text-indigo-600 tracking-widest">Materialien ({mediaCount})</Label>
+                  <p className="text-[10px] text-slate-500 italic leading-relaxed">Begleitende Dokumente und Screenshots sind im Editor oder der Leseansicht verfügbar.</p>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>

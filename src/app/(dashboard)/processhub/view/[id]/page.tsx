@@ -45,7 +45,10 @@ import {
   Terminal,
   Focus,
   BrainCircuit,
-  ChevronDown
+  ChevronDown,
+  Scale,
+  Settings2,
+  Database
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -62,7 +65,8 @@ import {
   Resource, 
   ProcessingActivity, 
   JobTitle,
-  UiConfig
+  UiConfig,
+  ProcessType
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -104,6 +108,7 @@ export default function ProcessDetailViewPage() {
   const { data: allFeatures } = usePluggableCollection<Feature>('features');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
+  const { data: processTypes } = usePluggableCollection<ProcessType>('process_types');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
@@ -220,7 +225,6 @@ export default function ProcessDetailViewPage() {
       setScale(targetScale);
       setTimeout(() => setIsProgrammaticMove(false), 850);
     } else {
-      // Scroll to node in list view
       const el = document.getElementById(`list-node-${nodeId}`);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -252,7 +256,6 @@ export default function ProcessDetailViewPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Sync scroll on mode switch
   useEffect(() => {
     if (mounted && activeNodeId) {
       setTimeout(() => centerOnNode(activeNodeId), 100);
@@ -351,6 +354,19 @@ export default function ProcessDetailViewPage() {
     setPosition({ x: newX, y: newY });
   };
 
+  const renderSidebarField = (label: string, value?: string, icon?: any) => {
+    const Icon = icon;
+    return (
+      <div className="space-y-1">
+        <Label className="text-[8px] font-black uppercase text-slate-400 tracking-widest">{label}</Label>
+        <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-inner">
+          {Icon && <Icon className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
+          <p className="text-[11px] font-bold text-slate-900 dark:text-slate-100 leading-tight truncate">{value || '---'}</p>
+        </div>
+      </div>
+    );
+  };
+
   if (!mounted) return null;
 
   return (
@@ -381,21 +397,48 @@ export default function ProcessDetailViewPage() {
 
       <div className="flex-1 flex overflow-hidden h-full relative">
         <aside className="w-80 border-r bg-white flex flex-col shrink-0 hidden lg:flex shadow-sm">
-          <ScrollArea className="flex-1 p-6 space-y-8">
-            <section className="space-y-3">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 border-b pb-2 flex items-center gap-2"><FileCheck className="w-3.5 h-3.5" /> DSGVO Kontext</h3>
-              <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-2 shadow-inner">
-                <Label className="text-[8px] font-black uppercase text-slate-400">Verarbeitungszweck (VVT)</Label>
-                <p className="text-[11px] font-bold text-slate-900 leading-relaxed">{vvts?.find(v => v.id === currentProcess?.vvtId)?.name || 'Kein VVT verknüpft'}</p>
-              </div>
-            </section>
-            <section className="space-y-3">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2"><UserCircle className="w-3.5 h-3.5" /> Verantwortung</h3>
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2 shadow-inner">
-                <p className="text-[8px] font-black uppercase text-slate-400">Strategischer Eigner (Rolle)</p>
-                <p className="text-[11px] font-bold text-slate-900 leading-relaxed">{getFullRoleName(currentProcess?.ownerRoleId)}</p>
-              </div>
-            </section>
+          <ScrollArea className="flex-1">
+            <div className="p-6 space-y-10">
+              {/* General Process Info */}
+              <section className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2 flex items-center gap-2">
+                  <Info className="w-3.5 h-3.5" /> Stammdaten
+                </h3>
+                {renderSidebarField('Prozesstyp', processTypes?.find(t => t.id === currentProcess?.process_type_id)?.name, Tag)}
+                {renderSidebarField('Durchführung', currentProcess?.processingFrequency, Clock)}
+                {renderSidebarField('Status', currentProcess?.status?.toUpperCase(), Activity)}
+              </section>
+
+              {/* Responsibility */}
+              <section className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2">
+                  <UserCircle className="w-3.5 h-3.5" /> Governance
+                </h3>
+                {renderSidebarField('Abteilung', departments?.find(d => d.id === currentProcess?.responsibleDepartmentId)?.name, Building2)}
+                {renderSidebarField('Eigner (Rolle)', getFullRoleName(currentProcess?.ownerRoleId), Briefcase)}
+                {renderSidebarField('Regelwerk', currentProcess?.regulatoryFramework, Scale)}
+              </section>
+
+              {/* Operations */}
+              <section className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 border-b pb-2 flex items-center gap-2">
+                  <Zap className="w-3.5 h-3.5" /> Betrieb & Daten
+                </h3>
+                {renderSidebarField('Automatisierung', currentProcess?.automationLevel, Settings2)}
+                {renderSidebarField('Datenvolumen', currentProcess?.dataVolume, Database)}
+              </section>
+
+              {/* Compliance */}
+              <section className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 border-b pb-2 flex items-center gap-2">
+                  <FileCheck className="w-3.5 h-3.5" /> Compliance
+                </h3>
+                <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-2 shadow-inner">
+                  <Label className="text-[8px] font-black uppercase text-slate-400">Verarbeitungszweck (VVT)</Label>
+                  <p className="text-[11px] font-bold text-slate-900 leading-relaxed">{vvts?.find(v => v.id === currentProcess?.vvtId)?.name || 'Kein VVT verknüpft'}</p>
+                </div>
+              </section>
+            </div>
           </ScrollArea>
         </aside>
 
@@ -540,7 +583,6 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
   const nodeResources = resources?.filter((r:any) => node.resourceIds?.includes(r.id));
   const nodeFeatures = allFeatures?.filter((f:any) => node.featureIds?.includes(f.id));
 
-  // GRC Context Info
   const predecessors = useMemo(() => 
     allNodes?.filter((n: any) => node.predecessorIds?.includes(n.id)) || [], 
     [allNodes, node.predecessorIds]

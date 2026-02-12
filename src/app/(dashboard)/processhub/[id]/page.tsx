@@ -43,7 +43,9 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   ShieldCheck,
-  AlertTriangle
+  AlertTriangle,
+  FileCheck,
+  Scale
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -704,7 +706,7 @@ export default function ProcessDesignerPage() {
             {gridNodes.map(node => (
               <div key={node.id} className="absolute transition-all duration-500 ease-in-out" style={{ left: node.x + OFFSET_X, top: node.y + OFFSET_Y }}>
                 <ProcessStepCard 
-                  node={node} isMapMode activeNodeId={selectedNodeId} 
+                  node={node} isMapMode={{ activeNodeId: selectedNodeId }} activeNodeId={selectedNodeId} 
                   setActiveNodeId={(id: string) => {
                     handleNodeClick(id);
                     if (selectedNodeId === id) openNodeEditor(node);

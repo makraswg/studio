@@ -132,7 +132,7 @@ export default function ProcessDetailViewPage() {
   const resetViewport = useCallback(() => {
     if (gridNodes.length === 0 || !containerRef.current) return;
     
-    let targetNode = gridNodes.find(n => n.id === activeNodeId) || gridNodes[0];
+    let targetNode = gridNodes.find(n => n.id === activeNodeId) || gridNodes.find(n => n.type === 'start') || gridNodes[0];
     const containerWidth = containerRef.current.clientWidth;
     const containerHeight = containerRef.current.clientHeight;
 
@@ -146,7 +146,7 @@ export default function ProcessDetailViewPage() {
   }, [gridNodes, scale, activeNodeId]);
 
   const updateFlowLines = useCallback(() => {
-    if (!activeVersion || !activeNodeId) {
+    if (!activeVersion) {
       setConnectionPaths([]);
       return;
     }
@@ -154,10 +154,7 @@ export default function ProcessDetailViewPage() {
     const edges = activeVersion.model_json.edges || [];
     const newPaths: { path: string, sourceId: string, targetId: string }[] = [];
 
-    // Filter relevant edges: only those where the active node is involved
-    const relevantEdges = edges.filter(e => e.source === activeNodeId || e.target === activeNodeId);
-
-    relevantEdges.forEach(edge => {
+    edges.forEach(edge => {
       const sNode = gridNodes.find(n => n.id === edge.source);
       const tNode = gridNodes.find(n => n.id === edge.target);
       
@@ -165,13 +162,11 @@ export default function ProcessDetailViewPage() {
         const OFFSET_X = 2500;
         const OFFSET_Y = 2500;
         
-        // Port determination logic
         let sPortX = sNode.x + OFFSET_X + 128; // Center
         let sPortY = sNode.y + OFFSET_Y + 80;  // Bottom
         let tPortX = tNode.x + OFFSET_X + 128; // Center
         let tPortY = tNode.y + OFFSET_Y;       // Top
 
-        // If target is significantly to the right, use side ports
         if (Math.abs(tNode.x - sNode.x) > 100) {
           if (tNode.x > sNode.x) {
             sPortX = sNode.x + OFFSET_X + 256;
@@ -192,7 +187,7 @@ export default function ProcessDetailViewPage() {
     });
 
     setConnectionPaths(newPaths);
-  }, [activeNodeId, activeVersion, gridNodes]);
+  }, [activeVersion, gridNodes]);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -205,7 +200,7 @@ export default function ProcessDetailViewPage() {
 
   useEffect(() => {
     updateFlowLines();
-  }, [activeNodeId, updateFlowLines]);
+  }, [activeVersion, gridNodes, updateFlowLines]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0 || guideMode !== 'structure') return;
@@ -248,13 +243,12 @@ export default function ProcessDetailViewPage() {
         className={cn(
           "rounded-2xl border shadow-sm transition-all duration-300 bg-white cursor-pointer relative",
           isMapMode 
-            ? (isActive ? "ring-4 ring-primary/10 border-primary shadow-xl z-50 w-[600px]" : "hover:border-primary/20 w-64")
-            : "w-full border-primary/10 shadow-md",
-          isActive && isMapMode && "scale-105"
+            ? (isActive ? "ring-4 ring-primary border-primary shadow-xl z-50 w-[600px] scale-110" : "hover:border-primary/20 w-64")
+            : (isActive ? "ring-4 ring-primary border-primary w-full shadow-md" : "w-full border-slate-100 shadow-md"),
         )}
         onClick={(e) => {
           e.stopPropagation();
-          setActiveNodeId(isActive && isMapMode ? null : node.id);
+          setActiveNodeId(isActive ? null : node.id);
         }}
       >
         <CardHeader className={cn("p-4 border-b flex flex-row items-center justify-between gap-4 rounded-t-2xl bg-white", isExpanded && "bg-slate-50/50")}>
@@ -300,7 +294,7 @@ export default function ProcessDetailViewPage() {
                     <div className="space-y-2">
                       {node.checklist.map((item, idx) => (
                         <div key={idx} className="flex items-center gap-3 p-3 bg-emerald-50/30 border border-emerald-100/50 rounded-xl">
-                          <Checkbox id={`${node.id}-check-${idx}`} />
+                          <Checkbox id={`${node.id}-check-${idx}`} onClick={(e) => e.stopPropagation()} />
                           <span className="text-xs font-bold text-slate-700">{item}</span>
                         </div>
                       ))}
@@ -385,6 +379,7 @@ export default function ProcessDetailViewPage() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
+          onClick={() => setActiveNodeId(null)}
         >
           {guideMode === 'list' ? (
             <ScrollArea className="h-full p-10">
@@ -398,7 +393,6 @@ export default function ProcessDetailViewPage() {
             <div 
               className="absolute inset-0 transition-transform duration-75 origin-top-left"
               style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`, width: '5000px', height: '5000px' }}
-              onClick={() => setActiveNodeId(null)}
             >
               <svg className="absolute inset-0 pointer-events-none w-full h-full overflow-visible">
                 <defs>
@@ -420,10 +414,10 @@ export default function ProcessDetailViewPage() {
 
           {guideMode === 'structure' && (
             <div className="absolute bottom-8 right-8 z-50 bg-white/90 backdrop-blur-md border rounded-2xl p-1.5 shadow-2xl flex flex-col gap-1.5">
-              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={() => setScale(s => Math.min(2, s + 0.1))}><Plus className="w-5 h-5" /></Button>
-              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={() => setScale(s => Math.max(0.3, s - 0.1))}><Minus className="w-5 h-5" /></Button>
+              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setScale(s => Math.min(2, s + 0.1)); }}><Plus className="w-5 h-5" /></Button>
+              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(0.3, s - 0.1)); }}><Minus className="w-5 h-5" /></Button>
               <Separator />
-              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={resetViewport}><Maximize2 className="w-5 h-5" /></Button>
+              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); resetViewport(); }}><Maximize2 className="w-5 h-5" /></Button>
             </div>
           )}
         </main>

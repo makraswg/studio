@@ -64,7 +64,6 @@ import {
 import { doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
-import { useRouter as useNextRouter } from 'next/navigation';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
@@ -252,8 +251,8 @@ export default function UsersPage() {
             <UserCircle className="w-6 h-6" />
           </div>
           <div>
-            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none">IAM Directory</Badge>
-            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Benutzerverzeichnis</h1>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">IAM Directory</Badge>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Benutzerverzeichnis</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Identitäten für {activeTenantId === 'all' ? 'alle Standorte' : getTenantSlug(activeTenantId)}.</p>
           </div>
         </div>
@@ -306,11 +305,11 @@ export default function UsersPage() {
           <Table>
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent border-b">
-                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Identität</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400">Rollen-Standardzuweisung</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400">Integrität (AD Sync)</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400">Status</TableHead>
-                <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
+                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Identität</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Rollen-Standardzuweisung</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Integrität (AD Sync)</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">Status</TableHead>
+                <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -367,7 +366,7 @@ export default function UsersPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <Badge variant="outline" className={cn("text-[8px] font-bold rounded-full border-none px-2 h-5", isEnabled ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600")}>
                         {isEnabled ? "Aktiv" : "Inaktiv"}
                       </Badge>

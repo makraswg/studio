@@ -166,22 +166,21 @@ export default function DashboardLayout({
 
   useEffect(() => {
     setMounted(true);
-    // Check initialization status on mount
-    checkSystemStatusAction().then(res => setIsSystemInitialized(res.initialized));
+    // Silent check for initialization - if it fails, assume true to not block the UI
+    checkSystemStatusAction()
+      .then(res => setIsSystemInitialized(res.initialized))
+      .catch(() => setIsSystemInitialized(true));
   }, []);
 
-  // Route Protection logic
+  // Use a fast-path for authenticated users to avoid the loading screen
   useEffect(() => {
     if (mounted && !isUserLoading && isSystemInitialized !== null) {
       if (!user) {
-        // User is not logged in
         if (pathname === '/setup') {
-          // If already initialized, don't allow unauthenticated access to /setup
           if (isSystemInitialized) {
             router.push('/');
           }
         } else {
-          // Redirect to login if system is initialized, otherwise to setup
           if (isSystemInitialized) {
             router.push('/');
           } else {
@@ -192,8 +191,8 @@ export default function DashboardLayout({
     }
   }, [user, isUserLoading, isSystemInitialized, router, mounted, pathname]);
 
-  // Prevent flash of internal content while checking session or initialization
-  if (!mounted || isUserLoading || isSystemInitialized === null) {
+  // Show loading only if we really don't know the state and don't have a user yet
+  if (!mounted || (isUserLoading && !user) || (isSystemInitialized === null && !user)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="flex flex-col items-center gap-4">
@@ -215,7 +214,7 @@ export default function DashboardLayout({
     );
   }
 
-  // Final check to avoid rendering dashboard content if not authorized
+  // If no user and past the setup/init phase, wait for redirect
   if (!user) return null;
 
   return (

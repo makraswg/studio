@@ -8,14 +8,16 @@ import bcrypt from 'bcryptjs';
 
 /**
  * Prüft, ob das System bereits initialisiert wurde.
+ * Nutzt eine performante Abfrage auf die tenants Tabelle.
  */
 export async function checkSystemStatusAction(): Promise<{ initialized: boolean }> {
   let connection;
   try {
     connection = await getMysqlConnection();
-    const [rows]: any = await connection.execute('SELECT COUNT(*) as count FROM `tenants`');
+    // Prüfe nur, ob die Tabelle existiert und mindestens ein Datensatz vorhanden ist
+    const [rows]: any = await connection.execute('SELECT 1 FROM `tenants` LIMIT 1');
     connection.release();
-    return { initialized: rows[0].count > 0 };
+    return { initialized: rows.length > 0 };
   } catch (e) {
     if (connection) connection.release();
     return { initialized: false };

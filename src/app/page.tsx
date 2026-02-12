@@ -43,14 +43,16 @@ export default function LoginPage() {
   useEffect(() => {
     setMounted(true);
     
-    // Check if system is initialized
+    // Check if system is initialized with silent error handling
     const checkStatus = async () => {
-      if (dataSource === 'mysql') {
+      try {
         const status = await checkSystemStatusAction();
         if (!status.initialized) {
           router.push('/setup');
           return;
         }
+      } catch (e) {
+        // Fallback: stay on login page even if DB check fails
       }
       setIsInitializing(false);
     };
@@ -115,7 +117,7 @@ export default function LoginPage() {
     }
   };
 
-  if (!mounted || isUserLoading || isInitializing) {
+  if (!mounted || (isUserLoading && !user) || isInitializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -230,7 +232,7 @@ export default function LoginPage() {
 
       {/* Forgot Password Dialog */}
       <Dialog open={isForgotOpen} onOpenChange={setIsForgotOpen}>
-        <DialogContent className="rounded-3xl max-w-sm border-none shadow-2xl p-0 overflow-hidden bg-white dark:bg-slate-900">
+        <DialogContent className="rounded-3xl max-sm border-none shadow-2xl p-0 overflow-hidden bg-white dark:bg-slate-900">
           <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-800/50 border-b dark:border-slate-800">
             <DialogTitle className="text-lg font-headline font-bold">Passwort zurücksetzen</DialogTitle>
             <ModalDescription className="text-xs text-slate-500">Wir senden Ihnen eine Anleitung per E-Mail.</ModalDescription>

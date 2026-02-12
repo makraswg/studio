@@ -93,7 +93,7 @@ export default function ProcessDetailViewPage() {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+  const [lastMousePos, setLastMousePos] = useState({ x: e.clientX, y: e.clientY } as any);
   const [mouseDownTime, setMouseDownTime] = useState(0);
   const [isProgrammaticMove, setIsProgrammaticMove] = useState(false);
   
@@ -172,7 +172,7 @@ export default function ProcessDetailViewPage() {
 
       const children = edges.filter(e => {
         const targetNode = nodes.find(n => n.id === e.target);
-        return e.source === id && targetNode?.type !== 'subprocess';
+        return e.source === id;
       }).map(e => e.target);
 
       children.forEach((childId, idx) => {
@@ -285,7 +285,7 @@ export default function ProcessDetailViewPage() {
     const edges = activeVersion.model_json.edges || [];
     const newPaths: { path: string, sourceId: string, targetId: string, label?: string, isActive: boolean }[] = [];
 
-    edges.forEach(edge => {
+    edges.forEach((edge, i) => {
       const sNode = gridNodes.find(n => n.id === edge.source);
       const tNode = gridNodes.find(n => n.id === edge.target);
       
@@ -321,7 +321,6 @@ export default function ProcessDetailViewPage() {
     setIsProgrammaticMove(false); 
     setIsDragging(true);
     setMouseDownTime(Date.now());
-    setLastMousePos({ x: e.clientX, y: e.clientY });
     setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
   };
 
@@ -330,7 +329,7 @@ export default function ProcessDetailViewPage() {
     setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
   };
 
-  const handleMouseUp = (e: React.MouseEvent) => {
+  const handleMouseUp = () => {
     setIsDragging(false);
   };
 
@@ -521,19 +520,31 @@ export default function ProcessDetailViewPage() {
                   </marker>
                 </defs>
                 {connectionPaths.map((p, i) => (
-                  <path 
-                    key={i} 
-                    d={p.path} 
-                    fill="none" 
-                    stroke={p.isActive ? "hsl(var(--primary))" : "#94a3b8"} 
-                    strokeWidth={p.isActive ? "3" : "1.5"} 
-                    markerEnd="url(#arrowhead)" 
-                    className={cn(
-                      "transition-all duration-500",
-                      animationsEnabled && p.isActive && "animate-flow-dash"
+                  <g key={i}>
+                    <path 
+                      id={`path-v-${i}`}
+                      d={p.path} 
+                      fill="none" 
+                      stroke={p.isActive ? "hsl(var(--primary))" : "#94a3b8"} 
+                      strokeWidth={p.isActive ? "3" : "1.5"} 
+                      markerEnd="url(#arrowhead)" 
+                      className={cn(
+                        "transition-all duration-500",
+                        animationsEnabled && p.isActive && "animate-flow-dash"
+                      )}
+                      style={animationsEnabled && p.isActive ? { strokeDasharray: "10, 5", color: "hsl(var(--primary))" } : { color: "#94a3b8" }}
+                    />
+                    {p.label && (
+                      <text
+                        dy="-5"
+                        textAnchor="middle"
+                        className="text-[10px] font-bold fill-slate-500"
+                        style={{ filter: 'drop-shadow(0 1px 1px white)' }}
+                      >
+                        <textPath href={`#path-v-${i}`} startOffset="50%">{p.label}</textPath>
+                      </text>
                     )}
-                    style={animationsEnabled && p.isActive ? { strokeDasharray: "10, 5", color: "hsl(var(--primary))" } : { color: "#94a3b8" }}
-                  />
+                  </g>
                 ))}
               </svg>
               {gridNodes.map(node => (
@@ -625,7 +636,8 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
             isActive && "scale-110",
             node.type === 'start' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : 
             node.type === 'end' ? "bg-red-50 text-red-600 border-red-100" :
-            node.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : "bg-primary/5 text-primary border-primary/10"
+            node.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" :
+            node.type === 'subprocess' ? "bg-indigo-600 text-white shadow-lg border-none" : "bg-primary/5 text-primary border-primary/10"
           )}>
             {node.type === 'start' ? <PlayCircle className="w-6 h-6" /> : 
              node.type === 'end' ? <StopCircle className="w-6 h-6" /> :

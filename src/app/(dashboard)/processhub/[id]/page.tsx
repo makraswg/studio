@@ -97,6 +97,7 @@ export default function ProcessDesignerPage() {
   const [mouseDownTime, setMouseDownTime] = useState(0);
   const [isProgrammaticMove, setIsProgrammaticMove] = useState(false);
   const [isDiagramLocked, setIsDiagramLocked] = useState(false);
+  const hasAutoCentered = useRef(false);
   
   // UI States
   const [isApplying, setIsApplying] = useState(false);
@@ -104,7 +105,7 @@ export default function ProcessDesignerPage() {
   const [isSavingMeta, setIsSavingMeta] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false);
-  const [editingNode, setEditingNode] = useState<ProcessNode | null>(null);
+  const [editingNode, setEditingNode] = useState<any>(null);
   const [connectionPaths, setConnectionPaths] = useState<{ path: string, sourceId: string, targetId: string, label?: string, isActive: boolean }[]>([]);
 
   // Node Editor Form State
@@ -120,7 +121,7 @@ export default function ProcessDesignerPage() {
   const [editErrors, setEditErrors] = useState('');
   const [editTargetProcessId, setEditTargetProcessId] = useState('');
   const [editPredecessorIds, setEditPredecessorIds] = useState<string[]>([]);
-  const [editSuccessorIds, setEditSuccessorIds] = useState<string[]>([]);
+  const [editSuccessors, setEditSuccessors] = useState<{ targetId: string, label: string }[]>([]);
 
   // Node Editor Search States
   const [resSearch, setResSearch] = useState('');
@@ -254,6 +255,29 @@ export default function ProcessDesignerPage() {
     });
   }, [activeVersion, selectedNodeId]);
 
+  const centerOnNode = useCallback((nodeId: string) => {
+    const node = gridNodes.find(n => n.id === nodeId);
+    if (!node || !containerRef.current) return;
+    setIsProgrammaticMove(true);
+    const targetScale = 1.0;
+    const containerWidth = containerRef.current.clientWidth;
+    const containerHeight = containerRef.current.clientHeight;
+    setPosition({
+      x: -(node.x + OFFSET_X) * targetScale + containerWidth / 2 - (128 * targetScale),
+      y: -(node.y + OFFSET_Y) * targetScale + containerHeight / 2 - (150 * targetScale)
+    });
+    setScale(targetScale);
+    setTimeout(() => setIsProgrammaticMove(false), 850);
+  }, [gridNodes]);
+
+  useEffect(() => {
+    if (mounted && !hasAutoCentered.current && gridNodes.length > 0) {
+      const startNode = gridNodes.find(n => n.type === 'start') || gridNodes[0];
+      centerOnNode(startNode.id);
+      hasAutoCentered.current = true;
+    }
+  }, [mounted, gridNodes, centerOnNode]);
+
   const updateFlowLines = useCallback(() => {
     if (!activeVersion || gridNodes.length === 0) { setConnectionPaths([]); return; }
     const edges = activeVersion.model_json.edges || [];
@@ -283,21 +307,6 @@ export default function ProcessDesignerPage() {
 
   useEffect(() => { updateFlowLines(); }, [gridNodes, selectedNodeId, updateFlowLines]);
 
-  const centerOnNode = useCallback((nodeId: string) => {
-    const node = gridNodes.find(n => n.id === nodeId);
-    if (!node || !containerRef.current) return;
-    setIsProgrammaticMove(true);
-    const targetScale = 1.0;
-    const containerWidth = containerRef.current.clientWidth;
-    const containerHeight = containerRef.current.clientHeight;
-    setPosition({
-      x: -(node.x + OFFSET_X) * targetScale + containerWidth / 2 - (128 * targetScale),
-      y: -(node.y + OFFSET_Y) * targetScale + containerHeight / 2 - (150 * targetScale)
-    });
-    setScale(targetScale);
-    setTimeout(() => setIsProgrammaticMove(false), 850);
-  }, [gridNodes]);
-
   const handleNodeClick = useCallback((nodeId: string) => {
     if (selectedNodeId === nodeId) {
       setSelectedNodeId(null);
@@ -308,7 +317,7 @@ export default function ProcessDesignerPage() {
   }, [selectedNodeId, centerOnNode]);
 
   // --- Node Editor Logic ---
-  const openNodeEditor = (node: ProcessNode) => {
+  const openNodeEditor = (node: any) => {
     setEditingNode(node);
     setEditTitle(node.title || '');
     setEditType(node.type || 'step');
@@ -321,7 +330,6 @@ export default function ProcessDesignerPage() {
     setEditErrors(node.errors || '');
     setEditTargetProcessId(node.targetProcessId || '');
     
-    // Reset searches
     setResSearch('');
     setFeatSearch('');
     setPredSearch('');
@@ -329,9 +337,13 @@ export default function ProcessDesignerPage() {
     setSubProcSearch('');
 
     const preds = activeVersion?.model_json?.edges?.filter((e: any) => e.target === node.id).map((e: any) => e.source) || [];
-    const succs = activeVersion?.model_json?.edges?.filter((e: any) => e.source === node.id).map((e: any) => e.target) || [];
+    const succs = activeVersion?.model_json?.edges?.filter((e: any) => e.source === node.id).map((e: any) => ({
+      targetId: e.target,
+      label: e.label || ''
+    })) || [];
+    
     setEditPredecessorIds(preds);
-    setEditSuccessorIds(succs);
+    setEditSuccessors(succs);
     
     setIsNodeEditorOpen(true);
   };
@@ -362,6 +374,7 @@ export default function ProcessDesignerPage() {
     const currentPredEdges = oldEdges.filter((e: any) => e.target === editingNode.id);
     const currentSuccEdges = oldEdges.filter((e: any) => e.source === editingNode.id);
 
+    // Update Predecessors
     currentPredEdges.forEach((e: any) => {
       if (!editPredecessorIds.includes(e.source)) ops.push({ type: 'REMOVE_EDGE', payload: { edgeId: e.id } });
     });
@@ -371,12 +384,23 @@ export default function ProcessDesignerPage() {
       }
     });
 
+    // Update Successors (including Labels)
+    const newSuccIds = editSuccessors.map(s => s.targetId);
     currentSuccEdges.forEach((e: any) => {
-      if (!editSuccessorIds.includes(e.target)) ops.push({ type: 'REMOVE_EDGE', payload: { edgeId: e.id } });
+      if (!newSuccIds.includes(e.target)) {
+        ops.push({ type: 'REMOVE_EDGE', payload: { edgeId: e.id } });
+      } else {
+        const matchingEdit = editSuccessors.find(s => s.targetId === e.target);
+        if (matchingEdit && matchingEdit.label !== (e.label || '')) {
+          // Label changed -> replace edge
+          ops.push({ type: 'REMOVE_EDGE', payload: { edgeId: e.id } });
+          ops.push({ type: 'ADD_EDGE', payload: { edge: { id: `edge-${Date.now()}-${e.target}`, source: editingNode.id, target: e.target, label: matchingEdit.label } } });
+        }
+      }
     });
-    editSuccessorIds.forEach(targetId => {
-      if (!currentSuccEdges.some((e: any) => e.target === targetId)) {
-        ops.push({ type: 'ADD_EDGE', payload: { edge: { id: `edge-${Date.now()}-${targetId}-s`, source: editingNode.id, target: targetId } } });
+    editSuccessors.forEach(succ => {
+      if (!currentSuccEdges.some((e: any) => e.target === succ.targetId)) {
+        ops.push({ type: 'ADD_EDGE', payload: { edge: { id: `edge-${Date.now()}-${succ.targetId}`, source: editingNode.id, target: succ.targetId, label: succ.label } } });
       }
     });
 
@@ -811,14 +835,27 @@ export default function ProcessDesignerPage() {
                 </marker>
               </defs>
               {connectionPaths.map((p, i) => (
-                <path 
-                  key={i} d={p.path} fill="none" 
-                  stroke={p.isActive ? "hsl(var(--primary))" : "#94a3b8"} 
-                  strokeWidth={p.isActive ? "3" : "1.5"} 
-                  markerEnd="url(#arrowhead)" 
-                  className={cn("transition-all duration-500", animationsEnabled && p.isActive && "animate-flow-dash")}
-                  style={animationsEnabled && p.isActive ? { strokeDasharray: "10, 5", color: "hsl(var(--primary))" } : { color: "#94a3b8" }}
-                />
+                <g key={i}>
+                  <path 
+                    d={p.path} fill="none" 
+                    stroke={p.isActive ? "hsl(var(--primary))" : "#94a3b8"} 
+                    strokeWidth={p.isActive ? "3" : "1.5"} 
+                    markerEnd="url(#arrowhead)" 
+                    className={cn("transition-all duration-500", animationsEnabled && p.isActive && "animate-flow-dash")}
+                    style={animationsEnabled && p.isActive ? { strokeDasharray: "10, 5", color: "hsl(var(--primary))" } : { color: "#94a3b8" }}
+                  />
+                  {p.label && (
+                    <text
+                      dy="-5"
+                      textAnchor="middle"
+                      className="text-[10px] font-bold fill-slate-500"
+                      style={{ filter: 'drop-shadow(0 1px 1px white)' }}
+                    >
+                      <textPath href={`#path-${i}`} startOffset="50%">{p.label}</textPath>
+                    </text>
+                  )}
+                  <path id={`path-${i}`} d={p.path} fill="none" stroke="transparent" pointerEvents="none" />
+                </g>
               ))}
             </svg>
             {gridNodes.map(node => (
@@ -856,7 +893,7 @@ export default function ProcessDesignerPage() {
               <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shadow-lg border border-primary/20", 
                 editType === 'decision' ? "bg-amber-500 text-white" : editType === 'end' ? "bg-red-500 text-white" : editType === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary text-white"
               )}>
-                {editType === 'decision' ? <GitBranch className="w-6 h-6" /> : editType === 'subprocess' ? <RefreshCw className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
+                {editType === 'decision' ? <GitBranch className="w-6 h-6" /> : editType === 'subprocess' ? <RefreshCw className="w-6 h-6" /> : editType === 'end' ? <StopCircle className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
               </div>
               <div className="min-w-0">
                 <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Schritt konfigurieren</DialogTitle>
@@ -1036,9 +1073,9 @@ export default function ProcessDesignerPage() {
                   <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-4 shadow-inner">
                     <Network className="w-6 h-6 text-amber-600 shrink-0" />
                     <div>
-                      <p className="text-xs font-bold text-amber-900 uppercase">Handover-Punkte</p>
+                      <p className="text-xs font-bold text-amber-900 uppercase">Handover-Punkte & Entscheidungen</p>
                       <p className="text-[10px] text-amber-700 font-medium leading-relaxed">
-                        Definieren Sie hier den logischen Fluss. Wer liefert den Input für diesen Schritt und wer erhält den Output? Dies baut die "Goldene Kette" im System auf.
+                        Definieren Sie hier den logischen Fluss. Bei Verzweigungen (Weichen) können Sie direkt an den Ausgängen die jeweilige Bedingung (z. B. "Ja" oder "Nein") festlegen.
                       </p>
                     </div>
                   </div>
@@ -1085,19 +1122,40 @@ export default function ProcessDesignerPage() {
                       </div>
                       <div className="p-4 rounded-2xl border bg-white shadow-inner">
                         <ScrollArea className="h-64">
-                          <div className="space-y-1.5">
-                            {activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id && n.title.toLowerCase().includes(succSearch.toLowerCase())).map((n: any) => (
-                              <div key={n.id} className={cn(
-                                "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border",
-                                editSuccessorIds.includes(n.id) ? "bg-amber-50 border-amber-200" : "bg-white border-transparent hover:bg-slate-50"
-                              )} onClick={() => setEditSuccessorIds(prev => editSuccessorIds.includes(n.id) ? prev.filter(id => id !== n.id) : [...prev, n.id])}>
-                                <Checkbox checked={editSuccessorIds.includes(n.id)} />
-                                <div className="min-w-0">
-                                  <p className="text-[11px] font-bold text-slate-800 truncate">{n.title}</p>
-                                  <p className="text-[8px] font-black uppercase text-slate-400">{n.type}</p>
+                          <div className="space-y-3">
+                            {activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id && n.title.toLowerCase().includes(succSearch.toLowerCase())).map((n: any) => {
+                              const isLinked = editSuccessors.some(s => s.targetId === n.id);
+                              const currentLink = editSuccessors.find(s => s.targetId === n.id);
+                              
+                              return (
+                                <div key={n.id} className={cn(
+                                  "p-3 rounded-xl transition-all border space-y-3",
+                                  isLinked ? "bg-amber-50 border-amber-200" : "bg-white border-transparent hover:bg-slate-50"
+                                )}>
+                                  <div className="flex items-center gap-3 cursor-pointer" onClick={() => {
+                                    if (isLinked) setEditSuccessors(prev => prev.filter(s => s.targetId !== n.id));
+                                    else setEditSuccessors(prev => [...prev, { targetId: n.id, label: '' }]);
+                                  }}>
+                                    <Checkbox checked={isLinked} />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-[11px] font-bold text-slate-800 truncate">{n.title}</p>
+                                      <p className="text-[8px] font-black uppercase text-slate-400">{n.type}</p>
+                                    </div>
+                                  </div>
+                                  {isLinked && (
+                                    <div className="pl-7 space-y-1.5 animate-in fade-in slide-in-from-top-1">
+                                      <Label className="text-[8px] font-black uppercase text-amber-600">Bedingung / Pfad-Name</Label>
+                                      <Input 
+                                        placeholder="z.B. Ja, Freigabe erteilt..." 
+                                        value={currentLink?.label || ''} 
+                                        onChange={e => setEditSuccessors(prev => prev.map(s => s.targetId === n.id ? { ...s, label: e.target.value } : s))}
+                                        className="h-7 text-[10px] bg-white rounded-lg border-amber-200"
+                                      />
+                                    </div>
+                                  )}
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </ScrollArea>
                       </div>

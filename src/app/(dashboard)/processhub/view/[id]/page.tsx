@@ -6,12 +6,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { 
   Workflow, 
   ChevronLeft, 
-  ChevronRight,
   Loader2, 
   ShieldCheck,
   Activity, 
-  ListChecks,
-  Network,
   ExternalLink,
   Info,
   Briefcase,
@@ -43,7 +40,9 @@ import {
   Maximize2,
   Minus,
   Plus,
-  Edit3
+  Edit3,
+  ArrowRightCircle,
+  ArrowLeftCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -74,21 +73,20 @@ export default function ProcessDetailViewPage() {
   const router = useRouter();
   const { dataSource, activeTenantId } = useSettings();
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<HTMLDivElement>(null);
   
   const [mounted, setMounted] = useState(false);
   const [viewMode, setViewMode] = useState<'guide' | 'risks'>('guide');
   const [guideMode, setGuideMode] = useState<'list' | 'structure'>('list');
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
-  const [connectionPaths, setConnectionPaths] = useState<{ path: string, highlight: boolean, label?: string, sourceId: string, targetId: string }[]>([]);
+  const [connectionPaths, setConnectionPaths] = useState<{ path: string, sourceId: string, targetId: string }[]>([]);
 
   // Map States
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(0.8);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
+  const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: departments } = usePluggableCollection<Department>('departments');
@@ -100,7 +98,6 @@ export default function ProcessDetailViewPage() {
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
 
-  // --- Grid Layout Logic ---
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
@@ -114,25 +111,86 @@ export default function ProcessDetailViewPage() {
 
     const queue = [{ id: startNode.id, level: 0, col: 0 }];
     while (queue.length > 0) {
-      const { id, level, col } = queue.shift()!;
-      if (processed.has(id)) continue;
-      processed.add(id);
-      levels[id] = level;
-      cols[id] = col;
-      edges.filter(e => e.source === id).forEach((e, i) => {
-        const siblings = edges.filter(ee => ee.source === id).length;
+      const { id: nodeId, level, col } = queue.shift()!;
+      if (processed.has(nodeId)) continue;
+      processed.add(nodeId);
+      levels[nodeId] = level;
+      cols[nodeId] = col;
+      
+      const outgoingEdges = edges.filter(e => e.source === nodeId);
+      outgoingEdges.forEach((e, i) => {
+        const siblings = outgoingEdges.length;
         queue.push({ id: e.target, level: level + 1, col: col + i - (siblings - 1) / 2 });
       });
     }
 
     return nodes.map(n => ({
       ...n,
-      x: (cols[n.id] || 0) * 300,
-      y: (levels[n.id] || 0) * 200
+      x: (cols[n.id] || 0) * 280,
+      y: (levels[n.id] || 0) * 180
     }));
   }, [activeVersion]);
 
+  const resetViewport = useCallback(() => {
+    if (gridNodes.length === 0 || !containerRef.current) return;
+    
+    let targetNode = gridNodes.find(n => n.id === activeNodeId) || gridNodes[0];
+    const containerWidth = containerRef.current.clientWidth;
+    const containerHeight = containerRef.current.clientHeight;
+
+    const OFFSET_X = 1000;
+    const OFFSET_Y = 500;
+
+    setPosition({
+      x: -(targetNode.x + OFFSET_X) * scale + containerWidth / 2 - (140 * scale),
+      y: -(targetNode.y + OFFSET_Y) * scale + containerHeight / 2 - (40 * scale)
+    });
+  }, [gridNodes, scale, activeNodeId]);
+
+  const updateFlowLines = useCallback(() => {
+    if (!activeVersion || !activeNodeId) {
+      setConnectionPaths([]);
+      return;
+    }
+
+    const edges = activeVersion.model_json.edges || [];
+    const newPaths: { path: string, sourceId: string, targetId: string }[] = [];
+
+    // Only show edges connected to the active node
+    const relevantEdges = edges.filter(e => e.source === activeNodeId || e.target === activeNodeId);
+
+    relevantEdges.forEach(edge => {
+      const sNode = gridNodes.find(n => n.id === edge.source);
+      const tNode = gridNodes.find(n => n.id === edge.target);
+      
+      if (sNode && tNode) {
+        const OFFSET_X = 1000;
+        const OFFSET_Y = 500;
+        const sX = sNode.x + OFFSET_X + 128;
+        const sY = sNode.y + OFFSET_Y + 80;
+        const tX = tNode.x + OFFSET_X + 128;
+        const tY = tNode.y + OFFSET_Y;
+        
+        const path = `M ${sX} ${sY} C ${sX} ${sY + 40}, ${tX} ${tY - 40}, ${tX} ${tY}`;
+        newPaths.push({ path, sourceId: edge.source, targetId: edge.target });
+      }
+    });
+
+    setConnectionPaths(newPaths);
+  }, [activeNodeId, activeVersion, gridNodes]);
+
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (mounted && guideMode === 'structure') {
+      const timer = setTimeout(resetViewport, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [guideMode, mounted]);
+
+  useEffect(() => {
+    updateFlowLines();
+  }, [activeNodeId, updateFlowLines]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0 || guideMode !== 'structure') return;
@@ -154,95 +212,6 @@ export default function ProcessDetailViewPage() {
     setScale(newScale);
   };
 
-  const resetViewport = useCallback(() => {
-    if (gridNodes.length === 0) return;
-    
-    let targetNode = gridNodes[0];
-    if (activeNodeId) {
-      const found = gridNodes.find(n => n.id === activeNodeId);
-      if (found) targetNode = found;
-    }
-
-    const containerWidth = containerRef.current?.clientWidth || 800;
-    const containerHeight = containerRef.current?.clientHeight || 600;
-
-    setPosition({
-      x: -(targetNode.x + 1000) * scale + containerWidth / 2 - (150 * scale),
-      y: -(targetNode.y + 500) * scale + containerHeight / 2 - (50 * scale)
-    });
-  }, [gridNodes, scale, activeNodeId]);
-
-  const updateFlowLines = useCallback(() => {
-    if (!activeVersion || viewMode !== 'guide' || !containerRef.current) {
-      setConnectionPaths([]);
-      return;
-    }
-
-    const edges = activeVersion.model_json.edges || [];
-    const newPaths: { path: string, highlight: boolean, label?: string, sourceId: string, targetId: string }[] = [];
-
-    edges.forEach(edge => {
-      const sourceNode = gridNodes.find(n => n.id === edge.source);
-      const targetNode = gridNodes.find(n => n.id === edge.target);
-      
-      if (sourceNode && targetNode) {
-        const OFFSET_X = 1000;
-        const OFFSET_Y = 500;
-        const dx = targetNode.x - sourceNode.x;
-        const dy = targetNode.y - sourceNode.y;
-
-        let sX, sY, tX, tY;
-        let path = '';
-
-        // Logical path calculation
-        if (Math.abs(dx) > Math.abs(dy) * 1.5) {
-          sX = sourceNode.x + OFFSET_X + (dx > 0 ? 256 : 0);
-          sY = sourceNode.y + OFFSET_Y + 40;
-          tX = targetNode.x + OFFSET_X + (dx > 0 ? 0 : 256);
-          tY = targetNode.y + OFFSET_Y + 40;
-          path = `M ${sX} ${sY} L ${sX + dx/2} ${sY} L ${sX + dx/2} ${tY} L ${tX} ${tY}`;
-        } else {
-          sX = sourceNode.x + OFFSET_X + 128;
-          sY = sourceNode.y + OFFSET_Y + 80;
-          tX = targetNode.x + OFFSET_X + 128;
-          tY = targetNode.y + OFFSET_Y;
-          path = `M ${sX} ${sY} C ${sX} ${sY + 40}, ${tX} ${tY - 40}, ${tX} ${tY}`;
-        }
-
-        newPaths.push({ 
-          path, 
-          highlight: activeNodeId === edge.source || activeNodeId === edge.target, 
-          label: edge.label,
-          sourceId: edge.source,
-          targetId: edge.target
-        });
-      }
-    });
-
-    setConnectionPaths(newPaths);
-  }, [activeNodeId, activeVersion, viewMode, guideMode, gridNodes]);
-
-  useEffect(() => {
-    window.addEventListener('resize', updateFlowLines);
-    return () => window.removeEventListener('resize', updateFlowLines);
-  }, [updateFlowLines]);
-
-  useLayoutEffect(() => {
-    if (viewMode === 'guide') {
-      const timer = setTimeout(updateFlowLines, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [activeNodeId, viewMode, guideMode, gridNodes, updateFlowLines]);
-
-  const processResources = useMemo(() => {
-    if (!activeVersion || !resources) return [];
-    const resourceIds = new Set<string>();
-    activeVersion.model_json.nodes.forEach((n: ProcessNode) => {
-      n.resourceIds?.forEach(rid => resourceIds.add(rid));
-    });
-    return Array.from(resourceIds).map(rid => resources.find(r => r.id === rid)).filter(Boolean);
-  }, [activeVersion, resources]);
-
   const getFullRoleName = (roleId?: string) => {
     if (!roleId) return '---';
     const role = jobTitles?.find(j => j.id === roleId);
@@ -253,7 +222,6 @@ export default function ProcessDetailViewPage() {
 
   const GuideCard = ({ node, isMapMode = false }: { node: ProcessNode, isMapMode?: boolean }) => {
     const isActive = activeNodeId === node.id;
-    // Always expanded in list mode, only on activation in map mode
     const isExpanded = !isMapMode || isActive;
     
     const roleName = getFullRoleName(node.roleId);
@@ -262,9 +230,8 @@ export default function ProcessDetailViewPage() {
 
     return (
       <Card 
-        id={isMapMode ? `map-node-${node.id}` : `card-${node.id}`}
         className={cn(
-          "rounded-2xl border shadow-sm transition-all duration-300 bg-white group cursor-pointer relative",
+          "rounded-2xl border shadow-sm transition-all duration-300 bg-white cursor-pointer relative",
           isMapMode 
             ? (isActive ? "ring-4 ring-primary/10 border-primary shadow-xl z-50 w-[600px]" : "hover:border-primary/20 w-64")
             : "w-full border-primary/10 shadow-md",
@@ -272,11 +239,7 @@ export default function ProcessDetailViewPage() {
         )}
         onClick={(e) => {
           e.stopPropagation();
-          if (isMapMode) {
-            setActiveNodeId(isActive ? null : node.id);
-          } else {
-            setActiveNodeId(node.id);
-          }
+          setActiveNodeId(isActive && isMapMode ? null : node.id);
         }}
       >
         <CardHeader className={cn("p-4 border-b flex flex-row items-center justify-between gap-4 rounded-t-2xl bg-white", isExpanded && "bg-slate-50/50")}>
@@ -357,7 +320,7 @@ export default function ProcessDetailViewPage() {
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body">
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl"><ChevronLeft className="w-6 h-6" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl transition-all"><ChevronLeft className="w-6 h-6" /></Button>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-lg font-headline font-bold text-slate-900">{currentProcess?.title}</h1>
@@ -370,14 +333,14 @@ export default function ProcessDetailViewPage() {
         <div className="flex items-center gap-4">
           <div className="bg-slate-100 p-1 rounded-xl flex gap-1 border">
             <Button variant={guideMode === 'list' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-bold uppercase px-3" onClick={() => setGuideMode('list')}><List className="w-3.5 h-3.5 mr-1.5" /> Liste</Button>
-            <Button variant={guideMode === 'structure' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-bold uppercase px-3" onClick={() => { setGuideMode('structure'); resetViewport(); }}><LayoutGrid className="w-3.5 h-3.5 mr-1.5" /> Landkarte</Button>
+            <Button variant={guideMode === 'structure' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-bold uppercase px-3" onClick={() => setGuideMode('structure')}><LayoutGrid className="w-3.5 h-3.5 mr-1.5" /> Landkarte</Button>
           </div>
           <div className="w-px h-8 bg-slate-200" />
           <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4 gap-2 border-primary/20 text-primary hover:bg-primary/5 shadow-sm" onClick={() => router.push(`/processhub/${id}`)}><Edit3 className="w-3.5 h-3.5" /> Designer öffnen</Button>
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden h-full">
+      <div className="flex-1 flex overflow-hidden h-full relative">
         <aside className="w-80 border-r bg-white flex flex-col shrink-0 hidden lg:flex">
           <ScrollArea className="flex-1 p-6 space-y-8">
             <section className="space-y-3">
@@ -394,90 +357,54 @@ export default function ProcessDetailViewPage() {
                 <p className="text-[11px] font-bold text-slate-900">{getFullRoleName(currentProcess?.ownerRoleId)}</p>
               </div>
             </section>
-            <section className="space-y-3">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 border-b pb-2 flex items-center gap-2"><Server className="w-3.5 h-3.5" /> Involvierte Systeme</h3>
-              <div className="flex flex-wrap gap-1.5">
-                {processResources.map((res: any) => (
-                  <Badge key={res.id} variant="outline" className="bg-white border-slate-100 text-[9px] font-bold h-6 px-2 text-slate-600 shadow-sm rounded-md">{res.name}</Badge>
-                ))}
-              </div>
-            </section>
           </ScrollArea>
         </aside>
 
         <main 
-          className={cn(
-            "flex-1 flex flex-col relative overflow-hidden",
-            guideMode === 'structure' ? "bg-slate-200 cursor-grab active:cursor-grabbing" : "bg-slate-100"
-          )} 
           ref={containerRef}
+          className={cn(
+            "flex-1 relative overflow-hidden",
+            guideMode === 'structure' ? "bg-slate-200 cursor-grab active:cursor-grabbing" : "bg-slate-50"
+          )} 
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
         >
-          {viewMode === 'guide' ? (
-            guideMode === 'list' ? (
-              <ScrollArea className="flex-1 p-6 md:p-10">
-                <div className="max-w-5xl mx-auto space-y-6 pb-64">
-                  {activeVersion?.model_json?.nodes?.map((node: ProcessNode) => (
-                    <div key={node.id} className="w-full">
-                      <GuideCard node={node} />
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            ) : (
-              <div 
-                ref={mapRef}
-                className="absolute inset-0 transition-transform duration-75 origin-top-left"
-                style={{ 
-                  transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-                  width: '5000px',
-                  height: '5000px'
-                }}
-                onClick={() => setActiveNodeId(null)}
-              >
-                <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
-                  <defs>
-                    <marker id="arrowhead-modern" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                      <polygon points="0 0, 8 3, 0 6" fill="currentColor" className="text-slate-900" />
-                    </marker>
-                  </defs>
-                  {connectionPaths.map((pathObj, i) => {
-                    // Only show paths related to the active node in map mode
-                    if (activeNodeId && (activeNodeId === pathObj.sourceId || activeNodeId === pathObj.targetId)) {
-                      return (
-                        <path 
-                          key={i}
-                          d={pathObj.path} 
-                          fill="none" 
-                          stroke="currentColor" 
-                          strokeWidth="3" 
-                          className="transition-all duration-300 text-primary opacity-100"
-                          markerEnd="url(#arrowhead-modern)"
-                        />
-                      );
-                    }
-                    return null;
-                  })}
-                </svg>
-                
+          {guideMode === 'list' ? (
+            <ScrollArea className="h-full p-10">
+              <div className="max-w-5xl mx-auto space-y-8 pb-40">
                 {gridNodes.map(node => (
-                  <div key={node.id} className="absolute" style={{ left: node.x + 1000, top: node.y + 500 }}>
-                    <GuideCard node={node} isMapMode />
-                  </div>
+                  <GuideCard key={node.id} node={node} />
                 ))}
               </div>
-            )
+            </ScrollArea>
           ) : (
-            <div className="p-12 text-center opacity-30 italic uppercase text-[10px] tracking-widest flex flex-col items-center justify-center h-full">
-              <ShieldAlert className="w-12 h-12 mb-4" /> Risikomatrix wird berechnet...
+            <div 
+              className="absolute inset-0 transition-transform duration-75 origin-top-left"
+              style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`, width: '5000px', height: '5000px' }}
+              onClick={() => setActiveNodeId(null)}
+            >
+              <svg className="absolute inset-0 pointer-events-none w-full h-full overflow-visible">
+                <defs>
+                  <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+                  </marker>
+                </defs>
+                {connectionPaths.map((p, i) => (
+                  <path key={i} d={p.path} fill="none" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
+                ))}
+              </svg>
+              {gridNodes.map(node => (
+                <div key={node.id} className="absolute" style={{ left: node.x + 1000, top: node.y + 500 }}>
+                  <GuideCard node={node} isMapMode />
+                </div>
+              ))}
             </div>
           )}
 
           {guideMode === 'structure' && (
-            <div className="absolute bottom-10 right-10 z-50 bg-white/90 backdrop-blur-md border rounded-2xl p-1.5 shadow-2xl flex flex-col gap-1.5">
+            <div className="absolute bottom-8 right-8 z-50 bg-white/90 backdrop-blur-md border rounded-2xl p-1.5 shadow-2xl flex flex-col gap-1.5">
               <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={() => setScale(s => Math.min(2, s + 0.1))}><Plus className="w-5 h-5" /></Button>
               <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={() => setScale(s => Math.max(0.3, s - 0.1))}><Minus className="w-5 h-5" /></Button>
               <Separator />

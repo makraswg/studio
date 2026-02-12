@@ -198,8 +198,6 @@ export default function ProcessDesignerPage() {
   const { data: pUsers } = usePluggableCollection<PlatformUser>('platformUsers');
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
   const { data: regulatoryOptions } = usePluggableCollection<RegulatoryOption>('regulatory_options');
-  const { data: subjectGroups } = usePluggableCollection<DataSubjectGroup>('dataSubjectGroups');
-  const { data: dataCategories } = usePluggableCollection<DataCategory>('dataCategories');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
@@ -207,11 +205,6 @@ export default function ProcessDesignerPage() {
   const processTasks = useMemo(() => 
     tasks?.filter(t => t.entityId === id && t.entityType === 'process') || [],
     [tasks, id]
-  );
-
-  const selectedNodeMedia = useMemo(() => 
-    mediaFiles?.filter(m => m.entityId === id && m.subEntityId === selectedNodeId) || [],
-    [mediaFiles, id, selectedNodeId]
   );
 
   const sortedRoles = useMemo(() => {
@@ -403,54 +396,6 @@ export default function ProcessDesignerPage() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !selectedNodeId || !user) return;
-
-    setIsUploading(true);
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      const dataUri = evt.target?.result as string;
-      const mediaId = `med-${Math.random().toString(36).substring(2, 9)}`;
-      
-      const mediaData: MediaFile = {
-        id: mediaId,
-        tenantId: currentProcess?.tenantId || 't1',
-        module: 'ProcessHub',
-        entityId: id as string,
-        subEntityId: selectedNodeId,
-        fileName: file.name,
-        fileType: file.type,
-        fileSize: file.size,
-        fileUrl: dataUri,
-        createdAt: new Date().toISOString(),
-        createdBy: user.email || 'system'
-      };
-
-      try {
-        const res = await saveMediaAction(mediaData, dataSource);
-        if (res.success) {
-          toast({ title: "Datei hochgeladen" });
-          refreshMedia();
-          
-          if (file.type === 'application/pdf') {
-            setIsOcring(true);
-            const ocrRes = await runOcrAction({ fileDataUri: dataUri, fileName: file.name, dataSource });
-            if (ocrRes.extractedText) {
-              await saveMediaAction({ ...mediaData, ocrText: ocrRes.extractedText }, dataSource);
-              toast({ title: "OCR abgeschlossen", description: "Texte aus PDF wurden indexiert." });
-              refreshMedia();
-            }
-            setIsOcring(false);
-          }
-        }
-      } finally {
-        setIsUploading(false);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
   const handleQuickAdd = (type: 'step' | 'decision' | 'end' | 'subprocess') => {
     if (!currentVersion) return;
     const newId = `${type}-${Date.now()}`;
@@ -489,10 +434,6 @@ export default function ProcessDesignerPage() {
           title: localNodeEdits.title,
           roleId: localNodeEdits.roleId,
           resourceIds: localNodeEdits.resourceIds,
-          subjectGroupIds: localNodeEdits.subjectGroupIds,
-          dataCategoryIds: localNodeEdits.dataCategoryIds,
-          predecessorIds: localNodeEdits.predecessorIds,
-          successorIds: localNodeEdits.successorIds,
           description: localNodeEdits.description,
           tips: localNodeEdits.tips,
           errors: localNodeEdits.errors,
@@ -502,39 +443,12 @@ export default function ProcessDesignerPage() {
       }
     }];
     
-    const existingLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === selectedNodeId) || [];
-    const existingIds = existingLinks.map((l: any) => l.featureId);
-    
-    for (const fid of localNodeEdits.featureIds) {
-      if (!existingIds.includes(fid)) {
-        await linkFeatureToProcessAction({
-          featureId: fid,
-          processId: id as string,
-          nodeId: selectedNodeId,
-          usageType: 'Verarbeitung',
-          criticality: 'medium'
-        }, dataSource);
-      }
-    }
-    
-    for (const link of existingLinks) {
-      if (!localNodeEdits.featureIds.includes(link.featureId)) {
-        await unlinkFeatureFromProcessAction(link.id, link.featureId, dataSource);
-      }
-    }
-
     const success = await handleApplyOps(ops);
     if (success) {
       toast({ title: "Schritt aktualisiert" });
-      refreshFeatureLinks();
       setIsStepDialogOpen(false);
     }
   };
-
-  const filteredResources = useMemo(() => {
-    if (!resources) return [];
-    return resources.filter(r => r.name.toLowerCase().includes(resSearch.toLowerCase()) && r.status !== 'archived');
-  }, [resources, resSearch]);
 
   const getFullRoleName = (roleId: string) => {
     const role = jobTitles?.find(j => j.id === roleId);
@@ -544,8 +458,6 @@ export default function ProcessDesignerPage() {
   };
 
   if (!mounted) return null;
-
-  const isReferenceNode = localNodeEdits.type === 'subprocess' || localNodeEdits.type === 'end';
 
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body relative">
@@ -594,152 +506,41 @@ export default function ProcessDesignerPage() {
               <TabsTrigger value="meta" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-blue-600"><Info className="w-3.5 h-3.5" /> Stammdaten</TabsTrigger>
               <TabsTrigger value="steps" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-primary"><ClipboardList className="w-3.5 h-3.5" /> Ablauf</TabsTrigger>
               <TabsTrigger value="tasks" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-amber-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-amber-600"><CheckCircle className="w-3.5 h-3.5" /> Aufgaben</TabsTrigger>
-              <TabsTrigger value="media" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-indigo-600"><FileStack className="w-3.5 h-3.5" /> Medien</TabsTrigger>
             </TabsList>
             
             <TabsContent value="meta" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
-              <div className="flex-1 min-h-0 flex flex-col">
-                <ScrollArea className="flex-1 bg-white">
-                  <div className="p-6 space-y-6 pb-10">
-                    <div className="space-y-4">
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-slate-400">Prozesstitel</Label>
-                        <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="h-10 text-xs font-bold rounded-xl" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-slate-400">Fachliche Beschreibung</Label>
-                        <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[100px] text-xs leading-relaxed rounded-2xl" />
-                      </div>
-
-                      <Separator />
-                      
-                      <div className="space-y-4 p-4 bg-indigo-50/30 border border-indigo-100 rounded-2xl">
-                        <h4 className="text-[10px] font-black uppercase text-indigo-700 flex items-center gap-2">
-                          <Settings2 className="w-3.5 h-3.5" /> ISO 9001:2015 Anforderungen
-                        </h4>
-                        <div className="space-y-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-[9px] font-black uppercase text-slate-400">Inputs (Eingaben)</Label>
-                            <Textarea value={metaInputs} onChange={e => setMetaInputs(e.target.value)} placeholder="Was wird benötigt?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100 rounded-xl" />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-[9px] font-black uppercase text-slate-400">Outputs (Ergebnisse)</Label>
-                            <Textarea value={metaOutputs} onChange={e => setMetaOutputs(e.target.value)} placeholder="Was kommt raus?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100 rounded-xl" />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-[9px] font-black uppercase text-slate-400">Leistungskennzahlen (KPIs)</Label>
-                            <Textarea value={metaKpis} onChange={e => setMetaKpis(e.target.value)} placeholder="Messbarkeit des Prozesses?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100 rounded-xl" />
-                          </div>
-                        </div>
-                      </div>
-
-                      <Separator />
-
-                      <div className="space-y-4 p-4 bg-emerald-50/30 border border-emerald-100 rounded-2xl">
-                        <h4 className="text-[10px] font-black uppercase text-emerald-700 flex items-center gap-2">
-                          <FileCheck className="w-3.5 h-3.5" /> DSGVO Kontext
-                        </h4>
-                        <div className="space-y-1.5">
-                          <Label className="text-[9px] font-black uppercase text-slate-400">Verarbeitungszweck (VVT)</Label>
-                          <Select value={metaVvtId} onValueChange={setMetaVvtId}>
-                            <SelectTrigger className="h-10 text-xs bg-white border-emerald-100 rounded-xl"><SelectValue placeholder="Zweck wählen..." /></SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                              <SelectItem value="none">Kein VVT Bezug</SelectItem>
-                              {vvts?.filter(v => activeTenantId === 'all' || v.tenantId === activeTenantId).map(v => (
-                                <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-slate-400">Prozessverantwortlicher (Owner Rolle)</Label>
-                        <Select value={metaOwnerRoleId} onValueChange={setMetaOwnerRoleId}>
-                          <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            <SelectItem value="none">Nicht zugewiesen</SelectItem>
-                            {sortedRoles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(role => (
-                              <SelectItem key={role.id} value={role.id}>{getFullRoleName(role.id)}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
-                        <Select value={metaDeptId} onValueChange={setMetaDeptId}>
-                          <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            <SelectItem value="none">Keine Abteilung</SelectItem>
-                            {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => (
-                              <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-slate-400">Regulatorik / Standard</Label>
-                        <Select value={metaFramework} onValueChange={setMetaFramework}>
-                          <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            <SelectItem value="none">Kein Standard</SelectItem>
-                            {regulatoryOptions?.filter(o => o.enabled).map(o => (
-                              <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Separator />
-                      <div className="grid grid-cols-1 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-black uppercase text-slate-400">Automatisierung</Label>
-                          <Select value={metaAutomation} onValueChange={(v: any) => setMetaAutomation(v)}>
-                            <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                              <SelectItem value="manual">Manuell</SelectItem>
-                              <SelectItem value="partial">Teil-Automatisiert</SelectItem>
-                              <SelectItem value="full">Voll-Automatisiert</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-black uppercase text-slate-400">Datenvolumen</Label>
-                          <Select value={metaVolume} onValueChange={(v: any) => setMetaDataVolume(v)}>
-                            <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                              <SelectItem value="low">Niedrig (Low)</SelectItem>
-                              <SelectItem value="medium">Mittel (Medium)</SelectItem>
-                              <SelectItem value="high">Hoch (High)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-black uppercase text-slate-400">Frequenz</Label>
-                          <Select value={metaFrequency} onValueChange={(v: any) => setMetaFrequency(v)}>
-                            <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                              <SelectItem value="daily">Täglich</SelectItem>
-                              <SelectItem value="weekly">Wöchentlich</SelectItem>
-                              <SelectItem value="monthly">Monatlich</SelectItem>
-                              <SelectItem value="on_demand">Ad-hoc / Bedarf</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-slate-400">Offene Fragen / Klärungsbedarf</Label>
-                        <Textarea value={metaQuestions} onChange={e => setMetaQuestions(e.target.value)} className="min-h-[100px] text-xs rounded-2xl" placeholder="Was muss noch geklärt werden?..." />
-                      </div>
+              <ScrollArea className="flex-1 bg-white">
+                <div className="p-6 space-y-6 pb-10">
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Prozesstitel</Label>
+                      <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="h-10 text-xs font-bold rounded-xl" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Fachliche Beschreibung</Label>
+                      <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[100px] text-xs leading-relaxed rounded-2xl" />
+                    </div>
+                    <Separator />
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Owner (Rollen-Standardzuweisung)</Label>
+                      <Select value={metaOwnerRoleId} onValueChange={setMetaOwnerRoleId}>
+                        <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="none">Nicht zugewiesen</SelectItem>
+                          {sortedRoles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(role => (
+                            <SelectItem key={role.id} value={role.id}>{getFullRoleName(role.id)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
-                </ScrollArea>
-                <div className="p-4 border-t bg-slate-50 shrink-0">
-                  <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase gap-2 shadow-lg">
-                    {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} 
-                    Stammdaten sichern
-                  </Button>
                 </div>
+              </ScrollArea>
+              <div className="p-4 border-t bg-slate-50 shrink-0">
+                <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase gap-2 shadow-lg">
+                  {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} 
+                  Stammdaten sichern
+                </Button>
               </div>
             </TabsContent>
 
@@ -748,81 +549,23 @@ export default function ProcessDesignerPage() {
                 <div className="flex gap-1.5">
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
-                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md" onClick={() => handleQuickAdd('subprocess')}>+ Referenz</Button>
                 </div>
               </div>
               <ScrollArea className="flex-1 bg-slate-50/30">
                 <div className="p-4 space-y-2 pb-32">
-                  {(currentVersion?.model_json?.nodes || []).map((node: any, index: number) => {
-                    const nodeMedia = mediaFiles?.filter(m => m.entityId === id && m.subEntityId === node.id).length || 0;
-                    const nodeFeats = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id).length || 0;
-                    return (
-                      <div key={node.id} className={cn("group flex items-center gap-3 p-2 rounded-xl border transition-all cursor-pointer bg-white shadow-sm hover:border-primary/20", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}>
-                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border relative", node.type === 'decision' ? "bg-amber-50 text-amber-600" : node.type === 'subprocess' ? "bg-indigo-50 text-indigo-600" : "bg-slate-50 text-slate-500")}>
-                          {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : node.type === 'subprocess' ? <Network className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
-                          {nodeMedia > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white rounded-full flex items-center justify-center text-[8px] font-bold border border-white">{nodeMedia}</div>}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{node.title}</p>
-                          {node.description && <p className="text-[9px] text-slate-400 truncate mt-0.5">{node.description.substring(0, 40)}...</p>}
-                          <div className="flex items-center gap-2 mt-1">
-                            {node.resourceIds?.length > 0 && <span className="text-[7px] text-indigo-600 font-black uppercase">{node.resourceIds.length} Sys</span>}
-                            {nodeFeats > 0 && <span className="text-[7px] text-sky-600 font-black uppercase">{nodeFeats} Dat</span>}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
-                          <div className="flex flex-col gap-0.5">
-                            <Button variant="ghost" size="icon" className="h-5 w-5 p-0" onClick={(e) => { e.stopPropagation(); handleReorder(node.id, 'up'); }} disabled={index === 0}><ArrowUp className="w-3 h-3" /></Button>
-                            <Button variant="ghost" size="icon" className="h-5 w-5 p-0" onClick={(e) => { e.stopPropagation(); handleReorder(node.id, 'down'); }} disabled={index === (currentVersion?.model_json?.nodes?.length || 0) - 1}><ArrowDown className="w-3 h-3" /></Button>
-                          </div>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}><Trash2 className="w-3.5 h-3.5" /></Button>
-                        </div>
+                  {(currentVersion?.model_json?.nodes || []).map((node: any, index: number) => (
+                    <div key={node.id} className={cn("group flex items-center gap-3 p-2 rounded-xl border transition-all cursor-pointer bg-white shadow-sm hover:border-primary/20", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}>
+                      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border", node.type === 'decision' ? "bg-amber-50 text-amber-600" : "bg-slate-50 text-slate-500")}>
+                        {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
                       </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-
-            <TabsContent value="tasks" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
-              <div className="px-6 py-3 border-b bg-white flex items-center justify-between shrink-0">
-                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Offene Punkte</h4>
-                <Button variant="ghost" size="sm" className="h-7 text-[9px] font-bold text-primary gap-1" onClick={() => { setTaskTitle(''); setIsTaskDialogOpen(true); }}>
-                  <PlusCircle className="w-3.5 h-3.5" /> Hinzufügen
-                </Button>
-              </div>
-              <ScrollArea className="flex-1 bg-slate-50/30">
-                <div className="p-4 space-y-2 pb-32">
-                  {processTasks.map(t => (
-                    <div key={t.id} className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm group hover:border-amber-300 transition-all cursor-pointer" onClick={() => router.push('/tasks')}>
-                      <div className="flex items-center justify-between mb-1">
-                        <Badge variant="outline" className={cn("text-[7px] font-black uppercase h-3.5 px-1 border-none rounded-md", t.status === 'done' ? "bg-emerald-50 text-emerald-600" : t.priority === 'critical' ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-600")}>{t.status}</Badge>
-                        <span className="text-[8px] font-bold text-slate-400 flex items-center gap-1"><Clock className="w-2 h-2" /> {t.dueDate || '∞'}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{node.title}</p>
                       </div>
-                      <p className="text-[11px] font-bold text-slate-800 leading-tight">{t.title}</p>
-                      <p className="text-[9px] text-slate-400 mt-1 truncate">{pUsers?.find(u => u.id === t.assigneeId)?.displayName || 'Unzugewiesen'}</p>
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      </div>
                     </div>
                   ))}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-
-            <TabsContent value="media" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
-              <ScrollArea className="flex-1 bg-slate-50/30">
-                <div className="p-6 space-y-6">
-                  <div className="grid grid-cols-1 gap-3">
-                    {mediaFiles?.filter(m => m.entityId === id).map(m => (
-                      <div key={m.id} className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
-                          {m.fileType.includes('image') ? <Activity className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[10px] font-bold text-slate-800 truncate">{m.fileName}</p>
-                          <p className="text-[8px] text-slate-400 font-bold uppercase">{m.subEntityId ? 'Schritt-Anhang' : 'Global'}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               </ScrollArea>
             </TabsContent>
@@ -839,209 +582,8 @@ export default function ProcessDesignerPage() {
               <Button className="mt-6 rounded-xl h-11 px-8 font-bold text-xs" onClick={() => handleQuickAdd('step')}><PlusCircle className="w-4 h-4 mr-2" /> Ersten Prozessschritt anlegen</Button>
             </div>
           )}
-          <div className="fixed bottom-6 right-6 z-50">
-            <AiFormAssistant 
-              formType="gdpr" 
-              currentData={{ title: metaTitle, description: metaDesc, inputs: metaInputs, outputs: metaOutputs, kpis: metaKpis }} 
-              onApply={(s) => { if (s.title) setMetaTitle(s.title); if (s.description) setMetaDesc(s.description); toast({ title: "KI-Vorschläge übernommen" }); }} 
-            />
-          </div>
         </main>
       </div>
-
-      <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[90vh]">
-          <DialogHeader className="p-6 bg-white border-b pr-10">
-            <div className="flex items-center gap-5">
-              <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", localNodeEdits.type === 'decision' ? "bg-amber-50 text-amber-600" : localNodeEdits.type === 'subprocess' ? "bg-indigo-50 text-indigo-600" : "bg-primary/10 text-primary")}>
-                {localNodeEdits.type === 'decision' ? <GitBranch className="w-6 h-6" /> : localNodeEdits.type === 'subprocess' ? <Network className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
-              </div>
-              <div className="min-w-0 flex-1">
-                <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">{localNodeEdits.title || 'Schritt bearbeiten'}</DialogTitle>
-                <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{isReferenceNode ? 'Prozess-Verknüpfung' : 'Arbeitsschritt-Dokumentation'}</DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-          <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
-            <TabsList className="bg-slate-50 border-b h-11 px-6 justify-start rounded-none gap-6">
-              <TabsTrigger value="base" className="text-[10px] font-bold uppercase gap-2">Stammdaten</TabsTrigger>
-              {!isReferenceNode && (
-                <>
-                  <TabsTrigger value="logic" className="text-[10px] font-bold uppercase gap-2"><GitBranch className="w-3.5 h-3.5" /> Logik</TabsTrigger>
-                  <TabsTrigger value="resources" className="text-[10px] font-bold uppercase gap-2"><Server className="w-3.5 h-3.5" /> IT-Systeme</TabsTrigger>
-                  <TabsTrigger value="data" className="text-[10px] font-bold uppercase gap-2"><Tag className="w-3.5 h-3.5" /> Daten</TabsTrigger>
-                  <TabsTrigger value="details" className="text-[10px] font-bold uppercase gap-2">Details & Expertise</TabsTrigger>
-                </>
-              )}
-            </TabsList>
-            <ScrollArea className="flex-1">
-              <div className="p-8 space-y-10">
-                <TabsContent value="base" className="mt-0 space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1.5 md:col-span-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Bezeichnung</Label><Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 font-bold rounded-xl" /></div>
-                    {!isReferenceNode && (
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortliche Rolle</Label>
-                        <Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}>
-                          <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            {sortedRoles?.map(role => (
-                              <SelectItem key={role.id} value={role.id}>{getFullRoleName(role.id)}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    {isReferenceNode && (
-                      <div className="space-y-1.5 md:col-span-2">
-                        <Label className="text-[10px] font-bold uppercase text-indigo-600">Referenzierter Ziel-Prozess (Handover)</Label>
-                        <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, targetProcessId: val})}>
-                          <SelectTrigger className="h-11 rounded-xl bg-indigo-50 border-indigo-100"><SelectValue placeholder="Zielprozess wählen..." /></SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            <SelectItem value="none">Keine Referenz</SelectItem>
-                            {processes?.filter(p => p.id !== id).map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Kurzbeschreibung</Label><Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} className="text-xs min-h-[100px] rounded-xl" /></div>
-                </TabsContent>
-
-                {!isReferenceNode && (
-                  <>
-                    <TabsContent value="logic" className="mt-0 space-y-8">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-indigo-600 flex items-center gap-2 ml-1"><ArrowLeftCircle className="w-4 h-4" /> Vorgänger (Predecessors)</Label>
-                          <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
-                            {currentVersion?.model_json?.nodes?.filter((n: any) => n.id !== selectedNodeId).map((n: any) => (
-                              <div key={n.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, predecessorIds: prev.predecessorIds.includes(n.id) ? prev.predecessorIds.filter(id => id !== n.id) : [...prev.predecessorIds, n.id] }))}>
-                                <Checkbox checked={localNodeEdits.predecessorIds.includes(n.id)} className="rounded-md" />
-                                <span className="text-[11px] font-bold truncate">{n.title}</span>
-                              </div>
-                            ))}
-                          </ScrollArea>
-                        </div>
-                        <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-emerald-600 flex items-center gap-2 ml-1"><ArrowRightCircle className="w-4 h-4" /> Nachfolger (Successors)</Label>
-                          <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
-                            {currentVersion?.model_json?.nodes?.filter((n: any) => n.id !== selectedNodeId).map((n: any) => (
-                              <div key={n.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, successorIds: prev.successorIds.includes(n.id) ? prev.successorIds.filter(id => id !== n.id) : [...prev.successorIds, n.id] }))}>
-                                <Checkbox checked={localNodeEdits.successorIds.includes(n.id)} className="rounded-md" />
-                                <span className="text-[11px] font-bold truncate">{n.title}</span>
-                              </div>
-                            ))}
-                          </ScrollArea>
-                        </div>
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="resources" className="mt-0 space-y-6">
-                      <div className="space-y-4">
-                        <div className="relative group">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                          <Input 
-                            placeholder="IT-Systeme suchen..." 
-                            value={resSearch}
-                            onChange={(e) => setResSearch(e.target.value)}
-                            className="pl-10 h-11 rounded-xl"
-                          />
-                        </div>
-                        <ScrollArea className="h-[300px] border rounded-2xl bg-slate-50/30 p-4 shadow-inner">
-                          <div className="grid grid-cols-1 gap-3">
-                            {filteredResources.map(res => (
-                              <div key={res.id} className={cn("p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-sm group", localNodeEdits.resourceIds.includes(res.id) ? "border-indigo-500 bg-indigo-50/20" : "bg-white border-slate-100 hover:border-slate-200")} onClick={() => setLocalNodeEdits(prev => ({ ...prev, resourceIds: prev.resourceIds.includes(res.id) ? prev.resourceIds.filter(id => id !== res.id) : [...prev.resourceIds, res.id] }))}>
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                  <Checkbox checked={localNodeEdits.resourceIds.includes(res.id)} className="rounded-md" />
-                                  <div className="min-w-0">
-                                    <p className="text-[11px] font-bold text-slate-800 truncate">{res.name}</p>
-                                    <p className="text-[8px] text-slate-400 font-black uppercase">{res.assetType}</p>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </ScrollArea>
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="data" className="mt-0 space-y-10">
-                      <div className="space-y-4">
-                        <Label className="text-[10px] font-black uppercase text-sky-600 flex items-center gap-2 ml-1"><Tag className="w-4 h-4" /> Verarbeitete Daten</Label>
-                        <div className="grid grid-cols-1 gap-3">
-                          {allFeatures?.filter(f => f.status !== 'archived').map(feat => (
-                            <div key={feat.id} className={cn("p-3 border rounded-xl flex items-center justify-between cursor-pointer shadow-sm", localNodeEdits.featureIds.includes(feat.id) ? "border-sky-500 bg-sky-50/20" : "bg-white border-slate-100 hover:border-slate-200")} onClick={() => setLocalNodeEdits(prev => ({ ...prev, featureIds: prev.featureIds.includes(feat.id) ? prev.featureIds.filter(id => id !== feat.id) : [...prev.featureIds, feat.id] }))}>
-                              <Checkbox checked={localNodeEdits.featureIds.includes(feat.id)} className="rounded-md" />
-                              <div className="min-w-0 flex-1 ml-3"><p className="text-[11px] font-bold text-slate-800 truncate">{feat.name}</p></div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="details" className="mt-0 space-y-10">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-2 ml-1"><Lightbulb className="w-3.5 h-3.5" /> Tipps & Expertise</Label>
-                          <Textarea value={localNodeEdits.tips} onChange={e => setLocalNodeEdits({...localNodeEdits, tips: e.target.value})} className="text-xs min-h-[100px] rounded-xl bg-blue-50/20" />
-                        </div>
-                        <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-red-600 flex items-center gap-2 ml-1"><AlertCircle className="w-3.5 h-3.5" /> Häufige Fehler</Label>
-                          <Textarea value={localNodeEdits.errors} onChange={e => setLocalNodeEdits({...localNodeEdits, errors: e.target.value})} className="text-xs min-h-[100px] rounded-xl bg-red-50/20" />
-                        </div>
-                      </div>
-                    </TabsContent>
-                  </>
-                )}
-              </div>
-            </ScrollArea>
-          </DialogHeader>
-          <DialogFooter className="p-4 bg-slate-50 border-t flex items-center justify-between">
-            <Button variant="outline" size="sm" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs">Abbrechen</Button>
-            <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 bg-primary text-white shadow-sm font-bold text-xs gap-2">
-              <Save className="w-4 h-4" /> Speichern
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
-        <DialogContent className="max-w-md rounded-xl p-0 overflow-hidden border-none shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center text-primary shadow-sm border border-white/10">
-                <ClipboardList className="w-5 h-5" />
-              </div>
-              <div>
-                <DialogTitle className="text-base font-headline font-bold uppercase tracking-tight">Prozessaufgabe erstellen</DialogTitle>
-                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Klärungspunkt oder Maßnahme erfassen</DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-          <div className="p-6 space-y-6">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Bezeichnung</Label>
-              <Input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} className="h-11 rounded-xl font-bold" placeholder="z.B. IT-Schnittstelle klären..." />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verantwortlicher</Label>
-              <Select value={taskAssigneeId} onValueChange={setTaskAssigneeId}>
-                <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  {pUsers?.map(u => <SelectItem key={u.id} value={u.id} className="text-xs font-bold">{u.displayName}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter className="p-4 bg-slate-50 border-t">
-            <Button variant="ghost" onClick={() => setIsTaskDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
-            <Button onClick={handleCreateTask} disabled={isSavingTask || !taskTitle || !taskAssigneeId} className="rounded-xl bg-primary text-white font-bold text-[10px] h-11 px-8 shadow-sm gap-2">
-              {isSavingTask ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} Speichern
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

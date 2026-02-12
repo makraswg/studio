@@ -170,16 +170,14 @@ export default function UsersPage() {
       department,
       tenantId,
       title: userTitle,
-      enabled: selectedUser ? selectedUser.enabled : true,
+      enabled: selectedUser ? (selectedUser.enabled === true || selectedUser.enabled === 1) : true,
       lastSyncedAt: new Date().toISOString()
     };
 
     try {
       if (dataSource === 'mysql') {
         const res = await saveCollectionRecord('users', userId, userData, dataSource);
-        if (!res.success) {
-          throw new Error(res.error || "MySQL-Speicherfehler");
-        }
+        if (!res.success) throw new Error(res.error || "MySQL-Speicherfehler");
       } else {
         setDocumentNonBlocking(doc(db, 'users', userId), userData);
       }

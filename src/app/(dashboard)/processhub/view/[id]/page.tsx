@@ -107,20 +107,22 @@ export default function ProcessDetailViewPage() {
     return dept ? `${dept.name} — ${role.name}` : role.name;
   }, [jobTitles, departments]);
 
-  // --- Hierarchische Layout-Engine (Longest Path Prinzip) ---
+  /**
+   * Robust Hierarchical Layout Engine (Longest Path with Column Shifting)
+   * This ensures branches are visible side-by-side.
+   */
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
     const edges = activeVersion.model_json.edges || [];
     
     const levels: Record<string, number> = {};
-    const levelCounts: Record<number, number> = {};
     const nodeConfigs: any[] = [];
 
-    // 1. Level-Berechnung (Longest Path zur Behandlung von Verzweigungen/Merges)
+    // 1. Level Calculation (Ranks)
     nodes.forEach(n => levels[n.id] = 0);
     let changed = true;
-    let limit = nodes.length;
+    let limit = nodes.length * 2;
     while (changed && limit > 0) {
       changed = false;
       edges.forEach(edge => {
@@ -132,41 +134,66 @@ export default function ProcessDetailViewPage() {
       limit--;
     }
 
-    // 2. Horizontale Zuweisung (Zentriert innerhalb der Ebene)
-    nodes.sort((a, b) => levels[a.id] - levels[b.id]).forEach(n => {
-      const lv = levels[n.id];
-      const cl = levelCounts[lv] || 0;
-      levelCounts[lv] = cl + 1;
-      nodeConfigs.push({ ...n, level: lv, col: cl });
+    // 2. Hierarchical Column Assignment
+    // We walk through the graph to assign columns to branches
+    const columns: Record<string, number> = {};
+    const levelUsage: Record<number, number> = {};
+    
+    // Sort nodes by level to process them in order
+    const sortedNodes = [...nodes].sort((a, b) => levels[a.id] - levels[b.id]);
+    
+    sortedNodes.forEach(node => {
+      const lv = levels[node.id];
+      const parents = edges.filter(e => e.target === node.id);
+      
+      let col = 0;
+      if (parents.length > 0) {
+        // Try to place near primary parent
+        const parentCols = parents.map(p => columns[p.source]);
+        const primaryParentCol = parentCols[0];
+        
+        // Find next free column in this level starting from parent's column
+        col = primaryParentCol;
+        while (nodeConfigs.some(nc => nc.level === lv && (columns[nc.id] === col || columns[nc.id] === col))) {
+          col++;
+        }
+      } else {
+        // Root nodes
+        col = levelUsage[lv] || 0;
+      }
+      
+      columns[node.id] = col;
+      levelUsage[lv] = Math.max(levelUsage[lv] || 0, col + 1);
+      nodeConfigs.push({ ...node, level: lv, col: col });
     });
 
-    // 3. Grid-Positionierung mit symmetrischer Expansion
+    // 3. Coordinate Projection
     const H_GAP = 450;
-    const V_GAP = 180;
-    const COLLAPSED_W = 256;
+    const V_GAP = 220;
     const EXPANDED_W = 600;
+    const COLLAPSED_W = 256;
     const EXTRA_W = (EXPANDED_W - COLLAPSED_W);
 
     return nodeConfigs.map(n => {
-      const totalInLv = levelCounts[n.level];
-      const startX = -(totalInLv - 1) * (H_GAP / 2);
+      const lvSize = levelUsage[n.level];
+      const startX = -(lvSize - 1) * (H_GAP / 2);
       
       let x = startX + n.col * H_GAP;
       let y = n.level * V_GAP;
 
-      // Symmetrisches Shifting für den aktiven (erweiterten) Knoten
+      // Symmetrical Shifting for Active Node
       if (activeNodeId) {
-        const aConfig = nodeConfigs.find(ac => ac.id === activeNodeId);
-        if (aConfig) {
-          const aLv = aConfig.level;
-          const aCl = aConfig.col;
+        const activeNode = nodeConfigs.find(ac => ac.id === activeNodeId);
+        if (activeNode) {
+          const aLv = activeNode.level;
+          const aCol = columns[activeNodeId];
           
           if (n.level === aLv) {
-            if (n.col > aCl) x += (EXTRA_W / 2) + 40;
-            if (n.col < aCl) x -= (EXTRA_W / 2) + 40;
+            if (n.col > aCol) x += (EXTRA_W / 2) + 20;
+            if (n.col < aCol) x -= (EXTRA_W / 2) + 20;
           }
           if (n.level > aLv) {
-            y += 350; // Nachfolgende Ebenen nach unten schieben
+            y += 350; // Push following levels down
           }
         }
       }
@@ -196,7 +223,7 @@ export default function ProcessDetailViewPage() {
         const tW = tIsExp ? 600 : 256;
         const sH = sIsExp ? 400 : 80;
 
-        // Top-Entry / Bottom-Exit Logik
+        // BPMN Standard: Exit Bottom Center, Entry Top Center
         const sX = sNode.x + OFFSET_X + (sW / 2);
         const sY = sNode.y + OFFSET_Y + sH;
 
@@ -204,10 +231,9 @@ export default function ProcessDetailViewPage() {
         const tY = tNode.y + OFFSET_Y;
 
         const dy = tY - sY;
-        const cpOffset = Math.max(dy * 0.5, 60); 
+        const stub = 40; // Vertical stub for cleaner entrance/exit
         
-        // Cubic Bezier Pfad für elegante Kurven
-        const path = `M ${sX} ${sY} C ${sX} ${sY + cpOffset}, ${tX} ${tY - cpOffset}, ${tX} ${tY}`;
+        const path = `M ${sX} ${sY} L ${sX} ${sY + stub} C ${sX} ${sY + dy/2}, ${tX} ${tY - dy/2}, ${tX} ${tY - stub} L ${tX} ${tY}`;
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target });
       }
     });
@@ -218,13 +244,13 @@ export default function ProcessDetailViewPage() {
   const resetViewport = useCallback(() => {
     if (gridNodes.length === 0 || !containerRef.current) return;
     
-    const targetNode = gridNodes.find(n => n.type === 'start') || gridNodes[0];
+    const startNode = gridNodes.find(n => n.type === 'start') || gridNodes[0];
     const containerWidth = containerRef.current.clientWidth;
     const containerHeight = containerRef.current.clientHeight;
 
     setPosition({
-      x: -(targetNode.x + OFFSET_X) * scale + containerWidth / 2 - (128 * scale),
-      y: -(targetNode.y + OFFSET_Y) * scale + containerHeight / 2 - (40 * scale)
+      x: -(startNode.x + OFFSET_X) * scale + containerWidth / 2 - (128 * scale),
+      y: -(startNode.y + OFFSET_Y) * scale + containerHeight / 2 - (40 * scale)
     });
   }, [gridNodes, scale]);
 
@@ -254,7 +280,6 @@ export default function ProcessDetailViewPage() {
 
   const handleMouseUp = () => setIsDragging(false);
 
-  // Google Maps Style Zoom (Zoom to Cursor)
   const handleWheel = (e: React.WheelEvent) => {
     if (guideMode !== 'structure') return;
     e.preventDefault();
@@ -346,7 +371,7 @@ export default function ProcessDetailViewPage() {
             </ScrollArea>
           ) : (
             <div 
-              className="absolute inset-0 transition-transform duration-300 origin-top-left"
+              className="absolute inset-0 origin-top-left"
               style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`, width: '5000px', height: '5000px', zIndex: 10 }}
             >
               <svg className="absolute inset-0 pointer-events-none w-full h-full overflow-visible">

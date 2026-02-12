@@ -4,13 +4,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { getCollectionData } from '@/app/actions/mysql-actions';
 
-// Globaler Cache zur Vermeidung von unnötigen Re-Renders über Komponenten hinweg
+// Global cache to prevent unnecessary re-renders across components
 const mysqlCache: Record<string, { data: any[], timestamp: number, stringified: string }> = {};
 const CACHE_TTL = 30000; 
 
 /**
- * Optimierter MySQL Hook mit Inhaltsprüfung (Deep Comparison).
- * Verhindert das "Zucken" der UI, indem nur bei echten Datenänderungen ein Update ausgelöst wird.
+ * Optimized MySQL Hook with Deep Comparison.
+ * Prevents UI flickering by only triggering state updates when data content actually changes.
  */
 export function useMysqlCollection<T>(collectionName: string, enabled: boolean) {
   const [data, setData] = useState<T[] | null>(() => {
@@ -47,8 +47,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
         const newData = (result.data || []) as T[];
         const newDataString = JSON.stringify(newData);
         
-        // STABILITY CHECK: Nur updaten, wenn der Inhalt wirklich anders ist
-        // Dies verhindert das "Zucken" beim Hovern oder bei Polling ohne Änderungen
+        // STABILITY CHECK: Only update state if content is truly different
         if (newDataString !== prevDataString.current) {
           setData(newData);
           prevDataString.current = newDataString;
@@ -85,7 +84,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
 
     fetchData();
 
-    // Polling für Hintergrund-Aktualisierungen (alle 15s)
+    // Background polling (every 15s)
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchData(true); 

@@ -99,6 +99,7 @@ export default function ProcessDetailViewPage() {
   const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
 
   // --- Grid Layout Logic ---
+  // Memoized nodes with calculated grid positions
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
@@ -170,7 +171,7 @@ export default function ProcessDetailViewPage() {
         let tPortX = tNode.x + OFFSET_X + 128; // Center
         let tPortY = tNode.y + OFFSET_Y;       // Top
 
-        // Seitliches Routing bei großen Abständen
+        // Side routing for large distances (BPMN style)
         if (Math.abs(tNode.x - sNode.x) > 100) {
           if (tNode.x > sNode.x) {
             sPortX = sNode.x + OFFSET_X + 256;
@@ -251,7 +252,7 @@ export default function ProcessDetailViewPage() {
           isMapMode && (isActive ? "w-[600px] z-50 scale-110" : "w-64 z-10")
         )}
         onClick={(e) => {
-          e.stopPropagation();
+          e.stopPropagation(); // CRITICAL: Stop propagation to prevent background click from unselecting immediately
           setActiveNodeId(isActive ? null : node.id);
         }}
       >
@@ -330,8 +331,8 @@ export default function ProcessDetailViewPage() {
   if (!mounted) return null;
 
   return (
-    <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body">
-      {/* Debug HUD */}
+    <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body relative">
+      {/* Debug HUD: Top Left Fixed */}
       <div className="fixed top-20 left-80 z-[100] bg-slate-900/90 text-white p-3 rounded-xl border border-white/10 shadow-2xl pointer-events-none font-mono text-[9px] space-y-1">
         <div className="flex items-center gap-2 border-b border-white/10 pb-1 mb-1">
           <Terminal className="w-3 h-3 text-primary" />
@@ -396,7 +397,7 @@ export default function ProcessDetailViewPage() {
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
           onClick={() => {
-            setActiveNodeId(null);
+            setActiveNodeId(null); // Unselect when clicking background
           }}
         >
           {guideMode === 'list' ? (

@@ -1,3 +1,4 @@
+
 import mysql from 'mysql2/promise';
 
 // Die Zugangsdaten werden direkt aus den Umgebungsvariablen (.env) geladen.
@@ -15,7 +16,9 @@ function getPool() {
     const user = process.env.MYSQL_USER;
     const password = process.env.MYSQL_PASSWORD;
 
-    // Intelligent Docker Port Fix: If using service name 'compliance-db', force internal port 3306
+    // Intelligent Docker Port Recognition:
+    // If we are connecting to the internal docker service 'compliance-db',
+    // we MUST use the internal port 3306, regardless of external mappings.
     if (host === 'compliance-db' || host === 'compliance-hub-db') {
       port = 3306;
     }

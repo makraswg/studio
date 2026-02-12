@@ -4,15 +4,16 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { getCollectionData } from '@/app/actions/mysql-actions';
 
-// Globaler Cache zur Vermeidung von unnötigen Re-Renders
+// Global cache to persist data across hook instances and prevent flickering
 const mysqlCache: Record<string, { data: any[], timestamp: number }> = {};
 const CACHE_TTL = 10000; 
 
 /**
- * Ein robuster Hook zum Abrufen von MySQL-Daten mit Stabilitätsgarantie.
- * Verhindert "Zucken" durch intelligente Ladezustand-Steuerung.
+ * Enhanced MySQL data hook with deep stability.
+ * Prevents UI flickering by ensuring reference stability and silent background updates.
  */
 export function useMysqlCollection<T>(collectionName: string, enabled: boolean) {
+  // Use cached data as initial state to avoid empty state on fast navigation
   const [data, setData] = useState<T[] | null>(() => {
     const cached = mysqlCache[collectionName];
     if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
@@ -21,19 +22,17 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
     return null;
   });
   
-  // isLoading nur true, wenn wir wirklich noch keine Daten haben
+  // Only show loading if we don't have any data yet
   const [isLoading, setIsLoading] = useState(enabled && data === null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
-  const isInitialFetch = useRef(true);
-  const prevDataString = useRef<string>("");
+  const prevDataString = useRef<string>(data ? JSON.stringify(data) : "");
 
   const fetchData = useCallback(async (silent = false) => {
     if (!enabled) return;
     
-    // Nur beim allerersten Laden (oder nach Reset) den Loader zeigen
     if (!silent && !data) {
       setIsLoading(true);
     }
@@ -46,7 +45,8 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
         const newData = (result.data || []) as T[];
         const newDataString = JSON.stringify(newData);
         
-        // Nur updaten, wenn sich die Daten tatsächlich geändert haben
+        // CRITICAL: Only update state if content is truly different
+        // This prevents the "flickering" (re-renders triggered by reference changes)
         if (newDataString !== prevDataString.current) {
           setData(newData);
           prevDataString.current = newDataString;
@@ -58,7 +58,6 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
       setError(e.message || "Datenbankfehler");
     } finally {
       setIsLoading(false);
-      isInitialFetch.current = false;
     }
   }, [collectionName, enabled, data]);
 
@@ -77,9 +76,10 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
 
     fetchData();
 
+    // Polling for updates (silent background refresh)
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        fetchData(true); // Silent update im Hintergrund
+        fetchData(true); 
       }
     }, 30000); 
 

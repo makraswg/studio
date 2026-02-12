@@ -49,6 +49,7 @@ export function Toaster() {
                   className="h-8 w-8 rounded-md hover:bg-white/20 shrink-0" 
                   onClick={() => handleCopy(id, descString)}
                   title="Inhalt kopieren"
+                  type="button"
                 >
                   {copiedId === id ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5 opacity-50" />}
                 </Button>

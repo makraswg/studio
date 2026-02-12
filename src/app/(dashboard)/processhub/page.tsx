@@ -85,13 +85,17 @@ export default function ProcessHubOverview() {
   useEffect(() => { setMounted(true); }, []);
 
   const handleCreate = async () => {
-    if (!user || activeTenantId === 'all') {
-      toast({ variant: "destructive", title: "Fehler", description: "Bitte wählen Sie einen spezifischen Mandanten aus." });
+    // Falls kein Mandant ausgewählt ist, nutzen wir den ersten verfügbaren oder geben eine Meldung aus
+    const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
+    
+    if (!user) {
+      toast({ variant: "destructive", title: "Fehler", description: "Keine aktive Sitzung gefunden." });
       return;
     }
+
     setIsCreating(true);
     try {
-      const res = await createProcessAction(activeTenantId, "Neuer Prozess", '', dataSource);
+      const res = await createProcessAction(targetTenantId, "Neuer Prozess", '', dataSource);
       if (res.success) {
         toast({ title: "Prozess angelegt" });
         router.push(`/processhub/${res.processId}`);
@@ -106,11 +110,15 @@ export default function ProcessHubOverview() {
   // Automatischer Erstellungs-Workflow bei Parameter ?action=create
   useEffect(() => {
     if (mounted && searchParams.get('action') === 'create' && !isCreating) {
-      handleCreate();
-      // Parameter aus URL entfernen
-      const url = new URL(window.location.href);
-      url.searchParams.delete('action');
-      window.history.replaceState({}, '', url.toString());
+      // Kurze Verzögerung für Hydration-Abschluss
+      const timer = setTimeout(() => {
+        handleCreate();
+        // Parameter aus URL entfernen
+        const url = new URL(window.location.href);
+        url.searchParams.delete('action');
+        window.history.replaceState({}, '', url.toString());
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, [mounted, searchParams]);
 

@@ -46,7 +46,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department, Process, BackupJob, ResourceUpdateProcess, Risk, Feature, ProcessVersion, ServicePartnerContact, Assignment } from '@/lib/types';
+import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, Department, Process, BackupJob, ResourceUpdateProcess, Risk, Feature, ProcessVersion, ServicePartnerContact, Assignment, Entitlement } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportResourcesExcel } from '@/lib/export-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -160,6 +160,7 @@ function ResourcesPageContent() {
   const { data: assignments } = usePluggableCollection<Assignment>('assignments');
   const { data: features } = usePluggableCollection<Feature>('features');
   const { data: featureLinks } = usePluggableCollection<any>('feature_process_steps');
+  const { data: tenants } = usePluggableCollection<Tenant>('tenants');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -367,6 +368,12 @@ function ResourcesPageContent() {
     setLocalBackupJobs([]); setSelectedUpdateProcessIds([]); setNotes(''); setUrl('');
   };
 
+  const handleOpenNewProcessTab = () => {
+    if (confirm("Möchten Sie den ProcessHub in einem neuen Tab öffnen, um eine neue Rollen-Standardzuweisung oder einen Prozess anzulegen? Ihre aktuellen Eingaben in diesem Formular bleiben erhalten.")) {
+      window.open('/processhub?action=create', '_blank');
+    }
+  };
+
   const handleOpenBackupModal = (idx: number | null = null) => {
     if (idx !== null) { setBackupForm(localBackupJobs[idx]); setCurrentBackupIdx(idx); } else {
       setBackupForm({
@@ -407,12 +414,6 @@ function ResourcesPageContent() {
     allProcesses?.filter(p => p.process_type_id === 'pt-update' && p.title.toLowerCase().includes(updateProcSearch.toLowerCase())),
     [allProcesses, updateProcSearch]
   );
-
-  const handleOpenNewProcessTab = () => {
-    if (confirm("Möchten Sie den ProcessHub in einem neuen Tab öffnen, um einen neuen Prozess anzulegen? Ihre aktuellen Eingaben in diesem Formular bleiben erhalten.")) {
-      window.open('/processhub?action=create', '_blank');
-    }
-  };
 
   if (!mounted) return null;
 
@@ -769,20 +770,26 @@ function ResourcesPageContent() {
                     {updatesRequired && (
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Verknüpfte Update-Prozesse</Label>
-                          <div className="flex gap-2 items-center mb-3">
-                            <div className="relative group flex-1">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                              <Input 
-                                placeholder="Update-Prozesse suchen..." 
-                                value={updateProcSearch} 
-                                onChange={e => setUpdateProcSearch(e.target.value)}
-                                className="h-8 pl-8 text-[10px]"
-                              />
-                            </div>
-                            <Button variant="outline" size="icon" className="h-8 w-8 rounded-md shrink-0 border-blue-200 text-blue-600 hover:bg-blue-50" onClick={handleOpenNewProcessTab}>
-                              <Plus className="w-3.5 h-3.5" />
+                          <div className="flex items-center justify-between ml-1">
+                            <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Verknüpfte Update-Prozesse</Label>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              type="button"
+                              className="h-6 text-[8px] font-black uppercase text-blue-600 hover:bg-blue-50 gap-1 rounded-md" 
+                              onClick={handleOpenNewProcessTab}
+                            >
+                              <PlusCircle className="w-3 h-3" /> Prozess anlegen
                             </Button>
+                          </div>
+                          <div className="relative group flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                            <Input 
+                              placeholder="Update-Prozesse suchen..." 
+                              value={updateProcSearch} 
+                              onChange={e => setUpdateProcSearch(e.target.value)}
+                              className="h-8 pl-8 text-[10px]"
+                            />
                           </div>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -846,15 +853,21 @@ function ResourcesPageContent() {
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Zugehöriger Backup-Prozess</Label>
-                  <div className="flex gap-2 items-center mb-1.5">
-                    <div className="relative group flex-1">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                      <Input placeholder="Backup-Prozesse filtern..." value={backupProcSearch} onChange={e => setBackupProcSearch(e.target.value)} className="h-8 pl-8 text-[10px]" />
-                    </div>
-                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-md shrink-0 border-orange-200 text-orange-600 hover:bg-orange-50" onClick={handleOpenNewProcessTab}>
-                      <Plus className="w-3.5 h-3.5" />
+                  <div className="flex items-center justify-between ml-1">
+                    <Label className="text-[10px] font-bold uppercase text-slate-400">Zugehöriger Backup-Prozess</Label>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      type="button"
+                      className="h-6 text-[8px] font-black uppercase text-orange-600 hover:bg-orange-50 gap-1 rounded-md" 
+                      onClick={handleOpenNewProcessTab}
+                    >
+                      <PlusCircle className="w-3 h-3" /> Prozess anlegen
                     </Button>
+                  </div>
+                  <div className="relative group flex-1 mb-1.5">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                    <Input placeholder="Backup-Prozesse filtern..." value={backupProcSearch} onChange={e => setBackupProcSearch(e.target.value)} className="h-8 pl-8 text-[10px]" />
                   </div>
                   <Select value={backupForm.it_process_id || 'none'} onValueChange={v => setBackupForm({...backupForm, it_process_id: v})}>
                     <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Prozess wählen..." /></SelectTrigger>

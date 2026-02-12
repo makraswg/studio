@@ -2,7 +2,7 @@
 'use server';
 
 import { saveCollectionRecord, getCollectionData } from './mysql-actions';
-import { DataSource, SyncJob, Tenant } from '@/lib/types';
+import { DataSource, SyncJob, Tenant, User } from '@/lib/types';
 import { logAuditEventAction } from './audit-actions';
 
 /**
@@ -75,21 +75,54 @@ export async function updateJobStatusAction(
 
 /**
  * Triggert eine Synchronisation.
+ * Diese Funktion simuliert das Auslesen von AD-Identitäten und deren Gruppen.
  */
 export async function triggerSyncJobAction(jobId: string, dataSource: DataSource = 'mysql', actorUid: string = 'system') {
   // 1. Markiere als laufend
   await updateJobStatusAction(jobId, 'running', 'Synchronisation wurde manuell gestartet...', dataSource);
 
   try {
-    // Hier würde die Logik je nach Job-ID verzweigen
     if (jobId === 'job-ldap-sync') {
       // Simulation einer LDAP Synchronisation
-      await new Promise(resolve => setTimeout(resolve, 2500));
-      // In einer realen Welt würden hier LDAP-Queries laufen, die auch memberOf auslesen
-      await updateJobStatusAction(jobId, 'success', 'LDAP/AD Sync erfolgreich. Benutzer-Attribute und Gruppen-Zugehörigkeiten (memberOf) wurden abgeglichen.', dataSource);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      const tenantsRes = await getCollectionData('tenants', dataSource);
+      const tenant = tenantsRes.data?.[0] as Tenant;
+      
+      if (!tenant || !tenant.ldapEnabled) {
+        throw new Error("LDAP ist für diesen Mandanten nicht aktiviert.");
+      }
+
+      // Simulation: Wir "finden" 3 Nutzer im AD
+      const adUsers = [
+        { username: 'm.mustermann', first: 'Max', last: 'Mustermann', email: 'm.mustermann@firma.de', groups: ['G_IT_ADMIN', 'G_WODIS_KEYUSER'] },
+        { username: 'e.beispiel', first: 'Erika', last: 'Beispiel', email: 'e.beispiel@firma.de', groups: ['G_RECHT_LESER'] },
+        { username: 'j.doe', first: 'John', last: 'Doe', email: 'j.doe@firma.de', groups: ['G_FINANZ_BUCHHALTUNG'] }
+      ];
+
+      let updateCount = 0;
+      for (const adUser of adUsers) {
+        const userId = `u-ad-${adUser.username}`;
+        const userData: Partial<User> = {
+          id: userId,
+          tenantId: tenant.id,
+          externalId: adUser.username,
+          displayName: `${adUser.first} ${adUser.last}`,
+          email: adUser.email,
+          enabled: 1,
+          status: 'active',
+          lastSyncedAt: new Date().toISOString(),
+          adGroups: adUser.groups // Hier werden die memberOf Daten gespeichert
+        };
+        
+        await saveCollectionRecord('users', userId, userData, dataSource);
+        updateCount++;
+      }
+
+      const msg = `LDAP/AD Sync erfolgreich. ${updateCount} Identitäten wurden abgeglichen. Gruppen-Zugehörigkeiten (memberOf) wurden für die Drift-Detection aktualisiert.`;
+      await updateJobStatusAction(jobId, 'success', msg, dataSource);
     } 
     else if (jobId === 'job-jira-sync') {
-      // Jira Sync Simulation
       await new Promise(resolve => setTimeout(resolve, 2000));
       await updateJobStatusAction(jobId, 'success', 'Jira Gateway erfolgreich abgefragt. Warteschlange ist aktuell.', dataSource);
     }

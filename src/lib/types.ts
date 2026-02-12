@@ -87,7 +87,7 @@ export interface User {
   onboardingDate?: string;
   offboardingDate?: string;
   lastSyncedAt: string;
-  adGroups?: string[];
+  adGroups?: string[]; // Synchronisierte Gruppen aus memberOf
 }
 
 export interface Task {

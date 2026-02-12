@@ -356,8 +356,12 @@ export default function ProcessDetailViewPage() {
                 {connectionPaths.map((p) => (
                   <g key={p.id}>
                     <path d={p.path} fill="none" stroke={p.isActive ? "hsl(var(--primary))" : "#94a3b8"} strokeWidth={p.isActive ? "3" : "1.5"} markerEnd="url(#arrowhead-v)" className={cn("transition-all", animationsEnabled && p.isActive && "animate-flow-dash")} />
-                    {p.label && (<text className="text-[10px] font-bold fill-slate-500" style={{ filter: 'drop-shadow(0 1px 1px white)' }}><textPath href={`#path-v-${p.id}`} startOffset="50%" dy="-5" textAnchor="middle">{p.label}</textPath></text>)}
-                    <path id={`path-v-${p.id}`} d={p.path} fill="none" stroke="transparent" />
+                    {p.label && (
+                      <g transform={`translate(${(p.path.match(/C\s([\d.-]+)\s([\d.-]+)/) || [])[1]}, ${(p.path.match(/C\s([\d.-]+)\s([\d.-]+)/) || [])[2]})`}>
+                        <rect x="-30" y="-10" width="60" height="20" rx="4" fill="white" stroke="#cbd5e1" strokeWidth="1" />
+                        <text fontSize="9" fontWeight="bold" fill="#64748b" textAnchor="middle" dy="3">{p.label}</text>
+                      </g>
+                    )}
                   </g>
                 ))}
               </svg>
@@ -388,8 +392,8 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
     <Card className={cn("rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden", isActive ? "border-primary border-2 shadow-lg z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20", isMapMode && (isActive ? "w-[600px] h-[420px]" : "w-64 h-[82px]"))} style={isMapMode && isActive ? { transform: 'translateX(-172px)' } : {}} onClick={(e) => { e.stopPropagation(); setActiveNodeId(node.id); }}>
       <CardHeader className={cn("p-4 flex flex-row items-center justify-between gap-4 transition-colors", isExpanded ? "bg-slate-50 border-b" : "border-b-0")}>
         <div className="flex items-center gap-4 min-w-0">
-          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border", node.type === 'start' ? "bg-emerald-50 text-emerald-600" : node.type === 'decision' ? "bg-amber-50 text-amber-600" : "bg-primary/5 text-primary")}>
-            {node.type === 'start' ? <PlayCircle className="w-6 h-6" /> : node.type === 'decision' ? <HelpCircle className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
+          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border", node.type === 'start' ? "bg-emerald-50 text-emerald-600" : node.type === 'decision' ? "bg-amber-50 text-amber-600" : node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary/5 text-primary")}>
+            {node.type === 'start' ? <PlayCircle className="w-6 h-6" /> : node.type === 'decision' ? <HelpCircle className="w-6 h-6" /> : node.type === 'subprocess' ? <RefreshCw className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
           </div>
           <h4 className={cn("font-black uppercase tracking-tight text-slate-900 truncate", isMapMode && !isActive ? "text-[10px]" : "text-sm")}>{node.title}</h4>
         </div>
@@ -401,7 +405,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
             <p className="text-sm text-slate-700 leading-relaxed font-medium italic">"{node.description || '---'}"</p>
           </div>
           {nodeMedia && nodeMedia.length > 0 && (
-            <div className="pt-4 border-t"><Label className="text-[9px] font-black uppercase text-slate-400 mb-2 block">Materialien</Label><div className="flex flex-wrap gap-2">{nodeMedia.map((f: any) => (<div key={f.id} className="p-2 bg-slate-50 rounded-lg border text-[10px] font-bold" onClick={(e) => { e.stopPropagation(); window.open(f.fileUrl, '_blank'); }}>{f.fileName}</div>))}</div></div>
+            <div className="pt-4 border-t"><Label className="text-[9px] font-black uppercase text-slate-400 mb-2 block">Materialien</Label><div className="flex flex-wrap gap-2">{nodeMedia.map((f: any) => (<div key={f.id} className="p-2 bg-slate-50 rounded-lg border text-[10px] font-bold flex items-center gap-2 shadow-sm hover:bg-white transition-all" onClick={(e) => { e.stopPropagation(); window.open(f.fileUrl, '_blank'); }}><ImageIcon className="w-3 h-3 text-indigo-400" /> {f.fileName}</div>))}</div></div>
           )}
         </CardContent>
       )}

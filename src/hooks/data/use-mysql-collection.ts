@@ -9,8 +9,8 @@ const mysqlCache: Record<string, { data: any[], timestamp: number, stringified: 
 const CACHE_TTL = 30000; 
 
 /**
- * Optimized MySQL Hook with Deep Comparison.
- * Prevents UI flickering by only triggering state updates when data content actually changes.
+ * Optimized MySQL Hook with Deep Comparison and Avalanche Protection.
+ * Prevents UI flickering and infinite render loops by stabilizing state updates.
  */
 export function useMysqlCollection<T>(collectionName: string, enabled: boolean) {
   const [data, setData] = useState<T[] | null>(() => {
@@ -28,11 +28,18 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   const isMounted = useRef(true);
   const prevDataString = useRef<string>(mysqlCache[collectionName]?.stringified || "");
   const isFetchingRef = useRef(false);
+  const lastFetchTime = useRef(0);
 
   const fetchData = useCallback(async (silent = false) => {
+    // Avalanche protection: Prevent fetches within 500ms of each other for the same collection
+    const now = Date.now();
+    if (now - lastFetchTime.current < 500 && !silent) return;
+    
     if (!enabled || isFetchingRef.current || !isMounted.current) return;
     
     isFetchingRef.current = true;
+    lastFetchTime.current = now;
+
     if (!silent && !prevDataString.current) {
       setIsLoading(true);
     }
@@ -43,16 +50,17 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
 
       if (result.error) {
         setError(result.error);
-        // Retry logic for transient failures
+        // Throttle retry logic to avoid avalanche
         if (!silent) {
           setTimeout(() => {
             if (isMounted.current) setVersion(v => v + 1);
-          }, 2000);
+          }, 5000);
         }
       } else {
         const newData = (result.data || []) as T[];
         const newDataString = JSON.stringify(newData);
         
+        // Deep comparison to prevent render loop
         if (newDataString !== prevDataString.current) {
           setData(newData);
           prevDataString.current = newDataString;
@@ -89,11 +97,12 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
 
     fetchData();
 
+    // Slower refresh interval to save resources and prevent UI jitter
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchData(true); 
       }
-    }, 15000); 
+    }, 30000); 
 
     return () => {
       isMounted.current = false;

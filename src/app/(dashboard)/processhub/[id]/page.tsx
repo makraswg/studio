@@ -178,27 +178,6 @@ export default function ProcessDesignerPage() {
     return uiConfigs[0].enableAdvancedAnimations === true || uiConfigs[0].enableAdvancedAnimations === 1;
   }, [uiConfigs]);
 
-  useEffect(() => {
-    if (currentProcess) {
-      setMetaTitle(currentProcess.title || '');
-      setMetaDesc(currentProcess.description || '');
-      setMetaTypeId(currentProcess.process_type_id || 'none');
-      setMetaInputs(currentProcess.inputs || '');
-      setMetaOutputs(currentProcess.outputs || '');
-      setMetaKpis(currentProcess.kpis || '');
-      setMetaTags(currentProcess.tags || '');
-      setMetaOpenQuestions(currentProcess.openQuestions || '');
-      setMetaDeptId(currentProcess.responsibleDepartmentId || 'none');
-      setMetaOwnerRoleId(currentProcess.ownerRoleId || 'none');
-      setMetaFramework(currentProcess.regulatoryFramework || 'none');
-      setMetaAutomation(currentProcess.automationLevel || 'manual');
-      setMetaDataVolume(currentProcess.dataVolume || 'low');
-      setMetaFrequency(currentProcess.processingFrequency || 'on_demand');
-    }
-  }, [currentProcess]);
-
-  useEffect(() => { setMounted(true); }, []);
-
   // --- Map Calculation Logic ---
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
@@ -486,6 +465,16 @@ export default function ProcessDesignerPage() {
     reader.readAsDataURL(file);
   };
 
+  const addCheckItem = () => {
+    if (!newCheckItem.trim()) return;
+    setEditChecklist([...editChecklist, newCheckItem.trim()]);
+    setNewCheckItem('');
+  };
+
+  const removeCheckItem = (idx: number) => {
+    setEditChecklist(editChecklist.filter((_, i) => i !== idx));
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0 || stateRef.current.isDiagramLocked) return;
     setIsProgrammaticMove(false);
@@ -614,6 +603,10 @@ export default function ProcessDesignerPage() {
                   <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2" onClick={() => handleQuickAdd('decision')}><GitBranch className="w-3.5 h-3.5 text-amber-600" /> Weiche</Button>
                   <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2" onClick={() => handleQuickAdd('subprocess')}><RefreshCw className="w-3.5 h-3.5 text-indigo-600" /> Referenz</Button>
                 </div>
+                <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-2">
+                  <Zap className="w-3.5 h-3.5 text-blue-600 fill-current" />
+                  <p className="text-[9px] text-blue-700 font-bold leading-tight">Neu erzeugte Elemente werden automatisch mit dem aktiven Schritt verbunden.</p>
+                </div>
               </div>
               <ScrollArea className="flex-1 bg-slate-50/30">
                 <div className="p-4 space-y-2 pb-32">
@@ -647,7 +640,53 @@ export default function ProcessDesignerPage() {
                   </div>
                   <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-400">Beschreibung</Label><Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[80px] text-xs rounded-xl" /></div>
                 </section>
-                <div className="pt-4 border-t"><Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 text-white font-bold text-[10px] uppercase gap-2">{isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Stammdaten sichern</Button></div>
+
+                <section className="space-y-4">
+                  <h3 className="text-[10px] font-black uppercase text-indigo-600 border-b pb-2 flex items-center gap-2"><ArrowDownCircle className="w-3.5 h-3.5" /> Input & Output</h3>
+                  <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-400">Eingang (Inputs)</Label><Textarea value={metaInputs} onChange={e => setMetaInputs(e.target.value)} placeholder="Was wird benötigt?" className="min-h-[60px] text-xs rounded-xl" /></div>
+                  <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-400">Ergebnisse (Outputs)</Label><Textarea value={metaOutputs} onChange={e => setMetaOutputs(e.target.value)} placeholder="Was wird geliefert?" className="min-h-[60px] text-xs rounded-xl" /></div>
+                </section>
+
+                <section className="space-y-4">
+                  <h3 className="text-[10px] font-black uppercase text-primary border-b pb-2 flex items-center gap-2">
+                    <UserCircle className="w-3.5 h-3.5" /> Governance & Verantwortung
+                  </h3>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
+                    <Select value={metaDeptId} onValueChange={setMetaDeptId}><SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger><SelectContent>{departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase text-slate-400">Process Owner (Rolle)</Label>
+                    <Select value={metaOwnerRoleId} onValueChange={setMetaOwnerRoleId}><SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger><SelectContent>{jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}</SelectContent></Select>
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <h3 className="text-[10px] font-black uppercase text-emerald-600 border-b pb-2 flex items-center gap-2"><Scale className="w-3.5 h-3.5" /> Compliance & VVT</h3>
+                  <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl space-y-3">
+                    <div className="flex items-center gap-2">
+                      <FileCheck className="w-4 h-4 text-emerald-600" />
+                      <h4 className="text-[10px] font-black uppercase text-emerald-800">Rechenschaft</h4>
+                    </div>
+                    <p className="text-[9px] text-emerald-700 leading-relaxed italic">Diese Daten fließen direkt in den DSGVO-Bericht ein.</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase text-slate-400">Automatisierungsgrad</Label>
+                    <Select value={metaAutomation} onValueChange={(v:any) => setMetaAutomation(v)}><SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="manual">Manuell</SelectItem><SelectItem value="partial">Teil-Automatisiert</SelectItem><SelectItem value="full">Dunkelverarbeitung</SelectItem></SelectContent></Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase text-slate-400">Datenvolumen</Label>
+                    <Select value={metaVolume} onValueChange={(v:any) => setMetaDataVolume(v)}><SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Gering (Einzeldatensätze)</SelectItem><SelectItem value="medium">Mittel</SelectItem><SelectItem value="high">Massenverarbeitung</SelectItem></SelectContent></Select>
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <h3 className="text-[10px] font-black uppercase text-slate-400 border-b pb-2 flex items-center gap-2"><Tag className="w-3.5 h-3.5" /> Analyse</h3>
+                  <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-400">Messgrößen (KPIs)</Label><Textarea value={metaKpis} onChange={e => setMetaKpis(e.target.value)} placeholder="Erfolgskriterien..." className="min-h-[60px] text-xs rounded-xl" /></div>
+                  <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-400">Offene Fragen / Review</Label><Textarea value={metaOpenQuestions} onChange={e => setMetaOpenQuestions(e.target.value)} placeholder="Was ist noch zu klären?" className="min-h-[60px] text-xs rounded-xl border-amber-200 bg-amber-50/20" /></div>
+                </section>
+
+                <div className="pt-4 border-t pb-20"><Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 text-white font-bold text-[10px] uppercase gap-2 shadow-lg">{isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Stammdaten sichern</Button></div>
               </ScrollArea>
             </TabsContent>
           </Tabs>
@@ -673,14 +712,18 @@ export default function ProcessDesignerPage() {
               {connectionPaths.map((p, i) => (
                 <g key={i}>
                   <path d={p.path} fill="none" stroke={p.isActive ? "hsl(var(--primary))" : "#94a3b8"} strokeWidth={p.isActive ? "3" : "1.5"} markerEnd="url(#arrowhead)" className={cn("transition-all", animationsEnabled && p.isActive && "animate-flow-dash")} />
-                  {p.label && (<text className="text-[10px] font-bold fill-slate-500" style={{ filter: 'drop-shadow(0 1px 1px white)' }}><textPath href={`#path-${i}`} startOffset="50%" dy="-5" textAnchor="middle">{p.label}</textPath></text>)}
-                  <path id={`path-${i}`} d={p.path} fill="none" stroke="transparent" pointerEvents="none" />
+                  {p.label && (
+                    <g transform={`translate(${(p.path.match(/C\s([\d.-]+)\s([\d.-]+)/) || [])[1]}, ${(p.path.match(/C\s([\d.-]+)\s([\d.-]+)/) || [])[2]})`}>
+                      <rect x="-30" y="-10" width="60" height="20" rx="4" fill="white" stroke="#cbd5e1" strokeWidth="1" />
+                      <text fontSize="9" fontWeight="bold" fill="#64748b" textAnchor="middle" dy="3">{p.label}</text>
+                    </g>
+                  )}
                 </g>
               ))}
             </svg>
             {gridNodes.map(node => (
               <div key={node.id} className="absolute transition-all duration-500" style={{ left: node.x + OFFSET_X, top: node.y + OFFSET_Y }}>
-                <ProcessStepCard node={node} activeNodeId={selectedNodeId} setActiveNodeId={handleNodeClick} resources={resources} allFeatures={allFeatures} getFullRoleName={getFullRoleName} mediaCount={mediaFiles?.filter(m => m.subEntityId === node.id).length || 0} />
+                <ProcessStepCard node={node} activeNodeId={selectedNodeId} setActiveNodeId={handleNodeClick} resources={resources} allFeatures={allFeatures} getFullRoleName={getFullRoleName} mediaCount={mediaFiles?.filter(m => m.subEntityId === node.id).length || 0} isMapMode />
               </div>
             ))}
           </div>
@@ -735,12 +778,18 @@ export default function ProcessDesignerPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-4">
                         <Label className="text-[10px] font-black uppercase text-primary flex items-center gap-2"><Layers className="w-3.5 h-3.5" /> IT-Systeme</Label>
-                        <Input placeholder="Suchen..." value={resSearch} onChange={e => setResSearch(e.target.value)} className="h-8 text-[10px] rounded-lg" />
+                        <div className="relative group">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                          <Input placeholder="Suchen..." value={resSearch} onChange={e => setResSearch(e.target.value)} className="h-8 text-[10px] pl-8 rounded-lg" />
+                        </div>
                         <div className="p-4 rounded-xl border bg-slate-50/50"><ScrollArea className="h-48">{resources?.filter(res => res.name.toLowerCase().includes(resSearch.toLowerCase())).map(res => (<div key={res.id} className="flex items-center gap-3 p-2"><Checkbox checked={editResIds.includes(res.id)} onCheckedChange={v => setEditResIds(v ? [...editResIds, res.id] : editResIds.filter(id => id !== res.id))} /><span className="text-[11px] font-bold">{res.name}</span></div>))}</ScrollArea></div>
                       </div>
                       <div className="space-y-4">
                         <Label className="text-[10px] font-black uppercase text-emerald-600 flex items-center gap-2"><Database className="w-3.5 h-3.5" /> Datenobjekte</Label>
-                        <Input placeholder="Suchen..." value={featSearch} onChange={e => setFeatSearch(e.target.value)} className="h-8 text-[10px] rounded-lg" />
+                        <div className="relative group">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                          <Input placeholder="Suchen..." value={featSearch} onChange={e => setFeatSearch(e.target.value)} className="h-8 text-[10px] pl-8 rounded-lg" />
+                        </div>
                         <div className="p-4 rounded-xl border bg-slate-50/50"><ScrollArea className="h-48">{allFeatures?.filter(f => f.name.toLowerCase().includes(featSearch.toLowerCase())).map(f => (<div key={f.id} className="flex items-center gap-3 p-2"><Checkbox checked={editFeatIds.includes(f.id)} onCheckedChange={v => setEditFeatIds(v ? [...editFeatIds, f.id] : editFeatIds.filter(id => id !== f.id))} /><span className="text-[11px] font-bold">{f.name}</span></div>))}</ScrollArea></div>
                       </div>
                     </div>
@@ -748,16 +797,31 @@ export default function ProcessDesignerPage() {
                 </TabsContent>
 
                 <TabsContent value="rel" className="mt-0 space-y-10 animate-in fade-in">
+                  <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-4">
+                    <Network className="w-6 h-6 text-amber-600 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-amber-900 uppercase">Handover-Punkte</p>
+                      <p className="text-[10px] text-amber-700 font-medium leading-relaxed">Definieren Sie hier, wie Informationen in diesen Schritt gelangen und wohin sie weitergeleitet werden. Nutzen Sie Labels für Entscheidungs-Pfade (z.B. Ja/Nein).</p>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
-                      <Label className="text-[10px] font-black uppercase text-amber-600 flex items-center gap-2"><ArrowUpCircle className="w-4 h-4" /> Eingang (Input)</Label>
-                      <div className="p-4 rounded-xl border bg-white shadow-inner"><ScrollArea className="h-64">{activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id).map((n: any) => (<div key={n.id} className="flex items-center gap-3 p-2 cursor-pointer" onClick={() => setEditPredecessorIds(prev => prev.includes(n.id) ? prev.filter(id => id !== n.id) : [...prev, n.id])}><Checkbox checked={editPredecessorIds.includes(n.id)} /><span className="text-[11px] font-bold">{n.title}</span></div>))}</ScrollArea></div>
+                      <Label className="text-[10px] font-black uppercase text-amber-600 flex items-center gap-2 ml-1"><ArrowUpCircle className="w-4 h-4" /> Eingang (Vorgänger)</Label>
+                      <div className="relative group">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                        <Input placeholder="Filter..." value={predSearch} onChange={e => setPredSearch(e.target.value)} className="h-8 text-[10px] pl-8" />
+                      </div>
+                      <div className="p-4 rounded-xl border bg-white shadow-inner"><ScrollArea className="h-64">{activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id && n.title.toLowerCase().includes(predSearch.toLowerCase())).map((n: any) => (<div key={n.id} className="flex items-center gap-3 p-2 cursor-pointer" onClick={() => setEditPredecessorIds(prev => prev.includes(n.id) ? prev.filter(id => id !== n.id) : [...prev, n.id])}><Checkbox checked={editPredecessorIds.includes(n.id)} /><span className="text-[11px] font-bold">{n.title}</span></div>))}</ScrollArea></div>
                     </div>
                     <div className="space-y-4">
-                      <Label className="text-[10px] font-black uppercase text-amber-600 flex items-center gap-2"><ArrowDownCircle className="w-4 h-4" /> Ausgang (Output)</Label>
+                      <Label className="text-[10px] font-black uppercase text-amber-600 flex items-center gap-2 ml-1"><ArrowDownCircle className="w-4 h-4" /> Ausgang (Nachfolger)</Label>
+                      <div className="relative group">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                        <Input placeholder="Filter..." value={succSearch} onChange={e => setSuccSearch(e.target.value)} className="h-8 text-[10px] pl-8" />
+                      </div>
                       <div className="p-4 rounded-xl border bg-white shadow-inner">
                         <ScrollArea className="h-64">
-                          {activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id).map((n: any) => {
+                          {activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id && n.title.toLowerCase().includes(succSearch.toLowerCase())).map((n: any) => {
                             const link = editSuccessors.find(s => s.targetId === n.id);
                             return (
                               <div key={n.id} className="p-2 space-y-2 border-b last:border-0">
@@ -785,12 +849,16 @@ export default function ProcessDesignerPage() {
                         <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} disabled={isUploading} />
                         {isUploading ? <Loader2 className="w-8 h-8 animate-spin" /> : <FileUp className="w-8 h-8 text-slate-300" />}
                         <p className="text-xs font-bold text-slate-700">Klicken zum Hochladen</p>
+                        <p className="text-[10px] text-slate-400">Screenshots, Anleitungen, Belege</p>
                       </div>
                       <div className="space-y-2">
                         {mediaFiles?.filter(m => m.subEntityId === editingNode?.id).map(f => (
-                          <div key={f.id} className="p-2 bg-white border rounded-lg flex items-center justify-between shadow-sm">
-                            <span className="text-[10px] font-bold truncate max-w-[150px]">{f.fileName}</span>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => { if(confirm("Datei löschen?")) deleteMediaAction(f.id, f.tenantId, user?.email || 'admin', dataSource).then(() => refreshMedia()); }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                          <div key={f.id} className="p-2 bg-white border rounded-lg flex items-center justify-between shadow-sm group/file">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <ImageIcon className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                              <span className="text-[10px] font-bold truncate">{f.fileName}</span>
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover/file:opacity-100 transition-all" onClick={() => { if(confirm("Datei löschen?")) deleteMediaAction(f.id, f.tenantId, user?.email || 'admin', dataSource).then(() => refreshMedia()); }}><Trash2 className="w-3.5 h-3.5" /></Button>
                           </div>
                         ))}
                       </div>

@@ -18,7 +18,7 @@ export interface Tenant {
   ldapBindDn?: string;
   ldapBindPassword?: string;
   ldapUserFilter?: string;
-  // Neue LDAP Felder
+  // AD / LDAP Erweiterte Felder
   ldapDomain?: string;
   ldapUseTls?: boolean | number;
   ldapAllowInvalidSsl?: boolean | number;
@@ -27,6 +27,7 @@ export interface Tenant {
   ldapAttrUsername?: string;
   ldapAttrFirstname?: string;
   ldapAttrLastname?: string;
+  ldapAttrGroups?: string; // Neu: Für memberOf / Groups
 }
 
 export interface Department {

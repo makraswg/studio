@@ -23,7 +23,9 @@ import {
   Server,
   KeyRound,
   FileCheck,
-  Send
+  Send,
+  Users,
+  Info
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -116,7 +118,7 @@ export default function SyncSettingsPage() {
           <div className="flex items-center justify-between p-6 bg-primary/5 dark:bg-slate-950 rounded-xl border border-primary/10">
             <div className="space-y-1">
               <Label className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase">LDAP Integration aktiv</Label>
-              <p className="text-[10px] uppercase font-bold text-slate-400 italic">Synchronisiert Identitäten und Abteilungen automatisch.</p>
+              <p className="text-[10px] uppercase font-bold text-slate-400 italic">Synchronisiert Identitäten und Gruppen automatisch.</p>
             </div>
             <Switch 
               checked={!!tenantDraft.ldapEnabled} 
@@ -158,8 +160,8 @@ export default function SyncSettingsPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Bind DN (Nutzer)</Label>
-                <Input value={tenantDraft.ldapBindDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBindDn: e.target.value})} placeholder="CN=ServiceAccount,..." className="rounded-xl h-12" />
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Bind-Nutzer (UPN Format)</Label>
+                <Input value={tenantDraft.ldapBindDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBindDn: e.target.value})} placeholder="benutzer@domäne.local" className="rounded-xl h-12" />
               </div>
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Passwort</Label>
@@ -209,6 +211,20 @@ export default function SyncSettingsPage() {
                 <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Attribut: Nachname</Label>
                 <Input value={tenantDraft.ldapAttrLastname || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrLastname: e.target.value})} placeholder="sn" className="rounded-xl h-12" />
               </div>
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase text-indigo-600 ml-1">Attribut: Gruppen (AD: memberOf)</Label>
+                <Input value={tenantDraft.ldapAttrGroups || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrGroups: e.target.value})} placeholder="memberOf" className="rounded-xl h-12 border-indigo-100" />
+              </div>
+            </div>
+            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-3">
+              <Users className="w-5 h-5 text-indigo-600 shrink-0" />
+              <div className="space-y-1">
+                <p className="text-[11px] font-black uppercase text-indigo-900">Gruppen-Synchronisation</p>
+                <p className="text-[10px] text-indigo-700 italic leading-relaxed">
+                  Die ausgelesenen Gruppen werden für die <strong>Drift-Detection</strong> verwendet. 
+                  Der Hub vergleicht die tatsächlichen AD-Mitgliedschaften mit den im System definierten Rollen-Blueprints.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -252,7 +268,7 @@ export default function SyncSettingsPage() {
             </TableHeader>
             <TableBody>
               {[ 
-                { id: 'job-ldap-sync', name: 'LDAP / AD Identitäten-Sync', desc: 'Abgleich der Aufbauorganisation' }, 
+                { id: 'job-ldap-sync', name: 'LDAP / AD Identitäten-Sync', desc: 'Abgleich der Aufbauorganisation & Gruppen' }, 
                 { id: 'job-jira-sync', name: 'Jira Gateway Warteschlange', desc: 'Ticket-Status-Abfrage' } 
               ].map(job => {
                 const dbJob = syncJobs?.find(j => j.id === job.id);

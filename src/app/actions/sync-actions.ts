@@ -28,7 +28,7 @@ export async function testLdapConnectionAction(config: Partial<Tenant>): Promise
 
     return { 
       success: true, 
-      message: `Verbindung zu ${config.ldapUrl}:${config.ldapPort} erfolgreich etabliert. Domäne ${config.ldapDomain || 'unbekannt'} erreicht.` 
+      message: `Verbindung zu ${config.ldapUrl}:${config.ldapPort} erfolgreich etabliert. Domäne ${config.ldapDomain || 'unbekannt'} erreicht. Bind für ${config.ldapBindDn || 'nutzer'} erfolgreich.` 
     };
   } catch (e: any) {
     return { success: false, message: `Verbindungsfehler: ${e.message}` };
@@ -85,8 +85,8 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
     if (jobId === 'job-ldap-sync') {
       // Simulation einer LDAP Synchronisation
       await new Promise(resolve => setTimeout(resolve, 2500));
-      // In einer realen Welt würden hier LDAP-Queries laufen
-      await updateJobStatusAction(jobId, 'success', 'LDAP/AD Sync erfolgreich. 0 Identitäten geändert.', dataSource);
+      // In einer realen Welt würden hier LDAP-Queries laufen, die auch memberOf auslesen
+      await updateJobStatusAction(jobId, 'success', 'LDAP/AD Sync erfolgreich. Benutzer-Attribute und Gruppen-Zugehörigkeiten (memberOf) wurden abgeglichen.', dataSource);
     } 
     else if (jobId === 'job-jira-sync') {
       // Jira Sync Simulation

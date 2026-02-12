@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -108,8 +107,7 @@ export default function ProcessDetailViewPage() {
   }, [jobTitles, departments]);
 
   /**
-   * Robust Hierarchical Layout Engine (Longest Path with Column Shifting)
-   * This ensures branches are visible side-by-side.
+   * Hierarchical Layout Engine with branching support.
    */
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
@@ -117,9 +115,10 @@ export default function ProcessDetailViewPage() {
     const edges = activeVersion.model_json.edges || [];
     
     const levels: Record<string, number> = {};
-    const nodeConfigs: any[] = [];
+    const columns: Record<string, number> = {};
+    const levelOccupancy: Record<number, number> = {};
 
-    // 1. Level Calculation (Ranks)
+    // 1. Level Calculation (Ranks) using Longest Path to handle merges correctly
     nodes.forEach(n => levels[n.id] = 0);
     let changed = true;
     let limit = nodes.length * 2;
@@ -134,37 +133,13 @@ export default function ProcessDetailViewPage() {
       limit--;
     }
 
-    // 2. Hierarchical Column Assignment
-    // We walk through the graph to assign columns to branches
-    const columns: Record<string, number> = {};
-    const levelUsage: Record<number, number> = {};
-    
-    // Sort nodes by level to process them in order
+    // 2. Column Assignment (Horizontal spreading for branches)
     const sortedNodes = [...nodes].sort((a, b) => levels[a.id] - levels[b.id]);
-    
     sortedNodes.forEach(node => {
       const lv = levels[node.id];
-      const parents = edges.filter(e => e.target === node.id);
-      
-      let col = 0;
-      if (parents.length > 0) {
-        // Try to place near primary parent
-        const parentCols = parents.map(p => columns[p.source]);
-        const primaryParentCol = parentCols[0];
-        
-        // Find next free column in this level starting from parent's column
-        col = primaryParentCol;
-        while (nodeConfigs.some(nc => nc.level === lv && (columns[nc.id] === col || columns[nc.id] === col))) {
-          col++;
-        }
-      } else {
-        // Root nodes
-        col = levelUsage[lv] || 0;
-      }
-      
+      const col = levelOccupancy[lv] || 0;
       columns[node.id] = col;
-      levelUsage[lv] = Math.max(levelUsage[lv] || 0, col + 1);
-      nodeConfigs.push({ ...node, level: lv, col: col });
+      levelOccupancy[lv] = col + 1;
     });
 
     // 3. Coordinate Projection
@@ -174,27 +149,25 @@ export default function ProcessDetailViewPage() {
     const COLLAPSED_W = 256;
     const EXTRA_W = (EXPANDED_W - COLLAPSED_W);
 
-    return nodeConfigs.map(n => {
-      const lvSize = levelUsage[n.level];
+    return sortedNodes.map(n => {
+      const lvSize = levelOccupancy[levels[n.id]];
       const startX = -(lvSize - 1) * (H_GAP / 2);
       
-      let x = startX + n.col * H_GAP;
-      let y = n.level * V_GAP;
+      let x = startX + columns[n.id] * H_GAP;
+      let y = levels[n.id] * V_GAP;
 
-      // Symmetrical Shifting for Active Node
+      // Symmetrical Shifting if a node is expanded
       if (activeNodeId) {
-        const activeNode = nodeConfigs.find(ac => ac.id === activeNodeId);
-        if (activeNode) {
-          const aLv = activeNode.level;
-          const aCol = columns[activeNodeId];
-          
-          if (n.level === aLv) {
-            if (n.col > aCol) x += (EXTRA_W / 2) + 20;
-            if (n.col < aCol) x -= (EXTRA_W / 2) + 20;
-          }
-          if (n.level > aLv) {
-            y += 350; // Push following levels down
-          }
+        const activeNode = nodes.find(an => an.id === activeNodeId);
+        const aLv = levels[activeNodeId];
+        const aCol = columns[activeNodeId];
+        
+        if (levels[n.id] === aLv) {
+          if (columns[n.id] > aCol) x += (EXTRA_W / 2) + 20;
+          if (columns[n.id] < aCol) x -= (EXTRA_W / 2) + 20;
+        }
+        if (levels[n.id] > aLv) {
+          y += 350; // Push following levels down
         }
       }
 
@@ -223,7 +196,7 @@ export default function ProcessDetailViewPage() {
         const tW = tIsExp ? 600 : 256;
         const sH = sIsExp ? 400 : 80;
 
-        // BPMN Standard: Exit Bottom Center, Entry Top Center
+        // Routing: Exit Bottom Center, Entry Top Center
         const sX = sNode.x + OFFSET_X + (sW / 2);
         const sY = sNode.y + OFFSET_Y + sH;
 
@@ -231,7 +204,7 @@ export default function ProcessDetailViewPage() {
         const tY = tNode.y + OFFSET_Y;
 
         const dy = tY - sY;
-        const stub = 40; // Vertical stub for cleaner entrance/exit
+        const stub = 40; 
         
         const path = `M ${sX} ${sY} L ${sX} ${sY + stub} C ${sX} ${sY + dy/2}, ${tX} ${tY - dy/2}, ${tX} ${tY - stub} L ${tX} ${tY}`;
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target });

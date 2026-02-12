@@ -1,11 +1,12 @@
+
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getCollectionData } from '@/app/actions/mysql-actions';
 
 /**
  * Global store to synchronize collection state across all hook instances.
- * This prevents infinite loops and redundant network requests.
+ * Implements a stale-while-revalidate pattern for immediate UI response.
  */
 const globalStore: Record<string, {
   data: any[] | null;
@@ -33,6 +34,8 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
     error: globalStore[collectionName].error
   });
 
+  const isMounted = useRef(true);
+
   const notifySubscribers = useCallback(() => {
     const currentState = {
       data: globalStore[collectionName].data,
@@ -59,6 +62,8 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
       store.promise = getCollectionData(collectionName);
       const result = await store.promise;
       
+      if (!isMounted.current) return;
+
       if (result.error) {
         store.error = result.error;
       } else {
@@ -75,21 +80,23 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   }, [collectionName, notifySubscribers]);
 
   const refresh = useCallback(() => {
-    // Clear global store data before re-fetching
-    globalStore[collectionName].data = null;
+    // We DON'T clear data here to keep the UI stable (stale-while-revalidate)
     fetchData(true);
-  }, [collectionName, fetchData]);
+  }, [fetchData]);
 
   useEffect(() => {
+    isMounted.current = true;
     if (!enabled) return;
 
     const store = globalStore[collectionName];
     const updateLocal = (newState: any) => {
-      setLocalState(prev => {
-        // Deep stringify check to prevent unnecessary re-renders if data is content-identical
-        if (JSON.stringify(prev) === JSON.stringify(newState)) return prev;
-        return newState;
-      });
+      if (isMounted.current) {
+        setLocalState(prev => {
+          // Optimization: avoid re-renders if content is identical
+          if (JSON.stringify(prev) === JSON.stringify(newState)) return prev;
+          return newState;
+        });
+      }
     };
 
     store.subscribers.add(updateLocal);
@@ -98,6 +105,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
     fetchData();
 
     return () => {
+      isMounted.current = false;
       store.subscribers.delete(updateLocal);
     };
   }, [collectionName, enabled, fetchData]);

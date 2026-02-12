@@ -30,9 +30,11 @@ function getPool() {
       user,
       password,
       waitForConnections: true,
-      connectionLimit: 10,
+      connectionLimit: 20, // Erhöht für bessere Performance bei vielen parallelen Requests
       queueLimit: 0,
-      connectTimeout: 10000,
+      connectTimeout: 15000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10000
     });
     
     return pool;

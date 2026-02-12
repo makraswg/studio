@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
@@ -126,12 +127,13 @@ export async function getCollectionData(collectionName: string, dataSource: Data
   try {
     connection = await getMysqlConnection();
     const [rows] = await connection.execute(`SELECT * FROM \`${tableName}\``);
-    connection.release();
     const data = (rows as any[]).map((item: any) => normalizeRecord(item, tableName));
     return { data, error: null };
   } catch (error: any) {
-    if (connection) connection.release();
+    console.error(`[MySQL-Fetch-Error] ${tableName}:`, error.message);
     return { data: null, error: error.message };
+  } finally {
+    if (connection) connection.release();
   }
 }
 
@@ -146,12 +148,13 @@ export async function getSingleRecord(collectionName: string, id: string, dataSo
   try {
     connection = await getMysqlConnection();
     const [rows]: any = await connection.execute(`SELECT * FROM \`${tableName}\` WHERE id = ? LIMIT 1`, [id]);
-    connection.release();
     if (!rows || rows.length === 0) return { data: null, error: null };
     return { data: normalizeRecord(rows[0], tableName), error: null };
   } catch (error: any) {
-    if (connection) connection.release();
+    console.error(`[MySQL-Single-Error] ${tableName}:`, error.message);
     return { data: null, error: error.message };
+  } finally {
+    if (connection) connection.release();
   }
 }
 
@@ -178,7 +181,6 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     connection = await getMysqlConnection();
     const preparedData: any = { id };
     
-    // Strict schema-aware filtering: Only allow fields that exist in the database table
     validColumns.forEach(col => {
       if (data[col] !== undefined) {
         let val = data[col];
@@ -195,12 +197,12 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     const sql = `INSERT INTO \`${tableName}\` (\`${keys.join('`, `')}\`) VALUES (${placeholders}) ON DUPLICATE KEY UPDATE ${updates}`;
     
     await connection.execute(sql, values);
-    connection.release();
     return { success: true, error: null };
   } catch (error: any) {
-    if (connection) connection.release();
-    console.error(`[MySQL-Error] ${tableName}:`, error.message);
+    console.error(`[MySQL-Save-Error] ${tableName}:`, error.message);
     return { success: false, error: error.message };
+  } finally {
+    if (connection) connection.release();
   }
 }
 
@@ -211,11 +213,12 @@ export async function deleteCollectionRecord(collectionName: string, id: string,
   try {
     connection = await getMysqlConnection();
     await connection.execute(`DELETE FROM \`${tableName}\` WHERE id = ?`, [id]);
-    connection.release();
     return { success: true, error: null };
   } catch (error: any) {
-    if (connection) connection.release();
+    console.error(`[MySQL-Delete-Error] ${tableName}:`, error.message);
     return { success: false, error: error.message };
+  } finally {
+    if (connection) connection.release();
   }
 }
 
@@ -229,11 +232,12 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       try { await connection.execute(`DELETE FROM \`${table}\``); } catch (e) {}
     }
     await connection.execute('SET FOREIGN_KEY_CHECKS = 1');
-    connection.release();
     return { success: true, message: "Daten bereinigt." };
   } catch (error: any) {
-    if (connection) { await connection.execute('SET FOREIGN_KEY_CHECKS = 1'); connection.release(); }
+    console.error(`[MySQL-Truncate-Error]:`, error.message);
     return { success: false, message: error.message };
+  } finally {
+    if (connection) connection.release();
   }
 }
 
@@ -251,11 +255,11 @@ export async function updatePlatformUserPasswordAction(email: string, password: 
       'UPDATE `platformUsers` SET `password` = ? WHERE `email` = ?',
       [hashedPassword, email]
     );
-    connection.release();
     return { success: true };
   } catch (error: any) {
-    if (connection) connection.release();
     console.error("Password update failed:", error);
     return { success: false };
+  } finally {
+    if (connection) connection.release();
   }
 }

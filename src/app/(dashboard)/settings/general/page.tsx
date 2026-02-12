@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -47,13 +48,17 @@ export default function GeneralSettingsPage() {
       }, dataSource);
 
       if (res.success) {
-        toast({ title: "Gespeichert" });
+        toast({ title: "Mandant erfolgreich aktualisiert" });
         refresh();
       } else {
-        throw new Error(res.error || "Fehler beim Speichern");
+        throw new Error(res.error || "Datenbankfehler beim Speichern.");
       }
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehlgeschlagen", description: e.message });
+      toast({ 
+        variant: "destructive", 
+        title: "Speichern fehlgeschlagen", 
+        description: e.message || "Prüfen Sie Ihre Internetverbindung." 
+      });
     } finally {
       setIsSaving(false);
     }
@@ -78,7 +83,13 @@ export default function GeneralSettingsPage() {
       <CardContent className="p-8 space-y-10">
         <div className="space-y-3">
           <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Unternehmensname</Label>
-          <Input value={tenantName} onChange={e => setTenantName(e.target.value)} className="rounded-xl h-12 font-bold text-base" placeholder="z.B. Acme Corp" />
+          <Input 
+            value={tenantName} 
+            onChange={e => setTenantName(e.target.value)} 
+            className="rounded-xl h-12 font-bold text-base bg-slate-50/30" 
+            placeholder="z.B. Acme Corp" 
+            disabled={isSaving}
+          />
         </div>
 
         <div className="space-y-6 pt-6 border-t border-slate-100 dark:border-slate-800">
@@ -90,12 +101,17 @@ export default function GeneralSettingsPage() {
             value={tenantDescription} 
             onChange={e => setTenantDescription(e.target.value)}
             placeholder="Beschreiben Sie Ihre Firma für die KI..."
-            className="min-h-[150px] rounded-xl p-4 text-xs font-medium"
+            className="min-h-[150px] rounded-xl p-4 text-xs font-medium bg-slate-50/30"
+            disabled={isSaving}
           />
         </div>
 
         <div className="flex justify-end pt-8 border-t border-slate-100 dark:border-slate-800">
-          <Button onClick={handleSave} disabled={isSaving} className="rounded-xl font-black uppercase text-xs h-12 px-12 gap-3 shadow-lg">
+          <Button 
+            onClick={handleSave} 
+            disabled={isSaving} 
+            className="rounded-xl font-black uppercase text-xs h-12 px-12 gap-3 shadow-lg transition-all active:scale-95"
+          >
             {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             Änderungen Speichern
           </Button>

@@ -96,7 +96,7 @@ export default function ProcessDetailViewPage() {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [lastMousePos, setLastMousePos] = useState({ x: e.clientX, y: e.clientY } as any);
+  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
   const [mouseDownTime, setMouseDownTime] = useState(0);
   const [isProgrammaticMove, setIsProgrammaticMove] = useState(false);
   

@@ -344,6 +344,7 @@ export default function ProcessDesignerPage() {
     setEditResIds(node.resourceIds || []);
     setEditFeatIds(node.featureIds || []);
     setEditChecklist(node.checklist || []);
+    setEditChecklist(node.checklist || []);
     setEditTips(node.tips || '');
     setEditErrors(node.errors || '');
     setEditTargetProcessId(node.targetProcessId || '');
@@ -955,10 +956,10 @@ export default function ProcessDesignerPage() {
       {/* Node Editor Dialog */}
       <Dialog open={isNodeEditorOpen} onOpenChange={setIsNodeEditorOpen}>
         <DialogContent className="max-w-4xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-primary/5 text-slate-900 shrink-0 pr-10">
+          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
             <div className="flex items-center gap-5">
               <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shadow-lg border border-primary/20", 
-                editType === 'decision' ? "bg-amber-500 text-white" : editType === 'end' ? "bg-red-500 text-white" : editType === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary text-white"
+                editType === 'decision' ? "bg-amber-500 text-white" : editType === 'end' ? "bg-red-50 text-white" : editType === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary text-white"
               )}>
                 {editType === 'decision' ? <GitBranch className="w-6 h-6" /> : editType === 'subprocess' ? <RefreshCw className="w-6 h-6" /> : editType === 'end' ? <StopCircle className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
               </div>

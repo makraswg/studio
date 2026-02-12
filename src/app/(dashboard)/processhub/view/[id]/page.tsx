@@ -67,9 +67,6 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { updateProcessMetadataAction } from '@/app/actions/process-actions';
-import { toast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 
 export default function ProcessDetailViewPage() {
@@ -135,6 +132,8 @@ export default function ProcessDetailViewPage() {
     }));
   }, [activeVersion]);
 
+  useEffect(() => { setMounted(true); }, []);
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0 || guideMode !== 'structure') return;
     setIsDragging(true);
@@ -195,6 +194,7 @@ export default function ProcessDetailViewPage() {
         let sX, sY, tX, tY;
         let path = '';
 
+        // Logical path calculation
         if (Math.abs(dx) > Math.abs(dy) * 1.5) {
           sX = sourceNode.x + OFFSET_X + (dx > 0 ? 256 : 0);
           sY = sourceNode.y + OFFSET_Y + 40;
@@ -223,7 +223,6 @@ export default function ProcessDetailViewPage() {
   }, [activeNodeId, activeVersion, viewMode, guideMode, gridNodes]);
 
   useEffect(() => {
-    setMounted(true);
     window.addEventListener('resize', updateFlowLines);
     return () => window.removeEventListener('resize', updateFlowLines);
   }, [updateFlowLines]);
@@ -252,10 +251,11 @@ export default function ProcessDetailViewPage() {
     return dept ? `${dept.name} — ${role.name}` : role.name;
   };
 
-  if (!mounted) return null;
-
   const GuideCard = ({ node, isMapMode = false }: { node: ProcessNode, isMapMode?: boolean }) => {
     const isActive = activeNodeId === node.id;
+    // Always expanded in list mode, only on activation in map mode
+    const isExpanded = !isMapMode || isActive;
+    
     const roleName = getFullRoleName(node.roleId);
     const nodeResources = resources?.filter(r => node.resourceIds?.includes(r.id));
     const nodeFeatures = allFeatures?.filter(f => node.featureIds?.includes(f.id));
@@ -265,15 +265,21 @@ export default function ProcessDetailViewPage() {
         id={isMapMode ? `map-node-${node.id}` : `card-${node.id}`}
         className={cn(
           "rounded-2xl border shadow-sm transition-all duration-300 bg-white group cursor-pointer relative",
-          isActive ? "ring-4 ring-primary/10 border-primary shadow-xl z-50 w-[600px]" : "hover:border-primary/20 w-full",
-          isMapMode && !isActive && "w-64"
+          isMapMode 
+            ? (isActive ? "ring-4 ring-primary/10 border-primary shadow-xl z-50 w-[600px]" : "hover:border-primary/20 w-64")
+            : "w-full border-primary/10 shadow-md",
+          isActive && isMapMode && "scale-105"
         )}
         onClick={(e) => {
           e.stopPropagation();
-          setActiveNodeId(isActive ? null : node.id);
+          if (isMapMode) {
+            setActiveNodeId(isActive ? null : node.id);
+          } else {
+            setActiveNodeId(node.id);
+          }
         }}
       >
-        <CardHeader className={cn("p-4 border-b flex flex-row items-center justify-between gap-4 rounded-t-2xl bg-white", isActive && "bg-slate-50")}>
+        <CardHeader className={cn("p-4 border-b flex flex-row items-center justify-between gap-4 rounded-t-2xl bg-white", isExpanded && "bg-slate-50/50")}>
           <div className="flex items-center gap-4 min-w-0">
             <div className={cn(
               "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-inner",
@@ -293,16 +299,16 @@ export default function ProcessDetailViewPage() {
               </div>
             </div>
           </div>
-          {(!isMapMode || isActive) && (
+          {isExpanded && (
             <div className="flex gap-1.5 shrink-0">
-              {nodeResources?.slice(0, 2).map(res => (
+              {nodeResources?.slice(0, 3).map(res => (
                 <Badge key={res.id} className="bg-indigo-50 text-indigo-700 text-[8px] font-black border-none h-5 px-1.5 rounded-md shadow-none">{res.name}</Badge>
               ))}
             </div>
           )}
         </CardHeader>
 
-        {isActive && (
+        {isExpanded && (
           <CardContent className="p-0 animate-in fade-in zoom-in-95 duration-200">
             <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-100">
               <div className="md:col-span-7 p-6 space-y-6">
@@ -345,6 +351,8 @@ export default function ProcessDetailViewPage() {
     );
   };
 
+  if (!mounted) return null;
+
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body">
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
@@ -362,7 +370,7 @@ export default function ProcessDetailViewPage() {
         <div className="flex items-center gap-4">
           <div className="bg-slate-100 p-1 rounded-xl flex gap-1 border">
             <Button variant={guideMode === 'list' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-bold uppercase px-3" onClick={() => setGuideMode('list')}><List className="w-3.5 h-3.5 mr-1.5" /> Liste</Button>
-            <Button variant={guideMode === 'structure' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-bold uppercase px-3" onClick={() => setGuideMode('structure')}><LayoutGrid className="w-3.5 h-3.5 mr-1.5" /> Landkarte</Button>
+            <Button variant={guideMode === 'structure' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-bold uppercase px-3" onClick={() => { setGuideMode('structure'); resetViewport(); }}><LayoutGrid className="w-3.5 h-3.5 mr-1.5" /> Landkarte</Button>
           </div>
           <div className="w-px h-8 bg-slate-200" />
           <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4 gap-2 border-primary/20 text-primary hover:bg-primary/5 shadow-sm" onClick={() => router.push(`/processhub/${id}`)}><Edit3 className="w-3.5 h-3.5" /> Designer öffnen</Button>
@@ -411,9 +419,9 @@ export default function ProcessDetailViewPage() {
           {viewMode === 'guide' ? (
             guideMode === 'list' ? (
               <ScrollArea className="flex-1 p-6 md:p-10">
-                <div className="max-w-full mx-auto space-y-4 pb-64">
+                <div className="max-w-5xl mx-auto space-y-6 pb-64">
                   {activeVersion?.model_json?.nodes?.map((node: ProcessNode) => (
-                    <div key={node.id} className="flex justify-center w-full">
+                    <div key={node.id} className="w-full">
                       <GuideCard node={node} />
                     </div>
                   ))}
@@ -437,7 +445,7 @@ export default function ProcessDetailViewPage() {
                     </marker>
                   </defs>
                   {connectionPaths.map((pathObj, i) => {
-                    // Only show paths related to the active node
+                    // Only show paths related to the active node in map mode
                     if (activeNodeId && (activeNodeId === pathObj.sourceId || activeNodeId === pathObj.targetId)) {
                       return (
                         <path 

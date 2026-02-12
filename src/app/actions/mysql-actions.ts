@@ -170,6 +170,8 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
   if (!tableName) return { success: false, error: `Tabelle nicht gefunden: ${collectionName}` };
   
   const tableDef = appSchema[tableName];
+  if (!tableDef) return { success: false, error: `Schema-Definition fehlt für: ${tableName}` };
+  
   const validColumns = Object.keys(tableDef.columns);
 
   let connection;
@@ -177,6 +179,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     connection = await getMysqlConnection();
     const preparedData: any = { id };
     
+    // Strict schema-aware filtering
     validColumns.forEach(col => {
       if (data[col] !== undefined) {
         let val = data[col];

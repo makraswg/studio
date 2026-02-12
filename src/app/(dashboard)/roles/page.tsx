@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -100,6 +101,16 @@ export default function RolesManagementPage() {
   }, []);
 
   const isSuperAdmin = user?.role === 'superAdmin';
+
+  const resetForm = () => {
+    setSelectedRole(null);
+    setName('');
+    setDescription('');
+    setResourceId('');
+    setRiskLevel('low');
+    setIsAdmin(false);
+    setExternalMapping('');
+  };
 
   const handleSave = async () => {
     if (!name || !resourceId) {
@@ -282,7 +293,7 @@ export default function RolesManagementPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
-                      <div className="flex justify-end gap-1.5">
+                      <div className="flex justify-end items-center gap-1.5">
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => router.push(`/roles/${role.id}`)}>
                           <Eye className="w-3.5 h-3.5 text-primary" />
                         </Button>
@@ -318,7 +329,7 @@ export default function RolesManagementPage() {
         )}
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={(v) => !v && setIsDialogOpen(false)}>
         <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
           <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b shrink-0 pr-8">
             <div className="flex items-center justify-between w-full">

@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,7 +41,7 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { Tenant, Department, JobTitle, Entitlement, Resource, Process, ProcessVersion } from '@/lib/types';
+import { Tenant, Department, JobTitle, Entitlement, Resource } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -54,23 +55,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { usePlatformAuth } from '@/context/auth-context';
-import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
-import { useRouter } from 'next/navigation';
 import { Textarea } from '@/components/ui/textarea';
 
 export default function UnifiedOrganizationPage() {
   const { dataSource, activeTenantId } = useSettings();
   const { user: authPlatformUser } = usePlatformAuth();
-  const router = useRouter();
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState('list');
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState('');
   
@@ -91,16 +84,11 @@ export default function UnifiedOrganizationPage() {
   const [jobDesc, setJobDesc] = useState('');
   const [jobEntitlementIds, setJobEntitlementIds] = useState<string[]>([]);
   const [isSavingJob, setIsSavingJob] = useState(false);
-  const [roleSearch, setRoleSearch] = useState('');
 
-  const [deleteTarget, setDeleteTarget] = useState<any>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const { data: tenants, refresh: refreshTenants, isLoading: tenantsLoading } = usePluggableCollection<Tenant>('tenants');
+  const { data: tenants, refresh: refreshTenants } = usePluggableCollection<Tenant>('tenants');
   const { data: departments, refresh: refreshDepts } = usePluggableCollection<Department>('departments');
   const { data: jobTitles, refresh: refreshJobs } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
-  const { data: resources } = usePluggableCollection<Resource>('resources');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -287,7 +275,7 @@ export default function UnifiedOrganizationPage() {
         ))}
       </div>
 
-      <Dialog open={isTenantDialogOpen} onOpenChange={setIsTenantDialogOpen}>
+      <Dialog open={isTenantDialogOpen} onOpenChange={(v) => !v && setIsTenantDialogOpen(false)}>
         <DialogContent className="max-w-xl rounded-2xl p-0 overflow-hidden shadow-2xl border-none">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <DialogTitle className="text-lg font-bold">Mandant bearbeiten</DialogTitle>
@@ -303,7 +291,7 @@ export default function UnifiedOrganizationPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+      <Dialog open={isEditorOpen} onOpenChange={(v) => !v && setIsEditorOpen(false)}>
         <DialogContent className="max-w-4xl rounded-2xl p-0 overflow-hidden flex flex-col shadow-2xl bg-white h-[85vh]">
           <DialogHeader className="p-6 bg-slate-900 text-white"><DialogTitle>Rollen-Standardzuweisung bearbeiten</DialogTitle></DialogHeader>
           <ScrollArea className="flex-1 p-8 space-y-10">

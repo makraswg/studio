@@ -88,11 +88,14 @@ function LoginForm() {
       
       toast({ title: "Erfolgreich angemeldet" });
       setUser(result.user);
-      router.push('/dashboard');
+      
+      // Force hard redirect to ensure middleware picks up the new session cookie immediately
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 100);
 
     } catch (err: any) {
       setAuthError(err.message || "Ein Systemfehler ist aufgetreten.");
-    } finally {
       setIsActionLoading(false);
     }
   };

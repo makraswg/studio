@@ -20,7 +20,7 @@ const setSessionCookie = (user: PlatformUser | null) => {
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString();
     document.cookie = `auth_session=true; path=/; expires=${expires}; SameSite=Lax`;
   } else {
-    document.cookie = "auth_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "auth_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
   }
 };
 
@@ -58,7 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    router.push('/');
+    // Use window.location to ensure complete cleanup across middleware
+    window.location.href = '/';
   };
 
   return (

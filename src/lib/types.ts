@@ -102,7 +102,7 @@ export interface Task {
   priority: 'low' | 'medium' | 'high' | 'critical';
   assigneeId: string; 
   creatorId: string; 
-  entityType?: 'feature' | 'process' | 'risk' | 'measure' | 'resource' | 'role' | 'assignment';
+  entityType?: 'feature' | 'process' | 'risk' | 'measure' | 'resource' | 'role' | 'assignment' | 'policy';
   entityId?: string;
   dueDate?: string;
   createdAt: string;

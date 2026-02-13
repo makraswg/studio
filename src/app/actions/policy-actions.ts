@@ -93,13 +93,13 @@ export async function commitPolicyVersionAction(
         ...policy,
         currentVersion: nextVersion,
         updatedAt: now,
-        status: isMajor ? 'published' : policy.status
+        status: isMajor ? 'published' : (policy.status === 'draft' ? 'review' : policy.status)
       }, dataSource);
 
       await logAuditEventAction(dataSource as any, {
         tenantId: policy.tenantId,
         actorUid: actorEmail,
-        action: `Neue Version (V${nextVersion}.${nextRevision}) für Richtlinie "${policy.title}" gespeichert.`,
+        action: `Richtlinie "${policy.title}": ${isMajor ? 'Neue Hauptversion freigegeben' : 'Revision gespeichert'} (V${nextVersion}.${nextRevision})`,
         entityType: 'policy',
         entityId: policyId,
         after: { version: nextVersion, revision: nextRevision, changelog }

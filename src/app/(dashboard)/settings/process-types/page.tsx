@@ -147,7 +147,7 @@ export default function ProcessTypesPage() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={3} className="h-32 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary opacity-20" /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={3} className="h-32 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-20" /></TableCell></TableRow>
                 ) : filteredTypes.map(t => {
                   const isSystem = SYSTEM_TYPE_IDS.includes(t.id);
                   return (

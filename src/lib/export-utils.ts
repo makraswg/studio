@@ -91,6 +91,7 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
   
   if (nodes.length === 0) return startY;
 
+  // Layout-Logic identisch zum Designer (Ränge und Bahnen)
   const levels: Record<string, number> = {};
   const lanes: Record<string, number> = {};
   const occupiedLanesPerLevel = new Map<number, Set<number>>();
@@ -135,6 +136,7 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
   const maxLv = Math.max(...Object.values(levels), 0);
   const maxLane = Math.max(...Object.values(lanes), 0);
 
+  // Dynamische Skalierung basierend auf der Graphengröße
   const scale = Math.min((canvasWidth - 30) / (maxLv * H_GAP || 1), 1.0);
   const graphHeight = (maxLane + 1) * V_GAP;
 
@@ -152,14 +154,23 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     };
   };
 
+  // Pfeile rendern (Transitions)
   doc.setLineWidth(0.2);
   edges.forEach((edge: any) => {
     const s = getPdfCoords(edge.source);
     const t = getPdfCoords(edge.target);
     doc.setDrawColor(148, 163, 184);
+    // Einfache Linienführung für mehrseitige Berichte
     doc.line(s.x, s.y, t.x, t.y);
+    
+    // Pfeilspitze
+    const angle = Math.atan2(t.y - s.y, t.x - s.x);
+    const headLen = 1.5;
+    doc.line(t.x, t.y, t.x - headLen * Math.cos(angle - Math.PI / 6), t.y - headLen * Math.sin(angle - Math.PI / 6));
+    doc.line(t.x, t.y, t.x - headLen * Math.cos(angle + Math.PI / 6), t.y - headLen * Math.sin(angle + Math.PI / 6));
   });
 
+  // Knoten rendern
   nodes.forEach((node, i) => {
     const { x, y } = getPdfCoords(node.id);
     const r = 2.5;
@@ -173,7 +184,10 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     else if (node.type === 'subprocess') color = [79, 70, 229];
 
     doc.setFillColor(color[0], color[1], color[2]);
-    doc.setDrawColor(isBranch ? 180 : 100, isBranch ? 83 : 116, isBranch ? 9 : 139);
+    // setDrawColor erwartet Einzelwerte für RGB
+    if (isBranch) doc.setDrawColor(180, 83, 9);
+    else doc.setDrawColor(100, 116, 139);
+    
     doc.circle(x, y, r, 'FD');
 
     doc.setFontSize(5);
@@ -200,19 +214,20 @@ function addPageDecorations(doc: any, tenant: Tenant) {
     doc.setFontSize(7);
     doc.setTextColor(148, 163, 184);
     doc.text(tenant.name, 14, 8);
-    doc.text('ComplianceHub • Audit-Safe Report', pageWidth - 14, 8, { align: 'right' });
+    doc.text('ComplianceHub', pageWidth - 14, 8, { align: 'right' });
     
-    // Line & Logo right
+    // Trennlinie oben
     doc.setDrawColor(241, 245, 249);
     doc.line(14, 10, pageWidth - 14, 10);
     
-    // Logo Icon top right
+    // Logo-Stilelement oben rechts
     doc.setFillColor(37, 99, 235);
     doc.roundedRect(pageWidth - 22, 4, 8, 8, 1.5, 1.5, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(5);
     doc.text('H', pageWidth - 18, 9, { align: 'center' });
 
+    // Footer
     doc.setTextColor(148, 163, 184);
     doc.line(14, pageHeight - 12, pageWidth - 14, pageHeight - 12);
     doc.setFontSize(7);
@@ -372,7 +387,7 @@ export async function exportProcessManualPdf(
       grouped[deptName].push(p);
     });
 
-    // --- INHALTSVERZEICHNIS (Tabellarisch für Multi-Page) ---
+    // --- INHALTSVERZEICHNIS (Mehrseitig stabil via AutoTable) ---
     doc.addPage();
     doc.setTextColor(37, 99, 235);
     doc.setFontSize(18);
@@ -383,6 +398,7 @@ export async function exportProcessManualPdf(
     Object.keys(grouped).sort().forEach(deptName => {
       tocEntries.push([{ content: deptName.toUpperCase(), colSpan: 2, styles: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [71, 85, 105], fontSize: 9 } }]);
       grouped[deptName].forEach(p => {
+        // Placeholder TBA für Seitenzahlen
         tocEntries.push([`   ${p.title}`, 'TBA']);
       });
     });
@@ -395,6 +411,7 @@ export async function exportProcessManualPdf(
       columnStyles: { 0: { width: 165 }, 1: { halign: 'right', fontStyle: 'bold', width: 15 } }
     });
 
+    // Merke die Position nach dem TOC für den erzwungenen Seitenumbruch
     let currentProcessPage = (doc as any).internal.getNumberOfPages() + 1;
 
     // --- PROZESS SEITEN RENDERN ---
@@ -476,11 +493,14 @@ export async function exportProcessManualPdf(
       }
     }
 
-    // --- TOC AKTUALISIEREN (Führungslinien & echte Seitenzahlen) ---
-    const tocPageCount = (doc as any).internal.getNumberOfPages() - processes.length - 1;
+    // --- TOC AKTUALISIEREN (Echte Seitenzahlen & Führungslinien) ---
+    // Bestimme wie viele Seiten das TOC beansprucht (normalerweise 1-2)
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    const tocPageCount = totalPages - processes.length - 1; 
+
     for (let pIdx = 2; pIdx <= 1 + tocPageCount; pIdx++) {
       doc.setPage(pIdx);
-      // Re-render final TOC rows with real data
+      // Wir überschreiben das vorläufige TOC mit dem finalen Mapping
       const finalTocRows: any[] = [];
       Object.keys(grouped).sort().forEach(deptName => {
         finalTocRows.push([{ content: deptName.toUpperCase(), colSpan: 2, styles: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [71, 85, 105], fontSize: 9 } }]);
@@ -496,10 +516,11 @@ export async function exportProcessManualPdf(
         styles: { font: 'helvetica', fontSize: 9, cellPadding: 1.5 },
         columnStyles: { 0: { width: 165 }, 1: { halign: 'right', fontStyle: 'bold', width: 15 } },
         didDrawCell: (data) => {
+          // Führungslinien (Punkte) zeichnen
           if (data.column.index === 0 && data.cell.text[0] && data.cell.text[0].startsWith('   ')) {
             const textWidth = doc.getTextWidth(data.cell.text[0]);
             const startX = data.cell.x + textWidth + 2;
-            const endX = 188;
+            const endX = 188; 
             if (endX > startX) {
               doc.setDrawColor(203, 213, 225);
               doc.setLineWidth(0.1);

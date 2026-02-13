@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -29,6 +28,7 @@ import {
   Info,
   Settings2
 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 import { initializeFirebase } from '@/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { getMockCollection } from '@/lib/mock-db';
@@ -79,7 +79,7 @@ const TestResultDisplay = ({ result }: { result: TestResult }) => {
             <span>{result.message}</span>
           </div>
           {result.details && result.details.length > 0 && (
-              <pre className="mt-2 p-2 bg-muted/50 border text-[9px] font-mono whitespace-pre-wrap max-h-40 overflow-auto">
+              <pre className="mt-2 p-3 bg-slate-50 dark:bg-slate-900 border text-[9px] font-mono whitespace-pre-wrap max-h-40 overflow-auto rounded-lg">
                   {result.details.join('\n')}
               </pre>
           )}
@@ -134,7 +134,7 @@ export default function DatabaseSettingsPage() {
   };
 
   const handleRunMigration = async () => {
-      setMigrationResult({ status: 'loading', message: 'Migration läuft...' });
+      setMigrationResult({ status: 'loading', message: 'Infrastruktur-Update läuft...' });
       const result = await runDatabaseMigrationAction();
       setMigrationResult({ 
           status: result.success ? 'success' : 'error', 
@@ -143,9 +143,9 @@ export default function DatabaseSettingsPage() {
       });
       if (result.success) {
         setIsInitialized(true);
-        toast({ title: "Initialisierung erfolgreich", description: "Die Datenbank-Struktur wurde aktualisiert." });
+        toast({ title: "Datenbank aktualisiert", description: result.message });
       } else {
-        toast({ variant: "destructive", title: "Fehler", description: result.message });
+        toast({ variant: "destructive", title: "Update fehlgeschlagen", description: result.message });
       }
   };
 
@@ -204,8 +204,8 @@ export default function DatabaseSettingsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <Card className="rounded-[2rem] border shadow-sm bg-white overflow-hidden">
-            <CardHeader className="bg-slate-50/50 border-b p-6">
+          <Card className="rounded-[2rem] border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+            <CardHeader className="bg-slate-50/50 dark:bg-slate-800/50 border-b p-6">
               <CardTitle className="text-xs font-black uppercase tracking-widest text-slate-400">Aktive Plattform-Datenquelle</CardTitle>
             </CardHeader>
             <CardContent className="p-8">
@@ -217,13 +217,13 @@ export default function DatabaseSettingsPage() {
                 {/* MySQL Option */}
                 <div className={cn(
                   "flex flex-col items-start space-y-4 border-2 p-6 transition-all rounded-3xl relative overflow-hidden group",
-                  currentSelection === 'mysql' ? 'border-primary bg-primary/5 ring-4 ring-primary/5' : 'hover:border-slate-200 border-slate-100 bg-white'
+                  currentSelection === 'mysql' ? 'border-primary bg-primary/5 ring-4 ring-primary/5' : 'hover:border-slate-200 border-slate-100 bg-white dark:bg-slate-950'
                 )}>
                   <div className="flex items-center space-x-3">
                     <RadioGroupItem value="mysql" id="mysql" />
                     <Label htmlFor="mysql" className="cursor-pointer">
                       <div className="flex flex-col">
-                        <span className="font-black text-sm uppercase tracking-tight">Lokal (MySQL)</span>
+                        <span className="font-black text-sm uppercase tracking-tight text-slate-900 dark:text-white">Lokal (MySQL)</span>
                         <span className="text-[9px] font-bold text-orange-600 uppercase tracking-widest italic">Self-Hosted</span>
                       </div>
                     </Label>
@@ -235,7 +235,7 @@ export default function DatabaseSettingsPage() {
                       </Button>
                       <TestResultDisplay result={mysqlTest} />
                       
-                      <div className="pt-2 border-t border-slate-100">
+                      <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
                           <Button variant="secondary" size="sm" className="w-full text-[10px] font-black uppercase h-10 rounded-xl bg-slate-900 text-white hover:bg-black gap-2 shadow-lg transition-all active:scale-95" onClick={(e) => { e.preventDefault(); handleRunMigration(); }}>
                               <GanttChartSquare className="w-4 h-4" /> Initialisieren
                           </Button>
@@ -246,14 +246,14 @@ export default function DatabaseSettingsPage() {
 
                 {/* Cloud Option */}
                 <div className={cn(
-                  "flex flex-col items-start space-y-4 border-2 p-6 transition-all rounded-3xl bg-white",
+                  "flex flex-col items-start space-y-4 border-2 p-6 transition-all rounded-3xl bg-white dark:bg-slate-950",
                   currentSelection === 'firestore' ? 'border-primary bg-primary/5 ring-4 ring-primary/5' : 'hover:border-slate-200 border-slate-100'
                 )}>
                   <div className="flex items-center space-x-3">
                     <RadioGroupItem value="firestore" id="firestore" />
                     <Label htmlFor="firestore" className="cursor-pointer">
                       <div className="flex flex-col">
-                        <span className="font-black text-sm uppercase tracking-tight">Zentral (Cloud)</span>
+                        <span className="font-black text-sm uppercase tracking-tight text-slate-900 dark:text-white">Zentral (Cloud)</span>
                         <span className="text-[9px] font-bold text-primary uppercase tracking-widest">Global Managed</span>
                       </div>
                     </Label>
@@ -269,14 +269,14 @@ export default function DatabaseSettingsPage() {
 
                 {/* Mock Option */}
                 <div className={cn(
-                  "flex flex-col items-start space-y-4 border-2 p-6 transition-all rounded-3xl bg-white",
+                  "flex flex-col items-start space-y-4 border-2 p-6 transition-all rounded-3xl bg-white dark:bg-slate-950",
                   currentSelection === 'mock' ? 'border-primary bg-primary/5 ring-4 ring-primary/5' : 'hover:border-slate-200 border-slate-100'
                 )}>
                   <div className="flex items-center space-x-3">
                     <RadioGroupItem value="mock" id="mock" />
                     <Label htmlFor="mock" className="cursor-pointer">
                       <div className="flex flex-col">
-                        <span className="font-black text-sm uppercase tracking-tight">Demo (Statisch)</span>
+                        <span className="font-black text-sm uppercase tracking-tight text-slate-900 dark:text-white">Demo (Statisch)</span>
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Sandboxed</span>
                       </div>
                     </Label>
@@ -295,15 +295,15 @@ export default function DatabaseSettingsPage() {
         </div>
 
         <div className="space-y-8">
-          <Card className="rounded-[2rem] border shadow-xl bg-white overflow-hidden border-indigo-100">
-            <CardHeader className="bg-indigo-50/50 border-b p-6">
+          <Card className="rounded-[2rem] border shadow-xl bg-white dark:bg-slate-900 overflow-hidden border-indigo-100 dark:border-indigo-900/30">
+            <CardHeader className="bg-indigo-50/50 dark:bg-indigo-900/20 border-b p-6">
               <CardTitle className="text-xs font-black uppercase tracking-widest text-indigo-600 flex items-center gap-2">
                 <Sparkles className="w-4 h-4" /> Prototyping & Demo
               </CardTitle>
             </CardHeader>
             <CardContent className="p-8 space-y-6">
               <div className="space-y-2">
-                <p className="text-sm font-bold text-slate-800">Demo-Szenario laden</p>
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Demo-Szenario laden</p>
                 <p className="text-[11px] text-slate-500 leading-relaxed font-medium italic">
                   Füllt alle Module mit vernetzten Beispieldaten für eine Wohnungsbaugesellschaft (SAP, AD, Prozesse).
                 </p>
@@ -320,15 +320,15 @@ export default function DatabaseSettingsPage() {
           </Card>
 
           {currentSelection === 'mysql' && (
-            <Card className="rounded-[2rem] border shadow-xl bg-white overflow-hidden border-red-100">
-              <CardHeader className="bg-red-50/50 border-b p-6">
+            <Card className="rounded-[2rem] border shadow-xl bg-white dark:bg-slate-900 overflow-hidden border-red-100 dark:border-red-900/30">
+              <CardHeader className="bg-red-50/50 dark:bg-red-900/20 border-b p-6">
                 <CardTitle className="text-xs font-black uppercase tracking-widest text-red-600 flex items-center gap-2">
                   <Trash2 className="w-4 h-4" /> Datenpflege
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-6">
                 <div className="space-y-2">
-                  <p className="text-sm font-bold text-slate-800">Bestandsdaten leeren</p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Bestandsdaten leeren</p>
                   <p className="text-[11px] text-slate-500 leading-relaxed">
                     Löscht alle operativen Daten. Administratoren und Konfigurationen bleiben erhalten.
                   </p>
@@ -340,16 +340,16 @@ export default function DatabaseSettingsPage() {
                       Datenbank leeren
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent className="rounded-3xl border-none shadow-2xl p-8 bg-white">
+                  <AlertDialogContent className="rounded-3xl border-none shadow-2xl p-8 bg-white dark:bg-slate-900">
                     <AlertDialogHeader>
-                      <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+                      <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
                         <AlertTriangle className="w-8 h-8" />
                       </div>
                       <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center uppercase tracking-tight">System-Bereinigung</AlertDialogTitle>
                       <AlertDialogDescription className="text-xs leading-relaxed font-medium text-slate-500 text-center" asChild>
                         <div className="space-y-4">
                           <p>Diese Aktion löscht unwiderruflich alle Identitäten, Zuweisungen, Risiken und Prozesse.</p>
-                          <div className="p-4 bg-slate-50 rounded-2xl border text-left font-bold text-slate-700">
+                          <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border dark:border-slate-800 text-left font-bold text-slate-700 dark:text-slate-300">
                             <ul className="list-disc list-inside space-y-1">
                               <li>IAM Benutzerverzeichnis</li>
                               <li>Risikoinventar & TOMs</li>
@@ -377,12 +377,12 @@ export default function DatabaseSettingsPage() {
             </Card>
           )}
 
-          <div className="p-6 bg-slate-100 rounded-[2rem] border border-slate-200 flex items-start gap-4">
+          <div className="p-6 bg-slate-100 dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 flex items-start gap-4">
             <Info className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-xs font-black text-slate-900 uppercase">Architektur-Hinweis</p>
+              <p className="text-xs font-black text-slate-900 dark:text-white uppercase">Architektur-Hinweis</p>
               <p className="text-[10px] text-slate-500 leading-relaxed font-medium italic">
-                Die Wahl der Datenquelle bestimmt die Revisionssicherheit. MySQL wird für produktive lokale Installationen dringend empfohlen.
+                Der Initialisieren-Knopf ist sicher: Er fügt fehlende Spalten oder Tabellen hinzu, ohne bestehende Datensätze zu löschen.
               </p>
             </div>
           </div>

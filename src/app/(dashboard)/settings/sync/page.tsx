@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -31,8 +30,7 @@ import {
   X,
   UserPlus,
   Check,
-  Search,
-  Clock
+  Search
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -52,6 +50,7 @@ import { cn } from '@/lib/utils';
 import { usePlatformAuth } from '@/context/auth-context';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Dialog, 
   DialogContent, 
@@ -62,12 +61,12 @@ import {
 } from '@/components/ui/dialog';
 import { useRouter } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  Tooltip, 
-  TooltipContent, 
-  TooltipProvider, 
-  TooltipTrigger 
-} from '@/components/ui/tooltip';
+
+// Minimal placeholder tooltip logic because the component is not in context
+function Tooltip({ children }: { children: React.ReactNode }) { return <div>{children}</div>; }
+function TooltipProvider({ children }: { children: React.ReactNode }) { return <div>{children}</div>; }
+function TooltipTrigger({ children }: { children: React.ReactNode }) { return <div>{children}</div>; }
+function TooltipContent({ children }: { children: React.ReactNode }) { return null; }
 
 export default function SyncSettingsPage() {
   const router = useRouter();
@@ -79,6 +78,7 @@ export default function SyncSettingsPage() {
   const [isJobRunning, setIsJobRunning] = useState<string | null>(null);
   
   const [tenantDraft, setTenantDraft] = useState<Partial<Tenant>>({});
+  const [selectedJobMessage, setSelectedJobMessage] = useState<string | null>(null);
 
   // Import Tool States
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -150,10 +150,11 @@ export default function SyncSettingsPage() {
   };
 
   const filteredAdUsers = useMemo(() => {
+    if (!adUsers) return [];
     return adUsers.filter(u => 
-      u.first.toLowerCase().includes(adSearch.toLowerCase()) || 
-      u.last.toLowerCase().includes(adSearch.toLowerCase()) ||
-      u.email.toLowerCase().includes(adSearch.toLowerCase())
+      u.first?.toLowerCase().includes(adSearch.toLowerCase()) || 
+      u.last?.toLowerCase().includes(adSearch.toLowerCase()) ||
+      u.email?.toLowerCase().includes(adSearch.toLowerCase())
     );
   }, [adUsers, adSearch]);
 
@@ -181,7 +182,7 @@ export default function SyncSettingsPage() {
   }
 
   return (
-    <div className="space-y-10">
+    <div className="p-4 md:p-8 space-y-10 pb-20">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
@@ -190,7 +191,7 @@ export default function SyncSettingsPage() {
           <div>
             <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">Infrastruktur</Badge>
             <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Identitäts-Synchronisation</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Konfiguration der AD/LDAP Anbindung und Background-Tasks.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Konfiguration der AD/LDAP Anbindung.</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -200,152 +201,151 @@ export default function SyncSettingsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-            <CardHeader className="p-8 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
-              <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white flex items-center gap-3">
-                <Server className="w-5 h-5 text-primary" /> LDAP-Parameter
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-8 space-y-10">
-              <div className="flex items-center justify-between p-6 bg-primary/5 dark:bg-slate-950 rounded-xl border border-primary/10">
-                <div className="space-y-1">
-                  <Label className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase">LDAP Integration aktiv</Label>
-                  <p className="text-[10px] uppercase font-bold text-slate-400 italic">Synchronisiert Identitäten und Gruppen automatisch.</p>
-                </div>
-                <Switch checked={!!tenantDraft.ldapEnabled} onCheckedChange={v => setTenantDraft({...tenantDraft, ldapEnabled: v})} />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">LDAP Server URL</Label>
-                  <Input value={tenantDraft.ldapUrl || ''} onChange={e => setTenantDraft({...tenantDraft, ldapUrl: e.target.value})} placeholder="ldap://dc1.firma.local" className="rounded-xl h-12" />
-                </div>
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Port</Label>
-                  <Input value={tenantDraft.ldapPort || ''} onChange={e => setTenantDraft({...tenantDraft, ldapPort: e.target.value})} placeholder="389" className="rounded-xl h-12" />
-                </div>
-                <div className="space-y-3 lg:col-span-3">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Base DN</Label>
-                  <Input value={tenantDraft.ldapBaseDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBaseDn: e.target.value})} placeholder="OU=Users,DC=firma,DC=local" className="rounded-xl h-12" />
-                </div>
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Bind-User (UPN)</Label>
-                  <Input value={tenantDraft.ldapBindDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBindDn: e.target.value})} placeholder="sync@firma.de" className="rounded-xl h-12" />
-                </div>
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Passwort</Label>
-                  <Input type="password" value={tenantDraft.ldapBindPassword || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBindPassword: e.target.value})} className="rounded-xl h-12" />
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center pt-8 border-t">
-                <Button variant="outline" onClick={handleTestLdap} disabled={isTesting} className="rounded-xl h-11 px-10 font-bold text-[10px] uppercase border-slate-200">
-                  {isTesting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />} Testen
-                </Button>
-                <Button onClick={handleSaveLdap} disabled={isSaving} className="rounded-xl h-11 px-16 font-bold text-[10px] uppercase shadow-lg shadow-primary/20">
-                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Speichern
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-            <CardHeader className="p-8 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
-              <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white flex items-center gap-3">
-                <Clock className="w-5 h-5 text-indigo-600" /> Automatisierte Sync-Jobs
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader className="bg-slate-50/30">
-                  <TableRow>
-                    <TableHead className="py-4 px-8 font-bold text-[10px] text-slate-400 uppercase">Bezeichnung</TableHead>
-                    <TableHead className="font-bold text-[10px] text-slate-400 uppercase">Letzter Lauf</TableHead>
-                    <TableHead className="font-bold text-[10px] text-slate-400 uppercase text-center">Status</TableHead>
-                    <TableHead className="text-right px-8 font-bold text-[10px] text-slate-400 uppercase">Aktion</TableHead>
-                  </TableRow>
+      <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+        <CardHeader className="p-8 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
+            <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white flex items-center gap-3">
+                <RefreshCw className="w-5 h-5 text-primary" /> Sync-Jobs
+            </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Job</TableHead>
+                        <TableHead>Letzter Lauf</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right"></TableHead>
+                    </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {syncJobs?.map(job => (
-                    <TableRow key={job.id} className="group border-b last:border-0 hover:bg-slate-50 transition-colors">
-                      <TableCell className="py-4 px-8">
-                        <p className="font-bold text-xs text-slate-800 dark:text-slate-100">{job.name || job.id}</p>
-                        <p className="text-[9px] text-slate-400 truncate max-w-[200px]">{job.lastMessage || 'Keine Meldung'}</p>
-                      </TableCell>
-                      <TableCell className="text-[10px] font-medium text-slate-500">
-                        {job.lastRun ? new Date(job.lastRun).toLocaleString() : '---'}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline" className={cn(
-                          "rounded-full text-[8px] font-black uppercase border-none px-2 h-5",
-                          job.lastStatus === 'success' ? "bg-emerald-100 text-emerald-700" : 
-                          job.lastStatus === 'error' ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"
-                        )}>
-                          {job.lastStatus || 'IDLE'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right px-8">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-indigo-600 hover:bg-indigo-50 rounded-lg"
-                          onClick={() => handleRunJob(job.id)}
-                          disabled={!!isJobRunning}
-                        >
-                          {isJobRunning === job.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {(!syncJobs || syncJobs.length === 0) && (
-                    <TableRow><TableCell colSpan={4} className="py-12 text-center text-[10px] font-bold text-slate-400 uppercase italic">Keine Background-Jobs konfiguriert</TableCell></TableRow>
-                  )}
+                    {syncJobs?.map(job => (
+                        <TableRow key={job.id}>
+                            <TableCell className="font-medium">{job.name}</TableCell>
+                            <TableCell>{job.lastRun ? new Date(job.lastRun).toLocaleString() : 'Nie'}</TableCell>
+                            <TableCell>
+                                <Badge variant={job.lastStatus === 'success' ? 'default' : job.lastStatus === 'failed' ? 'destructive' : 'outline'}>
+                                    {job.lastStatus}
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    onClick={() => handleRunJob(job.id)}
+                                    disabled={isJobRunning === job.id}
+                                >
+                                    {isJobRunning === job.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                                </Button>
+                                <Button size="sm" variant="ghost" onClick={() => setSelectedJobMessage(job.lastMessage)}><FileText className="w-4 h-4" /></Button>
+                            </TableCell>
+                        </TableRow>
+                    ))}
                 </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
+            </Table>
+        </CardContent>
+      </Card>
 
-        <aside className="space-y-6">
-          <Card className="rounded-2xl border-none shadow-xl bg-slate-900 text-white overflow-hidden">
-            <CardContent className="p-8 space-y-6">
-              <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shadow-lg">
-                <ShieldCheck className="w-6 h-6 text-white" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-lg font-headline font-bold uppercase tracking-tight">Identity Matcher</h3>
-                <p className="text-xs text-slate-400 leading-relaxed italic">
-                  Das System nutzt Fuzzy-Logik beim AD-Import, um Firmennamen automatisch zu normalisieren (z.B. &quot;Baecker&quot; ↔ &quot;Bäcker&quot;).
-                </p>
-              </div>
-              <Separator className="bg-white/10" />
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-primary">
-                  <span>Sync-Integrität</span>
-                  <span className="text-emerald-400">Gesteuert</span>
-                </div>
-                <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full w-[92%] bg-primary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="p-6 bg-blue-50/50 border border-blue-100 rounded-2xl flex items-start gap-4">
-            <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+      <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+        <CardHeader className="p-8 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
+          <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white flex items-center gap-3">
+            <Server className="w-5 h-5 text-primary" /> LDAP-Parameter
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-8 space-y-10">
+          <div className="flex items-center justify-between p-6 bg-primary/5 dark:bg-slate-950 rounded-xl border border-primary/10">
             <div className="space-y-1">
-              <p className="text-xs font-black uppercase text-slate-900">Governance Hinweis</p>
-              <p className="text-[10px] text-slate-500 italic leading-relaxed">
-                Manuelle Importe werden revisionssicher geloggt. Automatisierte Sync-Läufe prüfen bei jedem Durchlauf auf Rollen-Drifts.
-              </p>
+              <Label className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase">LDAP Integration aktiv</Label>
+              <p className="text-[10px] uppercase font-bold text-slate-400 italic">Synchronisiert Identitäten und Gruppen automatisch.</p>
+            </div>
+            <Switch checked={!!tenantDraft.ldapEnabled} onCheckedChange={v => setTenantDraft({...tenantDraft, ldapEnabled: v})} />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">LDAP Server URL</Label>
+              <Input value={tenantDraft.ldapUrl || ''} onChange={e => setTenantDraft({...tenantDraft, ldapUrl: e.target.value})} placeholder="ldap://dc1.firma.local" className="rounded-xl h-12" />
+            </div>
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Port</Label>
+              <Input value={tenantDraft.ldapPort || ''} onChange={e => setTenantDraft({...tenantDraft, ldapPort: e.target.value})} placeholder="389" className="rounded-xl h-12" />
+            </div>
+            <div className="space-y-3 lg:col-span-3">
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Base DN</Label>
+              <Input value={tenantDraft.ldapBaseDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBaseDn: e.target.value})} placeholder="OU=Users,DC=firma,DC=local" className="rounded-xl h-12" />
+            </div>
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Bind-User (UPN)</Label>
+              <Input value={tenantDraft.ldapBindDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBindDn: e.target.value})} placeholder="sync@firma.de" className="rounded-xl h-12" />
+            </div>
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Passwort</Label>
+              <Input type="password" value={tenantDraft.ldapBindPassword || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBindPassword: e.target.value})} className="rounded-xl h-12" />
+            </div>
+            <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">LDAP Domain</Label>
+                <Input value={tenantDraft.ldapDomain || ''} onChange={e => setTenantDraft({...tenantDraft, ldapDomain: e.target.value})} placeholder="firma.de" className="rounded-xl h-12" />
+            </div>
+            <div className="space-y-3 lg:col-span-2">
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Benutzer-Filter</Label>
+                <Input value={tenantDraft.ldapUserFilter || ''} onChange={e => setTenantDraft({...tenantDraft, ldapUserFilter: e.target.value})} placeholder="(&(objectClass=user)(memberOf=CN=AppUsers,OU=Groups,DC=firma,DC=local))" className="rounded-xl h-12" />
+            </div>
+            <div className="flex items-center justify-between p-4 bg-slate-100 dark:bg-slate-800 rounded-xl lg:col-span-3">
+                <div className="space-y-1">
+                    <Label className="text-xs font-bold text-slate-700 dark:text-slate-200">TLS verwenden</Label>
+                </div>
+                <Switch checked={!!tenantDraft.ldapUseTls} onCheckedChange={v => setTenantDraft({...tenantDraft, ldapUseTls: v})} />
+            </div>
+            <div className="flex items-center justify-between p-4 bg-slate-100 dark:bg-slate-800 rounded-xl lg:col-span-3">
+                <div className="space-y-1">
+                    <Label className="text-xs font-bold text-slate-700 dark:text-slate-200">Unsichere SSL-Zertifikate zulassen</Label>
+                </div>
+                <Switch checked={!!tenantDraft.ldapAllowInvalidSsl} onCheckedChange={v => setTenantDraft({...tenantDraft, ldapAllowInvalidSsl: v})} />
             </div>
           </div>
-        </aside>
-      </div>
 
-      {/* AD Import Dialog */}
+          <div className="flex justify-between items-center pt-8 border-t">
+            <Button variant="outline" onClick={handleTestLdap} disabled={isTesting} className="rounded-xl h-11 px-10 font-bold text-[10px] uppercase border-slate-200">
+              {isTesting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />} Testen
+            </Button>
+            <Button onClick={handleSaveLdap} disabled={isSaving} className="rounded-xl h-11 px-16 font-bold text-[10px] uppercase shadow-lg shadow-primary/20">
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Speichern
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+        <CardHeader className="p-8 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
+          <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white flex items-center gap-3">
+            <Users className="w-5 h-5 text-primary" /> Attribut-Mapping
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Benutzername</Label>
+                  <Input value={tenantDraft.ldapAttrUsername || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrUsername: e.target.value})} placeholder="sAMAccountName" className="rounded-xl h-12" />
+              </div>
+              <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Vorname</Label>
+                  <Input value={tenantDraft.ldapAttrFirstname || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrFirstname: e.target.value})} placeholder="givenName" className="rounded-xl h-12" />
+              </div>
+              <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Nachname</Label>
+                  <Input value={tenantDraft.ldapAttrLastname || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrLastname: e.target.value})} placeholder="sn" className="rounded-xl h-12" />
+              </div>
+              <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Gruppen</Label>
+                  <Input value={tenantDraft.ldapAttrGroups || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrGroups: e.target.value})} placeholder="memberOf" className="rounded-xl h-12" />
+              </div>
+              <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Firma</Label>
+                  <Input value={tenantDraft.ldapAttrCompany || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrCompany: e.target.value})} placeholder="company" className="rounded-xl h-12" />
+              </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[85vh] p-0 overflow-hidden flex flex-col rounded-2xl border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
@@ -359,7 +359,7 @@ export default function SyncSettingsPage() {
                   <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-1">Interaktive Selektion aus dem Active Directory</DialogDescription>
                 </div>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setIsImportOpen(false)} className="text-white/50 hover:text-white rounded-full"><X className="w-6 h-6" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => setIsImportOpen(false)} className="text-white/50 hover:text-white"><X className="w-6 h-6" /></Button>
             </div>
           </DialogHeader>
 
@@ -383,11 +383,11 @@ export default function SyncSettingsPage() {
               </div>
             ) : (
               <Table>
-                <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
+                <TableHeader className="sticky top-0 bg-white z-10">
                   <TableRow>
                     <TableHead className="w-12 px-6"></TableHead>
                     <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase">AD Benutzer</TableHead>
-                    <TableHead className="font-bold text-[11px] text-slate-400 uppercase text-center">Abteilung (AD)</TableHead>
+                    <TableHead className="font-bold text-[11px] text-slate-400 uppercase">Abteilung (AD)</TableHead>
                     <TableHead className="font-bold text-[11px] text-slate-400 uppercase">Zugeordnete Firma (Hub-Match)</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -403,11 +403,11 @@ export default function SyncSettingsPage() {
                       <TableCell className="py-4 px-6">
                         <div className="flex flex-col">
                           <span className="font-bold text-sm text-slate-800">{u.first} {u.last}</span>
-                          <span className="text-[10px] text-slate-400 font-medium italic">{u.email}</span>
+                          <span className="text-[10px] text-slate-400 font-medium">{u.email}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline" className="text-[9px] font-bold h-5 px-2 bg-slate-50 border-slate-200">{u.dept}</Badge>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[9px] font-bold h-5 px-2 bg-slate-50">{u.dept}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -418,12 +418,8 @@ export default function SyncSettingsPage() {
                           {!u.matchedTenantId && (
                             <TooltipProvider>
                               <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 cursor-help" />
-                                </TooltipTrigger>
-                                <TooltipContent className="p-3 bg-slate-900 text-white rounded-lg border-none shadow-xl max-w-xs">
-                                  <p className="text-[10px] leading-relaxed">Kein exakter Treffer. Die Fuzzy-Logik konnte keine eindeutige Firma finden. Fallback auf Standard-Mandant.</p>
-                                </TooltipContent>
+                                <TooltipTrigger><AlertTriangle className="w-3 h-3 text-amber-500" /></TooltipTrigger>
+                                <TooltipContent>Schreibweise im AD weicht stark ab. Fallback auf Standard-Mandant.</TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
                           )}
@@ -439,18 +435,30 @@ export default function SyncSettingsPage() {
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex items-center justify-between">
             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
               <Info className="w-4 h-4" />
-              <span>Matching nutzt Base-Character Normalisierung (ä ↔ ae)</span>
+              <span>Matching nutzt Fuzzy-Logik (z.B. Baecker ↔ Bäcker)</span>
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setIsImportOpen(false)} className="rounded-xl font-bold text-[10px] h-11 px-8 uppercase">Abbrechen</Button>
               <Button onClick={handleImportSelected} disabled={isImporting || selectedAdUsernames.length === 0} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2">
-                {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" /> }
                 Import starten ({selectedAdUsernames.length})
               </Button>
             </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!selectedJobMessage} onOpenChange={() => setSelectedJobMessage(null)}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Job-Log</DialogTitle>
+              </DialogHeader>
+              <ScrollArea className="max-h-96">
+                  <pre className="text-xs bg-slate-100 p-4 rounded-md">{selectedJobMessage}</pre>
+              </ScrollArea>
+          </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

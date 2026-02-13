@@ -1,7 +1,7 @@
 
 'use server';
 
-import { getPool, dbQuery, testMysqlConnection } from '@/lib/mysql';
+import { dbQuery, testMysqlConnection } from '@/lib/mysql';
 import { initializeFirebase } from '@/firebase';
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 import { getMockCollection } from '@/lib/mock-db';
@@ -170,6 +170,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     const placeholders = keys.map(() => '?').join(', ');
     const updates = keys.map(key => `\`${key}\` = VALUES(\`${key}\`)`).join(', ');
     
+    // Nutzt dbQuery, welche pool.execute() für Prepared Statements verwendet (Checkliste E)
     const sql = `INSERT INTO \`${tableName}\` (\`${keys.join('`, `')}\`) VALUES (${placeholders}) ON DUPLICATE KEY UPDATE ${updates}`;
     await dbQuery(sql, values);
     return { success: true, error: null };

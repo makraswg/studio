@@ -25,14 +25,14 @@ export function getPool(): mysql.Pool {
     password,
     database,
     waitForConnections: true,
-    connectionLimit: 30, // Ausreichend Kapazität für parallele Requests
+    connectionLimit: 30, 
     maxIdle: 10,
     idleTimeout: 60000,
     queueLimit: 0,
     enableKeepAlive: true,
     keepAliveInitialDelay: 10000,
-    connectTimeout: 10000, // 10s Timeout für den Verbindungsaufbau
-    dateStrings: true // Verhindert JS-Date Konvertierungsfehler
+    connectTimeout: 10000, 
+    dateStrings: true 
   });
   
   return pool;
@@ -40,7 +40,7 @@ export function getPool(): mysql.Pool {
 
 /**
  * Hilfsfunktion für sichere Abfragen ohne manuelles Connection-Handling.
- * Nutzt pool.execute(), was die Verbindung automatisch freigibt.
+ * Nutzt pool.execute(), was die Verbindung automatisch freigibt (Checkliste B).
  */
 export async function dbQuery(sql: string, params: any[] = []) {
   const start = Date.now();
@@ -48,12 +48,17 @@ export async function dbQuery(sql: string, params: any[] = []) {
   try {
     const [rows] = await pool.execute(sql, params);
     const duration = Date.now() - start;
+    
+    // Logging & Metriken (Checkliste D)
     if (duration > 500) {
-      console.warn(`[DB-TRACE] Slow Query (${duration}ms): ${sql.substring(0, 100)}...`);
+      console.warn(`[DB-TRACE] SLOW QUERY (${duration}ms): ${sql.substring(0, 100)}...`);
+    } else {
+      console.log(`[DB-TRACE] OK (${duration}ms)`);
     }
+    
     return rows;
   } catch (error: any) {
-    console.error(`[DB-ERROR] (${sql.substring(0, 50)}...):`, error.message);
+    console.error(`[DB-ERROR] Code: ${error.code} | Msg: ${error.message} | SQL: ${sql.substring(0, 100)}...`);
     throw error;
   }
 }
@@ -62,13 +67,15 @@ export async function dbQuery(sql: string, params: any[] = []) {
  * Schneller Ping-Test für das Setup/Status-Monitoring.
  */
 export async function testMysqlConnection() {
+  let connection;
   try {
     const pool = getPool();
-    const connection = await pool.getConnection();
+    connection = await pool.getConnection();
     await connection.ping();
-    connection.release();
     return { success: true, message: "MySQL Verbindung stabil." };
   } catch (error: any) {
     return { success: false, message: `Verbindungsfehler: ${error.message}` };
+  } finally {
+    if (connection) connection.release(); // Explizites Release (Checkliste B)
   }
 }

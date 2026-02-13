@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -43,7 +44,7 @@ import { useSettings } from '@/context/settings-context';
 import { createProcessAction, deleteProcessAction } from '@/app/actions/process-actions';
 import { usePlatformAuth } from '@/context/auth-context';
 import { toast } from '@/hooks/use-toast';
-import { Process, ProcessVersion, Department, Tenant, JobTitle, Resource, Feature } from '@/lib/types';
+import { Process, ProcessVersion, Department, Tenant, JobTitle, Resource, Feature, ProcessingActivity } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import { exportProcessManualPdf } from '@/lib/export-utils';
@@ -104,6 +105,7 @@ export default function ProcessHubClient() {
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: allFeatures } = usePluggableCollection<Feature>('features');
+  const { data: activities } = usePluggableCollection<ProcessingActivity>('processingActivities');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -151,7 +153,8 @@ export default function ProcessHubClient() {
         departments, 
         jobTitles,
         resources || [],
-        allFeatures || []
+        allFeatures || [],
+        activities || []
       );
       toast({ title: "Handbuch generiert", description: "Alle selektierten Prozesse wurden exportiert." });
     } catch (e: any) {
@@ -441,7 +444,7 @@ export default function ProcessHubClient() {
       <AlertDialog open={!!processToDelete} onOpenChange={val => !val && setProcessToDelete(null)}>
         <AlertDialogContent className="rounded-2xl border-none shadow-2xl p-8">
           <AlertDialogHeader>
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
               <AlertTriangle className="w-6 h-6 text-red-600" />
             </div>
             <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center">Prozess permanent löschen?</AlertDialogTitle>

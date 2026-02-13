@@ -93,7 +93,7 @@ export const appSchema: AppSchema = {
       name: 'VARCHAR(255) NOT NULL',
       email: 'VARCHAR(255) NOT NULL',
       phone: 'VARCHAR(50)',
-      role:.VARCHAR(255)',
+      role: 'VARCHAR(255)',
     }
   },
   service_partner_areas: {

@@ -26,6 +26,8 @@ export interface Tenant {
   ldapAttrUsername?: string;
   ldapAttrFirstname?: string;
   ldapAttrLastname?: string;
+  ldapAttrEmail?: string;
+  ldapAttrDepartment?: string;
   ldapAttrGroups?: string; 
   ldapAttrCompany?: string; // Neu: Für Mandanten-Matching
 }

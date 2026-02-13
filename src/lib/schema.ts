@@ -51,6 +51,8 @@ export const appSchema: AppSchema = {
       ldapAttrUsername: 'VARCHAR(100)',
       ldapAttrFirstname: 'VARCHAR(100)',
       ldapAttrLastname: 'VARCHAR(100)',
+      ldapAttrEmail: 'VARCHAR(100)',
+      ldapAttrDepartment: 'VARCHAR(100)',
       ldapAttrGroups: 'TEXT',
       ldapAttrCompany: 'VARCHAR(100)',
     },

@@ -1,8 +1,10 @@
+
 'use server';
 
 import { getPool, dbQuery } from '@/lib/mysql';
 import { appSchema } from '@/lib/schema';
 import bcrypt from 'bcryptjs';
+import { logAuditEventAction } from './audit-actions';
 
 /**
  * Prüft den Systemstatus. 
@@ -155,6 +157,15 @@ export async function createInitialAdminAction(data: {
       [adminId, data.email, hashedPassword, data.name, 'superAdmin', 'all', 1, new Date().toISOString(), 'local']
     );
     console.log("[SETUP] Administrator-Account erstellt.");
+
+    // 5. Audit Log für Setup
+    await logAuditEventAction('mysql', {
+      tenantId: 'global',
+      actorUid: data.email,
+      action: 'System-Initialisierung und erster Administrator angelegt.',
+      entityType: 'system',
+      entityId: 'setup'
+    });
 
     return { success: true, message: 'Setup erfolgreich abgeschlossen.' };
   } catch (error: any) {

@@ -45,7 +45,8 @@ export async function createProcessAction(
   tenantId: string, 
   title: string, 
   ownerRoleId: string,
-  dataSource: DataSource = 'mysql'
+  dataSource: DataSource = 'mysql',
+  actorEmail: string = 'system'
 ) {
   const processId = `proc-${Math.random().toString(36).substring(2, 9)}`;
   const now = new Date().toISOString();
@@ -92,21 +93,42 @@ export async function createProcessAction(
   const res2 = await saveCollectionRecord('process_versions', version.id, version, dataSource);
   if (!res2.success) throw new Error(`Fehler beim Speichern der Prozessversion: ${res2.error}`);
 
+  await logAuditEventAction(dataSource, {
+    tenantId,
+    actorUid: actorEmail,
+    action: `Prozess-Entwurf angelegt: ${title}`,
+    entityType: 'process',
+    entityId: processId,
+    after: process
+  });
+
   return { success: true, processId };
 }
 
 /**
  * Löscht einen Prozess und alle zugehörigen Versionen.
  */
-export async function deleteProcessAction(processId: string, dataSource: DataSource = 'mysql') {
+export async function deleteProcessAction(processId: string, dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
   try {
+    const procData = await getSingleRecord('processes', processId, dataSource);
     const verRes = await getCollectionData('process_versions', dataSource);
     const versions = verRes.data?.filter((v: any) => v.process_id === processId) || [];
     for (const v of versions) {
       await deleteCollectionRecord('process_versions', v.id, dataSource);
     }
-    await deleteCollectionRecord('processes', processId, dataSource);
-    return { success: true };
+    const res = await deleteCollectionRecord('processes', processId, dataSource);
+    
+    if (res.success) {
+      await logAuditEventAction(dataSource, {
+        tenantId: procData.data?.tenantId || 'global',
+        actorUid: actorEmail,
+        action: `Prozess permanent gelöscht: ${procData.data?.title || processId}`,
+        entityType: 'process',
+        entityId: processId,
+        before: procData.data
+      });
+    }
+    return res;
   } catch (e: any) {
     return { success: false, error: e.message };
   }

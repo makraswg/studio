@@ -59,6 +59,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { usePlatformAuth } from '@/context/auth-context';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { Textarea } from '@/components/ui/textarea';
+import { logAuditEventAction } from '@/app/actions/audit-actions';
 
 export default function UnifiedOrganizationPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -121,16 +122,25 @@ export default function UnifiedOrganizationPage() {
     if (!tenantName) return;
     setIsSavingTenant(true);
     const id = editingTenant?.id || `t-${Math.random().toString(36).substring(2, 7)}`;
+    const tenantData = {
+      id,
+      name: tenantName,
+      slug: tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+      companyDescription: tenantDescription,
+      status: editingTenant?.status || 'active',
+      createdAt: editingTenant?.createdAt || new Date().toISOString()
+    };
     try {
-      const res = await saveCollectionRecord('tenants', id, {
-        id,
-        name: tenantName,
-        slug: tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-        companyDescription: tenantDescription,
-        status: editingTenant?.status || 'active',
-        createdAt: editingTenant?.createdAt || new Date().toISOString()
-      }, dataSource);
+      const res = await saveCollectionRecord('tenants', id, tenantData, dataSource);
       if (res.success) {
+        await logAuditEventAction(dataSource, {
+          tenantId: id,
+          actorUid: authPlatformUser?.email || 'system',
+          action: editingTenant ? `Mandant aktualisiert: ${tenantName}` : `Mandant angelegt: ${tenantName}`,
+          entityType: 'tenant',
+          entityId: id,
+          after: tenantData
+        });
         setIsTenantDialogOpen(false);
         refreshTenants();
         toast({ title: "Mandant gespeichert" });
@@ -146,12 +156,30 @@ export default function UnifiedOrganizationPage() {
     if (!newName || !activeAddParent) return;
     const id = `${activeAddParent.type === 'tenant' ? 'd' : 'j'}-${Math.random().toString(36).substring(2, 7)}`;
     if (activeAddParent.type === 'tenant') {
-      await saveCollectionRecord('departments', id, { id, tenantId: activeAddParent.id, name: newName, status: 'active' }, dataSource);
+      const data = { id, tenantId: activeAddParent.id, name: newName, status: 'active' };
+      await saveCollectionRecord('departments', id, data, dataSource);
+      await logAuditEventAction(dataSource, {
+        tenantId: activeAddParent.id,
+        actorUid: authPlatformUser?.email || 'system',
+        action: `Abteilung angelegt: ${newName}`,
+        entityType: 'department',
+        entityId: id,
+        after: data
+      });
       refreshDepts();
     } else {
       const dept = departments?.find(d => d.id === activeAddParent.id);
       if (dept) {
-        await saveCollectionRecord('jobTitles', id, { id, tenantId: dept.tenantId, departmentId: activeAddParent.id, name: newName, status: 'active', entitlementIds: [] }, dataSource);
+        const data = { id, tenantId: dept.tenantId, departmentId: activeAddParent.id, name: newName, status: 'active', entitlementIds: [] };
+        await saveCollectionRecord('jobTitles', id, data, dataSource);
+        await logAuditEventAction(dataSource, {
+          tenantId: dept.tenantId,
+          actorUid: authPlatformUser?.email || 'system',
+          action: `Rollen-Blueprint angelegt: ${newName} (Abt: ${dept.name})`,
+          entityType: 'jobTitle',
+          entityId: id,
+          after: data
+        });
         refreshJobs();
       }
     }
@@ -163,6 +191,13 @@ export default function UnifiedOrganizationPage() {
   const handleStatusChange = async (coll: string, item: any, newStatus: 'active' | 'archived') => {
     const res = await saveCollectionRecord(coll, item.id, { ...item, status: newStatus }, dataSource);
     if (res.success) {
+      await logAuditEventAction(dataSource, {
+        tenantId: item.tenantId || item.id,
+        actorUid: authPlatformUser?.email || 'system',
+        action: `${coll === 'tenants' ? 'Mandant' : coll === 'departments' ? 'Abteilung' : 'Stelle'} ${newStatus === 'archived' ? 'archiviert' : 'reaktiviert'}: ${item.name}`,
+        entityType: coll,
+        entityId: item.id
+      });
       if (coll === 'tenants') refreshTenants();
       if (coll === 'departments') refreshDepts();
       if (coll === 'jobTitles') refreshJobs();
@@ -181,14 +216,23 @@ export default function UnifiedOrganizationPage() {
   const saveJobEdits = async () => {
     if (!editingJob) return;
     setIsSavingJob(true);
+    const data = {
+      ...editingJob,
+      name: jobName,
+      description: jobDesc,
+      entitlementIds: jobEntitlementIds
+    };
     try {
-      const res = await saveCollectionRecord('jobTitles', editingJob.id, {
-        ...editingJob,
-        name: jobName,
-        description: jobDesc,
-        entitlementIds: jobEntitlementIds
-      }, dataSource);
+      const res = await saveCollectionRecord('jobTitles', editingJob.id, data, dataSource);
       if (res.success) {
+        await logAuditEventAction(dataSource, {
+          tenantId: editingJob.tenantId,
+          actorUid: authPlatformUser?.email || 'system',
+          action: `Rollen-Blueprint aktualisiert: ${jobName}`,
+          entityType: 'jobTitle',
+          entityId: editingJob.id,
+          after: data
+        });
         setIsEditorOpen(false);
         refreshJobs();
         toast({ title: "Gespeichert" });
@@ -201,7 +245,7 @@ export default function UnifiedOrganizationPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6 pb-10 w-full mx-auto px-4 md:px-8">
+    <div className="p-4 md:p-8 space-y-6 w-full mx-auto">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
           <Badge className="mb-1 bg-primary/10 text-primary text-[9px] font-bold">Organisation</Badge>
@@ -279,7 +323,7 @@ export default function UnifiedOrganizationPage() {
         <DialogContent className="max-w-xl rounded-2xl p-0 overflow-hidden shadow-2xl border-none">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <DialogTitle className="text-lg font-bold">Mandant bearbeiten</DialogTitle>
-            <DialogDescription className="sr-only">Formular zur Bearbeitung von Mandantendaten und Unternehmensbeschreibung.</DialogDescription>
+            <DialogDescription className="text-[10px] text-white/50 font-bold uppercase">Stammdaten & Unternehmensbeschreibung</DialogDescription>
           </DialogHeader>
           <div className="p-8 space-y-6">
             <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Name</Label><Input value={tenantName} onChange={e => setTenantName(e.target.value)} className="h-11 font-bold" /></div>
@@ -295,8 +339,8 @@ export default function UnifiedOrganizationPage() {
       <Dialog open={isEditorOpen} onOpenChange={(v) => !v && setIsEditorOpen(false)}>
         <DialogContent className="max-w-4xl rounded-2xl p-0 overflow-hidden flex flex-col shadow-2xl bg-white h-[85vh]">
           <DialogHeader className="p-6 bg-slate-900 text-white">
-            <DialogTitle>Rollen-Standardzuweisung bearbeiten</DialogTitle>
-            <DialogDescription className="sr-only">Editor zur Definition der Standard-Berechtigungen eines Rollenprofils.</DialogDescription>
+            <DialogTitle>Rollen-Blueprint bearbeiten</DialogTitle>
+            <DialogDescription className="text-[10px] text-white/50 font-bold uppercase">Standard-Berechtigungen für dieses Profil definieren</DialogDescription>
           </DialogHeader>
           <ScrollArea className="flex-1 p-8 space-y-10">
             <div className="space-y-4">

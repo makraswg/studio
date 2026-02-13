@@ -1,7 +1,7 @@
 
 'use server';
 
-import { saveCollectionRecord, deleteCollectionRecord } from './mysql-actions';
+import { saveCollectionRecord, deleteCollectionRecord, getSingleRecord } from './mysql-actions';
 import { Resource, DataSource } from '@/lib/types';
 import { logAuditEventAction } from './audit-actions';
 
@@ -41,6 +41,23 @@ export async function saveResourceAction(resource: Resource, dataSource: DataSou
 /**
  * Archiviert oder löscht eine Ressource.
  */
-export async function deleteResourceAction(id: string, dataSource: DataSource = 'mysql') {
-  return await deleteCollectionRecord('resources', id, dataSource);
+export async function deleteResourceAction(id: string, dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
+  try {
+    const resData = await getSingleRecord('resources', id, dataSource);
+    const res = await deleteCollectionRecord('resources', id, dataSource);
+    
+    if (res.success) {
+      await logAuditEventAction(dataSource as any, {
+        tenantId: resData.data?.tenantId || 'global',
+        actorUid: actorEmail,
+        action: `Ressource permanent gelöscht: ${resData.data?.name || id}`,
+        entityType: 'resource',
+        entityId: id,
+        before: resData.data
+      });
+    }
+    return res;
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
 }

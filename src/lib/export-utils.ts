@@ -1,6 +1,6 @@
 'use client';
 
-import { Process, ProcessVersion, Tenant, JobTitle, ProcessingActivity, Resource, RiskMeasure, Policy, PolicyVersion } from './types';
+import { Process, ProcessVersion, Tenant, JobTitle, ProcessingActivity, Resource, RiskMeasure, Policy, PolicyVersion, Department } from './types';
 
 /**
  * Utility-Modul für den Export von Daten (PDF & Excel).
@@ -180,13 +180,13 @@ export async function exportResourcesExcel(resources: any[]) {
 
 /**
  * Detaillierter Prozessbericht (PDF)
- * Enthält Logo, Stammdaten, Leitfaden und Diagramm-Notiz.
  */
 export async function exportDetailedProcessPdf(
   process: Process,
   version: ProcessVersion,
   tenant: Tenant,
-  jobTitles: JobTitle[]
+  jobTitles: JobTitle[],
+  departments: Department[]
 ) {
   try {
     const { default: jsPDF } = await import('jspdf');
@@ -194,49 +194,51 @@ export async function exportDetailedProcessPdf(
     
     const doc = new jsPDF();
     const timestamp = new Date().toLocaleString('de-DE');
+    const dept = departments.find(d => d.id === process.responsibleDepartmentId);
+    const owner = jobTitles.find(j => j.id === process.ownerRoleId);
 
-    // 1. Header & Logo
-    if (tenant.logoUrl) {
-      try {
-        doc.addImage(tenant.logoUrl, 'PNG', 14, 10, 30, 30);
-      } catch (e) {}
-    }
-    
+    // Header
     doc.setFontSize(22);
-    doc.setTextColor(37, 99, 235);
-    doc.text(process.title, 50, 25);
+    doc.setTextColor(37, 99, 235); // Primary Blue
+    doc.text(process.title, 14, 20);
     
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Prozessbericht V${version.version}.0`, 50, 32);
-    doc.text(`Mandant: ${tenant.name}`, 50, 37);
-    doc.text(`Erstellungsdatum: ${timestamp}`, 14, 45);
+    doc.text(`Prozessbericht V${version.version}.0`, 14, 28);
+    doc.text(`Mandant: ${tenant.name} | Abteilung: ${dept?.name || '---'}`, 14, 33);
+    doc.text(`Exportdatum: ${timestamp}`, 14, 38);
 
-    // 2. Stammdaten Tabelle
+    doc.setDrawColor(200);
+    doc.line(14, 42, 196, 42);
+
+    // 1. Stammdaten
     doc.setFontSize(14);
     doc.setTextColor(0);
-    doc.text('1. Stammdaten', 14, 55);
+    doc.text('1. Stammdaten & Governance', 14, 52);
     
     autoTable(doc, {
-      startY: 60,
+      startY: 56,
       body: [
         ['Bezeichnung', process.title],
         ['Status', process.status.toUpperCase()],
-        ['Regulatorik', process.regulatoryFramework || 'Nicht definiert'],
-        ['Zusammenfassung', process.description || '-']
+        ['Process Owner', owner?.name || '---'],
+        ['Automatisierung', process.automationLevel || 'manual'],
+        ['Frequenz', process.processingFrequency || 'on_demand'],
+        ['Eingang (Inputs)', process.inputs || '-'],
+        ['Ergebnis (Outputs)', process.outputs || '-'],
+        ['Beschreibung', process.description || '-']
       ],
       theme: 'grid',
       styles: { fontSize: 9 },
-      columnStyles: { 0: { fontStyle: 'bold', width: 40 } }
+      columnStyles: { 0: { fontStyle: 'bold', width: 45, fillColor: [245, 247, 250] } }
     });
 
-    // 3. Leitfaden (Operative Schritte)
-    doc.text('2. Operativer Leitfaden', 14, (doc as any).lastAutoTable.finalY + 15);
+    // 2. Operativer Leitfaden
+    doc.text('2. Arbeitsschritte & Checklisten', 14, (doc as any).lastAutoTable.finalY + 15);
     
-    const stepsData = version.model_json.nodes.map((node, i) => {
+    const stepsData = (version.model_json.nodes || []).map((node, i) => {
       const role = jobTitles.find(j => j.id === node.roleId);
       return [
-        (i + 1).toString(),
         node.title,
         role?.name || '-',
         node.description || '-',
@@ -246,37 +248,113 @@ export async function exportDetailedProcessPdf(
 
     autoTable(doc, {
       startY: (doc as any).lastAutoTable.finalY + 20,
-      head: [['#', 'Schritt', 'Verantwortung', 'Tätigkeit', 'Prüfschritte']],
-      body: stepsData,
+      head: [['Schritt', 'Verantwortung', 'Tätigkeit', 'Prüfschritte']],
+      body: stepsData.length > 0 ? stepsData : [['Keine Schritte definiert', '', '', '']],
       theme: 'striped',
       headStyles: { fillColor: [37, 99, 235] },
-      styles: { fontSize: 8 }
-    });
-
-    // 4. Diagramm-Anhang (Text-Repräsentation für den Druck)
-    doc.addPage();
-    doc.setFontSize(14);
-    doc.text('3. Visuelle Prozesslogik', 14, 20);
-    doc.setFontSize(10);
-    doc.text('Logische Verknüpfungen (Diagramm-Zusammenfassung):', 14, 30);
-
-    const edgesData = version.model_json.edges.map(edge => {
-      const src = version.model_json.nodes.find(n => n.id === edge.source);
-      const trg = version.model_json.nodes.find(n => n.id === edge.target);
-      return [`${src?.title}`, `-->`, `${trg?.title}`, `${edge.label || '-'}`];
-    });
-
-    autoTable(doc, {
-      startY: 35,
-      head: [['Von', '', 'Nach', 'Bedingung']],
-      body: edgesData,
-      theme: 'plain',
-      styles: { fontSize: 8 }
+      styles: { fontSize: 8 },
+      columnStyles: { 3: { width: 50 } }
     });
 
     doc.save(`Prozessbericht_${process.title.replace(/\s+/g, '_')}_V${version.version}.pdf`);
   } catch (error) {
     console.error('PDF Export fehlgeschlagen:', error);
+  }
+}
+
+/**
+ * Unternehmens-Handbuch: Alle Prozesse gruppiert nach Abteilungen
+ */
+export async function exportProcessManualPdf(
+  processes: Process[],
+  versions: ProcessVersion[],
+  tenant: Tenant,
+  departments: Department[],
+  jobTitles: JobTitle[]
+) {
+  try {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    
+    const doc = new jsPDF();
+    const now = new Date().toLocaleDateString('de-DE');
+
+    // Deckblatt
+    doc.setFontSize(30);
+    doc.setTextColor(37, 99, 235);
+    doc.text('Unternehmens-Handbuch', 105, 80, { align: 'center' });
+    
+    doc.setFontSize(18);
+    doc.setTextColor(100);
+    doc.text(tenant.name, 105, 95, { align: 'center' });
+    
+    doc.setFontSize(12);
+    doc.text(`Stand: ${now}`, 105, 110, { align: 'center' });
+    doc.text(`Umfang: ${processes.length} Workflows`, 105, 117, { align: 'center' });
+
+    // Inhaltsverzeichnis simulieren
+    doc.addPage();
+    doc.setFontSize(16);
+    doc.setTextColor(0);
+    doc.text('Inhaltsverzeichnis', 14, 20);
+    
+    let tocY = 35;
+    departments.forEach(dept => {
+      const deptProcs = processes.filter(p => p.responsibleDepartmentId === dept.id);
+      if (deptProcs.length === 0) return;
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text(dept.name, 14, tocY);
+      tocY += 7;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      deptProcs.forEach(p => {
+        doc.text(`- ${p.title}`, 20, tocY);
+        tocY += 6;
+        if (tocY > 270) { doc.addPage(); tocY = 20; }
+      });
+      tocY += 5;
+    });
+
+    // Hauptteil
+    departments.forEach(dept => {
+      const deptProcs = processes.filter(p => p.responsibleDepartmentId === dept.id);
+      if (deptProcs.length === 0) return;
+
+      doc.addPage();
+      doc.setFontSize(20);
+      doc.setTextColor(37, 99, 235);
+      doc.text(`Abteilung: ${dept.name}`, 14, 30);
+      doc.line(14, 35, 196, 35);
+
+      deptProcs.forEach(p => {
+        const ver = versions.find(v => v.process_id === p.id && v.version === p.currentVersion);
+        if (!ver) return;
+
+        doc.setFontSize(16);
+        doc.setTextColor(0);
+        doc.text(p.title, 14, (doc as any).lastAutoTable?.finalY + 25 || 50);
+        
+        autoTable(doc, {
+          startY: (doc as any).lastAutoTable?.finalY + 30 || 55,
+          head: [['Schritt', 'Rolle', 'Beschreibung']],
+          body: ver.model_json.nodes.map(n => [
+            n.title, 
+            jobTitles.find(j => j.id === n.roleId)?.name || '-',
+            n.description || '-'
+          ]),
+          theme: 'striped',
+          headStyles: { fillColor: [100, 116, 139] },
+          styles: { fontSize: 8 }
+        });
+      });
+    });
+
+    doc.save(`Unternehmens_Handbuch_${tenant.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+  } catch (error) {
+    console.error('Handbuch Export fehlgeschlagen:', error);
   }
 }
 

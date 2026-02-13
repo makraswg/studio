@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -50,7 +49,8 @@ import {
   Settings2,
   Database,
   Image as ImageIcon,
-  Paperclip
+  Paperclip,
+  FileDown
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -69,13 +69,16 @@ import {
   JobTitle,
   UiConfig,
   ProcessType,
-  MediaFile
+  MediaFile,
+  Tenant
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
+import { exportDetailedProcessPdf } from '@/lib/export-utils';
+import { toast } from '@/hooks/use-toast';
 
 const OFFSET_X = 2500;
 const OFFSET_Y = 2500;
@@ -84,20 +87,19 @@ export default function ProcessDetailViewPage() {
   const { id } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { dataSource } = useSettings();
+  const { dataSource, activeTenantId } = useSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   
   const [mounted, setMounted] = useState(false);
   const [guideMode, setGuideMode] = useState<'list' | 'structure'>('structure');
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [connectionPaths, setConnectionPaths] = useState<any[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [scale, setScale] = useState(0.8);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
-  const [mouseDownTime, setMouseDownTime] = useState(0);
   const [isProgrammaticMove, setIsProgrammaticMove] = useState(false);
   
   const hasAutoCentered = useRef(false);
@@ -113,12 +115,11 @@ export default function ProcessDetailViewPage() {
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: allFeatures } = usePluggableCollection<Feature>('features');
   const { data: resources } = usePluggableCollection<Resource>('resources');
-  const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
-  const { data: processTypes } = usePluggableCollection<ProcessType>('process_types');
+  const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   const { data: mediaFiles } = usePluggableCollection<MediaFile>('media');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
-  const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
+  const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id && v.version === currentProcess?.currentVersion), [versions, id, currentProcess]);
 
   const animationsEnabled = useMemo(() => {
     if (!uiConfigs || uiConfigs.length === 0) return true;
@@ -226,7 +227,6 @@ export default function ProcessDetailViewPage() {
     }
   }, [mounted, gridNodes, centerOnNode]);
 
-  // NATIVE NON-PASSIVE WHEEL LISTENER
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -307,6 +307,20 @@ export default function ProcessDetailViewPage() {
     }
   }, [activeNodeId, centerOnNode]);
 
+  const handleExportPdf = async () => {
+    if (!currentProcess || !activeVersion || !tenants || !jobTitles || !departments) return;
+    setIsExporting(true);
+    try {
+      const tenant = tenants.find(t => t.id === currentProcess.tenantId) || tenants[0];
+      await exportDetailedProcessPdf(currentProcess, activeVersion, tenant, jobTitles, departments);
+      toast({ title: "Export erfolgreich", description: "PDF Bericht wurde generiert." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler beim Export", description: e.message });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const getFullRoleName = useCallback((roleId?: string) => {
     if (!roleId) return '---';
     const role = jobTitles?.find(j => j.id === roleId);
@@ -327,7 +341,7 @@ export default function ProcessDetailViewPage() {
               <h1 className="text-lg font-headline font-bold text-slate-900">{currentProcess?.title}</h1>
               <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-full px-2 h-5 text-[10px] font-black uppercase tracking-widest">{currentProcess?.status}</Badge>
             </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">V{activeVersion?.version}.0 • Dokumentation</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">V{activeVersion?.version || currentProcess?.currentVersion}.0 • Dokumentation</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -335,6 +349,9 @@ export default function ProcessDetailViewPage() {
             <Button variant={guideMode === 'list' ? 'secondary' : 'ghost'} size="sm" className="h-8 text-[9px] font-bold uppercase" onClick={() => setGuideMode('list')}><List className="w-3.5 h-3.5 mr-1.5" /> Liste</Button>
             <Button variant={guideMode === 'structure' ? 'secondary' : 'ghost'} size="sm" className="h-8 text-[9px] font-bold uppercase" onClick={() => setGuideMode('structure')}><LayoutGrid className="w-3.5 h-3.5 mr-1.5" /> Karte</Button>
           </div>
+          <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={handleExportPdf} disabled={isExporting}>
+            {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />} PDF Bericht
+          </Button>
           <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase gap-2" onClick={() => router.push(`/processhub/${id}`)}><Edit3 className="w-3.5 h-3.5" /> Designer</Button>
         </div>
       </header>
@@ -352,6 +369,10 @@ export default function ProcessDetailViewPage() {
                 <div className="space-y-1">
                   <Label className="text-[9px] font-black uppercase text-slate-400">Process Owner</Label>
                   <p className="text-xs font-bold text-slate-800">{getFullRoleName(currentProcess?.ownerRoleId)}</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase text-slate-400">Automatisierungsgrad</Label>
+                  <Badge variant="outline" className="text-[9px] font-black h-5 px-2 bg-slate-50 uppercase border-slate-200">{currentProcess?.automationLevel || 'manual'}</Badge>
                 </div>
               </div>
             </section>

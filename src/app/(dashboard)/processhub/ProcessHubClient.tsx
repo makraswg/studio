@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -33,7 +32,8 @@ import {
   Zap,
   Building2,
   Info,
-  ShieldAlert
+  ShieldAlert,
+  FileDown
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -41,9 +41,10 @@ import { useSettings } from '@/context/settings-context';
 import { createProcessAction, deleteProcessAction } from '@/app/actions/process-actions';
 import { usePlatformAuth } from '@/context/auth-context';
 import { toast } from '@/hooks/use-toast';
-import { Process, ProcessVersion, Department } from '@/lib/types';
+import { Process, ProcessVersion, Department, Tenant, JobTitle } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
+import { exportProcessManualPdf } from '@/lib/export-utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,6 +78,7 @@ export default function ProcessHubClient() {
   
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExportingManual, setIsExportingManual] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [processToDelete, setProcessToDelete] = useState<string | null>(null);
 
@@ -84,6 +86,8 @@ export default function ProcessHubClient() {
   const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
   const { data: media } = usePluggableCollection<any>('media');
   const { data: departments } = usePluggableCollection<Department>('departments');
+  const { data: tenants } = usePluggableCollection<Tenant>('tenants');
+  const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -106,6 +110,22 @@ export default function ProcessHubClient() {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleExportManual = async () => {
+    if (!processes || !versions || !tenants || !departments || !jobTitles) return;
+    setIsExportingManual(true);
+    try {
+      const tenant = tenants.find(t => t.id === (activeTenantId === 'all' ? 't1' : activeTenantId)) || tenants[0];
+      const publishedProcesses = processes.filter(p => p.status === 'published');
+      
+      await exportProcessManualPdf(publishedProcesses, versions, tenant, departments, jobTitles);
+      toast({ title: "Handbuch generiert", description: "Alle freigegebenen Prozesse wurden exportiert." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Export Fehler", description: e.message });
+    } finally {
+      setIsExportingManual(false);
     }
   };
 
@@ -168,6 +188,9 @@ export default function ProcessHubClient() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" className="h-9 rounded-lg font-bold text-[11px] px-4 border-slate-200 hover:bg-emerald-50 text-emerald-600 transition-all active:scale-95 shadow-sm" onClick={handleExportManual} disabled={isExportingManual}>
+            {isExportingManual ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <FileDown className="w-3.5 h-3.5 mr-2" />} Handbuch generieren
+          </Button>
           <Button variant="outline" size="sm" className="h-9 rounded-lg font-bold text-[11px] px-4 border-slate-200 hover:bg-blue-50 text-blue-600 transition-all active:scale-95 shadow-sm" onClick={() => router.push('/processhub/map')}>
             <Network className="w-3.5 h-3.5 mr-2" /> Prozesslandkarte
           </Button>

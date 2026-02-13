@@ -33,6 +33,7 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 type SetupStep = 'welcome' | 'db-test' | 'initialize' | 'admin' | 'complete';
 

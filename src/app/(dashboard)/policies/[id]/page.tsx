@@ -46,7 +46,17 @@ import {
   Share2,
   FileDown,
   Download,
-  Briefcase
+  Briefcase,
+  Bold,
+  Italic,
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  Quote,
+  Code,
+  Link as LinkIcon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -86,6 +96,7 @@ export default function PolicyDetailPage() {
   const { user } = usePlatformAuth();
   const { dataSource, activeTenantId } = useSettings();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const [mounted, setMounted] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -186,6 +197,25 @@ export default function PolicyDetailPage() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const insertText = (before: string, after: string = '') => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selectedText = text.substring(start, end);
+    const newText = text.substring(0, start) + before + selectedText + after + text.substring(end);
+    
+    setDraftContent(newText);
+    
+    // Reset focus and selection
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + before.length, end + before.length);
+    }, 0);
   };
 
   const handleBookStackExport = async () => {
@@ -367,14 +397,14 @@ export default function PolicyDetailPage() {
             <CardContent className="p-6 space-y-6">
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Ownership (Rolle)</Label>
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Ownership (Rolle)</p>
                   <div className="flex items-center gap-2 p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl shadow-inner">
                     <Briefcase className="w-4 h-4 text-primary" />
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{jobTitles?.find(j => j.id === policy.ownerRoleId)?.name || 'Nicht zugewiesen'}</span>
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Nächster Review</Label>
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Nächster Review</p>
                   <div className="flex items-center gap-2 p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl shadow-inner">
                     <Clock className="w-4 h-4 text-orange-500" />
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200">In {policy.reviewInterval} Tagen</span>
@@ -429,26 +459,104 @@ export default function PolicyDetailPage() {
             <TabsContent value="content" className="animate-in fade-in duration-500">
               {editMode ? (
                 <div className="space-y-6">
-                  <Card className="rounded-2xl border shadow-xl overflow-hidden">
-                    <CardHeader className="bg-slate-900 text-white p-4 px-6 flex flex-row items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <FileEdit className="w-5 h-5 text-primary" />
-                        <CardTitle className="text-sm font-bold uppercase tracking-widest">Inhalt bearbeiten (Markdown)</CardTitle>
+                  <Card className="rounded-2xl border shadow-xl overflow-hidden flex flex-col">
+                    <CardHeader className="bg-slate-900 text-white p-0 flex flex-col">
+                      <div className="p-4 px-6 flex flex-row items-center justify-between border-b border-slate-800">
+                        <div className="flex items-center gap-3">
+                          <FileEdit className="w-5 h-5 text-primary" />
+                          <CardTitle className="text-sm font-bold uppercase tracking-widest">Inhalt bearbeiten</CardTitle>
+                        </div>
+                        <Badge className="bg-primary/20 text-primary border-none rounded-full text-[8px] font-black uppercase px-2 h-4">GUI Editor</Badge>
+                      </div>
+                      
+                      {/* GUI TOOLBAR for Otto Normalnutzer */}
+                      <div className="bg-slate-800 p-2 px-4 flex flex-wrap items-center gap-1.5">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('**', '**')}><Bold className="w-4 h-4" /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-[10px] font-bold">Fett</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('*', '*')}><Italic className="w-4 h-4" /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-[10px] font-bold">Kursiv</TooltipContent>
+                          </Tooltip>
+                          <Separator orientation="vertical" className="h-6 mx-1 bg-slate-700" />
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('# ', '')}><Heading1 className="w-4 h-4" /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-[10px] font-bold">Überschrift 1</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('## ', '')}><Heading2 className="w-4 h-4" /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-[10px] font-bold">Überschrift 2</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('### ', '')}><Heading3 className="w-4 h-4" /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-[10px] font-bold">Überschrift 3</TooltipContent>
+                          </Tooltip>
+                          <Separator orientation="vertical" className="h-6 mx-1 bg-slate-700" />
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('- ', '')}><List className="w-4 h-4" /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-[10px] font-bold">Aufzählung</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('1. ', '')}><ListOrdered className="w-4 h-4" /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-[10px] font-bold">Nummerierung</TooltipContent>
+                          </Tooltip>
+                          <Separator orientation="vertical" className="h-6 mx-1 bg-slate-700" />
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('> ', '')}><Quote className="w-4 h-4" /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-[10px] font-bold">Zitat</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('`', '`')}><Code className="w-4 h-4" /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-[10px] font-bold">Code</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('[Link Titel](https://', ')')}><LinkIcon className="w-4 h-4" /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-[10px] font-bold">Link einfügen</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
                     </CardHeader>
                     <CardContent className="p-0">
                       <Textarea 
+                        ref={textareaRef}
                         value={draftContent} 
                         onChange={e => setDraftContent(e.target.value)} 
-                        className="min-h-[500px] rounded-none border-none p-8 font-mono text-sm leading-relaxed focus:ring-0 bg-slate-50/30"
-                        placeholder="# Überschrift\n\nBeschreiben Sie hier die Richtlinie..."
+                        className="min-h-[550px] rounded-none border-none p-10 font-body text-sm leading-relaxed focus:ring-0 bg-white"
+                        placeholder="Beginnen Sie hier mit der Erstellung Ihrer Richtlinie..."
                       />
                     </CardContent>
                     <div className="p-6 border-t bg-slate-50 space-y-4">
-                      <Input value={changelog} onChange={e => setChangelog(e.target.value)} placeholder="Änderungsgrund..." className="rounded-xl h-11 bg-white" />
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Änderungsgrund (Changelog)</Label>
+                        <Input value={changelog} onChange={e => setChangelog(e.target.value)} placeholder="Beschreiben Sie kurz, was geändert wurde..." className="rounded-xl h-11 bg-white border-slate-200" />
+                      </div>
                       <div className="flex justify-end gap-3">
-                        <Button variant="outline" className="rounded-xl h-11 px-8 font-black text-[10px] uppercase" onClick={() => handleSaveVersion(true)} disabled={isSaving}>Freigabe erteilen</Button>
-                        <Button className="rounded-xl h-11 px-12 bg-emerald-600 text-white font-black text-[10px] uppercase shadow-lg" onClick={() => handleSaveVersion(false)} disabled={isSaving}>Revision Sichern</Button>
+                        <Button variant="outline" className="rounded-xl h-11 px-8 font-black text-[10px] uppercase border-slate-200" onClick={() => handleSaveVersion(true)} disabled={isSaving}>Offizielle Freigabe</Button>
+                        <Button className="rounded-xl h-11 px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase shadow-lg transition-all active:scale-95" onClick={() => handleSaveVersion(false)} disabled={isSaving}>
+                          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />} Revision Sichern
+                        </Button>
                       </div>
                     </div>
                   </Card>
@@ -456,21 +564,29 @@ export default function PolicyDetailPage() {
               ) : (
                 <Card className="rounded-2xl border shadow-xl bg-white p-10 min-h-[600px] relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-4">
-                    <Badge variant="outline" className="text-[8px] font-black uppercase text-slate-300">Read-Only Mode</Badge>
+                    <Badge variant="outline" className="text-[8px] font-black uppercase text-slate-300">Lese-Modus</Badge>
                   </div>
                   <div className="max-w-3xl mx-auto prose prose-slate">
                     {activeVersion ? (
                       <div className="space-y-8">
-                        <h1 className="font-headline font-black text-4xl">{policy.title}</h1>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Stand: {new Date(activeVersion.createdAt).toLocaleDateString()} • V{activeVersion.version}.{activeVersion.revision}</p>
+                        <h1 className="font-headline font-black text-4xl text-slate-900 leading-tight">{policy.title}</h1>
+                        <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                          <span className="flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5 opacity-50" /> {new Date(activeVersion.createdAt).toLocaleDateString()}</span>
+                          <span className="flex items-center gap-1.5"><BadgeCheck className="w-3.5 h-3.5 text-emerald-500" /> V{activeVersion.version}.{activeVersion.revision}</span>
+                        </div>
                         <Separator />
-                        <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 font-medium">{activeVersion.content}</div>
+                        <div className="whitespace-pre-wrap text-base leading-relaxed text-slate-700 font-medium font-body">{activeVersion.content}</div>
                       </div>
                     ) : (
-                      <div className="py-24 text-center space-y-4 opacity-30">
-                        <ScrollText className="w-12 h-12 mx-auto" />
-                        <p className="text-sm font-bold uppercase">Kein Inhalt vorhanden</p>
-                        <Button variant="outline" onClick={() => setEditMode(true)}>Editor öffnen</Button>
+                      <div className="py-24 text-center space-y-6 opacity-30">
+                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto border border-dashed border-slate-300">
+                          <ScrollText className="w-10 h-10 text-slate-300" />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm font-bold uppercase tracking-widest text-slate-900">Kein Inhalt vorhanden</p>
+                          <p className="text-xs text-slate-500 italic max-w-xs mx-auto">Starten Sie den Editor, um das Dokument mit Leben zu füllen.</p>
+                        </div>
+                        <Button className="rounded-xl bg-primary text-white font-bold text-xs h-11 px-10" onClick={() => setEditMode(true)}>Editor öffnen</Button>
                       </div>
                     )}
                   </div>
@@ -534,12 +650,12 @@ export default function PolicyDetailPage() {
                 <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Schnell-Verknüpfung</h4>
                 <div className="flex flex-wrap justify-center gap-3">
                   <Select onValueChange={(val) => handleLinkEntity('risk', val)}>
-                    <SelectTrigger className="w-48 h-9 rounded-xl bg-white"><SelectValue placeholder="Risiko wählen" /></SelectTrigger>
-                    <SelectContent>{risks?.filter(r => !linkedRisks.some(lr => lr.id === r.id)).map(r => <SelectItem key={r.id} value={r.id}>{r.title}</SelectItem>)}</SelectContent>
+                    <SelectTrigger className="w-48 h-9 rounded-xl bg-white border-slate-200"><SelectValue placeholder="Risiko wählen" /></SelectTrigger>
+                    <SelectContent className="rounded-xl">{risks?.filter(r => !linkedRisks.some(lr => lr.id === r.id)).map(r => <SelectItem key={r.id} value={r.id} className="text-xs">{r.title}</SelectItem>)}</SelectContent>
                   </Select>
                   <Select onValueChange={(val) => handleLinkEntity('measure', val)}>
-                    <SelectTrigger className="w-48 h-9 rounded-xl bg-white"><SelectValue placeholder="Maßnahme wählen" /></SelectTrigger>
-                    <SelectContent>{measures?.filter(m => !linkedMeasures.some(lm => lm.id === m.id)).map(m => <SelectItem key={m.id} value={m.id}>{m.title}</SelectItem>)}</SelectContent>
+                    <SelectTrigger className="w-48 h-9 rounded-xl bg-white border-slate-200"><SelectValue placeholder="Maßnahme wählen" /></SelectTrigger>
+                    <SelectContent className="rounded-xl">{measures?.filter(m => !linkedMeasures.some(lm => lm.id === m.id)).map(m => <SelectItem key={m.id} value={m.id} className="text-xs">{m.title}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               </div>

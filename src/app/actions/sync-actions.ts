@@ -1,3 +1,4 @@
+
 'use server';
 
 import { saveCollectionRecord, getCollectionData } from './mysql-actions';
@@ -26,11 +27,20 @@ const safeGetAttribute = (entry: any, attributeName: string | undefined, default
   if (!attributeName || !entry[attributeName]) return defaultValue;
   const value = entry[attributeName];
   if (Array.isArray(value)) {
-    return value[0] || defaultValue;
+    return String(value[0] || defaultValue);
   }
-  return (value as string) || defaultValue;
+  return String(value || defaultValue);
 };
 
+/**
+ * Prüft anhand des userAccountControl Bitmask-Wertes, ob ein AD-Konto deaktiviert ist.
+ * Flag 0x2 = ACCOUNTDISABLE
+ */
+function isUserAccountDisabled(uac: any): boolean {
+  const val = parseInt(String(uac || '0'), 10);
+  if (isNaN(val)) return false;
+  return (val & 2) === 2;
+}
 
 /**
  * Protokolliert ein LDAP-Ereignis für Debug-Zwecke.
@@ -111,7 +121,6 @@ export async function testLdapConnectionAction(config: Partial<Tenant>): Promise
   });
 
   try {
-    // Falls normales LDAP aber TLS gewünscht -> STARTTLS
     if (!url.startsWith('ldaps') && config.ldapUseTls) {
       await client.startTLS(tlsOptions);
     }
@@ -140,15 +149,10 @@ export async function testLdapConnectionAction(config: Partial<Tenant>): Promise
     };
   } catch (e: any) {
     let errorMsg = e.message;
-    if (errorMsg.includes('UNABLE_TO_VERIFY_LEAF_SIGNATURE') || errorMsg.includes('certificate')) {
-      errorMsg += ' (Tipp: Prüfen Sie die Option "Zertifikate ignorieren" oder hinterlegen Sie das Client-Zertifikat)';
-    }
-
     await logLdapInteraction('mysql', tenantId, 'Connection Test', 'error', errorMsg, { 
       url, 
       bindDn: config.ldapBindDn, 
-      error: e.stack,
-      rejectUnauthorized: tlsOptions.rejectUnauthorized 
+      error: e.stack
     });
     return { success: false, message: `LDAP-FEHLER: ${errorMsg}` };
   } finally {
@@ -157,7 +161,7 @@ export async function testLdapConnectionAction(config: Partial<Tenant>): Promise
 }
 
 /**
- * Ruft verfügbare Benutzer aus dem AD ab (Reale LDAP Abfrage).
+ * Ruft verfügbare Benutzer aus dem AD ab.
  */
 export async function getAdUsersAction(config: Partial<Tenant>, dataSource: DataSource = 'mysql', searchQuery: string = '') {
   if (!config.ldapUrl || !config.ldapBindDn || !config.ldapBindPassword) {
@@ -187,15 +191,10 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
       filter = `(&${filter}(|(sAMAccountName=*${escapedQuery}*)(displayName=*${escapedQuery}*)(mail=*${escapedQuery}*)(sn=*${escapedQuery}*)))`;
     }
 
-    await logLdapInteraction(dataSource, tenantId, 'AD Search Request', 'success', 
-      `Starte Suche im AD (Filter: ${filter})`, 
-      { url, baseDn: config.ldapBaseDn, filter, tls: !!config.ldapUseTls }
-    );
-
     const { searchEntries } = await client.search(config.ldapBaseDn || '', {
       scope: 'sub',
       filter: filter,
-      sizeLimit: 100,
+      sizeLimit: 250,
       attributes: [
         config.ldapAttrUsername || 'sAMAccountName',
         config.ldapAttrFirstname || 'givenName',
@@ -205,20 +204,24 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
         config.ldapAttrCompany || 'company',
         config.ldapAttrGroups || 'memberOf',
         'displayName',
-        'title'
+        'title',
+        'userAccountControl'
       ]
     });
 
     const tenantsRes = await getCollectionData('tenants', dataSource);
     const allTenants = (tenantsRes.data || []) as Tenant[];
 
-    const mapped = searchEntries.map((entry: any) => {
+    return searchEntries.map((entry: any) => {
       const company = safeGetAttribute(entry, config.ldapAttrCompany, '');
       const normAdCompany = normalizeForMatch(company);
       let matchedTenant = allTenants.find(t => normalizeForMatch(t.name) === normAdCompany || normalizeForMatch(t.slug) === normAdCompany);
 
+      const username = safeGetAttribute(entry, config.ldapAttrUsername, 'sAMAccountName');
+      const isDisabled = isUserAccountDisabled(entry.userAccountControl);
+
       return {
-        username: safeGetAttribute(entry, config.ldapAttrUsername, 'sAMAccountName'),
+        username,
         first: safeGetAttribute(entry, config.ldapAttrFirstname, ''),
         last: safeGetAttribute(entry, config.ldapAttrLastname, ''),
         displayName: safeGetAttribute(entry, 'displayName', ''),
@@ -226,17 +229,11 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
         dept: safeGetAttribute(entry, config.ldapAttrDepartment, ''),
         title: safeGetAttribute(entry, 'title', 'AD User'),
         company,
+        isDisabled,
         matchedTenantId: matchedTenant?.id || null,
         matchedTenantName: matchedTenant?.name || 'Kein exakter Treffer'
       };
     });
-
-    await logLdapInteraction(dataSource, tenantId, 'AD Search Response', 'success', 
-      `${mapped.length} Benutzer im AD gefunden`, 
-      { resultsCount: mapped.length }
-    );
-    
-    return mapped;
   } catch (e: any) {
     await logLdapInteraction(dataSource, tenantId, 'AD Search Error', 'error', e.message, { stack: e.stack });
     throw new Error("LDAP Abfrage fehlgeschlagen: " + e.message);
@@ -261,8 +258,8 @@ export async function importUsersAction(usersToImport: any[], dataSource: DataSo
         email: adUser.email,
         department: adUser.dept || '',
         title: adUser.title || '',
-        enabled: true,
-        status: 'active',
+        enabled: !adUser.isDisabled,
+        status: adUser.isDisabled ? 'archived' : 'active',
         lastSyncedAt: new Date().toISOString()
       };
 
@@ -285,24 +282,74 @@ export async function importUsersAction(usersToImport: any[], dataSource: DataSo
 }
 
 /**
- * Triggert einen automatischen Sync-Lauf.
+ * Triggert einen automatischen Sync-Lauf (Update existierender Profile).
  */
 export async function triggerSyncJobAction(jobId: string, dataSource: DataSource = 'mysql', actorUid: string = 'system') {
-  await updateJobStatusAction(jobId, 'running', 'Synchronisation wird gestartet...', dataSource);
+  if (jobId !== 'job-ldap-sync') return { success: false, error: 'Job nicht unterstützt' };
+
+  await updateJobStatusAction(jobId, 'running', 'Voll-Synchronisation gestartet...', dataSource);
+  
   try {
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    const tenantsRes = await getCollectionData('tenants', dataSource);
+    const usersRes = await getCollectionData('users', dataSource);
     
-    if (jobId === 'job-ldap-sync') {
-      await logAuditEventAction(dataSource, {
-        tenantId: 'global',
-        actorUid,
-        action: 'Automatischer LDAP-Sync Lauf erfolgreich durchgeführt.',
-        entityType: 'sync',
-        entityId: jobId
-      });
+    const activeTenants = (tenantsRes.data || []).filter((t: Tenant) => t.ldapEnabled);
+    const hubUsers = (usersRes.data || []) as User[];
+    
+    let totalUpdated = 0;
+    let totalDisabled = 0;
+
+    for (const tenant of activeTenants) {
+      try {
+        const adUsers = await getAdUsersAction(tenant, dataSource);
+        const tenantUsers = hubUsers.filter(hu => hu.tenantId === tenant.id && !!hu.externalId);
+
+        for (const hubUser of tenantUsers) {
+          const adMatch = adUsers.find(au => au.username.toLowerCase() === hubUser.externalId.toLowerCase());
+          
+          if (adMatch) {
+            const shouldBeEnabled = !adMatch.isDisabled;
+            const needsUpdate = hubUser.enabled !== (shouldBeEnabled ? 1 : 0) || 
+                                hubUser.displayName !== adMatch.displayName ||
+                                hubUser.email !== adMatch.email;
+
+            if (needsUpdate) {
+              const updatedUser = {
+                ...hubUser,
+                displayName: adMatch.displayName || hubUser.displayName,
+                email: adMatch.email || hubUser.email,
+                department: adMatch.dept || hubUser.department,
+                enabled: shouldBeEnabled,
+                status: shouldBeEnabled ? 'active' : 'archived',
+                lastSyncedAt: new Date().toISOString()
+              };
+              await saveCollectionRecord('users', hubUser.id, updatedUser, dataSource);
+              totalUpdated++;
+              if (!shouldBeEnabled && hubUser.enabled) totalDisabled++;
+            }
+          }
+        }
+        
+        await logLdapInteraction(dataSource, tenant.id, 'Full Sync', 'success', 
+          `Synchronisation abgeschlossen. ${totalUpdated} Profile aktualisiert.`, 
+          { updated: totalUpdated, deactivated: totalDisabled }
+        );
+      } catch (tenantErr: any) {
+        console.error(`Sync error for tenant ${tenant.name}:`, tenantErr);
+      }
     }
 
-    await updateJobStatusAction(jobId, 'success', 'Automatischer Lauf erfolgreich beendet.', dataSource);
+    const msg = `Lauf beendet. ${totalUpdated} Updates durchgeführt (${totalDisabled} Deaktivierungen).`;
+    await updateJobStatusAction(jobId, 'success', msg, dataSource);
+    
+    await logAuditEventAction(dataSource, {
+      tenantId: 'global',
+      actorUid,
+      action: `LDAP Voll-Sync: ${msg}`,
+      entityType: 'sync',
+      entityId: jobId
+    });
+
     return { success: true };
   } catch (e: any) {
     await updateJobStatusAction(jobId, 'error', e.message, dataSource);

@@ -14,49 +14,39 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-/**
- * Helper to manage session cookies for server-side protection (Middleware).
- */
 const setSessionCookie = (user: PlatformUser | null) => {
   if (typeof document === 'undefined') return;
   if (user) {
-    // Set a session cookie that expires when the browser is closed (or after 24h)
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString();
     document.cookie = `auth_session=true; path=/; expires=${expires}; SameSite=Lax`;
   } else {
-    // Remove the cookie
     document.cookie = "auth_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
   }
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<PlatformUser | null>(null);
+  const [user, setUserState] = useState<PlatformUser | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    // Restore session from localStorage on mount
-    const restoreSession = () => {
-      const savedUser = localStorage.getItem('platform_session');
-      if (savedUser) {
-        try {
-          const parsedUser = JSON.parse(savedUser);
-          setUser(parsedUser);
-          setSessionCookie(parsedUser);
-        } catch (e) {
-          console.error("Auth: Session restoration failed", e);
-          localStorage.removeItem('platform_session');
-          setSessionCookie(null);
-        }
+    // Restore session on client-side only to prevent hydration mismatch
+    const savedUser = localStorage.getItem('platform_session');
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        setUserState(parsedUser);
+        setSessionCookie(parsedUser);
+      } catch (e) {
+        localStorage.removeItem('platform_session');
+        setSessionCookie(null);
       }
-      setIsUserLoading(false);
-    };
-
-    restoreSession();
+    }
+    setIsUserLoading(false);
   }, []);
 
-  const handleSetUser = (newUser: PlatformUser | null) => {
-    setUser(newUser);
+  const setUser = (newUser: PlatformUser | null) => {
+    setUserState(newUser);
     if (newUser) {
       localStorage.setItem('platform_session', JSON.stringify(newUser));
       setSessionCookie(newUser);
@@ -67,12 +57,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    handleSetUser(null);
+    setUser(null);
     router.push('/');
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser: handleSetUser, isUserLoading, logout }}>
+    <AuthContext.Provider value={{ user, setUser, isUserLoading, logout }}>
       {children}
     </AuthContext.Provider>
   );

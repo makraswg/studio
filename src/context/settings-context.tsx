@@ -16,50 +16,53 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [dataSource, setDataSource] = useState<DataSource>('mysql');
-  const [activeTenantId, setActiveTenantId] = useState<string>('all');
+  // CRITICAL: Initialize with static defaults to prevent hydration mismatch in Next.js 15
+  const [dataSource, setDataSourceState] = useState<DataSource>('mysql');
+  const [activeTenantId, setActiveTenantIdState] = useState<string>('all');
   const [theme, setThemeState] = useState<'light' | 'dark'>('light');
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    const savedSource = typeof window !== 'undefined' ? localStorage.getItem('dataSource') : null;
+    // Only run on client after mount
+    const savedSource = localStorage.getItem('dataSource');
     if (savedSource === 'firestore' || savedSource === 'mock' || savedSource === 'mysql') {
-      setDataSource(savedSource as DataSource);
+      setDataSourceState(savedSource as DataSource);
     }
     
-    const savedTenant = typeof window !== 'undefined' ? localStorage.getItem('activeTenantId') : null;
+    const savedTenant = localStorage.getItem('activeTenantId');
     if (savedTenant) {
-      setActiveTenantId(savedTenant);
+      setActiveTenantIdState(savedTenant);
     }
 
-    const savedTheme = typeof window !== 'undefined' ? localStorage.getItem('theme') : null;
+    const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark' || savedTheme === 'light') {
       setThemeState(savedTheme as 'light' | 'dark');
-    } else if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setThemeState('dark');
     }
     
     setIsHydrated(true);
   }, []);
 
-  const setTheme = (newTheme: 'light' | 'dark') => {
-    setThemeState(newTheme);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('theme', newTheme);
-      if (newTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
+  const setDataSource = (source: DataSource) => {
+    setDataSourceState(source);
+    localStorage.setItem('dataSource', source);
   };
 
-  useEffect(() => {
-    if (isHydrated && typeof window !== 'undefined') {
-      localStorage.setItem('dataSource', dataSource);
-      localStorage.setItem('activeTenantId', activeTenantId);
+  const setActiveTenantId = (id: string) => {
+    setActiveTenantIdState(id);
+    localStorage.setItem('activeTenantId', id);
+  };
+
+  const setTheme = (newTheme: 'light' | 'dark') => {
+    setThemeState(newTheme);
+    localStorage.setItem('theme', newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
     }
-  }, [dataSource, activeTenantId, isHydrated]);
+  };
 
   const value = { 
     dataSource, 

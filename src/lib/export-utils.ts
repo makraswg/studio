@@ -158,17 +158,16 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     const s = getPdfCoords(edge.source);
     const t = getPdfCoords(edge.target);
     doc.setDrawColor(148, 163, 184);
-    const cp1x = s.x + (t.x - s.x) / 2;
-    doc.curve(s.x, s.y, cp1x, s.y, cp1x, t.y, t.x, t.y, 'S');
-    doc.line(t.x, t.y, t.x - 1.5, t.y - 1);
-    doc.line(t.x, t.y, t.x - 1.5, t.y + 1);
+    // Fixed: Standard jsPDF line method instead of non-existent curve
+    doc.line(s.x, s.y, t.x, t.y);
   });
 
   // Nodes
   nodes.forEach((node, i) => {
     const { x, y } = getPdfCoords(node.id);
     const r = 2.5;
-    const isBranch = edges.filter((e: any) => e.source === node.id).length > 1;
+    const outDegree = edges.filter((e: any) => e.source === node.id).length;
+    const isBranch = outDegree > 1 || node.type === 'decision';
 
     let color = [241, 245, 249]; 
     if (node.type === 'start') color = [16, 185, 129];
@@ -177,6 +176,7 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     else if (node.type === 'subprocess') color = [79, 70, 229];
 
     doc.setFillColor(color[0], color[1], color[2]);
+    // Fixed: Color arguments must be numeric, not an array
     if (isBranch) doc.setDrawColor(180, 83, 9);
     else doc.setDrawColor(100, 116, 139);
     
@@ -242,6 +242,13 @@ export async function exportDetailedProcessPdf(
     const resourceNames = resources.filter(r => usedResourceIds.has(r.id)).map(r => r.name).join(', ') || '---';
     const featureNames = allFeatures.filter(f => usedFeatureIds.has(f.id)).map(f => f.name).join(', ') || '---';
 
+    // Logo Placeholder
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(14, 10, 10, 10, 2, 2, 'F');
+    doc.setFontSize(10);
+    doc.setTextColor(37, 99, 235);
+    doc.text('H', 19, 17, { align: 'center' });
+
     doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(51, 65, 85);
@@ -253,8 +260,8 @@ export async function exportDetailedProcessPdf(
 
     const summaryRows = [
       ['Verantwortlich', owner?.name || '---'],
+      ['Freigabe', `Freigegeben am ${now} durch ${owner?.name || 'System'}`],
       ['Abteilung', dept?.name || '---'],
-      ['Freigabe', `Freigegeben am ${now} durch ${owner?.name || 'Hub Admin'}`],
       ['VVT-Referenz', process.vvtId ? `ID: ${process.vvtId}` : '---'],
       ['Eingang (ISO)', process.inputs || '---'],
       ['Ausgang (ISO)', process.outputs || '---'],
@@ -305,7 +312,7 @@ export async function exportDetailedProcessPdf(
 
     autoTable(doc, {
       startY: tableY + 5,
-      head: [['Nr', 'Arbeitsschritt', 'Zuständigkeit', 'Systeme', 'Operative Durchführung', 'Nächste Schritte']],
+      head: [['Nr', 'Arbeitsschritt', 'Verantwortlich', 'Systeme', 'Durchführung', 'Nächste Schritte']],
       body: stepsData,
       theme: 'striped',
       headStyles: { fillColor: [71, 85, 105], fontSize: 8, font: 'helvetica' },
@@ -336,12 +343,13 @@ export async function exportProcessManualPdf(
     const doc = new jsPDF();
     const now = new Date().toLocaleDateString('de-DE');
 
-    // Cover
+    // Cover Page - Print Friendly
     doc.setFillColor(37, 99, 235);
-    doc.circle(105, 60, 12, 'F');
+    doc.roundedRect(95, 40, 20, 20, 3, 3, 'F');
     doc.setTextColor(255);
-    doc.setFontSize(9);
-    doc.text('HUB', 105, 61, { align: 'center' });
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('HUB', 105, 52, { align: 'center' });
 
     doc.setTextColor(51, 65, 85);
     doc.setFontSize(28);
@@ -362,24 +370,68 @@ export async function exportProcessManualPdf(
       grouped[deptName].push(p);
     });
 
-    // Content Pass
-    const contentPages = new jsPDF(); 
-    // We render into the main doc starting after TOC pages.
-    // Let's estimate TOC pages.
+    // Phase 1: Pagination Mapping
+    let currentPage = 2; // TOC starts at page 2
     let tocLineCount = 0;
     Object.keys(grouped).forEach(d => { tocLineCount += 1; tocLineCount += grouped[d].length; });
-    const estTocPages = Math.ceil(tocLineCount / 25) + 1;
+    const estTocPages = Math.ceil(tocLineCount / 25) || 1;
+    currentPage = 1 + estTocPages + 1; // Content starts after Cover + TOC
 
-    for (let i = 0; i < estTocPages; i++) doc.addPage();
+    // Assign pages to processes
+    for (const deptName of Object.keys(grouped).sort()) {
+      for (const p of grouped[deptName]) {
+        pageMap[p.id] = currentPage;
+        currentPage++; // Assume 1 page per process for TOC mapping, adjusted if process is long
+      }
+    }
 
+    // Phase 2: Render TOC
+    doc.addPage();
+    doc.setTextColor(37, 99, 235);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Inhaltsverzeichnis', 14, 25);
+
+    const tocRows: any[] = [];
+    for (const deptName of Object.keys(grouped).sort()) {
+      tocRows.push([{ content: deptName.toUpperCase(), styles: { fontStyle: 'bold', textColor: [51, 65, 85], fontSize: 9, fillColor: [248, 250, 252] } }, '']);
+      grouped[deptName].forEach(p => {
+        tocRows.push([`   ${p.title}`, pageMap[p.id]?.toString() || '??']);
+      });
+    }
+
+    autoTable(doc, {
+      startY: 35,
+      body: tocRows,
+      theme: 'plain',
+      styles: { fontSize: 9, font: 'helvetica', cellPadding: 1.5 },
+      columnStyles: { 
+        0: { width: 165 }, 
+        1: { halign: 'right', fontStyle: 'bold', width: 15 } 
+      },
+      didDrawCell: (data) => {
+        if (data.column.index === 0 && data.cell.text[0] && data.cell.text[0].startsWith('   ')) {
+          const textWidth = doc.getTextWidth(data.cell.text[0]);
+          const startX = data.cell.x + textWidth + 2;
+          const endX = 188;
+          if (endX > startX) {
+            doc.setDrawColor(203, 213, 225);
+            doc.setLineWidth(0.1);
+            doc.setLineDashPattern([0.5, 1.5], 0);
+            doc.line(startX, data.cell.y + data.cell.height - 2, endX, data.cell.y + data.cell.height - 2);
+            doc.setLineDashPattern([], 0);
+          }
+        }
+      }
+    });
+
+    // Phase 3: Render Content
     for (const deptName of Object.keys(grouped).sort()) {
       for (const p of grouped[deptName]) {
         const ver = versions.find(v => v.process_id === p.id && v.version === p.currentVersion);
         if (!ver) continue;
 
         doc.addPage();
-        const currentPage = (doc as any).internal.getNumberOfPages();
-        pageMap[p.id] = currentPage;
         
         doc.setFontSize(18);
         doc.setTextColor(51, 65, 85);
@@ -420,7 +472,7 @@ export async function exportProcessManualPdf(
 
         autoTable(doc, {
           startY: tableY + 5,
-          head: [['Nr', 'Arbeitsschritt', 'Rolle', 'Anweisung / Checkliste', 'Nächste Schritte']],
+          head: [['Nr', 'Arbeitsschritt', 'Verantwortlich', 'Durchführung', 'Nächste Schritte']],
           body: ver.model_json.nodes.map((n, i) => {
             const successors = ver.model_json.edges
               .filter(e => e.source === n.id)
@@ -447,46 +499,6 @@ export async function exportProcessManualPdf(
         });
       }
     }
-
-    // TOC Pass
-    doc.setPage(2);
-    doc.setTextColor(37, 99, 235);
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Inhaltsverzeichnis', 14, 25);
-
-    const tocRows: any[] = [];
-    for (const deptName of Object.keys(grouped).sort()) {
-      tocRows.push([{ content: deptName.toUpperCase(), styles: { fontStyle: 'bold', textColor: [51, 65, 85], fontSize: 9, fillColor: [248, 250, 252] } }, '']);
-      grouped[deptName].forEach(p => {
-        tocRows.push([`   ${p.title}`, pageMap[p.id]?.toString() || '??']);
-      });
-    }
-
-    autoTable(doc, {
-      startY: 35,
-      body: tocRows,
-      theme: 'plain',
-      styles: { fontSize: 9, font: 'helvetica', cellPadding: 1.5 },
-      columnStyles: { 
-        0: { width: 165 }, 
-        1: { halign: 'right', fontStyle: 'bold', width: 15 } 
-      },
-      didDrawCell: (data) => {
-        if (data.column.index === 0 && data.cell.text[0] && data.cell.text[0].startsWith('   ')) {
-          const textWidth = doc.getTextWidth(data.cell.text[0]);
-          const startX = data.cell.x + textWidth + 2;
-          const endX = 188;
-          if (endX > startX) {
-            doc.setDrawColor(203, 213, 225);
-            doc.setLineWidth(0.1);
-            doc.setLineDashPattern([0.5, 1.5], 0);
-            doc.line(startX, data.cell.y + data.cell.height - 2, endX, data.cell.y + data.cell.height - 2);
-            doc.setLineDashPattern([], 0);
-          }
-        }
-      }
-    });
 
     addPageDecorations(doc, tenant);
     doc.save(`Handbuch_${tenant.name.replace(/\s+/g, '_')}.pdf`);

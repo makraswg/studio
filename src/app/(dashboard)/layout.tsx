@@ -164,13 +164,15 @@ export default function DashboardLayout({
     setMounted(true);
   }, []);
 
+  // Client-side safety check (second line of defense)
   useEffect(() => {
     if (mounted && !isUserLoading && !user) {
       router.push('/');
     }
   }, [user, isUserLoading, router, mounted]);
 
-  if (!mounted || (isUserLoading && !user)) {
+  // Handle Loading and Unauthorized states strictly
+  if (!mounted || isUserLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="flex flex-col items-center gap-4">
@@ -181,6 +183,7 @@ export default function DashboardLayout({
     );
   }
 
+  // Prevent shell flash if user is null
   if (!user) return null;
 
   return (

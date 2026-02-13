@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -44,7 +43,7 @@ import { useSettings } from '@/context/settings-context';
 import { createProcessAction, deleteProcessAction } from '@/app/actions/process-actions';
 import { usePlatformAuth } from '@/context/auth-context';
 import { toast } from '@/hooks/use-toast';
-import { Process, ProcessVersion, Department, Tenant, JobTitle } from '@/lib/types';
+import { Process, ProcessVersion, Department, Tenant, JobTitle, Resource, Feature } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import { exportProcessManualPdf } from '@/lib/export-utils';
@@ -103,6 +102,8 @@ export default function ProcessHubClient() {
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: resources } = usePluggableCollection<Resource>('resources');
+  const { data: allFeatures } = usePluggableCollection<Feature>('features');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -143,7 +144,15 @@ export default function ProcessHubClient() {
         return;
       }
 
-      await exportProcessManualPdf(targetProcesses, versions, tenant, departments, jobTitles);
+      await exportProcessManualPdf(
+        targetProcesses, 
+        versions, 
+        tenant, 
+        departments, 
+        jobTitles,
+        resources || [],
+        allFeatures || []
+      );
       toast({ title: "Handbuch generiert", description: "Alle selektierten Prozesse wurden exportiert." });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Export Fehler", description: e.message });
@@ -151,18 +160,6 @@ export default function ProcessHubClient() {
       setIsExportingManual(false);
     }
   };
-
-  useEffect(() => {
-    if (mounted && searchParams.get('action') === 'create' && !isCreating) {
-      const timer = setTimeout(() => {
-        handleCreate();
-        const url = new URL(window.location.href);
-        url.searchParams.delete('action');
-        window.history.replaceState({}, '', url.toString());
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [mounted, searchParams]);
 
   const handleDelete = async () => {
     if (!processToDelete) return;

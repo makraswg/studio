@@ -264,16 +264,18 @@ export async function importUsersAction(usersToImport: any[], dataSource: DataSo
       };
 
       const res = await saveCollectionRecord('users', userId, userData, dataSource);
-      if (res.success) count++;
+      if (res.success) {
+        await logAuditEventAction(dataSource, {
+          tenantId: userData.tenantId,
+          actorUid: actorEmail,
+          action: `Benutzer importiert (AD-Quelle): ${userData.displayName}`,
+          entityType: 'user',
+          entityId: userId,
+          after: userData
+        });
+        count++;
+      }
     }
-
-    await logAuditEventAction(dataSource, {
-      tenantId: 'global',
-      actorUid: actorEmail,
-      action: `${count} Benutzer via AD-Import Tool in den Hub übernommen.`,
-      entityType: 'sync',
-      entityId: 'manual-import'
-    });
 
     return { success: true, count };
   } catch (e: any) {
@@ -309,9 +311,12 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
           
           if (adMatch) {
             const shouldBeEnabled = !adMatch.isDisabled;
-            const needsUpdate = hubUser.enabled !== (shouldBeEnabled ? 1 : 0) || 
+            const currentEnabled = hubUser.enabled === true || hubUser.enabled === 1;
+            
+            const needsUpdate = currentEnabled !== shouldBeEnabled || 
                                 hubUser.displayName !== adMatch.displayName ||
-                                hubUser.email !== adMatch.email;
+                                hubUser.email !== adMatch.email ||
+                                hubUser.department !== adMatch.dept;
 
             if (needsUpdate) {
               const updatedUser = {
@@ -323,9 +328,22 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
                 status: shouldBeEnabled ? 'active' : 'archived',
                 lastSyncedAt: new Date().toISOString()
               };
+              
               await saveCollectionRecord('users', hubUser.id, updatedUser, dataSource);
+              
+              // Log detailed individual change to Audit Trail
+              await logAuditEventAction(dataSource, {
+                tenantId: tenant.id,
+                actorUid: 'system-sync',
+                action: `AD-Sync: Profil aktualisiert (${hubUser.displayName}). Status: ${shouldBeEnabled ? 'Aktiv' : 'Deaktiviert'}`,
+                entityType: 'user',
+                entityId: hubUser.id,
+                before: hubUser,
+                after: updatedUser
+              });
+
               totalUpdated++;
-              if (!shouldBeEnabled && hubUser.enabled) totalDisabled++;
+              if (!shouldBeEnabled && currentEnabled) totalDisabled++;
             }
           }
         }
@@ -336,6 +354,7 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
         );
       } catch (tenantErr: any) {
         console.error(`Sync error for tenant ${tenant.name}:`, tenantErr);
+        await logLdapInteraction(dataSource, tenant.id, 'Tenant Sync Error', 'error', tenantErr.message, { tenant: tenant.name });
       }
     }
 
@@ -345,7 +364,7 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
     await logAuditEventAction(dataSource, {
       tenantId: 'global',
       actorUid,
-      action: `LDAP Voll-Sync: ${msg}`,
+      action: `LDAP Voll-Sync abgeschlossen: ${msg}`,
       entityType: 'sync',
       entityId: jobId
     });

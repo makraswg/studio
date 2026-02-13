@@ -253,6 +253,7 @@ export const appSchema: AppSchema = {
       responsibleDepartmentId: 'VARCHAR(255)',
       vvtId: 'VARCHAR(255)', 
       process_type_id: 'VARCHAR(255)',
+      emergencyProcessId: 'VARCHAR(255)',
       title: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
       inputs: 'TEXT',

@@ -57,7 +57,8 @@ import {
   ImageIcon,
   FileText,
   Focus,
-  Paperclip
+  Paperclip,
+  ShieldAlert
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -120,7 +121,7 @@ export default function ProcessDesignerPage() {
   const [scale, setScale] = useState(0.8);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [dragStart, setDragStart] = useState({ x: e.clientX - position.x, y: e.clientY - position.y });
   const [isDiagramLocked, setIsDiagramLocked] = useState(false);
   const [isProgrammaticMove, setIsProgrammaticMove] = useState(false);
   const hasAutoCentered = useRef(false);
@@ -168,6 +169,7 @@ export default function ProcessDesignerPage() {
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDesc, setMetaDesc] = useState('');
   const [metaTypeId, setMetaTypeId] = useState('none');
+  const [metaEmergencyId, setMetaEmergencyId] = useState('none');
   const [metaInputs, setMetaInputs] = useState('');
   const [metaOutputs, setMetaOutputs] = useState('');
   const [metaKpis, setMetaKpis] = useState('');
@@ -203,6 +205,7 @@ export default function ProcessDesignerPage() {
       setMetaTitle(currentProcess.title);
       setMetaDesc(currentProcess.description || '');
       setMetaTypeId(currentProcess.process_type_id || 'none');
+      setMetaEmergencyId(currentProcess.emergencyProcessId || 'none');
       setMetaInputs(currentProcess.inputs || '');
       setMetaOutputs(currentProcess.outputs || '');
       setMetaKpis(currentProcess.kpis || '');
@@ -573,6 +576,7 @@ export default function ProcessDesignerPage() {
       const res = await updateProcessMetadataAction(id as string, {
         title: metaTitle, description: metaDesc,
         process_type_id: metaTypeId === 'none' ? undefined : metaTypeId,
+        emergencyProcessId: metaEmergencyId === 'none' ? undefined : metaEmergencyId,
         inputs: metaInputs, outputs: metaOutputs, kpis: metaKpis, tags: metaTags,
         openQuestions: metaOpenQuestions, responsibleDepartmentId: metaDeptId === 'none' ? undefined : metaDeptId,
         ownerRoleId: metaOwnerRoleId === 'none' ? undefined : metaOwnerRoleId,
@@ -635,7 +639,7 @@ export default function ProcessDesignerPage() {
             
             <TabsContent value="steps" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col p-0">
               <div className="px-6 py-4 border-b bg-white space-y-4 shrink-0">
-                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Element hinzufügen</Label>
+                <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Element hinzufügen</h3>
                 <div className="grid grid-cols-3 gap-2">
                   <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2" onClick={() => handleQuickAdd('step')}><PlusCircle className="w-3.5 h-3.5 text-primary" /> Schritt</Button>
                   <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2" onClick={() => handleQuickAdd('decision')}><GitBranch className="w-3.5 h-3.5 text-amber-600" /> Weiche</Button>
@@ -692,6 +696,20 @@ export default function ProcessDesignerPage() {
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-black uppercase text-slate-400">Prozesstyp</Label>
                     <Select value={metaTypeId} onValueChange={setMetaTypeId}><SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{processTypes?.filter(t => t.enabled).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-black uppercase text-red-600 flex items-center gap-1.5">
+                      <ShieldAlert className="w-3 h-3" /> BCM Notfall-Fallback
+                    </Label>
+                    <Select value={metaEmergencyId} onValueChange={setMetaEmergencyId}>
+                      <SelectTrigger className="h-10 text-xs rounded-xl border-red-100 bg-red-50/10 text-red-700 font-bold"><SelectValue placeholder="Rückfall-Prozess wählen..." /></SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="none">Kein Fallback-Prozess</SelectItem>
+                        {processes?.filter(p => p.process_type_id === 'pt-disaster' && p.id !== id).map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-400">Beschreibung</Label><Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[80px] text-xs rounded-xl" /></div>
                 </section>

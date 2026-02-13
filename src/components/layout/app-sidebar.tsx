@@ -49,7 +49,8 @@ import {
   UserCircle,
   Fingerprint,
   Save as SaveIcon,
-  ShieldAlert
+  ShieldAlert,
+  FlameKindling
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -149,6 +150,7 @@ export function AppSidebar() {
   const hubModules = [
     { name: 'Datenmanagement', href: '/features', icon: ListFilter },
     { name: 'Prozessübersicht', href: '/processhub', icon: Workflow },
+    { name: 'Notfallprozesse', href: '/processhub/disaster', icon: ShieldAlert },
     { name: 'Prozesslandkarte', href: '/processhub/map', icon: Network },
   ];
 
@@ -277,7 +279,7 @@ export function AppSidebar() {
 
           <div className="space-y-1">
             <p className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">WorkflowHub</p>
-            {hubModules.map((item) => <NavLink key={item.name} item={item} />)}
+            {hubModules.map((item) => <NavLink key={item.name} item={item} activeColor={item.href.includes('disaster') ? 'bg-red-600' : 'bg-primary'} />)}
           </div>
 
           <div className="space-y-1">

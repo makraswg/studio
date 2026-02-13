@@ -220,6 +220,7 @@ export interface Process {
   responsibleDepartmentId?: string;
   vvtId?: string; 
   process_type_id?: string;
+  emergencyProcessId?: string;
   title: string;
   description?: string;
   inputs?: string;

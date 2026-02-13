@@ -111,7 +111,7 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
   doc.setFontSize(9);
   doc.setTextColor(120);
   doc.setFont('helvetica', 'bold');
-  doc.text('Prozess-Visualisierung', margin, startY + 5);
+  doc.text('Visualisierung', margin, startY + 5);
 
   const getPdfCoords = (id: string) => {
     const pos = positions[id] || { x: 0, y: 0 };
@@ -250,7 +250,7 @@ export async function exportDetailedProcessPdf(
     
     const summaryRows = [
       ['Verantwortliche Abteilung', dept?.name || '---'],
-      ['Verantwortliche Rolle', owner?.name || '---'],
+      ['Verantwortlich', owner?.name || '---'],
       ['Freigabestatus', `Freigegeben am ${timestamp} durch ${owner?.name || 'System'}`],
       ['VVT Referenz', process.vvtId ? `VVT-ID: ${process.vvtId}` : 'Keine Verknüpfung'],
       ['IT-Infrastruktur', resourceNames],
@@ -283,7 +283,8 @@ export async function exportDetailedProcessPdf(
       const executionInfo = [
         node.description || '',
         node.checklist?.length ? `Checkliste:\n- ${node.checklist.join('\n- ')}` : '',
-        node.tips ? `HINWEIS: ${node.tips}` : ''
+        node.tips ? `EXPERTENTIPP: ${node.tips}` : '',
+        node.errors ? `ACHTUNG: ${node.errors}` : ''
       ].filter(Boolean).join('\n\n');
 
       const successors = version.model_json.edges
@@ -307,7 +308,7 @@ export async function exportDetailedProcessPdf(
 
     autoTable(doc, {
       startY: tableY + 10,
-      head: [['Nr / Schritt', 'Zuständigkeit', 'Systeme', 'Durchführung & Hilfen', 'Folgeschritte']],
+      head: [['Nr / Schritt', 'Zuständigkeit', 'Systeme', 'Durchführung & Hilfen', 'Nächste Schritte']],
       body: stepsData,
       theme: 'striped',
       headStyles: { fillColor: [37, 99, 235], fontSize: 8 },
@@ -347,11 +348,17 @@ export async function exportProcessManualPdf(
     const doc = new jsPDF();
     const now = new Date().toLocaleDateString('de-DE');
 
-    // Druckfreundliches Deckblatt (Weiß)
-    doc.setDrawColor(37, 99, 235);
-    doc.setLineWidth(2);
-    doc.rect(10, 10, 190, 277);
+    // --- DECKBLATT (Druckfreundlich, kein Rahmen) ---
+    doc.setTextColor(30, 41, 59);
     
+    // Logo oben zentriert (Platzhalter für echtes Logo)
+    doc.setDrawColor(220);
+    doc.setFillColor(240, 240, 240);
+    doc.circle(105, 60, 15, 'FD');
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text('LOGO', 105, 61, { align: 'center' });
+
     doc.setTextColor(30, 41, 59);
     doc.setFontSize(32);
     doc.setFont('helvetica', 'bold');
@@ -366,7 +373,7 @@ export async function exportProcessManualPdf(
     doc.text('Zentrale Prozessdokumentation & GRC-Nachweis', 105, 140, { align: 'center' });
     doc.text(`Stand: ${now} | Umfang: ${processes.length} Prozesse`, 105, 146, { align: 'center' });
 
-    // Inhaltsverzeichnis (TOC) - Gruppiert nach Abteilungen
+    // --- INHALTSVERZEICHNIS (TOC) ---
     doc.addPage();
     doc.setTextColor(37, 99, 235);
     doc.setFontSize(18);
@@ -381,9 +388,6 @@ export async function exportProcessManualPdf(
       groupedProcesses[deptName].push(p);
     });
 
-    // Dummy TOC Render to reserve space
-    const tocStartY = 40;
-
     // Content Generation Loop
     for (const deptName of Object.keys(groupedProcesses).sort()) {
       for (const p of groupedProcesses[deptName]) {
@@ -393,7 +397,7 @@ export async function exportProcessManualPdf(
         doc.addPage();
         processPages[p.id] = (doc as any).internal.getNumberOfPages();
         
-        // Render content (similar to detailed view but with page tracking)
+        // Render process page
         doc.setFontSize(20);
         doc.setTextColor(30, 41, 59);
         doc.text(p.title, 14, 25);
@@ -414,15 +418,18 @@ export async function exportProcessManualPdf(
         autoTable(doc, {
           startY: 38,
           body: [
-            ['Abteilung', deptName],
+            ['Verantwortliche Abteilung', deptName],
             ['Verantwortlich', jobTitles.find(j => j.id === p.ownerRoleId)?.name || '---'],
-            ['Status', `Freigegeben (${p.status})`],
-            ['Infrastruktur', resNames],
-            ['Verarbeitete Daten', featNames]
+            ['Freigabestatus', `Freigegeben am ${now} durch ${jobTitles.find(j => j.id === p.ownerRoleId)?.name || 'System'}`],
+            ['VVT Referenz', p.vvtId ? `ID: ${p.vvtId}` : 'Keine'],
+            ['IT-Infrastruktur', resNames],
+            ['Verarbeitete Daten', featNames],
+            ['Eingang (ISO)', p.inputs || '---'],
+            ['Ausgang (ISO)', p.outputs || '---']
           ],
           theme: 'grid',
           styles: { fontSize: 7, cellPadding: 1.5 },
-          columnStyles: { 0: { fontStyle: 'bold', width: 40, fillColor: [250, 250, 250] } }
+          columnStyles: { 0: { fontStyle: 'bold', width: 45, fillColor: [250, 250, 250] } }
         });
 
         const graphY = (doc as any).lastAutoTable.finalY + 8;
@@ -430,7 +437,7 @@ export async function exportProcessManualPdf(
 
         autoTable(doc, {
           startY: tableY + 5,
-          head: [['Nr', 'Arbeitsschritt', 'Zuständigkeit', 'Durchführung / Hilfen', 'Folge']],
+          head: [['Nr', 'Arbeitsschritt', 'Zuständigkeit', 'Durchführung / Hilfen', 'Nächste Schritte']],
           body: ver.model_json.nodes.map((n, i) => {
             const successors = ver.model_json.edges
               .filter(e => e.source === n.id)
@@ -441,7 +448,6 @@ export async function exportProcessManualPdf(
                 
                 let pageRef = '';
                 if (targetNode?.type === 'subprocess' && targetNode.targetProcessId) {
-                  // We'll fill this in a second pass or if already known
                   const tp = processPages[targetNode.targetProcessId];
                   if (tp) pageRef = ` (S. ${tp})`;
                 }
@@ -449,46 +455,75 @@ export async function exportProcessManualPdf(
                 return `${label}→ (${targetIdx}) ${targetNode?.title}${pageRef}`;
               }).join('\n');
 
+            const details = [
+              n.description, 
+              n.checklist?.length ? `Checkliste:\n- ${n.checklist.join('\n- ')}` : '',
+              n.tips ? `TIPP: ${n.tips}` : ''
+            ].filter(Boolean).join('\n\n');
+
             return [
               `${i + 1}`,
-              n.title, 
+              { content: n.title, styles: { fontStyle: 'bold' } }, 
               jobTitles.find(j => j.id === n.roleId)?.name || '-',
-              [n.description, n.checklist?.length ? `• ${n.checklist.join('\n• ')}` : ''].filter(Boolean).join('\n\n'),
+              details || '-',
               successors || 'Ende'
             ];
           }),
           theme: 'striped',
-          styles: { fontSize: 6.5, cellPadding: 2, overflow: 'linebreak' },
+          styles: { fontSize: 6.5, cellPadding: 2, overflow: 'linebreak', font: 'helvetica' },
           columnStyles: { 0: { width: 8 }, 1: { width: 35 }, 3: { width: 70 }, 4: { width: 35 } }
         });
       }
     }
 
-    // Pass 2: Re-render TOC with fixed page numbers
+    // --- PASS 2: RENDER TOC (with leader lines and right-aligned numbers) ---
     doc.setPage(2);
-    let tocY = tocStartY;
+    let tocY = 40;
     for (const deptName of Object.keys(groupedProcesses).sort()) {
       doc.setFontSize(10);
       doc.setTextColor(30);
       doc.setFont('helvetica', 'bold');
       doc.text(deptName.toUpperCase(), 14, tocY);
-      tocY += 6;
+      doc.setDrawColor(37, 99, 235);
+      doc.line(14, tocY + 1, 30, tocY + 1);
+      tocY += 8;
       
-      const rows = groupedProcesses[deptName].map(p => [
-        `   ${p.title}`,
-        processPages[p.id]?.toString() || '?'
-      ]);
+      groupedProcesses[deptName].forEach(p => {
+        doc.setFontSize(9);
+        doc.setTextColor(50);
+        doc.setFont('helvetica', 'normal');
+        
+        const title = `   ${p.title}`;
+        const pageNum = processPages[p.id]?.toString() || '?';
+        
+        doc.text(title, 14, tocY);
+        
+        // Leader Line
+        const titleWidth = doc.getTextWidth(title);
+        const pageNumWidth = doc.getTextWidth(pageNum);
+        const dotStart = 14 + titleWidth + 2;
+        const dotEnd = 196 - pageNumWidth - 2;
+        
+        if (dotEnd > dotStart) {
+          doc.setDrawColor(200);
+          doc.setLineDashPattern([0.5, 1.5], 0);
+          doc.line(dotStart, tocY - 1, dotEnd, tocY - 1);
+          doc.setLineDashPattern([], 0);
+        }
 
-      autoTable(doc, {
-        startY: tocY,
-        body: rows,
-        theme: 'plain',
-        styles: { fontSize: 9, cellPadding: 1 },
-        columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
-        margin: { left: 14 }
+        doc.text(pageNum, 196, tocY, { align: 'right' });
+        tocY += 6;
+
+        if (tocY > 270) {
+          doc.addPage();
+          tocY = 20;
+        }
       });
-      tocY = (doc as any).lastAutoTable.finalY + 10;
+      tocY += 4;
     }
+
+    // Ensure first process doesn't overlap with long TOC
+    // We already do this by adding pages in the first loop.
 
     addPageDecorations(doc, tenant);
     doc.save(`Handbuch_${tenant.name.replace(/\s+/g, '_')}.pdf`);

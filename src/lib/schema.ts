@@ -25,6 +25,7 @@ export const appSchema: AppSchema = {
       offboardingDate: 'VARCHAR(50)',
       lastSyncedAt: 'VARCHAR(50)',
       adGroups: 'TEXT',
+      authSource: 'VARCHAR(20) DEFAULT "local"',
     },
   },
   tenants: {
@@ -55,6 +56,7 @@ export const appSchema: AppSchema = {
       ldapAttrDepartment: 'VARCHAR(100)',
       ldapAttrGroups: 'TEXT',
       ldapAttrCompany: 'VARCHAR(100)',
+      ldapAttrObjectGUID: 'VARCHAR(100)',
     },
   },
   departments: {

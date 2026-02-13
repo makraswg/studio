@@ -1,8 +1,7 @@
-
 'use server';
 
-import { saveCollectionRecord, getCollectionData, getSingleRecord } from './mysql-actions';
-import { DataSource, User, Assignment, Entitlement, Resource } from '@/lib/types';
+import { saveCollectionRecord, getCollectionData, getSingleRecord, deleteCollectionRecord } from './mysql-actions';
+import { DataSource, User, Assignment, Entitlement, Resource, Task, TaskComment } from '@/lib/types';
 import { logAuditEventAction } from './audit-actions';
 import { createJiraTicket, getJiraConfigs } from './jira-actions';
 
@@ -16,7 +15,6 @@ export async function startOffboardingAction(
   actorEmail: string = 'system'
 ) {
   try {
-    // 1. Benutzer laden
     const userRes = await getSingleRecord('users', userId, dataSource);
     const user = userRes.data as User;
     if (!user) throw new Error("Benutzer nicht gefunden.");
@@ -24,11 +22,9 @@ export async function startOffboardingAction(
     const now = new Date().toISOString();
     const targetTenantId = user.tenantId;
 
-    // 2. Aktive Berechtigungen finden
     const assignmentsRes = await getCollectionData('assignments', dataSource);
     const userAssignments = assignmentsRes.data?.filter((a: Assignment) => a.userId === userId && a.status === 'active') || [];
 
-    // 3. Jira Ticket für Entzug vorbereiten
     const entitlementsRes = await getCollectionData('entitlements', dataSource);
     const resourcesRes = await getCollectionData('resources', dataSource);
 
@@ -54,18 +50,14 @@ export async function startOffboardingAction(
       if (res.success) jiraKey = res.key!;
     }
 
-    // 4. Status-Updates in der DB
-    // Benutzer auf inaktiv setzen
     const updatedUser = { ...user, enabled: false, status: 'archived', offboardingDate };
     await saveCollectionRecord('users', userId, updatedUser, dataSource);
 
-    // Zuweisungen auf 'pending_removal' setzen
     for (const a of userAssignments) {
       const updatedAss = { ...a, status: 'pending_removal', jiraIssueKey: jiraKey };
       await saveCollectionRecord('assignments', a.id, updatedAss, dataSource);
     }
 
-    // 5. Audit Log
     await logAuditEventAction(dataSource, {
       tenantId: targetTenantId,
       actorUid: actorEmail,
@@ -78,6 +70,59 @@ export async function startOffboardingAction(
     return { success: true, jiraKey };
   } catch (e: any) {
     console.error("Offboarding Error:", e);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Prüft auf Abhängigkeiten und löscht einen Benutzer permanent.
+ */
+export async function deleteUserAction(userId: string, dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
+  try {
+    const userRes = await getSingleRecord('users', userId, dataSource);
+    const user = userRes.data as User;
+    if (!user) throw new Error("Benutzer nicht gefunden.");
+
+    const blockers: string[] = [];
+
+    // 1. Check Assignments
+    const assRes = await getCollectionData('assignments', dataSource);
+    const userAss = assRes.data?.filter((a: Assignment) => a.userId === userId && a.status !== 'removed') || [];
+    if (userAss.length > 0) {
+      blockers.push(`Der Benutzer hat noch ${userAss.length} aktive oder angeforderte Berechtigungen.`);
+    }
+
+    // 2. Check Tasks
+    const taskRes = await getCollectionData('tasks', dataSource);
+    const userTasks = taskRes.data?.filter((t: Task) => t.assigneeId === userId || t.creatorId === userId) || [];
+    if (userTasks.length > 0) {
+      blockers.push(`Der Benutzer ist als Verantwortlicher oder Ersteller in ${userTasks.length} Aufgaben eingetragen.`);
+    }
+
+    // 3. Check Comments
+    const commRes = await getCollectionData('task_comments', dataSource);
+    const userComments = commRes.data?.filter((c: TaskComment) => c.userId === userId) || [];
+    if (userComments.length > 0) {
+      blockers.push(`Der Benutzer hat ${userComments.length} Kommentare im Aufgaben-Journal hinterlassen.`);
+    }
+
+    if (blockers.length > 0) {
+      return { success: false, error: "Löschen nicht möglich", blockers };
+    }
+
+    const res = await deleteCollectionRecord('users', userId, dataSource);
+    if (res.success) {
+      await logAuditEventAction(dataSource, {
+        tenantId: user.tenantId,
+        actorUid: actorEmail,
+        action: `Benutzer permanent gelöscht: ${user.displayName}`,
+        entityType: 'user',
+        entityId: userId,
+        before: user
+      });
+    }
+    return res;
+  } catch (e: any) {
     return { success: false, error: e.message };
   }
 }

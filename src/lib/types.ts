@@ -90,6 +90,7 @@ export interface User {
   offboardingDate?: string;
   lastSyncedAt: string;
   adGroups?: string[]; // Synchronisierte Gruppen aus memberOf
+  authSource?: 'local' | 'ldap';
 }
 
 export interface Task {

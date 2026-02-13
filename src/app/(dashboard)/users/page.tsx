@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -38,7 +37,10 @@ import {
   Save,
   RefreshCw,
   Clock,
-  XCircle
+  XCircle,
+  Fingerprint,
+  Database,
+  X
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -56,6 +58,16 @@ import {
   DialogFooter,
   DialogDescription
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -69,6 +81,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { deleteUserAction } from '@/app/actions/user-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { exportUsersExcel } from '@/lib/export-utils';
@@ -95,6 +108,10 @@ export default function UsersPage() {
   const [enabled, setEnabled] = useState(true);
 
   const [activeStatusFilter, setActiveStatusFilter] = useState<'all' | 'active' | 'disabled' | 'drift'>('all');
+
+  // Deletion state
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [blockerInfo, setBlockerInfo] = useState<{ title: string, items: string[], targetId?: string } | null>(null);
 
   const { data: users, isLoading, refresh: refreshUsers } = usePluggableCollection<any>('users');
   const { data: tenants } = usePluggableCollection<any>('tenants');
@@ -181,6 +198,7 @@ export default function UsersPage() {
       tenantId,
       title: userTitle,
       enabled: enabled ? 1 : 0,
+      authSource: selectedUser?.authSource || 'local',
       lastSyncedAt: new Date().toISOString()
     };
 
@@ -209,6 +227,25 @@ export default function UsersPage() {
       toast({ variant: "destructive", title: "Speichern fehlgeschlagen", description: e.message });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteClick = async (user: any) => {
+    setIsDeleting(true);
+    try {
+      const res = await deleteUserAction(user.id, dataSource, authUser?.email || 'system');
+      if (res.success) {
+        toast({ title: "Benutzer permanent gelöscht" });
+        refreshUsers();
+      } else {
+        setBlockerInfo({
+          title: "Löschen nicht möglich",
+          items: res.blockers || [res.error || "Unbekannte Abhängigkeit"],
+          targetId: user.id
+        });
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -324,7 +361,7 @@ export default function UsersPage() {
           <Table>
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent border-b">
-                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Identität</TableHead>
+                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Identität / Quelle</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Rollen-Standardzuweisung</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Integrität (AD Sync)</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">Status</TableHead>
@@ -335,16 +372,26 @@ export default function UsersPage() {
               {filteredUsers?.map((u: any) => {
                 const isEnabled = u.enabled === true || u.enabled === 1 || u.enabled === "1";
                 const drift = calculateDrift(u);
+                const isAD = u.authSource === 'ldap' || !!u.externalId;
                 
                 return (
                   <TableRow key={u.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/users/${u.id}`)}>
                     <TableCell className="py-4 px-6">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-primary font-bold text-xs border">
-                          {u.displayName?.charAt(0)}
+                        <div className={cn(
+                          "w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs border shadow-inner",
+                          isAD ? "bg-indigo-50 text-indigo-600 border-indigo-100" : "bg-slate-100 text-slate-500 border-slate-200"
+                        )}>
+                          {isAD ? <Fingerprint className="w-4 h-4" /> : u.displayName?.charAt(0)}
                         </div>
                         <div>
-                          <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{u.displayName}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{u.displayName}</div>
+                            <Badge variant="outline" className={cn(
+                              "text-[7px] font-black h-3.5 px-1 uppercase border-none",
+                              isAD ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500"
+                            )}>{isAD ? 'AD' : 'Lokal'}</Badge>
+                          </div>
                           <div className="text-[10px] text-slate-400 font-medium flex items-center gap-1.5 mt-0.5">
                             <Mail className="w-3 h-3" /> {u.email}
                           </div>
@@ -395,7 +442,7 @@ export default function UsersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
-                      <div className="flex justify-end items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all shadow-sm">
+                      <div className="flex justify-end items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white shadow-sm" onClick={() => router.push(`/users/${u.id}`)}>
                           <Eye className="w-3.5 h-3.5 text-primary" />
                         </Button>
@@ -408,6 +455,10 @@ export default function UsersPage() {
                             <DropdownMenuItem onSelect={() => router.push(`/users/${u.id}`)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Eye className="w-3.5 h-3.5 text-primary" /> Profil ansehen</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => openEdit(u)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
                             <DropdownMenuItem className="text-indigo-600 rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => router.push(`/reviews?search=${u.displayName}`)}><Zap className="w-3.5 h-3.5" /> Review anstoßen</DropdownMenuItem>
+                            <DropdownMenuSeparator className="my-1" />
+                            <DropdownMenuItem className="text-red-600 rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => handleDeleteClick(u)}>
+                              <Trash2 className="w-3.5 h-3.5" /> Löschen
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -481,6 +532,37 @@ export default function UsersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dependency Blocker Alert */}
+      <AlertDialog open={!!blockerInfo} onOpenChange={(val) => !val && setBlockerInfo(null)}>
+        <AlertDialogContent className="rounded-2xl border-none shadow-2xl p-8 max-w-lg">
+          <AlertDialogHeader>
+            <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4 text-orange-600">
+              <ShieldAlert className="w-7 h-7" />
+            </div>
+            <AlertDialogTitle className="text-xl font-headline font-bold text-center">Löschung blockiert</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-4 text-center" asChild>
+              <div className="space-y-4">
+                <p>Der Benutzer kann nicht gelöscht werden, da folgende Abhängigkeiten bestehen:</p>
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-left space-y-2">
+                  {blockerInfo?.items.map((item, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs font-bold text-slate-700">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] italic text-slate-400">
+                  Bitte entfernen Sie zuerst alle Berechtigungen und schließen Sie offene Aufgaben ab, bevor Sie das Profil löschen.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-6 flex justify-center">
+            <AlertDialogCancel className="rounded-xl font-bold text-xs h-11 px-12 border-slate-200">Verstanden</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

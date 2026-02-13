@@ -56,7 +56,11 @@ import {
   ListOrdered,
   Quote,
   Code,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Table as TableIcon,
+  Minus,
+  CalendarDays,
+  Image as LuImage
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -218,6 +222,16 @@ export default function PolicyDetailPage() {
     }, 0);
   };
 
+  const insertTable = () => {
+    const tableTemplate = "\n| Spalte 1 | Spalte 2 | Spalte 3 |\n| :--- | :--- | :--- |\n| Zeile 1 | Daten | Daten |\n| Zeile 2 | Daten | Daten |\n";
+    insertText(tableTemplate);
+  };
+
+  const insertImage = () => {
+    const imgTemplate = "\n![Bildbeschreibung](Hier_Bild_URL_einfügen_oder_Anhang_nutzen)\n";
+    insertText(imgTemplate);
+  };
+
   const handleBookStackExport = async () => {
     if (!activeVersion || !id) return;
     setIsExporting(true);
@@ -322,7 +336,7 @@ export default function PolicyDetailPage() {
   if (!policy) return null;
 
   return (
-    <div className="space-y-6 pb-20 animate-in fade-in duration-700">
+    <div className="space-y-6 pb-20 animate-in fade-in duration-700 max-w-[1600px] mx-auto p-4 md:p-8">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push('/policies')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl">
@@ -337,12 +351,11 @@ export default function PolicyDetailPage() {
               )}>{policy.status}</Badge>
             </div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5 flex items-center gap-2">
-              <ScrollText className="w-3 h-3" /> Wiki-Style Modul • V{policy.currentVersion}.{activeVersion?.revision || 0}
+              <ScrollText className="w-3 h-3" /> Wiki-Style Modul • V{policy.currentVersion}.0 • Rev. {activeVersion?.revision || 0}
             </p>
           </div>
         </div>
         <div className="flex gap-2">
-          {/* Export Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-slate-200 hover:bg-slate-50 shadow-sm transition-all active:scale-95">
@@ -370,7 +383,7 @@ export default function PolicyDetailPage() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-indigo-200 text-indigo-700 shadow-sm" onClick={handleAiAudit} disabled={isAiLoading}>
+          <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm" onClick={handleAiAudit} disabled={isAiLoading}>
             {isAiLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BrainCircuit className="w-4 h-4 mr-2" />} KI Audit
           </Button>
           {!editMode ? (
@@ -381,14 +394,14 @@ export default function PolicyDetailPage() {
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" className="h-10 rounded-xl font-bold text-xs px-6" onClick={() => setEditMode(false)}>Verwerfen</Button>
               <Button size="sm" className="h-10 rounded-xl font-bold text-xs px-8 bg-emerald-600 text-white shadow-lg" onClick={() => handleSaveVersion(false)} disabled={isSaving}>
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Revision sichern
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />} Revision sichern
               </Button>
             </div>
           )}
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <aside className="lg:col-span-1 space-y-6">
           <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4 px-6">
@@ -432,7 +445,7 @@ export default function PolicyDetailPage() {
                       {file.fileType.includes('image') ? <ImageIcon className="w-3.5 h-3.5 text-indigo-400" /> : <FileText className="w-3.5 h-3.5 text-slate-400" />}
                       <span className="text-[10px] font-bold truncate max-w-[120px]">{file.fileName}</span>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover:opacity-100" onClick={() => deleteMediaAction(file.id, file.tenantId, user?.email || 'admin', dataSource).then(() => refreshMedia())}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover:opacity-100 transition-all" onClick={() => deleteMediaAction(file.id, file.tenantId, user?.email || 'admin', dataSource).then(() => refreshMedia())}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
@@ -460,81 +473,43 @@ export default function PolicyDetailPage() {
               {editMode ? (
                 <div className="space-y-6">
                   <Card className="rounded-2xl border shadow-xl overflow-hidden flex flex-col">
-                    <CardHeader className="bg-slate-900 text-white p-0 flex flex-col">
-                      <div className="p-4 px-6 flex flex-row items-center justify-between border-b border-slate-800">
+                    <CardHeader className="bg-slate-50 border-b p-0 flex flex-col">
+                      <div className="p-4 px-6 flex flex-row items-center justify-between border-b border-slate-100">
                         <div className="flex items-center gap-3">
                           <FileEdit className="w-5 h-5 text-primary" />
-                          <CardTitle className="text-sm font-bold uppercase tracking-widest">Inhalt bearbeiten</CardTitle>
+                          <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-900">Editor</CardTitle>
                         </div>
-                        <Badge className="bg-primary/20 text-primary border-none rounded-full text-[8px] font-black uppercase px-2 h-4">GUI Editor</Badge>
+                        <Badge className="bg-primary/10 text-primary border-none rounded-full text-[8px] font-black uppercase px-2 h-4">GUI Toolbar</Badge>
                       </div>
                       
-                      {/* GUI TOOLBAR for Otto Normalnutzer */}
-                      <div className="bg-slate-800 p-2 px-4 flex flex-wrap items-center gap-1.5">
+                      <div className="bg-white p-3 px-6 flex flex-wrap items-center gap-2">
                         <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('**', '**')}><Bold className="w-4 h-4" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="text-[10px] font-bold">Fett</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('*', '*')}><Italic className="w-4 h-4" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="text-[10px] font-bold">Kursiv</TooltipContent>
-                          </Tooltip>
-                          <Separator orientation="vertical" className="h-6 mx-1 bg-slate-700" />
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('# ', '')}><Heading1 className="w-4 h-4" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="text-[10px] font-bold">Überschrift 1</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('## ', '')}><Heading2 className="w-4 h-4" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="text-[10px] font-bold">Überschrift 2</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('### ', '')}><Heading3 className="w-4 h-4" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="text-[10px] font-bold">Überschrift 3</TooltipContent>
-                          </Tooltip>
-                          <Separator orientation="vertical" className="h-6 mx-1 bg-slate-700" />
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('- ', '')}><List className="w-4 h-4" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="text-[10px] font-bold">Aufzählung</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('1. ', '')}><ListOrdered className="w-4 h-4" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="text-[10px] font-bold">Nummerierung</TooltipContent>
-                          </Tooltip>
-                          <Separator orientation="vertical" className="h-6 mx-1 bg-slate-700" />
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('> ', '')}><Quote className="w-4 h-4" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="text-[10px] font-bold">Zitat</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('`', '`')}><Code className="w-4 h-4" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="text-[10px] font-bold">Code</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:bg-slate-700" onClick={() => insertText('[Link Titel](https://', ')')}><LinkIcon className="w-4 h-4" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="text-[10px] font-bold">Link einfügen</TooltipContent>
-                          </Tooltip>
+                          <div className="flex items-center gap-1 pr-3 border-r border-slate-100">
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('**', '**')}><Bold className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Fett</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('*', '*')}><Italic className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Kursiv</TooltipContent></Tooltip>
+                          </div>
+                          
+                          <div className="flex items-center gap-1 px-3 border-r border-slate-100">
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('# ', '')}><Heading1 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Ü1</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('## ', '')}><Heading2 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Ü2</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('### ', '')}><Heading3 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Ü3</TooltipContent></Tooltip>
+                          </div>
+
+                          <div className="flex items-center gap-1 px-3 border-r border-slate-100">
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('- ', '')}><List className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Liste</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('1. ', '')}><ListOrdered className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Nummerierung</TooltipContent></Tooltip>
+                          </div>
+
+                          <div className="flex items-center gap-1 px-3 border-r border-slate-100">
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={insertTable}><TableIcon className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Tabelle einfügen</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={insertImage}><LuImage className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Bild einfügen</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('\n---\n')}><Minus className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Trennlinie</TooltipContent></Tooltip>
+                          </div>
+
+                          <div className="flex items-center gap-1 px-3">
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('[Link Titel](https://', ')')}><LinkIcon className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Link</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('> ', '')}><Quote className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Zitat</TooltipContent></Tooltip>
+                          </div>
                         </TooltipProvider>
                       </div>
                     </CardHeader>
@@ -543,50 +518,52 @@ export default function PolicyDetailPage() {
                         ref={textareaRef}
                         value={draftContent} 
                         onChange={e => setDraftContent(e.target.value)} 
-                        className="min-h-[550px] rounded-none border-none p-10 font-body text-sm leading-relaxed focus:ring-0 bg-white"
+                        className="min-h-[600px] rounded-none border-none p-10 font-body text-base leading-relaxed focus:ring-0 bg-white"
                         placeholder="Beginnen Sie hier mit der Erstellung Ihrer Richtlinie..."
                       />
                     </CardContent>
-                    <div className="p-6 border-t bg-slate-50 space-y-4">
-                      <div className="space-y-1.5">
+                    <div className="p-8 border-t bg-slate-50 space-y-6">
+                      <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Änderungsgrund (Changelog)</Label>
-                        <Input value={changelog} onChange={e => setChangelog(e.target.value)} placeholder="Beschreiben Sie kurz, was geändert wurde..." className="rounded-xl h-11 bg-white border-slate-200" />
+                        <Input value={changelog} onChange={e => setChangelog(e.target.value)} placeholder="Revision: Fehlerkorrektur in Kapitel 3..." className="rounded-xl h-12 bg-white border-slate-200 font-bold" />
                       </div>
                       <div className="flex justify-end gap-3">
-                        <Button variant="outline" className="rounded-xl h-11 px-8 font-black text-[10px] uppercase border-slate-200" onClick={() => handleSaveVersion(true)} disabled={isSaving}>Offizielle Freigabe</Button>
-                        <Button className="rounded-xl h-11 px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase shadow-lg transition-all active:scale-95" onClick={() => handleSaveVersion(false)} disabled={isSaving}>
-                          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />} Revision Sichern
+                        <Button variant="outline" className="rounded-xl h-12 px-8 font-black text-[10px] uppercase border-slate-200" onClick={() => handleSaveVersion(true)} disabled={isSaving}>Offizielle Freigabe (Major)</Button>
+                        <Button className="rounded-xl h-12 px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase shadow-lg transition-all active:scale-95 gap-2" onClick={() => handleSaveVersion(false)} disabled={isSaving}>
+                          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Revision Sichern
                         </Button>
                       </div>
                     </div>
                   </Card>
                 </div>
               ) : (
-                <Card className="rounded-2xl border shadow-xl bg-white p-10 min-h-[600px] relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-4">
-                    <Badge variant="outline" className="text-[8px] font-black uppercase text-slate-300">Lese-Modus</Badge>
-                  </div>
-                  <div className="max-w-3xl mx-auto prose prose-slate">
+                <Card className="rounded-2xl border shadow-xl bg-white p-16 min-h-[700px] relative overflow-hidden">
+                  <div className="max-w-4xl mx-auto">
                     {activeVersion ? (
-                      <div className="space-y-8">
-                        <h1 className="font-headline font-black text-4xl text-slate-900 leading-tight">{policy.title}</h1>
-                        <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                          <span className="flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5 opacity-50" /> {new Date(activeVersion.createdAt).toLocaleDateString()}</span>
-                          <span className="flex items-center gap-1.5"><BadgeCheck className="w-3.5 h-3.5 text-emerald-500" /> V{activeVersion.version}.{activeVersion.revision}</span>
-                        </div>
+                      <div className="space-y-10">
+                        <header className="space-y-4">
+                          <h1 className="font-headline font-black text-4xl text-slate-900 leading-tight">{policy.title}</h1>
+                          <div className="flex items-center gap-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 p-3 rounded-xl border border-slate-100 w-fit">
+                            <span className="flex items-center gap-2"><CalendarDays className="w-4 h-4 opacity-50" /> {new Date(activeVersion.createdAt).toLocaleDateString()}</span>
+                            <span className="flex items-center gap-2"><BadgeCheck className="w-4 h-4 text-emerald-500" /> Version {activeVersion.version}.{activeVersion.revision}</span>
+                            <span className="flex items-center gap-2"><UserCircle className="w-4 h-4 opacity-50" /> {activeVersion.createdBy}</span>
+                          </div>
+                        </header>
                         <Separator />
-                        <div className="whitespace-pre-wrap text-base leading-relaxed text-slate-700 font-medium font-body">{activeVersion.content}</div>
+                        <div className="whitespace-pre-wrap text-lg leading-relaxed text-slate-700 font-medium font-body prose prose-slate max-w-none">
+                          {activeVersion.content}
+                        </div>
                       </div>
                     ) : (
-                      <div className="py-24 text-center space-y-6 opacity-30">
-                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto border border-dashed border-slate-300">
-                          <ScrollText className="w-10 h-10 text-slate-300" />
+                      <div className="py-32 text-center space-y-8 opacity-30">
+                        <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto border border-dashed border-slate-300">
+                          <ScrollText className="w-12 h-12 text-slate-300" />
                         </div>
-                        <div className="space-y-2">
-                          <p className="text-sm font-bold uppercase tracking-widest text-slate-900">Kein Inhalt vorhanden</p>
-                          <p className="text-xs text-slate-500 italic max-w-xs mx-auto">Starten Sie den Editor, um das Dokument mit Leben zu füllen.</p>
+                        <div className="space-y-3">
+                          <p className="text-lg font-bold uppercase tracking-widest text-slate-900">Kein Dokumenten-Inhalt</p>
+                          <p className="text-sm text-slate-500 italic max-w-sm mx-auto leading-relaxed">Dieses Dokument wurde noch nicht befüllt. Nutzen Sie den Editor, um den Text zu erstellen oder eine Revision anzulegen.</p>
                         </div>
-                        <Button className="rounded-xl bg-primary text-white font-bold text-xs h-11 px-10" onClick={() => setEditMode(true)}>Editor öffnen</Button>
+                        <Button className="rounded-xl h-12 px-12 bg-primary text-white font-bold text-xs uppercase tracking-widest shadow-lg" onClick={() => setEditMode(true)}>Editor öffnen</Button>
                       </div>
                     )}
                   </div>
@@ -595,66 +572,78 @@ export default function PolicyDetailPage() {
             </TabsContent>
 
             <TabsContent value="links" className="space-y-6 animate-in fade-in">
-              <div className="p-6 bg-blue-50/50 border border-blue-100 rounded-[2rem] flex items-center gap-6 shadow-sm">
-                <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0">
-                  <Info className="w-6 h-6" />
+              <div className="p-8 bg-indigo-50/50 border border-indigo-100 rounded-[2rem] flex items-center gap-8 shadow-sm">
+                <div className="w-16 h-16 bg-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-xl shrink-0">
+                  <Target className="w-8 h-8" />
                 </div>
-                <p className="text-xs text-blue-800 font-medium leading-relaxed italic">
-                  „Verknüpfungen im PolicyHub dienen der Dokumentation des regulatorischen Kontextes. Sie beeinflussen nicht den Inhalt, ermöglichen aber die automatisierte Compliance-Prüfung.“
-                </p>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black uppercase text-indigo-900">GRC-Context Mapping</h4>
+                  <p className="text-xs text-indigo-700 font-medium leading-relaxed italic">
+                    Verknüpfen Sie dieses Dokument mit operativen Risiken und technischen Maßnahmen. Dies ermöglicht eine automatisierte Prüfung des Compliance-Abdeckungsgrads.
+                  </p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                  <CardHeader className="bg-slate-50 border-b p-4 px-6 flex flex-row items-center justify-between">
+                  <CardHeader className="bg-slate-50 border-b p-4 px-8">
                     <CardTitle className="text-xs font-black uppercase text-slate-400 tracking-widest">Risikobezug</CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
                     <div className="divide-y divide-slate-100">
                       {linkedRisks.map(r => (
-                        <div key={r.id} className="p-3 px-6 flex items-center justify-between group hover:bg-slate-50">
-                          <div className="flex items-center gap-3">
-                            <AlertTriangle className="w-4 h-4 text-orange-500" />
-                            <span className="text-[11px] font-bold text-slate-700">{r.title}</span>
+                        <div key={r.id} className="p-4 px-8 flex items-center justify-between group hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <AlertTriangle className="w-5 h-5 text-orange-500" />
+                            <div>
+                              <p className="text-xs font-bold text-slate-800">{r.title}</p>
+                              <p className="text-[9px] text-slate-400 font-black uppercase">{r.category}</p>
+                            </div>
                           </div>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover:opacity-100" onClick={() => handleUnlink(r.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 opacity-0 group-hover:opacity-100" onClick={() => handleUnlink(r.id)}><Trash2 className="w-4 h-4" /></Button>
                         </div>
                       ))}
-                      {linkedRisks.length === 0 && <p className="py-10 text-center text-[10px] text-slate-300 italic uppercase">Keine Risiken verknüpft</p>}
+                      {linkedRisks.length === 0 && <p className="py-16 text-center text-[10px] text-slate-300 italic uppercase">Keine Risiken verknüpft</p>}
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                  <CardHeader className="bg-slate-50 border-b p-4 px-6 flex flex-row items-center justify-between">
+                  <CardHeader className="bg-slate-50 border-b p-4 px-8">
                     <CardTitle className="text-xs font-black uppercase text-emerald-600 tracking-widest">Maßnahmen (TOM)</CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
                     <div className="divide-y divide-slate-100">
                       {linkedMeasures.map(m => (
-                        <div key={m.id} className="p-3 px-6 flex items-center justify-between group hover:bg-slate-50">
-                          <div className="flex items-center gap-3">
-                            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                            <span className="text-[11px] font-bold text-slate-700">{m.title}</span>
+                        <div key={m.id} className="p-4 px-8 flex items-center justify-between group hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <ShieldCheck className="w-5 h-5 text-emerald-500" />
+                            <div>
+                              <p className="text-xs font-bold text-slate-800">{m.title}</p>
+                              <p className="text-[9px] text-slate-400 font-black uppercase">{m.tomCategory || 'TOM'}</p>
+                            </div>
                           </div>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover:opacity-100" onClick={() => handleUnlink(m.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 opacity-0 group-hover:opacity-100" onClick={() => handleUnlink(m.id)}><Trash2 className="w-4 h-4" /></Button>
                         </div>
                       ))}
-                      {linkedMeasures.length === 0 && <p className="py-10 text-center text-[10px] text-slate-300 italic uppercase">Keine Maßnahmen verknüpft</p>}
+                      {linkedMeasures.length === 0 && <p className="py-16 text-center text-[10px] text-slate-300 italic uppercase">Keine Maßnahmen verknüpft</p>}
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
-              <div className="p-6 bg-slate-100 border border-dashed rounded-[2rem] flex flex-col items-center gap-4">
-                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Schnell-Verknüpfung</h4>
-                <div className="flex flex-wrap justify-center gap-3">
+              <div className="p-8 bg-slate-50 border border-dashed rounded-[2.5rem] flex flex-col items-center gap-6 shadow-inner">
+                <div className="text-center space-y-1">
+                  <h4 className="text-[11px] font-black uppercase text-slate-400 tracking-widest">Schnell-Verknüpfung hinzufügen</h4>
+                  <p className="text-[9px] text-slate-400 italic">Wählen Sie Objekte aus dem GRC-Katalog aus.</p>
+                </div>
+                <div className="flex flex-wrap justify-center gap-4">
                   <Select onValueChange={(val) => handleLinkEntity('risk', val)}>
-                    <SelectTrigger className="w-48 h-9 rounded-xl bg-white border-slate-200"><SelectValue placeholder="Risiko wählen" /></SelectTrigger>
+                    <SelectTrigger className="w-64 h-11 rounded-xl bg-white border-slate-200 font-bold text-xs"><SelectValue placeholder="Risiko verknüpfen" /></SelectTrigger>
                     <SelectContent className="rounded-xl">{risks?.filter(r => !linkedRisks.some(lr => lr.id === r.id)).map(r => <SelectItem key={r.id} value={r.id} className="text-xs">{r.title}</SelectItem>)}</SelectContent>
                   </Select>
                   <Select onValueChange={(val) => handleLinkEntity('measure', val)}>
-                    <SelectTrigger className="w-48 h-9 rounded-xl bg-white border-slate-200"><SelectValue placeholder="Maßnahme wählen" /></SelectTrigger>
+                    <SelectTrigger className="w-64 h-11 rounded-xl bg-white border-slate-200 font-bold text-xs"><SelectValue placeholder="Maßnahme verknüpfen" /></SelectTrigger>
                     <SelectContent className="rounded-xl">{measures?.filter(m => !linkedMeasures.some(lm => lm.id === m.id)).map(m => <SelectItem key={m.id} value={m.id} className="text-xs">{m.title}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
@@ -663,27 +652,35 @@ export default function PolicyDetailPage() {
 
             <TabsContent value="history" className="animate-in fade-in duration-500">
               <Card className="rounded-2xl border shadow-xl bg-white overflow-hidden">
-                <CardHeader className="bg-slate-50 border-b p-6">
-                  <CardTitle className="text-sm font-headline font-bold uppercase tracking-tight">Revision-History & Audit Trail</CardTitle>
+                <CardHeader className="bg-slate-50 border-b p-6 px-8">
+                  <div className="flex items-center gap-3">
+                    <History className="w-5 h-5 text-slate-500" />
+                    <CardTitle className="text-sm font-headline font-bold uppercase tracking-tight">Audit Trail & Revisionen</CardTitle>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-slate-100">
                     {policyVersions.map(v => (
-                      <div key={v.id} className="p-6 hover:bg-slate-50 transition-all flex items-start justify-between group">
-                        <div className="flex items-start gap-5">
-                          <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center border shadow-inner", v.revision === 0 ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-400")}>
-                            {v.revision === 0 ? <BadgeCheck className="w-6 h-6" /> : <History className="w-6 h-6" />}
+                      <div key={v.id} className="p-8 hover:bg-slate-50 transition-all flex items-start justify-between group">
+                        <div className="flex items-start gap-6">
+                          <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center border shadow-inner transition-transform group-hover:scale-105", v.revision === 0 ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-50 text-slate-400 border-slate-100")}>
+                            {v.revision === 0 ? <BadgeCheck className="w-7 h-7" /> : <History className="w-7 h-7" />}
                           </div>
-                          <div>
-                            <h4 className="font-black text-slate-900 text-sm">Version {v.version}.{v.revision}</h4>
-                            <p className="text-[11px] text-slate-600 mt-1.5 leading-relaxed bg-slate-50 p-2 rounded-lg border border-dashed italic">"{v.changelog || 'Keine Notiz'}"</p>
-                            <div className="flex items-center gap-4 mt-4 text-[9px] font-bold text-slate-400 uppercase">
-                              <span className="flex items-center gap-1.5"><Clock className="w-3 h-3 opacity-50" /> {new Date(v.createdAt).toLocaleString()}</span>
-                              <span className="flex items-center gap-1.5"><UserCircle className="w-2.5 h-2.5 opacity-50" /> {v.createdBy}</span>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <h4 className="font-black text-slate-900 text-base">Version {v.version}.{v.revision}</h4>
+                              {v.revision === 0 && <Badge className="bg-emerald-500 text-white border-none rounded-full text-[8px] font-black uppercase px-2 h-4">Major Release</Badge>}
+                            </div>
+                            <p className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-dashed border-slate-200 italic max-w-xl">
+                              "{v.changelog || 'Keine Revisionsnotiz hinterlegt.'}"
+                            </p>
+                            <div className="flex items-center gap-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest pt-1">
+                              <span className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 opacity-50" /> {new Date(v.createdAt).toLocaleString()}</span>
+                              <span className="flex items-center gap-2"><UserCircle className="w-3.5 h-3.5 opacity-50" /> Erstellt von: {v.createdBy}</span>
                             </div>
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 uppercase text-[9px] font-black" onClick={() => { setDraftContent(v.content); setEditMode(true); }}>Snapshot laden</Button>
+                        <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 uppercase text-[9px] font-black h-9 px-6 rounded-xl hover:bg-white shadow-sm" onClick={() => { setDraftContent(v.content); setEditMode(true); window.scrollTo({top: 0, behavior: 'smooth'}); }}>Snapshot laden</Button>
                       </div>
                     ))}
                   </div>

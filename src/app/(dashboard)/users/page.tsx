@@ -37,7 +37,8 @@ import {
   Trash2,
   Save,
   RefreshCw,
-  Clock
+  Clock,
+  XCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -72,6 +73,7 @@ import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { exportUsersExcel } from '@/lib/export-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Switch } from '@/components/ui/switch';
 
 export default function UsersPage() {
   const db = useFirestore();
@@ -90,6 +92,7 @@ export default function UsersPage() {
   const [department, setDepartment] = useState('');
   const [tenantId, setTenantId] = useState('');
   const [userTitle, setUserTitle] = useState('');
+  const [enabled, setEnabled] = useState(true);
 
   const [activeStatusFilter, setActiveStatusFilter] = useState<'all' | 'active' | 'disabled' | 'drift'>('all');
 
@@ -177,7 +180,7 @@ export default function UsersPage() {
       department,
       tenantId,
       title: userTitle,
-      enabled: selectedUser ? (selectedUser.enabled === true || selectedUser.enabled === 1) : true,
+      enabled: enabled ? 1 : 0,
       lastSyncedAt: new Date().toISOString()
     };
 
@@ -215,6 +218,7 @@ export default function UsersPage() {
     setEmail('');
     setDepartment('');
     setUserTitle('');
+    setEnabled(true);
     setTenantId(activeTenantId !== 'all' ? activeTenantId : '');
   };
 
@@ -225,6 +229,7 @@ export default function UsersPage() {
     setDepartment(user.department || '');
     setUserTitle(user.title || '');
     setTenantId(user.tenantId);
+    setEnabled(user.enabled === true || user.enabled === 1 || user.enabled === "1");
     setIsAddOpen(true);
   };
 
@@ -285,7 +290,7 @@ export default function UsersPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
           <Input 
             placeholder="Name oder E-Mail suchen..." 
-            className="pl-9 h-9 rounded-md border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none text-xs"
+            className="pl-9 h-9 rounded-lg border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none text-xs"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -335,7 +340,7 @@ export default function UsersPage() {
                   <TableRow key={u.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/users/${u.id}`)}>
                     <TableCell className="py-4 px-6">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-primary font-bold text-xs border">
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-primary font-bold text-xs border">
                           {u.displayName?.charAt(0)}
                         </div>
                         <div>
@@ -381,7 +386,11 @@ export default function UsersPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant="outline" className={cn("text-[8px] font-bold rounded-full border-none px-2 h-5", isEnabled ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600")}>
+                      <Badge variant="outline" className={cn(
+                        "rounded-full text-[9px] font-black px-3 h-6 border-none shadow-sm inline-flex items-center gap-1.5", 
+                        isEnabled ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+                      )}>
+                        {isEnabled ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                         {isEnabled ? "Aktiv" : "Inaktiv"}
                       </Badge>
                     </TableCell>
@@ -396,8 +405,8 @@ export default function UsersPage() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
-                            <DropdownMenuItem onSelect={() => router.push(`/users/${u.id}`)} className="rounded-md py-2 gap-2 text-xs font-bold"><Eye className="w-3.5 h-3.5 text-primary" /> Profil ansehen</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => openEdit(u)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => router.push(`/users/${u.id}`)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Eye className="w-3.5 h-3.5 text-primary" /> Profil ansehen</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => openEdit(u)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
                             <DropdownMenuItem className="text-indigo-600 rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => router.push(`/reviews?search=${u.displayName}`)}><Zap className="w-3.5 h-3.5" /> Review anstoßen</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -451,6 +460,16 @@ export default function UsersPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="pt-4 border-t">
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-bold text-slate-900">Konto aktiv</Label>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase">Login & Zugriff erlaubt</p>
+                </div>
+                <Switch checked={enabled} onCheckedChange={setEnabled} />
+              </div>
             </div>
           </div>
           <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2">

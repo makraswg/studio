@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
@@ -119,6 +118,7 @@ function ProcessDetailViewContent() {
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   const { data: mediaFiles } = usePluggableCollection<MediaFile>('media');
+  const { data: activities } = usePluggableCollection<ProcessingActivity>('processingActivities');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id && v.version === currentProcess?.currentVersion), [versions, id, currentProcess]);
@@ -314,7 +314,15 @@ function ProcessDetailViewContent() {
     setIsExporting(true);
     try {
       const tenant = tenants.find(t => t.id === currentProcess.tenantId) || tenants[0];
-      await exportDetailedProcessPdf(currentProcess, activeVersion, tenant, jobTitles, departments);
+      await exportDetailedProcessPdf(
+        currentProcess, 
+        activeVersion, 
+        tenant, 
+        jobTitles, 
+        departments, 
+        resources || [],
+        activities || []
+      );
       toast({ title: "Export erfolgreich", description: "PDF Bericht wurde generiert." });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler beim Export", description: e.message });

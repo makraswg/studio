@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Process, ProcessVersion, Tenant, JobTitle, ProcessingActivity, Resource, RiskMeasure, Policy, PolicyVersion, Department, Feature, ProcessNode } from './types';
@@ -82,7 +81,7 @@ export async function exportGdprExcel(activities: any[]) {
 }
 
 /**
- * Zeichnet den Prozessgraphen horizontal mit intelligentem Zeilenumbruch.
+ * Zeichnet den Prozessgraphen mit intelligentem Zeilenumbruch.
  */
 async function drawProcessGraph(doc: any, version: ProcessVersion, startY: number) {
   const nodes = version.model_json.nodes || [];
@@ -128,8 +127,9 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
   const pageWidth = doc.internal.pageSize.getWidth();
   const canvasWidth = pageWidth - (2 * margin);
   
-  const H_GAP = 35;
-  const V_GAP = 12;
+  // Optimierte Abstände
+  const H_GAP = 25; 
+  const V_GAP = 10;
   const nodesPerRow = Math.floor((canvasWidth - 10) / H_GAP);
   const maxLaneOverall = Math.max(...Object.values(lanes), 0);
   const rowHeight = (maxLaneOverall + 1) * V_GAP + 15;
@@ -172,13 +172,13 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     const outDegree = edges.filter((e: any) => e.source === node.id).length;
     const isBranch = outDegree > 1 || node.type === 'decision';
 
-    let color = [241, 245, 249]; 
-    if (node.type === 'start') color = [16, 185, 129];
-    else if (node.type === 'end') color = [239, 68, 68];
-    else if (isBranch) color = [245, 158, 11];
-    else if (node.type === 'subprocess') color = [79, 70, 229];
+    let fillColor = [241, 245, 249]; 
+    if (node.type === 'start') fillColor = [16, 185, 129];
+    else if (node.type === 'end') fillColor = [239, 68, 68];
+    else if (isBranch) fillColor = [245, 158, 11];
+    else if (node.type === 'subprocess') fillColor = [79, 70, 229];
 
-    doc.setFillColor(color[0], color[1], color[2]);
+    doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
     doc.setDrawColor(71, 85, 105);
     doc.circle(x, y, r, 'FD');
 
@@ -189,10 +189,10 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     doc.setFontSize(5);
     doc.setTextColor(51, 65, 85);
     doc.setFont('helvetica', 'normal');
-    doc.text(node.title, x, y + r + 3, { align: 'center', maxWidth: 25 });
+    doc.text(node.title, x, y + r + 3, { align: 'center', maxWidth: 22 });
   });
 
-  return localMaxY + 10;
+  return localMaxY + 8;
 }
 
 function addPageDecorations(doc: any, tenant: Tenant) {
@@ -210,6 +210,7 @@ function addPageDecorations(doc: any, tenant: Tenant) {
     doc.setDrawColor(241, 245, 249);
     doc.line(14, 10, pageWidth - 14, 10);
     
+    // Logo Stilelement oben rechts
     doc.setFillColor(37, 99, 235);
     doc.roundedRect(pageWidth - 22, 4, 8, 8, 1.5, 1.5, 'F');
     doc.setTextColor(255, 255, 255);
@@ -258,9 +259,9 @@ export async function exportProcessManualPdf(
     doc.text(tenant.name, 105, 112, { align: 'center' });
     doc.setFontSize(9);
     doc.setTextColor(148, 163, 184);
-    doc.text(`Erstellt am: ${now} | GRC-Audit-Safe`, 105, 135, { align: 'center' });
+    doc.text(`Erstellt am: ${now} | GRC-Reporting`, 105, 135, { align: 'center' });
 
-    // --- 2. PROZESSE RENDERN (Zuerst, um Seitenzahlen zu kennen) ---
+    // --- 2. PROZESS-SEITEN GENERIEREN ---
     const pageMap: Record<string, number> = {};
     const grouped: Record<string, Process[]> = {};
     processes.forEach(p => {
@@ -340,6 +341,7 @@ export async function exportProcessManualPdf(
       }
     }
 
+    // --- 3. INHALTSVERZEICHNIS (NACHTRÄGLICH EINFÜGEN) ---
     doc.insertPage(1);
     doc.setPage(2);
     doc.setTextColor(37, 99, 235);
@@ -445,12 +447,21 @@ export async function exportPolicyDocx(policy: Policy, version: PolicyVersion) {
   document.body.removeChild(link);
 }
 
-export async function exportDetailedProcessPdf(process: Process, version: ProcessVersion, tenant: Tenant, jobTitles: JobTitle[], departments: Department[]) {
+export async function exportDetailedProcessPdf(
+  process: Process, 
+  version: ProcessVersion, 
+  tenant: Tenant, 
+  jobTitles: JobTitle[], 
+  departments: Department[],
+  resources: Resource[] = [],
+  allActivities: ProcessingActivity[] = []
+) {
   try {
     const { default: jsPDF } = await import('jspdf');
     const { default: autoTable } = await import('jspdf-autotable');
     
     const doc = new jsPDF();
+    const now = new Date().toLocaleDateString('de-DE');
     const dept = departments.find(d => d.id === process.responsibleDepartmentId);
     
     doc.setFontSize(18);
@@ -460,21 +471,26 @@ export async function exportDetailedProcessPdf(process: Process, version: Proces
     doc.setFontSize(8);
     doc.setTextColor(148, 163, 184);
     doc.text(`${dept?.name || 'Zentral'} | V${process.currentVersion}.0`, 14, 27);
-    
-    doc.setDrawColor(241, 245, 249);
     doc.line(14, 30, 196, 30);
+
+    const activity = allActivities.find(a => a.id === process.vvtId);
+    const usedResourceIds = new Set<string>();
+    version.model_json.nodes.forEach(n => n.resourceIds?.forEach(id => usedResourceIds.add(id)));
+    const resNames = resources.filter(r => usedResourceIds.has(r.id)).map(r => r.name).join(', ') || '---';
 
     autoTable(doc, {
       startY: 35,
       body: [
         ['Verantwortlich', jobTitles.find(j => j.id === process.ownerRoleId)?.name || '---'],
-        ['Status', process.status.toUpperCase()],
-        ['Inputs', process.inputs || '---'],
-        ['Outputs', process.outputs || '---']
+        ['Freigabestatus', `Freigegeben am ${now} durch ${jobTitles.find(j => j.id === process.ownerRoleId)?.name || 'System'}`],
+        ['Verfahrensverzeichnis', activity?.name || '---'],
+        ['Eingang (ISO)', process.inputs || '---'],
+        ['Ausgang (ISO)', process.outputs || '---'],
+        ['IT-Systeme', resNames]
       ],
       theme: 'grid',
-      styles: { fontSize: 7 },
-      columnStyles: { 0: { fontStyle: 'bold', width: 40, fillColor: [248, 250, 252] } }
+      styles: { fontSize: 7, font: 'helvetica' },
+      columnStyles: { 0: { fontStyle: 'bold', width: 45, fillColor: [248, 250, 252] } }
     });
 
     const graphY = (doc as any).lastAutoTable.finalY + 10;
@@ -482,16 +498,29 @@ export async function exportDetailedProcessPdf(process: Process, version: Proces
 
     autoTable(doc, {
       startY: tableY,
-      head: [['Nr', 'Arbeitsschritt', 'Rolle', 'Durchführung']],
-      body: version.model_json.nodes.map((n, i) => [
-        `${i + 1}`,
-        n.title,
-        jobTitles.find(j => j.id === n.roleId)?.name || '-',
-        n.description || '-'
-      ]),
+      head: [['Nr', 'Arbeitsschritt', 'Rolle', 'Durchführung', 'Nächste Schritte']],
+      body: version.model_json.nodes.map((n, i) => {
+        const successors = version.model_json.edges
+          .filter(e => e.source === n.id)
+          .map(e => {
+            const targetNode = version.model_json.nodes.find(node => node.id === e.target);
+            const targetIdx = version.model_json.nodes.findIndex(node => node.id === e.target) + 1;
+            const label = e.label && String(e.label).trim() ? `[${e.label}] ` : '';
+            return `${label}-> (${targetIdx}) ${targetNode?.title}`;
+          }).join('\n');
+
+        return [
+          `${i + 1}`,
+          { content: n.title, styles: { fontStyle: 'bold' } }, 
+          jobTitles.find(j => j.id === n.roleId)?.name || '-',
+          { content: `${n.description || ''}${n.checklist?.length ? '\n- ' + n.checklist.join('\n- ') : ''}` },
+          { content: successors || 'Ende' }
+        ];
+      }),
       theme: 'striped',
-      headStyles: { fillColor: [71, 85, 105] },
-      styles: { fontSize: 7 }
+      styles: { fontSize: 6.5, font: 'helvetica', overflow: 'linebreak' },
+      headStyles: { font: 'helvetica', fillColor: [71, 85, 105] },
+      columnStyles: { 0: { width: 8 }, 1: { width: 35 }, 3: { width: 75 }, 4: { width: 35 } }
     });
 
     addPageDecorations(doc, tenant);

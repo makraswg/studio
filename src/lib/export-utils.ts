@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Process, ProcessVersion, Tenant, JobTitle, ProcessingActivity, Resource, RiskMeasure, Policy, PolicyVersion, Department, Feature, ProcessNode } from './types';
@@ -104,12 +105,12 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
   const rangeX = (maxX - minX) || 1;
   const rangeY = (maxY - minY) || 1;
   
-  // Dynamic scaling to fit width
+  // Dynamic scaling to fit width and reduce vertical waste
   const scale = Math.min((canvasWidth - 20) / rangeX, 0.35);
   const actualCanvasHeight = rangeY * scale + 30;
 
-  doc.setFontSize(9);
-  doc.setTextColor(120);
+  doc.setFontSize(10);
+  doc.setTextColor(30, 41, 59);
   doc.setFont('helvetica', 'bold');
   doc.text('Visualisierung', margin, startY + 5);
 
@@ -135,12 +136,12 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     doc.line(t.x, t.y, t.x - 1.5 * Math.cos(angle + Math.PI/6), t.y - 1.5 * Math.sin(angle + Math.PI/6));
 
     if (edge.label) {
-      doc.setFontSize(4.5);
+      doc.setFontSize(5);
       doc.setTextColor(100);
       const midX = (s.x + t.x) / 2;
       const midY = (s.y + t.y) / 2;
       doc.setFillColor(255);
-      doc.rect(midX - 4, midY - 2, 8, 3, 'F');
+      doc.rect(midX - 5, midY - 2, 10, 3, 'F');
       doc.text(edge.label, midX, midY, { align: 'center' });
     }
   });
@@ -148,19 +149,19 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
   // Draw Nodes
   nodes.forEach((node, index) => {
     const { x, y } = getPdfCoords(node.id);
-    const r = 3.5;
+    const r = 4;
 
-    let color = [240, 240, 240];
+    let color = [245, 245, 245];
     if (node.type === 'start') color = [16, 185, 129];
     if (node.type === 'end') color = [239, 68, 68];
     if (node.type === 'decision') color = [245, 158, 11];
     if (node.type === 'subprocess') color = [79, 70, 229];
 
-    // Mark every branching node distinctly (even if not type decision)
+    // Every node with more than 1 successor is a branch point
     const outgoingCount = edges.filter(e => e.source === node.id).length;
-    if (outgoingCount > 1 && node.type !== 'decision') {
+    if (outgoingCount > 1) {
       doc.setDrawColor(37, 99, 235);
-      doc.setLineWidth(0.3);
+      doc.setLineWidth(0.4);
     } else {
       doc.setDrawColor(100);
       doc.setLineWidth(0.1);
@@ -169,13 +170,15 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     doc.setFillColor(color[0], color[1], color[2]);
     doc.circle(x, y, r, 'FD');
 
-    doc.setFontSize(4.5);
-    doc.setTextColor(node.type === 'subprocess' ? 255 : 0);
-    doc.text(`${index + 1}`, x, y + 1.2, { align: 'center' });
-
     doc.setFontSize(5);
+    doc.setTextColor(node.type === 'subprocess' ? 255 : 0);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${index + 1}`, x, y + 1.5, { align: 'center' });
+
+    doc.setFontSize(6);
     doc.setTextColor(50);
-    doc.text(node.title, x, y + r + 3, { align: 'center', maxWidth: 25 });
+    doc.setFont('helvetica', 'normal');
+    doc.text(node.title, x, y + r + 4, { align: 'center', maxWidth: 30 });
   });
 
   return startY + actualCanvasHeight + 10;
@@ -194,6 +197,7 @@ function addPageDecorations(doc: any, tenant: Tenant) {
     
     doc.setFontSize(7);
     doc.setTextColor(160);
+    doc.setFont('helvetica', 'normal');
     doc.text(tenant.name, 14, 8);
     doc.text('ComplianceHub • Vertrauliches Dokument', pageWidth - 14, 8, { align: 'right' });
     
@@ -237,12 +241,12 @@ export async function exportDetailedProcessPdf(
     const resourceNames = resources.filter(r => usedResourceIds.has(r.id)).map(r => r.name).join(', ') || '---';
     const featureNames = allFeatures.filter(f => usedFeatureIds.has(f.id)).map(f => f.name).join(', ') || '---';
 
-    // Header
+    // Header Area
     doc.setDrawColor(37, 99, 235);
     doc.setLineWidth(1);
     doc.line(14, 20, 196, 20);
     
-    doc.setTextColor(0);
+    doc.setTextColor(30, 41, 59);
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
     doc.text(process.title, 14, 32);
@@ -250,22 +254,23 @@ export async function exportDetailedProcessPdf(
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100);
-    doc.text(`Mandant: ${tenant.name} | Dokument-ID: ${process.id}`, 14, 38);
+    doc.text(`Organisation: ${tenant.name} | Dokumenten-Status: ${process.status.toUpperCase()}`, 14, 38);
 
     // 1. Summary
     doc.setFontSize(12);
     doc.setTextColor(37, 99, 235);
+    doc.setFont('helvetica', 'bold');
     doc.text('1. Management Summary', 14, 52);
     
     const summaryRows = [
-      ['Verantwortliche Abteilung', dept?.name || '---'],
       ['Verantwortlich', owner?.name || '---'],
+      ['Zuständige Abteilung', dept?.name || '---'],
       ['Freigabestatus', `Freigegeben am ${timestamp} durch ${owner?.name || 'System'}`],
-      ['VVT Referenz', process.vvtId ? `ID: ${process.vvtId}` : '---'],
+      ['VVT Referenz (Art. 30)', process.vvtId ? `Zweck-ID: ${process.vvtId}` : '---'],
       ['IT-Infrastruktur', resourceNames],
       ['Verarbeitete Daten', featureNames],
-      ['Eingang (ISO)', process.inputs || '---'],
-      ['Ausgang (ISO)', process.outputs || '---']
+      ['Eingang (ISO 9001)', process.inputs || '---'],
+      ['Ausgang (ISO 9001)', process.outputs || '---']
     ];
 
     autoTable(doc, {
@@ -283,6 +288,7 @@ export async function exportDetailedProcessPdf(
     // 3. Leitfaden
     doc.setFontSize(12);
     doc.setTextColor(37, 99, 235);
+    doc.setFont('helvetica', 'bold');
     doc.text('2. Operativer Leitfaden', 14, tableY + 5);
     
     const stepsData = (version.model_json.nodes || []).map((node, index) => {
@@ -292,7 +298,7 @@ export async function exportDetailedProcessPdf(
       const executionInfo = [
         node.description || '',
         node.checklist?.length ? `Checkliste:\n- ${node.checklist.join('\n- ')}` : '',
-        node.tips ? `TIPP: ${node.tips}` : '',
+        node.tips ? `EXPERTENTIPP: ${node.tips}` : '',
         node.errors ? `ACHTUNG: ${node.errors}` : ''
       ].filter(Boolean).join('\n\n');
 
@@ -317,7 +323,7 @@ export async function exportDetailedProcessPdf(
 
     autoTable(doc, {
       startY: tableY + 10,
-      head: [['Nr / Schritt', 'Zuständigkeit', 'Systeme', 'Durchführung & Hilfen', 'Nächste Schritte']],
+      head: [['Nr / Schritt', 'Zuständigkeit', 'Systeme', 'Durchführung & Hilfen', 'Folge-Schritte']],
       body: stepsData,
       theme: 'striped',
       headStyles: { fillColor: [37, 99, 235], fontSize: 8 },
@@ -357,49 +363,49 @@ export async function exportProcessManualPdf(
     const doc = new jsPDF();
     const now = new Date().toLocaleDateString('de-DE');
 
-    // --- DECKBLATT (Druckfreundlich) ---
+    // --- DECKBLATT (Druckfreundlich Hell) ---
     doc.setTextColor(30, 41, 59);
     
-    // Icon/Logo at Top
+    // Logo / Icon centered at top
     doc.setDrawColor(220);
     doc.setFillColor(245, 245, 245);
-    doc.circle(105, 50, 12, 'FD');
-    doc.setFontSize(8);
-    doc.setTextColor(150);
+    doc.circle(105, 50, 15, 'FD');
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.setFont('helvetica', 'bold');
     doc.text('GRC', 105, 51, { align: 'center' });
 
     doc.setTextColor(30, 41, 59);
-    doc.setFontSize(28);
+    doc.setFontSize(32);
     doc.setFont('helvetica', 'bold');
-    doc.text('Prozess-Handbuch', 105, 85, { align: 'center' });
+    doc.text('Prozess-Handbuch', 105, 90, { align: 'center' });
     
-    doc.setFontSize(14);
+    doc.setFontSize(16);
     doc.setTextColor(100);
-    doc.text(tenant.name, 105, 95, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.text(tenant.name, 105, 105, { align: 'center' });
     
     doc.setDrawColor(37, 99, 235);
     doc.setLineWidth(0.5);
-    doc.line(80, 105, 130, 105);
+    doc.line(70, 115, 140, 115);
 
     doc.setFontSize(10);
     doc.setTextColor(150);
-    doc.text(`Stand: ${now} | Umfang: ${processes.length} Prozesse`, 105, 120, { align: 'center' });
+    doc.text(`Zentrale Prozessdokumentation | Stand: ${now}`, 105, 130, { align: 'center' });
+    doc.text(`Gesamtumfang: ${processes.length} Prozesse`, 105, 136, { align: 'center' });
 
-    // --- PROZESS-RENDER LOOP (Build Page Mapping) ---
+    // --- PAGE MAPPING LOOP ---
     const processPages: Record<string, number> = {};
     const groupedProcesses: Record<string, Process[]> = {};
     
     processes.forEach(p => {
-      const deptName = departments.find(d => d.id === p.responsibleDepartmentId)?.name || 'Ohne Abteilung';
+      const deptName = departments.find(d => d.id === p.responsibleDepartmentId)?.name || 'Zentrale Organisation';
       if (!groupedProcesses[deptName]) groupedProcesses[deptName] = [];
       groupedProcesses[deptName].push(p);
     });
 
-    // We start content on page 3 or later to ensure TOC doesn't overlap
-    // First, we'll dummy-render to count pages, then build TOC, then real render.
-    // For MVP, we render processes first starting from page 3.
-    
-    let contentStartPage = 3; 
+    // We leave page 2 for TOC
+    doc.addPage(); 
 
     for (const deptName of Object.keys(groupedProcesses).sort()) {
       for (const p of groupedProcesses[deptName]) {
@@ -412,10 +418,13 @@ export async function exportProcessManualPdf(
         
         doc.setFontSize(18);
         doc.setTextColor(30, 41, 59);
+        doc.setFont('helvetica', 'bold');
         doc.text(p.title, 14, 25);
+        
         doc.setFontSize(8);
         doc.setTextColor(150);
-        doc.text(`Bereich: ${deptName}`, 14, 30);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Organisationseinheit: ${deptName}`, 14, 30);
         doc.line(14, 33, 196, 33);
 
         const usedResourceIds = new Set<string>();
@@ -431,8 +440,8 @@ export async function exportProcessManualPdf(
           startY: 38,
           body: [
             ['Verantwortlich', jobTitles.find(j => j.id === p.ownerRoleId)?.name || '---'],
-            ['Freigabestatus', `Freigegeben am ${now} durch ${jobTitles.find(j => j.id === p.ownerRoleId)?.name || 'System'}`],
-            ['VVT Referenz', p.vvtId ? `ID: ${p.vvtId}` : '---'],
+            ['Freigabestatus', `Freigegeben am ${now} durch ${jobTitles.find(j => j.id === p.ownerRoleId)?.name || 'Revision'}`],
+            ['VVT Referenz', p.vvtId ? `Zweck-ID: ${p.vvtId}` : '---'],
             ['IT-Infrastruktur', resNames],
             ['Verarbeitete Daten', featNames],
             ['Eingang (ISO)', p.inputs || '---'],
@@ -448,7 +457,7 @@ export async function exportProcessManualPdf(
 
         autoTable(doc, {
           startY: tableY + 5,
-          head: [['Nr', 'Arbeitsschritt', 'Zuständigkeit', 'Durchführung / Hilfen', 'Nächste Schritte']],
+          head: [['Nr', 'Arbeitsschritt', 'Zuständigkeit', 'Durchführung / Hilfen', 'Folge-Schritte']],
           body: ver.model_json.nodes.map((n, i) => {
             const successors = ver.model_json.edges
               .filter(e => e.source === n.id)
@@ -487,7 +496,7 @@ export async function exportProcessManualPdf(
       }
     }
 
-    // --- PASS 2: RENDER TOC ON PAGE 2 ---
+    // --- RENDER TOC ON PAGE 2 (AFTER CONTENT MAPPING) ---
     doc.setPage(2);
     doc.setTextColor(37, 99, 235);
     doc.setFontSize(18);
@@ -514,7 +523,7 @@ export async function exportProcessManualPdf(
         
         doc.text(label, 14, tocY);
         
-        // Leader Line
+        // Dot Leader Logic
         const titleWidth = doc.getTextWidth(label);
         const pageNumWidth = doc.getTextWidth(pageNum);
         const dotStart = 14 + titleWidth + 2;
@@ -524,7 +533,7 @@ export async function exportProcessManualPdf(
           doc.setDrawColor(200);
           doc.setLineDashPattern([0.5, 1.5], 0);
           doc.line(dotStart, tocY - 1, dotEnd, tocY - 1);
-          doc.setLineDashPattern([], 0);
+          doc.setLineDashPattern([], 0); // Reset
         }
 
         doc.text(pageNum, 196, tocY, { align: 'right' });

@@ -15,37 +15,23 @@ import {
   FileText, 
   UserCircle,
   ShieldCheck,
-  ChevronRight,
   Plus,
   ArrowRight,
-  MessageSquare,
   Zap,
   Info,
-  Building2,
-  Lock,
   ExternalLink,
   Eye,
   FileEdit,
-  Globe,
-  Tag,
-  Paperclip,
-  ImageIcon,
-  FileUp,
   Trash2,
   AlertTriangle,
   BadgeCheck,
-  Check,
   BrainCircuit,
   Target,
   Server,
-  Layers,
-  ShieldAlert,
-  Search,
   X,
   BookOpen,
   Share2,
   FileDown,
-  Download,
   Briefcase,
   Bold,
   Italic,
@@ -60,11 +46,22 @@ import {
   Table as TableIcon,
   Minus,
   CalendarDays,
-  Image as LuImage
+  Image as LuImage,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Type,
+  PlusSquare,
+  Columns,
+  Rows,
+  Trash,
+  Paperclip,
+  ImageIcon,
+  FileUp
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
@@ -77,12 +74,10 @@ import { runPolicyValidation, PolicyValidatorOutput } from '@/ai/flows/policy-va
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
 import { exportPolicyPdf, exportPolicyDocx } from '@/lib/export-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -94,20 +89,32 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 
+// TipTap Imports
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Image from '@tiptap/extension-image';
+import Table from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import TableCell from '@tiptap/extension-table-cell';
+import TableHeader from '@tiptap/extension-table-header';
+import Link from '@tiptap/extension-link';
+import Placeholder from '@tiptap/extension-placeholder';
+import TextAlign from '@tiptap/extension-text-align';
+import Highlight from '@tiptap/extension-highlight';
+import Typography from '@tiptap/extension-typography';
+
 export default function PolicyDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { user } = usePlatformAuth();
   const { dataSource, activeTenantId } = useSettings();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const [mounted, setMounted] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [draftContent, setDraftContent] = useState('');
   const [changelog, setChangelog] = useState('');
 
   // AI State
@@ -120,9 +127,7 @@ export default function PolicyDetailPage() {
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: risks } = usePluggableCollection<Risk>('risks');
   const { data: measures } = usePluggableCollection<RiskMeasure>('riskMeasures');
-  const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: policyLinks, refresh: refreshLinks } = usePluggableCollection<any>('policy_links');
-  const { data: controls } = usePluggableCollection<RiskControl>('riskControls');
   const { data: bsConfigs } = usePluggableCollection<BookStackConfig>('bookstackConfigs');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
 
@@ -138,7 +143,6 @@ export default function PolicyDetailPage() {
   const hasBookStack = bsConfigs?.some(c => c.enabled);
   const tenant = useMemo(() => tenants?.find(t => t.id === policy?.tenantId), [tenants, policy]);
 
-  // Filtered Links
   const linkedRisks = useMemo(() => {
     const ids = policyLinks?.filter((l: any) => l.policyId === id && l.targetType === 'risk').map((l: any) => l.targetId);
     return risks?.filter(r => ids?.includes(r.id)) || [];
@@ -149,16 +153,55 @@ export default function PolicyDetailPage() {
     return measures?.filter(m => ids?.includes(m.id)) || [];
   }, [policyLinks, measures, id]);
 
+  // TipTap Editor Configuration
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Image.configure({
+        inline: true,
+        allowBase64: true,
+      }),
+      Table.configure({
+        resizable: true,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      Link.configure({
+        openOnClick: false,
+      }),
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
+      Highlight,
+      Typography,
+      Placeholder.configure({
+        placeholder: 'Beginnen Sie hier mit der Erstellung Ihrer Richtlinie...',
+      }),
+    ],
+    content: '',
+    editable: false,
+  });
+
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    if (activeVersion && !editMode) {
-      setDraftContent(activeVersion.content);
+    if (editor && activeVersion && !editMode) {
+      editor.commands.setContent(activeVersion.content);
+      editor.setEditable(false);
     }
-  }, [activeVersion, editMode]);
+  }, [activeVersion, editor, editMode]);
+
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(editMode);
+    }
+  }, [editMode, editor]);
 
   const handleSaveVersion = async (isMajor: boolean = false) => {
-    if (!id || !draftContent) {
+    if (!id || !editor) return;
+    const content = editor.getHTML();
+    if (!content || content === '<p></p>') {
       toast({ variant: "destructive", title: "Inhalt leer", description: "Bitte geben Sie einen Text ein." });
       return;
     }
@@ -167,7 +210,7 @@ export default function PolicyDetailPage() {
       const res = await commitPolicyVersionAction(
         id as string, 
         activeVersion?.version || 1, 
-        draftContent, 
+        content, 
         changelog || (isMajor ? "Neue Hauptversion / Freigabe" : "Revision"), 
         user?.email || 'system', 
         dataSource, 
@@ -183,34 +226,6 @@ export default function PolicyDetailPage() {
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const insertText = (before: string, after: string = '') => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = textarea.value;
-    const selectedText = text.substring(start, end);
-    const newText = text.substring(0, start) + before + selectedText + after + text.substring(end);
-    
-    setDraftContent(newText);
-    
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + before.length, end + before.length);
-    }, 0);
-  };
-
-  const insertTable = () => {
-    const tableTemplate = "\n| Spalte 1 | Spalte 2 | Spalte 3 |\n| :--- | :--- | :--- |\n| Zeile 1 | Daten | Daten |\n| Zeile 2 | Daten | Daten |\n";
-    insertText(tableTemplate);
-  };
-
-  const insertImage = () => {
-    const imgTemplate = "\n![Bildbeschreibung](Hier_Bild_URL_einfügen_oder_Anhang_nutzen)\n";
-    insertText(imgTemplate);
   };
 
   const handleBookStackExport = async () => {
@@ -375,7 +390,7 @@ export default function PolicyDetailPage() {
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" className="h-10 rounded-xl font-bold text-xs px-6" onClick={() => setEditMode(false)}>Verwerfen</Button>
               <Button size="sm" className="h-10 rounded-xl font-bold text-xs px-8 bg-emerald-600 text-white shadow-lg" onClick={() => handleSaveVersion(false)} disabled={isSaving}>
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />} Revision sichern
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Revision sichern
               </Button>
             </div>
           )}
@@ -451,70 +466,86 @@ export default function PolicyDetailPage() {
             </TabsList>
 
             <TabsContent value="content" className="animate-in fade-in duration-500">
-              {editMode ? (
+              {editMode && editor ? (
                 <div className="space-y-6">
                   <Card className="rounded-2xl border shadow-xl overflow-hidden flex flex-col">
-                    <CardHeader className="bg-slate-50 border-b p-0 flex flex-col">
+                    <CardHeader className="bg-slate-50 border-b p-0 flex flex-col sticky top-0 z-30">
                       <div className="p-4 px-6 flex flex-row items-center justify-between border-b border-slate-100">
                         <div className="flex items-center gap-3">
                           <FileEdit className="w-5 h-5 text-primary" />
-                          <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-900">WYSIWYG Editor</CardTitle>
+                          <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-900">WYSIWYG Dokumenten-Editor</CardTitle>
                         </div>
-                        <Badge className="bg-primary/10 text-primary border-none rounded-full text-[8px] font-black uppercase px-2 h-4">GUI Toolbar</Badge>
+                        <Badge className="bg-emerald-100 text-emerald-700 border-none rounded-full text-[8px] font-black uppercase px-2 h-4">Word-Modus Aktiv</Badge>
                       </div>
                       
-                      <div className="bg-white p-3 px-6 flex flex-wrap items-center gap-2">
+                      <div className="bg-white p-2 px-6 flex flex-wrap items-center gap-1">
                         <TooltipProvider>
                           {/* Text Styles */}
-                          <div className="flex items-center gap-1 pr-3 border-r border-slate-100">
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('**', '**')}><Bold className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Fett</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('*', '*')}><Italic className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Kursiv</TooltipContent></Tooltip>
+                          <div className="flex items-center gap-0.5 pr-2 border-r">
+                            <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('bold') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleBold().run()}><Bold className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Fett</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('italic') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleItalic().run()}><Italic className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Kursiv</TooltipContent></Tooltip>
                           </div>
                           
                           {/* Headers */}
-                          <div className="flex items-center gap-1 px-3 border-r border-slate-100">
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('# ', '')}><Heading1 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Hauptüberschrift</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('## ', '')}><Heading2 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Überschrift 2</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('### ', '')}><Heading3 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Überschrift 3</TooltipContent></Tooltip>
+                          <div className="flex items-center gap-0.5 px-2 border-r">
+                            <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('heading', { level: 1 }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}><Heading1 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Überschrift 1</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('heading', { level: 2 }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}><Heading2 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Überschrift 2</TooltipContent></Tooltip>
+                          </div>
+
+                          {/* Alignment */}
+                          <div className="flex items-center gap-0.5 px-2 border-r">
+                            <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive({ textAlign: 'left' }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().setTextAlign('left').run()}><AlignLeft className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Linksbündig</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive({ textAlign: 'center' }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().setTextAlign('center').run()}><AlignCenter className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Zentriert</TooltipContent></Tooltip>
                           </div>
 
                           {/* Lists */}
-                          <div className="flex items-center gap-1 px-3 border-r border-slate-100">
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('- ', '')}><List className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Aufzählung</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('1. ', '')}><ListOrdered className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Nummerierung</TooltipContent></Tooltip>
+                          <div className="flex items-center gap-0.5 px-2 border-r">
+                            <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('bulletList') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleBulletList().run()}><List className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Aufzählung</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('orderedList') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Nummerierung</TooltipContent></Tooltip>
                           </div>
 
-                          {/* Complex Objects */}
-                          <div className="flex items-center gap-1 px-3 border-r border-slate-100">
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={insertTable}><TableIcon className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Tabelle einfügen</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={insertImage}><LuImage className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Bild einfügen</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('\n---\n')}><Minus className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Trennlinie</TooltipContent></Tooltip>
+                          {/* Tables - Modern Dropdown */}
+                          <div className="flex items-center gap-0.5 px-2 border-r">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary"><TableIcon className="w-4 h-4" /></Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent className="w-48 rounded-xl p-1">
+                                <DropdownMenuItem className="text-xs font-bold gap-2" onSelect={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>
+                                  <PlusSquare className="w-3.5 h-3.5" /> Tabelle einfügen (3x3)
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-xs font-bold gap-2" onSelect={() => editor.chain().focus().addColumnAfter().run()}>
+                                  <Columns className="w-3.5 h-3.5" /> Spalte hinzufügen
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-xs font-bold gap-2" onSelect={() => editor.chain().focus().addRowAfter().run()}>
+                                  <Rows className="w-3.5 h-3.5" /> Zeile hinzufügen
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-xs font-bold gap-2 text-red-600" onSelect={() => editor.chain().focus().deleteTable().run()}>
+                                  <Trash className="w-3.5 h-3.5" /> Tabelle löschen
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
 
-                          {/* Others */}
-                          <div className="flex items-center gap-1 px-3">
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('[Link Titel](https://', ')')}><LinkIcon className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Link einfügen</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('> ', '')}><Quote className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Zitat</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('`', '`')}><Code className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Code</TooltipContent></Tooltip>
+                          {/* Media & Others */}
+                          <div className="flex items-center gap-0.5 pl-2">
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { const url = window.prompt('Bild URL eingeben (oder Anhang nutzen)'); if (url) editor.chain().focus().setImage({ src: url }).run(); }}><LuImage className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Bild einfügen</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().setHorizontalRule().run()}><Minus className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Trennlinie</TooltipContent></Tooltip>
                           </div>
                         </TooltipProvider>
                       </div>
                     </CardHeader>
-                    <CardContent className="p-0 bg-slate-100 flex justify-center">
-                      <div className="w-full max-w-4xl min-h-[800px] bg-white shadow-2xl my-8 mx-4 p-16 rounded-sm relative">
-                        <Textarea 
-                          ref={textareaRef}
-                          value={draftContent} 
-                          onChange={e => setDraftContent(e.target.value)} 
-                          className="min-h-[700px] w-full border-none p-0 font-body text-base leading-relaxed focus:ring-0 bg-transparent resize-none overflow-hidden"
-                          placeholder="Beginnen Sie hier mit der Erstellung Ihrer Richtlinie..."
-                        />
+                    <CardContent className="p-0 bg-slate-100 flex justify-center overflow-auto min-h-[800px]">
+                      <div className="w-full max-w-4xl min-h-[1000px] bg-white shadow-2xl my-12 mx-4 p-20 rounded-sm relative prose prose-slate max-w-none">
+                        <EditorContent editor={editor} className="outline-none min-h-[800px]" />
                       </div>
                     </CardContent>
                     <div className="p-8 border-t bg-slate-50 space-y-6">
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Änderungsgrund (Changelog)</Label>
-                        <Input value={changelog} onChange={e => setChangelog(e.target.value)} placeholder="z.B. Revision: Anpassung der Passwort-Komplexität..." className="rounded-xl h-12 bg-white border-slate-200 font-bold" />
+                        <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Änderungsgrund (revisionssicher)</Label>
+                        <Input value={changelog} onChange={e => setChangelog(e.target.value)} placeholder="z.B. Integration der neuen Home-Office Richtlinie..." className="rounded-xl h-12 bg-white border-slate-200 font-bold" />
                       </div>
                       <div className="flex justify-end gap-3">
                         <Button variant="outline" className="rounded-xl h-12 px-8 font-black text-[10px] uppercase border-slate-200" onClick={() => handleSaveVersion(true)} disabled={isSaving}>Offizielle Freigabe (Major)</Button>
@@ -539,9 +570,7 @@ export default function PolicyDetailPage() {
                           </div>
                         </header>
                         <Separator />
-                        <div className="whitespace-pre-wrap text-lg leading-relaxed text-slate-700 font-medium font-body prose prose-slate max-w-none">
-                          {activeVersion.content}
-                        </div>
+                        <div className="text-lg leading-relaxed text-slate-700 font-medium font-body prose prose-slate max-w-none break-words" dangerouslySetInnerHTML={{ __html: activeVersion.content }} />
                       </div>
                     ) : (
                       <div className="py-32 text-center space-y-8 opacity-30">
@@ -550,7 +579,7 @@ export default function PolicyDetailPage() {
                         </div>
                         <div className="space-y-3">
                           <p className="text-lg font-bold uppercase tracking-widest text-slate-900">Kein Dokumenten-Inhalt</p>
-                          <p className="text-sm text-slate-500 italic max-w-sm mx-auto leading-relaxed">Dieses Dokument wurde noch nicht befüllt. Nutzen Sie den Editor, um den Text zu erstellen oder eine Revision anzulegen.</p>
+                          <p className="text-sm text-slate-500 italic max-w-sm mx-auto leading-relaxed">Dieses Dokument wurde noch nicht befüllt. Nutzen Sie den Editor, um den Text zu erstellen.</p>
                         </div>
                         <Button className="rounded-xl h-12 px-12 bg-primary text-white font-bold text-xs uppercase tracking-widest shadow-lg" onClick={() => setEditMode(true)}>Editor öffnen</Button>
                       </div>
@@ -568,7 +597,7 @@ export default function PolicyDetailPage() {
                 <div className="space-y-1">
                   <h4 className="text-sm font-black uppercase text-indigo-900">GRC-Context Mapping</h4>
                   <p className="text-xs text-indigo-700 font-medium leading-relaxed italic">
-                    Verknüpfen Sie dieses Dokument mit operativen Risiken und technischen Maßnahmen. Dies ermöglicht eine automatisierte Prüfung des Compliance-Abdeckungsgrads.
+                    Verknüpfen Sie dieses Dokument mit operativen Risiken und technischen Maßnahmen.
                   </p>
                 </div>
               </div>
@@ -624,7 +653,6 @@ export default function PolicyDetailPage() {
               <div className="p-8 bg-slate-50 border border-dashed rounded-[2.5rem] flex flex-col items-center gap-6 shadow-inner">
                 <div className="text-center space-y-1">
                   <h4 className="text-[11px] font-black uppercase text-slate-400 tracking-widest">Schnell-Verknüpfung hinzufügen</h4>
-                  <p className="text-[9px] text-slate-400 italic">Wählen Sie Objekte aus dem GRC-Katalog aus.</p>
                 </div>
                 <div className="flex flex-wrap justify-center gap-4">
                   <Select onValueChange={(val) => handleLinkEntity('risk', val)}>
@@ -669,7 +697,7 @@ export default function PolicyDetailPage() {
                             </div>
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 uppercase text-[9px] font-black h-9 px-6 rounded-xl hover:bg-white shadow-sm" onClick={() => { setDraftContent(v.content); setEditMode(true); window.scrollTo({top: 0, behavior: 'smooth'}); }}>Snapshot laden</Button>
+                        <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 uppercase text-[9px] font-black h-9 px-6 rounded-xl hover:bg-white shadow-sm" onClick={() => { if(editor) editor.commands.setContent(v.content); setEditMode(true); window.scrollTo({top: 0, behavior: 'smooth'}); }}>Snapshot laden</Button>
                       </div>
                     ))}
                   </div>

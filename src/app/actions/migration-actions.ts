@@ -84,7 +84,7 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
 
 /**
  * Erstellt den ersten Administrator, den Standard-Mandanten und die SuperAdmin-Rolle.
- * Die Rolle wird als echter Datensatz in platformRoles angelegt.
+ * Zudem werden die System-Prozesstypen initialisiert.
  */
 export async function createInitialAdminAction(data: { 
   name: string, 
@@ -108,7 +108,6 @@ export async function createInitialAdminAction(data: {
     console.log("[SETUP] Mandant angelegt.");
 
     // 2. Standardrolle superAdmin initialisieren
-    // Dies entspricht der Konfiguration, die auch über das UI bearbeitet werden kann.
     const superAdminRole = {
       id: 'superAdmin',
       name: 'Super Administrator',
@@ -130,7 +129,23 @@ export async function createInitialAdminAction(data: {
     );
     console.log("[SETUP] Super-Admin Rolle konfiguriert.");
 
-    // 3. Admin erstellen
+    // 3. System-Prozesstypen initialisieren
+    const systemProcessTypes = [
+      { id: 'pt-corp', name: 'Unternehmensprozess', desc: 'Strategische und organisatorische Abläufe.' },
+      { id: 'pt-detail', name: 'Detailprozess / Leitfaden', desc: 'Operative Arbeitsanweisungen.' },
+      { id: 'pt-backup', name: 'IT-Sicherung (Backup)', desc: 'Prozesse zur Datensicherung und Wiederherstellung.' },
+      { id: 'pt-update', name: 'Wartung & Patching', desc: 'Prozesse zur Softwareaktualisierung.' }
+    ];
+
+    for (const pt of systemProcessTypes) {
+      await connection.query(
+        'INSERT INTO `process_types` (id, name, description, enabled, createdAt) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)',
+        [pt.id, pt.name, pt.desc, 1, new Date().toISOString()]
+      );
+    }
+    console.log("[SETUP] System-Prozesstypen initialisiert.");
+
+    // 4. Admin erstellen
     const salt = bcrypt.genSaltSync(10);
     const hashedPassword = bcrypt.hashSync(data.password, salt);
     const adminId = 'puser-initial-admin';

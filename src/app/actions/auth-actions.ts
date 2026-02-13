@@ -1,8 +1,7 @@
-
 'use server';
 
 import { DataSource } from '@/context/settings-context';
-import { getMysqlConnection } from '@/lib/mysql';
+import { dbQuery } from '@/lib/mysql';
 import { initializeFirebase } from '@/firebase';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { getMockCollection } from '@/lib/mock-db';
@@ -13,11 +12,8 @@ import bcrypt from 'bcryptjs';
  * Simuliert eine LDAP-Authentifizierung basierend auf Mandanteneinstellungen.
  */
 async function authenticateViaLdap(email: string, password: string, tenantId: string): Promise<{ success: boolean; error?: string }> {
-  let connection;
   try {
-    connection = await getMysqlConnection();
-    const [rows]: any = await connection.execute('SELECT * FROM `tenants` WHERE `id` = ?', [tenantId]);
-    connection.release();
+    const rows: any = await dbQuery('SELECT * FROM `tenants` WHERE `id` = ?', [tenantId]);
 
     const tenant = rows[0] as Tenant;
     if (!tenant || !tenant.ldapEnabled) {
@@ -25,8 +21,7 @@ async function authenticateViaLdap(email: string, password: string, tenantId: st
     }
 
     console.log(`[LDAP SIMULATION] Authentifiziere ${email} gegen ${tenant.ldapUrl}:${tenant.ldapPort}...`);
-    // Hier würde die echte LDAP-Logik stehen.
-    // Wir simulieren den Erfolg, wenn das Passwort nicht 'wrong' ist.
+    // Simulation: Erfolg, wenn Passwort nicht 'wrong' ist.
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     if (password === 'wrong') {
@@ -35,14 +30,12 @@ async function authenticateViaLdap(email: string, password: string, tenantId: st
 
     return { success: true };
   } catch (e: any) {
-    if (connection) connection.release();
     return { success: false, error: `LDAP-Verbindungsfehler: ${e.message}` };
   }
 }
 
 /**
  * Authentifiziert einen Benutzer gegen die ausgewählte Datenquelle.
- * Diese Funktion ist die zentrale Logik für den Plattform-Login.
  */
 export async function authenticateUserAction(dataSource: DataSource, email: string, password?: string): Promise<{ 
   success: boolean; 
@@ -56,11 +49,9 @@ export async function authenticateUserAction(dataSource: DataSource, email: stri
       return await authenticateViaMysql(email, password);
 
     case 'firestore':
-      // Cloud-Login prüft die Existenz in der platformUsers Sammlung.
       return await authenticateViaCloud(email);
       
     case 'mock':
-      // Mock-Login prüft ebenfalls nur die Existenz.
       return await authenticateViaMock(email);
 
     default:
@@ -68,16 +59,12 @@ export async function authenticateUserAction(dataSource: DataSource, email: stri
   }
 }
 
-// --- MySQL Authentifizierungslogik ---
 async function authenticateViaMysql(email: string, password: string) {
-  let connection;
   try {
-    connection = await getMysqlConnection();
-    const [rows]: any = await connection.execute(
+    const rows: any = await dbQuery(
       'SELECT * FROM `platformUsers` WHERE `email` = ? AND `enabled` = 1', 
       [email]
     );
-    connection.release();
 
     if (!rows || rows.length === 0) {
       return { success: false, error: 'Benutzer nicht gefunden oder deaktiviert.' };
@@ -85,7 +72,6 @@ async function authenticateViaMysql(email: string, password: string) {
 
     const user = rows[0];
 
-    // Prüfe authSource: Falls LDAP, nutze LDAP-Logik
     if (user.authSource === 'ldap') {
       const ldapResult = await authenticateViaLdap(email, password, user.tenantId);
       if (!ldapResult.success) return ldapResult;
@@ -94,7 +80,6 @@ async function authenticateViaMysql(email: string, password: string) {
       return { success: true, user: { ...userWithoutPassword, enabled: true } as PlatformUser };
     }
 
-    // Standard-Passwort Prüfung (BCrypt)
     if (!user.password) {
       return { success: false, error: 'Kein Passwort für diesen lokalen Benutzer hinterlegt.' };
     }
@@ -111,12 +96,10 @@ async function authenticateViaMysql(email: string, password: string) {
       return { success: false, error: 'Ungültiges Passwort.' };
     }
   } catch (error: any) {
-    if (connection) connection.release();
     return { success: false, error: `Datenbank-Fehler: ${error.message}` };
   }
 }
 
-// --- Cloud (Zentral) Authentifizierungslogik ---
 async function authenticateViaCloud(email: string) {
   try {
     const { firestore } = initializeFirebase();
@@ -142,7 +125,6 @@ async function authenticateViaCloud(email: string) {
   }
 }
 
-// --- Mock-Daten Authentifizierungslogik ---
 async function authenticateViaMock(email: string) {
   try {
     const users = getMockCollection('platformUsers') as PlatformUser[];

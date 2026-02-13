@@ -1,141 +1,76 @@
 
 'use server';
 
-import { getMysqlConnection } from '@/lib/mysql';
+import { getPool, dbQuery } from '@/lib/mysql';
 import { appSchema } from '@/lib/schema';
-import { PoolConnection } from 'mysql2/promise';
 import bcrypt from 'bcryptjs';
 
-/**
- * Prüft, ob das System bereits initialisiert wurde.
- * Nutzt eine performante Abfrage auf die tenants Tabelle.
- */
 export async function checkSystemStatusAction(): Promise<{ initialized: boolean }> {
-  let connection;
   try {
-    connection = await getMysqlConnection();
-    // Prüfe nur, ob die Tabelle existiert und mindestens ein Datensatz vorhanden ist
-    const [rows]: any = await connection.execute('SELECT 1 FROM `tenants` LIMIT 1');
-    connection.release();
+    const rows: any = await dbQuery('SELECT 1 FROM `tenants` LIMIT 1');
     return { initialized: rows.length > 0 };
   } catch (e) {
-    if (connection) connection.release();
     return { initialized: false };
   }
 }
 
-/**
- * Führt eine Datenbank-Migration basierend auf dem definierten App-Schema durch.
- * Diese Funktion ist idempotent und kann sicher mehrfach ausgeführt werden.
- */
 export async function runDatabaseMigrationAction(): Promise<{ success: boolean; message: string; details: string[] }> {
-  let connection: PoolConnection | undefined;
   const details: string[] = [];
-
   try {
-    connection = await getMysqlConnection();
-    details.push('✅ Erfolgreich mit der Datenbank verbunden.');
+    const pool = getPool();
+    const connection: any = await pool.getConnection();
+    const dbName = connection.config.database;
+    connection.release();
 
-    const dbName = (connection as any).config.database;
-    if (!dbName) {
-        throw new Error('Kein Datenbankname in der Verbindungskonfiguration gefunden.');
-    }
+    details.push(`✅ Datenbank '${dbName}' verbunden.`);
 
     for (const tableName of Object.keys(appSchema)) {
       const tableDefinition = appSchema[tableName];
-
-      const [tableExistsResult] = await connection.execute(
+      const [tableExistsResult]: any = await dbQuery(
         `SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ?`,
         [dbName, tableName]
       );
 
-      const tableExists = (tableExistsResult as any[]).length > 0;
-
-      if (!tableExists) {
+      if (tableExistsResult.length === 0) {
         const columnsSql = Object.entries(tableDefinition.columns)
           .map(([colName, colDef]) => `\`${colName}\` ${colDef}`)
           .join(', \n');
-        const createTableSql = `CREATE TABLE \`${tableName}\` (\n${columnsSql}\n);`;
-        
-        details.push(`🏃 Tabelle '${tableName}' nicht gefunden, wird erstellt...`);
-        await connection.execute(createTableSql);
-        details.push(`   ✅ Tabelle '${tableName}' erfolgreich erstellt.`);
-
+        details.push(`🏃 Erstelle Tabelle '${tableName}'...`);
+        await dbQuery(`CREATE TABLE \`${tableName}\` (\n${columnsSql}\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
       } else {
-        details.push(`🔍 Tabelle '${tableName}' existiert, prüfe Spalten...`);
-
         for (const columnName of Object.keys(tableDefinition.columns)) {
-          const columnDefinition = tableDefinition.columns[columnName];
-
-          const [columnExistsResult] = await connection.execute(
+          const [colRes]: any = await dbQuery(
             `SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND LOWER(column_name) = LOWER(?)`,
             [dbName, tableName, columnName]
           );
-
-          const columnExists = (columnExistsResult as any[]).length > 0;
-
-          if (!columnExists) {
-            const addColumnSql = `ALTER TABLE \`${tableName}\` ADD COLUMN \`${columnName}\` ${columnDefinition}`;
-            details.push(`   🏃 Spalte '${columnName}' in '${tableName}' nicht gefunden, wird hinzugefügt...`);
-            await connection.execute(addColumnSql);
-            details.push(`      ✅ Spalte '${columnName}' erfolgreich hinzugefügt.`);
+          if (colRes.length === 0) {
+            details.push(`🏃 Füge Spalte '${columnName}' zu '${tableName}' hinzu...`);
+            await dbQuery(`ALTER TABLE \`${tableName}\` ADD COLUMN \`${columnName}\` ${tableDefinition.columns[columnName]}`);
           }
         }
       }
     }
 
-    // SEEDING: Default Tenant
-    details.push('🌱 Prüfe auf Organisationen...');
-    const [tenantRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `tenants`');
+    // Default Seedings
+    const tenantRows: any = await dbQuery('SELECT COUNT(*) as count FROM `tenants`');
     if (tenantRows[0].count === 0) {
-      const now = new Date().toISOString();
-      await connection.execute(
-        'INSERT INTO `tenants` (id, name, slug, createdAt, status) VALUES (?, ?, ?, ?, ?)',
-        ['t1', 'Meine Organisation', 'meine-organisation', now, 'active']
-      );
-      details.push('   ✅ Initialer Mandant erstellt. Sie können diesen in den Einstellungen umbenennen.');
+      await dbQuery('INSERT INTO `tenants` (id, name, slug, createdAt, status) VALUES (?, ?, ?, ?, ?)', 
+        ['t1', 'Meine Organisation', 'meine-organisation', new Date().toISOString(), 'active']);
+      details.push('🌱 Standard-Mandant erstellt.');
     }
 
-    // SEEDING: Prozesstypen
-    details.push('🌱 Prüfe auf Prozesstypen...');
-    const [typeRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `process_types`');
-    if (typeRows[0].count === 0) {
-      const types = [
-        ['pt-corp', 'Unternehmensprozess', 'Strategische und übergeordnete Geschäftsprozesse', 1, new Date().toISOString()],
-        ['pt-detail', 'Detailprozess', 'Operative Arbeitsabläufe und Handlungsschritte', 1, new Date().toISOString()],
-        ['pt-backup', 'Backup-Prozess', 'Technische Leitfäden zur Datensicherung und Wiederherstellung', 1, new Date().toISOString()],
-        ['pt-update', 'Update-Prozess', 'Verfahrensanweisungen für Patching und Software-Wartung', 1, new Date().toISOString()]
-      ];
-      for (const t of types) {
-        await connection.execute('INSERT INTO `process_types` (id, name, description, enabled, createdAt) VALUES (?, ?, ?, ?, ?)', t);
-      }
-      details.push('   ✅ System-Prozesstypen erstellt.');
-    }
-
-    // SEEDING: Default Admin Account
-    details.push('🌱 Prüfe auf initialen Admin-Account...');
-    const [userRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `platformUsers`');
-    if (userRows[0].count === 0) {
-      const adminId = 'puser-initial-admin';
-      const adminEmail = 'admin@compliance-hub.local';
-      const adminPassword = 'admin123';
+    const adminRows: any = await dbQuery('SELECT COUNT(*) as count FROM `platformUsers`');
+    if (adminRows[0].count === 0) {
       const salt = bcrypt.genSaltSync(10);
-      const hashedPassword = bcrypt.hashSync(adminPassword, salt);
-      const now = new Date().toISOString();
-
-      await connection.execute(
-        'INSERT INTO `platformUsers` (id, email, password, displayName, role, tenantId, enabled, createdAt, authSource) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [adminId, adminEmail, hashedPassword, 'Plattform Admin', 'superAdmin', 'all', 1, now, 'local']
-      );
-      details.push(`   ✅ Initialer Admin erstellt: ${adminEmail} (Passwort: ${adminPassword})`);
+      const hashedPassword = bcrypt.hashSync('admin123', salt);
+      await dbQuery('INSERT INTO `platformUsers` (id, email, password, displayName, role, tenantId, enabled, createdAt, authSource) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ['puser-admin', 'admin@compliance-hub.local', hashedPassword, 'Plattform Admin', 'superAdmin', 'all', 1, new Date().toISOString(), 'local']);
+      details.push('🌱 Admin-Konto erstellt (admin123).');
     }
 
-    connection.release();
-    return { success: true, message: 'Migration erfolgreich abgeschlossen.', details };
-
+    return { success: true, message: 'Integrität bestätigt.', details };
   } catch (error: any) {
-    if (connection) connection.release();
-    console.error("Database migration failed:", error);
-    return { success: false, message: `Fehler: ${error.message}`, details: details };
+    console.error("Migration failed:", error);
+    return { success: false, message: error.message, details };
   }
 }

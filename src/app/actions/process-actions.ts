@@ -106,6 +106,73 @@ export async function createProcessAction(
 }
 
 /**
+ * Klont einen bestehenden Prozess als neuen Notfallprozess.
+ */
+export async function cloneProcessAsEmergencyAction(
+  sourceProcessId: string,
+  dataSource: DataSource = 'mysql',
+  actorEmail: string = 'system'
+) {
+  // 1. Quellprozess abrufen
+  const sourceRes = await getSingleRecord('processes', sourceProcessId, dataSource);
+  const source = sourceRes.data as Process;
+  if (!source) throw new Error("Quellprozess nicht gefunden.");
+
+  // 2. Aktive Version abrufen
+  const verRes = await getCollectionData('process_versions', dataSource);
+  const sourceVersion = verRes.data?.find((v: any) => v.process_id === sourceProcessId && v.version === source.currentVersion);
+  if (!sourceVersion) throw new Error("Aktive Version des Quellprozesses nicht gefunden.");
+
+  // 3. Neue IDs generieren
+  const newProcessId = `proc-emg-${Math.random().toString(36).substring(2, 9)}`;
+  const now = new Date().toISOString();
+
+  // 4. Prozess-Datensatz erstellen
+  const newProcess: Process = {
+    ...source,
+    id: newProcessId,
+    title: `NOTFALL: ${source.title}`,
+    status: 'draft',
+    process_type_id: 'pt-disaster',
+    emergencyProcessId: undefined, // Ein Notfallprozess hat selbst keinen Notfallprozess
+    currentVersion: 1,
+    createdAt: now,
+    updatedAt: now
+  };
+
+  // 5. Version-Datensatz erstellen (Deep Copy der JSON Felder)
+  const newVersion: ProcessVersion = {
+    id: `ver-${newProcessId}-1`,
+    process_id: newProcessId,
+    version: 1,
+    model_json: JSON.parse(JSON.stringify(sourceVersion.model_json)),
+    layout_json: JSON.parse(JSON.stringify(sourceVersion.layout_json)),
+    revision: 0,
+    created_by_user_id: 'system',
+    created_at: now
+  };
+
+  // 6. Beides speichern
+  await saveCollectionRecord('processes', newProcessId, newProcess, dataSource);
+  await saveCollectionRecord('process_versions', newVersion.id, newVersion, dataSource);
+
+  // 7. Quellprozess aktualisieren, um auf diesen neuen Notfallprozess zu zeigen
+  await updateProcessMetadataAction(sourceProcessId, { emergencyProcessId: newProcessId }, dataSource);
+
+  // 8. Audit Log
+  await logAuditEventAction(dataSource, {
+    tenantId: source.tenantId,
+    actorUid: actorEmail,
+    action: `Prozess geklont als Notfall-Fallback: ${newProcess.title}`,
+    entityType: 'process',
+    entityId: newProcessId,
+    after: newProcess
+  });
+
+  return { success: true, processId: newProcessId };
+}
+
+/**
  * Löscht einen Prozess und alle zugehörigen Versionen.
  */
 export async function deleteProcessAction(processId: string, dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
@@ -120,12 +187,12 @@ export async function deleteProcessAction(processId: string, dataSource: DataSou
     
     if (res.success) {
       await logAuditEventAction(dataSource, {
-        tenantId: procData.data?.tenantId || 'global',
+        tenantId: resData.data?.tenantId || 'global',
         actorUid: actorEmail,
-        action: `Prozess permanent gelöscht: ${procData.data?.title || processId}`,
+        action: `Prozess permanent gelöscht: ${resData.data?.title || processId}`,
         entityType: 'process',
         entityId: processId,
-        before: procData.data
+        before: resData.data
       });
     }
     return res;

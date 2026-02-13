@@ -58,7 +58,8 @@ import {
   FileText,
   Focus,
   Paperclip,
-  ShieldAlert
+  ShieldAlert,
+  Flame
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -71,7 +72,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
-import { applyProcessOpsAction, updateProcessMetadataAction, commitProcessVersionAction } from '@/app/actions/process-actions';
+import { applyProcessOpsAction, updateProcessMetadataAction, commitProcessVersionAction, cloneProcessAsEmergencyAction } from '@/app/actions/process-actions';
 import { saveMediaAction, deleteMediaAction } from '@/app/actions/media-actions';
 import { toast } from '@/hooks/use-toast';
 import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessNode, ProcessOperation, ProcessVersion, Department, Resource, Feature, UiConfig, ProcessType, MediaFile } from '@/lib/types';
@@ -121,7 +122,7 @@ export default function ProcessDesignerPage() {
   const [scale, setScale] = useState(0.8);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: e.clientX - position.x, y: e.clientY - position.y });
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isDiagramLocked, setIsDiagramLocked] = useState(false);
   const [isProgrammaticMove, setIsProgrammaticMove] = useState(false);
   const hasAutoCentered = useRef(false);
@@ -135,6 +136,7 @@ export default function ProcessDesignerPage() {
   const [isApplying, setIsApplying] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [isSavingMeta, setIsSavingMeta] = useState(false);
+  const [isCloning, setIsCloning] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false);
   const [editingNode, setEditingNode] = useState<any>(null);
@@ -587,6 +589,22 @@ export default function ProcessDesignerPage() {
     } finally { setIsSavingMeta(false); }
   };
 
+  const handleCloneAsEmergency = async () => {
+    if (!id) return;
+    setIsCloning(true);
+    try {
+      const res = await cloneProcessAsEmergencyAction(id as string, dataSource, user?.email || 'system');
+      if (res.success) {
+        toast({ title: "Notfallprozess erstellt", description: "Sie werden nun zum Designer weitergeleitet." });
+        router.push(`/processhub/${res.processId}`);
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler beim Klonen", description: e.message });
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
   const handleCommitVersion = async () => {
     if (!activeVersion || !user) return;
     setIsCommitting(true);
@@ -701,15 +719,35 @@ export default function ProcessDesignerPage() {
                     <Label className="text-[10px] font-black uppercase text-red-600 flex items-center gap-1.5">
                       <ShieldAlert className="w-3 h-3" /> BCM Notfall-Fallback
                     </Label>
-                    <Select value={metaEmergencyId} onValueChange={setMetaEmergencyId}>
-                      <SelectTrigger className="h-10 text-xs rounded-xl border-red-100 bg-red-50/10 text-red-700 font-bold"><SelectValue placeholder="Rückfall-Prozess wählen..." /></SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        <SelectItem value="none">Kein Fallback-Prozess</SelectItem>
-                        {processes?.filter(p => p.process_type_id === 'pt-disaster' && p.id !== id).map(p => (
-                          <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Select value={metaEmergencyId} onValueChange={setMetaEmergencyId}>
+                        <SelectTrigger className="h-10 text-xs rounded-xl border-red-100 bg-red-50/10 text-red-700 font-bold flex-1"><SelectValue placeholder="Rückfall-Prozess wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="none">Kein Fallback-Prozess</SelectItem>
+                          {processes?.filter(p => p.process_type_id === 'pt-disaster' && p.id !== id).map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {currentProcess?.process_type_id !== 'pt-disaster' && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="icon" 
+                                className="h-10 w-10 shrink-0 rounded-xl border-red-200 text-red-600 hover:bg-red-50"
+                                onClick={handleCloneAsEmergency}
+                                disabled={isCloning}
+                              >
+                                {isCloning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Flame className="w-4 h-4" />}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-[9px] font-black uppercase bg-slate-900 text-white border-none shadow-xl">Prozess als Notfall-Basis klonen</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-400">Beschreibung</Label><Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[80px] text-xs rounded-xl" /></div>
                 </section>

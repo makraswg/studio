@@ -70,6 +70,7 @@ import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/comp
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { exportPolicyPdf, exportPolicyDocx } from '@/lib/export-utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -562,7 +563,7 @@ export default function PolicyDetailPage() {
                             <p className="text-[11px] text-slate-600 mt-1.5 leading-relaxed bg-slate-50 p-2 rounded-lg border border-dashed italic">"{v.changelog || 'Keine Notiz'}"</p>
                             <div className="flex items-center gap-4 mt-4 text-[9px] font-bold text-slate-400 uppercase">
                               <span className="flex items-center gap-1.5"><Clock className="w-3 h-3 opacity-50" /> {new Date(v.createdAt).toLocaleString()}</span>
-                              <span className="flex items-center gap-1.5"><UserCircle className="w-3 h-3 opacity-50" /> {v.createdBy}</span>
+                              <span className="flex items-center gap-1.5"><UserCircle className="w-2.5 h-2.5 opacity-50" /> {v.createdBy}</span>
                             </div>
                           </div>
                         </div>

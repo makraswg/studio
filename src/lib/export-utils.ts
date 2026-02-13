@@ -1,6 +1,6 @@
 'use client';
 
-import { Process, ProcessVersion, Tenant, JobTitle, ProcessingActivity, Resource, RiskMeasure } from './types';
+import { Process, ProcessVersion, Tenant, JobTitle, ProcessingActivity, Resource, RiskMeasure, Policy, PolicyVersion } from './types';
 
 /**
  * Utility-Modul für den Export von Daten (PDF & Excel).
@@ -437,6 +437,88 @@ export async function exportFullComplianceReportPdf(
 
     doc.save(`Compliance_Detailbericht_${mode}_${new Date().toISOString().split('T')[0]}.pdf`);
   } catch (error) {
-    console.error('PDF Export fehlgeschlagen:', error);
+    console.error('Compliance Export fehlgeschlagen:', error);
   }
+}
+
+/**
+ * Richtlinien-Export als PDF.
+ */
+export async function exportPolicyPdf(policy: Policy, version: PolicyVersion, tenantName: string) {
+  try {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    
+    const doc = new jsPDF();
+    const timestamp = new Date().toLocaleDateString('de-DE');
+
+    // Branding
+    doc.setFontSize(22);
+    doc.setTextColor(5, 150, 105); // Emerald Green
+    doc.text(policy.title, 14, 25);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Mandant: ${tenantName}`, 14, 33);
+    doc.text(`Stand: ${timestamp} • Version ${version.version}.${version.revision}`, 14, 38);
+    
+    doc.setDrawColor(200);
+    doc.line(14, 45, 196, 45);
+
+    // Metadata Table
+    autoTable(doc, {
+      startY: 50,
+      body: [
+        ['ID', policy.id],
+        ['Dokumenten-Typ', policy.type],
+        ['Status', policy.status.toUpperCase()],
+        ['Letzte Änderung', version.changelog || '-']
+      ],
+      theme: 'grid',
+      styles: { fontSize: 8 },
+      columnStyles: { 0: { fontStyle: 'bold', width: 40 } }
+    });
+
+    // Main Content
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    const splitContent = doc.splitTextToSize(version.content, 180);
+    doc.text(splitContent, 14, (doc as any).lastAutoTable.finalY + 15);
+
+    doc.save(`Richtlinie_${policy.title.replace(/\s+/g, '_')}_V${version.version}.pdf`);
+  } catch (error) {
+    console.error('Policy PDF Export failed:', error);
+  }
+}
+
+/**
+ * Richtlinien-Export als DOCX (Pragmatische HTML-Blob Lösung).
+ */
+export async function exportPolicyDocx(policy: Policy, version: PolicyVersion) {
+  const content = `
+    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+    <head><meta charset='utf-8'><title>${policy.title}</title></head>
+    <body style="font-family: Arial, sans-serif;">
+      <h1 style="color: #059669;">${policy.title}</h1>
+      <p><strong>Version:</strong> ${version.version}.${version.revision}</p>
+      <p><strong>Status:</strong> ${policy.status}</p>
+      <hr/>
+      <div style="white-space: pre-wrap;">
+        ${version.content.replace(/\n/g, '<br/>')}
+      </div>
+    </body>
+    </html>
+  `;
+
+  const blob = new Blob(['\ufeff', content], {
+    type: 'application/msword'
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `Richtlinie_${policy.title.replace(/\s+/g, '_')}.doc`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }

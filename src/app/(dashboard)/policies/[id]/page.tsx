@@ -43,7 +43,9 @@ import {
   Search,
   X,
   BookOpen,
-  Share2
+  Share2,
+  FileDown,
+  Download
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -52,7 +54,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
-import { Policy, PolicyVersion, JobTitle, MediaFile, Risk, RiskMeasure, Resource, RiskControl, BookStackConfig } from '@/lib/types';
+import { Policy, PolicyVersion, JobTitle, MediaFile, Risk, RiskMeasure, Resource, RiskControl, BookStackConfig, Tenant } from '@/lib/types';
 import { commitPolicyVersionAction, linkPolicyEntityAction, unlinkPolicyEntityAction } from '@/app/actions/policy-actions';
 import { saveMediaAction, deleteMediaAction } from '@/app/actions/media-actions';
 import { publishPolicyToBookStackAction } from '@/app/actions/bookstack-actions';
@@ -66,6 +68,15 @@ import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
+import { exportPolicyPdf, exportPolicyDocx } from '@/lib/export-utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
 
 export default function PolicyDetailPage() {
   const { id } = useParams();
@@ -90,7 +101,7 @@ export default function PolicyDetailPage() {
   const [linkSearch, setLinkSearch] = useState('');
 
   const { data: policies, isLoading: isPolLoading, refresh: refreshPolicies } = usePluggableCollection<Policy>('policies');
-  const { data: versions, refresh: refreshVersions } = usePluggableCollection<any>('process_versions');
+  const { data: versions, refresh: refreshVersions } = usePluggableCollection<any>('policy_versions');
   const { data: mediaFiles, refresh: refreshMedia } = usePluggableCollection<MediaFile>('media');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: risks } = usePluggableCollection<Risk>('risks');
@@ -99,6 +110,7 @@ export default function PolicyDetailPage() {
   const { data: policyLinks, refresh: refreshLinks } = usePluggableCollection<any>('policy_links');
   const { data: controls } = usePluggableCollection<RiskControl>('riskControls');
   const { data: bsConfigs } = usePluggableCollection<BookStackConfig>('bookstackConfigs');
+  const { data: tenants } = usePluggableCollection<Tenant>('tenants');
 
   const policy = useMemo(() => policies?.find(p => p.id === id), [policies, id]);
   const policyVersions = useMemo(() => 
@@ -110,6 +122,7 @@ export default function PolicyDetailPage() {
   const activeVersion = policyVersions[0];
   const policyAttachments = mediaFiles?.filter(m => m.entityId === id && m.module === 'PolicyHub') || [];
   const hasBookStack = bsConfigs?.some(c => c.enabled);
+  const tenant = useMemo(() => tenants?.find(t => t.id === policy?.tenantId), [tenants, policy]);
 
   // Filtered Links
   const linkedRisks = useMemo(() => {
@@ -188,6 +201,18 @@ export default function PolicyDetailPage() {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handleExportPdf = () => {
+    if (!policy || !activeVersion) return;
+    exportPolicyPdf(policy, activeVersion, tenant?.name || 'Global');
+    toast({ title: "PDF generiert" });
+  };
+
+  const handleExportDocx = () => {
+    if (!policy || !activeVersion) return;
+    exportPolicyDocx(policy, activeVersion);
+    toast({ title: "Word-Dokument generiert" });
   };
 
   const handleLinkEntity = async (type: 'risk' | 'measure' | 'resource', targetId: string) => {
@@ -285,11 +310,34 @@ export default function PolicyDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          {hasBookStack && (
-            <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-blue-200 text-blue-700 shadow-sm" onClick={handleBookStackExport} disabled={isExporting}>
-              {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Share2 className="w-4 h-4 mr-2" />} BookStack Sync
-            </Button>
-          )}
+          {/* Export Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-slate-200 hover:bg-slate-50 shadow-sm transition-all active:scale-95">
+                <Download className="w-4 h-4 mr-2" /> Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 shadow-2xl border bg-white">
+              <DropdownMenuLabel className="text-[9px] font-black uppercase text-slate-400 px-3 py-2 tracking-widest">Format wählen</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={handleExportPdf} className="rounded-lg py-2.5 gap-3 text-xs font-bold cursor-pointer">
+                <FileDown className="w-4 h-4 text-red-500" /> PDF Dokument
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleExportDocx} className="rounded-lg py-2.5 gap-3 text-xs font-bold cursor-pointer">
+                <FileText className="w-4 h-4 text-blue-600" /> Word (DOCX)
+              </DropdownMenuItem>
+              {hasBookStack && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={handleBookStackExport} disabled={isExporting} className="rounded-lg py-2.5 gap-3 text-xs font-bold cursor-pointer">
+                    {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4 text-indigo-600" />}
+                    BookStack Sync
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-indigo-200 text-indigo-700 shadow-sm" onClick={handleAiAudit} disabled={isAiLoading}>
             {isAiLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BrainCircuit className="w-4 h-4 mr-2" />} KI Audit
           </Button>

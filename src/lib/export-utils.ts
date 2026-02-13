@@ -104,7 +104,7 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
   const rangeX = (maxX - minX) || 1;
   const rangeY = (maxY - minY) || 1;
   
-  // Dynamic scaling to avoid white space and fit to width
+  // Dynamic scaling to fit width
   const scale = Math.min((canvasWidth - 20) / rangeX, 0.35);
   const actualCanvasHeight = rangeY * scale + 30;
 
@@ -156,7 +156,16 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     if (node.type === 'decision') color = [245, 158, 11];
     if (node.type === 'subprocess') color = [79, 70, 229];
 
-    doc.setDrawColor(100);
+    // Mark every branching node distinctly (even if not type decision)
+    const outgoingCount = edges.filter(e => e.source === node.id).length;
+    if (outgoingCount > 1 && node.type !== 'decision') {
+      doc.setDrawColor(37, 99, 235);
+      doc.setLineWidth(0.3);
+    } else {
+      doc.setDrawColor(100);
+      doc.setLineWidth(0.1);
+    }
+
     doc.setFillColor(color[0], color[1], color[2]);
     doc.circle(x, y, r, 'FD');
 
@@ -252,11 +261,11 @@ export async function exportDetailedProcessPdf(
       ['Verantwortliche Abteilung', dept?.name || '---'],
       ['Verantwortlich', owner?.name || '---'],
       ['Freigabestatus', `Freigegeben am ${timestamp} durch ${owner?.name || 'System'}`],
-      ['VVT Referenz', process.vvtId ? `VVT-ID: ${process.vvtId}` : 'Keine Verknüpfung'],
+      ['VVT Referenz', process.vvtId ? `ID: ${process.vvtId}` : '---'],
       ['IT-Infrastruktur', resourceNames],
       ['Verarbeitete Daten', featureNames],
-      ['Eingehende Daten (ISO)', process.inputs || 'Keine Angabe'],
-      ['Ausgehende Daten (ISO)', process.outputs || 'Keine Angabe']
+      ['Eingang (ISO)', process.inputs || '---'],
+      ['Ausgang (ISO)', process.outputs || '---']
     ];
 
     autoTable(doc, {
@@ -348,30 +357,33 @@ export async function exportProcessManualPdf(
     const doc = new jsPDF();
     const now = new Date().toLocaleDateString('de-DE');
 
-    // --- DECKBLATT ---
+    // --- DECKBLATT (Druckfreundlich) ---
     doc.setTextColor(30, 41, 59);
     
-    // Logo
+    // Icon/Logo at Top
     doc.setDrawColor(220);
-    doc.setFillColor(240, 240, 240);
-    doc.circle(105, 60, 15, 'FD');
+    doc.setFillColor(245, 245, 245);
+    doc.circle(105, 50, 12, 'FD');
     doc.setFontSize(8);
     doc.setTextColor(150);
-    doc.text('LOGO', 105, 61, { align: 'center' });
+    doc.text('GRC', 105, 51, { align: 'center' });
 
     doc.setTextColor(30, 41, 59);
-    doc.setFontSize(32);
+    doc.setFontSize(28);
     doc.setFont('helvetica', 'bold');
-    doc.text('Prozess-Handbuch', 105, 100, { align: 'center' });
+    doc.text('Prozess-Handbuch', 105, 85, { align: 'center' });
     
-    doc.setFontSize(16);
+    doc.setFontSize(14);
     doc.setTextColor(100);
-    doc.text(tenant.name, 105, 115, { align: 'center' });
+    doc.text(tenant.name, 105, 95, { align: 'center' });
     
+    doc.setDrawColor(37, 99, 235);
+    doc.setLineWidth(0.5);
+    doc.line(80, 105, 130, 105);
+
     doc.setFontSize(10);
     doc.setTextColor(150);
-    doc.text('Zentrale Prozessdokumentation & GRC-Nachweis', 105, 140, { align: 'center' });
-    doc.text(`Stand: ${now} | Umfang: ${processes.length} Prozesse`, 105, 146, { align: 'center' });
+    doc.text(`Stand: ${now} | Umfang: ${processes.length} Prozesse`, 105, 120, { align: 'center' });
 
     // --- PROZESS-RENDER LOOP (Build Page Mapping) ---
     const processPages: Record<string, number> = {};
@@ -383,11 +395,11 @@ export async function exportProcessManualPdf(
       groupedProcesses[deptName].push(p);
     });
 
-    // We start content on page 3 or later depending on TOC size.
-    // To be safe, we render processes first to separate pages and then insert TOC.
-    // In jsPDF, we can just skip pages and go back.
+    // We start content on page 3 or later to ensure TOC doesn't overlap
+    // First, we'll dummy-render to count pages, then build TOC, then real render.
+    // For MVP, we render processes first starting from page 3.
     
-    let currentPage = 3; 
+    let contentStartPage = 3; 
 
     for (const deptName of Object.keys(groupedProcesses).sort()) {
       for (const p of groupedProcesses[deptName]) {
@@ -395,10 +407,10 @@ export async function exportProcessManualPdf(
         if (!ver) continue;
 
         doc.addPage();
-        currentPage = (doc as any).internal.getNumberOfPages();
-        processPages[p.id] = currentPage;
+        const pageIdx = (doc as any).internal.getNumberOfPages();
+        processPages[p.id] = pageIdx;
         
-        doc.setFontSize(20);
+        doc.setFontSize(18);
         doc.setTextColor(30, 41, 59);
         doc.text(p.title, 14, 25);
         doc.setFontSize(8);
@@ -418,10 +430,9 @@ export async function exportProcessManualPdf(
         autoTable(doc, {
           startY: 38,
           body: [
-            ['Verantwortliche Abteilung', deptName],
             ['Verantwortlich', jobTitles.find(j => j.id === p.ownerRoleId)?.name || '---'],
             ['Freigabestatus', `Freigegeben am ${now} durch ${jobTitles.find(j => j.id === p.ownerRoleId)?.name || 'System'}`],
-            ['VVT Referenz', p.vvtId ? `ID: ${p.vvtId}` : 'Keine'],
+            ['VVT Referenz', p.vvtId ? `ID: ${p.vvtId}` : '---'],
             ['IT-Infrastruktur', resNames],
             ['Verarbeitete Daten', featNames],
             ['Eingang (ISO)', p.inputs || '---'],
@@ -498,13 +509,13 @@ export async function exportProcessManualPdf(
         doc.setTextColor(50);
         doc.setFont('helvetica', 'normal');
         
-        const title = `   ${p.title}`;
+        const label = `   ${p.title}`;
         const pageNum = processPages[p.id]?.toString() || '?';
         
-        doc.text(title, 14, tocY);
+        doc.text(label, 14, tocY);
         
         // Leader Line
-        const titleWidth = doc.getTextWidth(title);
+        const titleWidth = doc.getTextWidth(label);
         const pageNumWidth = doc.getTextWidth(pageNum);
         const dotStart = 14 + titleWidth + 2;
         const dotEnd = 196 - pageNumWidth - 2;
@@ -521,7 +532,6 @@ export async function exportProcessManualPdf(
 
         if (tocY > 270) {
           doc.addPage();
-          // Shift content if TOC is massive (complex logic omitted for brevity, but this adds a page)
           tocY = 20;
         }
       });

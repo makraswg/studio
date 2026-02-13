@@ -114,9 +114,6 @@ export default function PolicyDetailPage() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiAuditResult, setAiAuditResult] = useState<PolicyValidatorOutput | null>(null);
 
-  // Link Search State
-  const [linkSearch, setLinkSearch] = useState('');
-
   const { data: policies, isLoading: isPolLoading, refresh: refreshPolicies } = usePluggableCollection<Policy>('policies');
   const { data: versions, refresh: refreshVersions } = usePluggableCollection<any>('policy_versions');
   const { data: mediaFiles, refresh: refreshMedia } = usePluggableCollection<MediaFile>('media');
@@ -151,21 +148,6 @@ export default function PolicyDetailPage() {
     const ids = policyLinks?.filter((l: any) => l.policyId === id && l.targetType === 'measure').map((l: any) => l.targetId);
     return measures?.filter(m => ids?.includes(m.id)) || [];
   }, [policyLinks, measures, id]);
-
-  const linkedResources = useMemo(() => {
-    const ids = policyLinks?.filter((l: any) => l.policyId === id && l.targetType === 'resource').map((l: any) => l.targetId);
-    return resources?.filter(r => ids?.includes(r.id)) || [];
-  }, [policyLinks, resources, id]);
-
-  // Integrity Score Calculation
-  const integrityScore = useMemo(() => {
-    if (linkedMeasures.length === 0) return 0;
-    const effectiveCount = linkedMeasures.filter(m => {
-      const measureControls = controls?.filter(c => c.measureId === m.id) || [];
-      return measureControls.some(c => c.isEffective);
-    }).length;
-    return Math.floor((effectiveCount * 100) / linkedMeasures.length);
-  }, [linkedMeasures, controls]);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -215,7 +197,6 @@ export default function PolicyDetailPage() {
     
     setDraftContent(newText);
     
-    // Reset focus and selection
     setTimeout(() => {
       textarea.focus();
       textarea.setSelectionRange(start + before.length, end + before.length);
@@ -477,55 +458,63 @@ export default function PolicyDetailPage() {
                       <div className="p-4 px-6 flex flex-row items-center justify-between border-b border-slate-100">
                         <div className="flex items-center gap-3">
                           <FileEdit className="w-5 h-5 text-primary" />
-                          <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-900">Editor</CardTitle>
+                          <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-900">WYSIWYG Editor</CardTitle>
                         </div>
                         <Badge className="bg-primary/10 text-primary border-none rounded-full text-[8px] font-black uppercase px-2 h-4">GUI Toolbar</Badge>
                       </div>
                       
                       <div className="bg-white p-3 px-6 flex flex-wrap items-center gap-2">
                         <TooltipProvider>
+                          {/* Text Styles */}
                           <div className="flex items-center gap-1 pr-3 border-r border-slate-100">
                             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('**', '**')}><Bold className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Fett</TooltipContent></Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('*', '*')}><Italic className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Kursiv</TooltipContent></Tooltip>
                           </div>
                           
+                          {/* Headers */}
                           <div className="flex items-center gap-1 px-3 border-r border-slate-100">
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('# ', '')}><Heading1 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Ü1</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('## ', '')}><Heading2 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Ü2</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('### ', '')}><Heading3 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Ü3</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('# ', '')}><Heading1 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Hauptüberschrift</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('## ', '')}><Heading2 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Überschrift 2</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('### ', '')}><Heading3 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Überschrift 3</TooltipContent></Tooltip>
                           </div>
 
+                          {/* Lists */}
                           <div className="flex items-center gap-1 px-3 border-r border-slate-100">
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('- ', '')}><List className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Liste</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('- ', '')}><List className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Aufzählung</TooltipContent></Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('1. ', '')}><ListOrdered className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Nummerierung</TooltipContent></Tooltip>
                           </div>
 
+                          {/* Complex Objects */}
                           <div className="flex items-center gap-1 px-3 border-r border-slate-100">
                             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={insertTable}><TableIcon className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Tabelle einfügen</TooltipContent></Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={insertImage}><LuImage className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Bild einfügen</TooltipContent></Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('\n---\n')}><Minus className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Trennlinie</TooltipContent></Tooltip>
                           </div>
 
+                          {/* Others */}
                           <div className="flex items-center gap-1 px-3">
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('[Link Titel](https://', ')')}><LinkIcon className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Link</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('[Link Titel](https://', ')')}><LinkIcon className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Link einfügen</TooltipContent></Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('> ', '')}><Quote className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Zitat</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100" onClick={() => insertText('`', '`')}><Code className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Code</TooltipContent></Tooltip>
                           </div>
                         </TooltipProvider>
                       </div>
                     </CardHeader>
-                    <CardContent className="p-0">
-                      <Textarea 
-                        ref={textareaRef}
-                        value={draftContent} 
-                        onChange={e => setDraftContent(e.target.value)} 
-                        className="min-h-[600px] rounded-none border-none p-10 font-body text-base leading-relaxed focus:ring-0 bg-white"
-                        placeholder="Beginnen Sie hier mit der Erstellung Ihrer Richtlinie..."
-                      />
+                    <CardContent className="p-0 bg-slate-100 flex justify-center">
+                      <div className="w-full max-w-4xl min-h-[800px] bg-white shadow-2xl my-8 mx-4 p-16 rounded-sm relative">
+                        <Textarea 
+                          ref={textareaRef}
+                          value={draftContent} 
+                          onChange={e => setDraftContent(e.target.value)} 
+                          className="min-h-[700px] w-full border-none p-0 font-body text-base leading-relaxed focus:ring-0 bg-transparent resize-none overflow-hidden"
+                          placeholder="Beginnen Sie hier mit der Erstellung Ihrer Richtlinie..."
+                        />
+                      </div>
                     </CardContent>
                     <div className="p-8 border-t bg-slate-50 space-y-6">
                       <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Änderungsgrund (Changelog)</Label>
-                        <Input value={changelog} onChange={e => setChangelog(e.target.value)} placeholder="Revision: Fehlerkorrektur in Kapitel 3..." className="rounded-xl h-12 bg-white border-slate-200 font-bold" />
+                        <Input value={changelog} onChange={e => setChangelog(e.target.value)} placeholder="z.B. Revision: Anpassung der Passwort-Komplexität..." className="rounded-xl h-12 bg-white border-slate-200 font-bold" />
                       </div>
                       <div className="flex justify-end gap-3">
                         <Button variant="outline" className="rounded-xl h-12 px-8 font-black text-[10px] uppercase border-slate-200" onClick={() => handleSaveVersion(true)} disabled={isSaving}>Offizielle Freigabe (Major)</Button>

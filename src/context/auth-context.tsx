@@ -14,12 +14,19 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Hilfsfunktion zum Setzen des Sitzungs-Cookies für die Middleware.
+ */
 const setSessionCookie = (user: PlatformUser | null) => {
   if (typeof document === 'undefined') return;
   if (user) {
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString();
-    document.cookie = `auth_session=true; path=/; expires=${expires}; SameSite=Lax`;
+    // Cookie für 24 Stunden setzen
+    const date = new Date();
+    date.setTime(date.getTime() + (24 * 60 * 60 * 1000));
+    const expires = "; expires=" + date.toUTCString();
+    document.cookie = `auth_session=true${expires}; path=/; SameSite=Lax`;
   } else {
+    // Cookie löschen
     document.cookie = "auth_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
   }
 };
@@ -27,10 +34,9 @@ const setSessionCookie = (user: PlatformUser | null) => {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<PlatformUser | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
-    // Restore session on client-side only to prevent hydration mismatch
+    // Sitzung beim Laden aus LocalStorage wiederherstellen (nur Client-seitig)
     const savedUser = localStorage.getItem('platform_session');
     if (savedUser) {
       try {
@@ -58,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    // Use window.location to ensure complete cleanup across middleware
+    // Hard Redirect zur Login-Seite
     window.location.href = '/';
   };
 

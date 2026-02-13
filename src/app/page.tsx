@@ -60,12 +60,6 @@ function LoginForm() {
     }
   }, [dataSource, router]);
 
-  useEffect(() => {
-    if (mounted && user) {
-      router.push('/dashboard');
-    }
-  }, [user, router, mounted]);
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsActionLoading(true);
@@ -82,17 +76,22 @@ function LoginForm() {
         return;
       }
 
+      // Firebase Auth Sync falls Firestore genutzt wird
       if (dataSource === 'firestore' && auth) {
         try { await signInAnonymously(auth); } catch (fbErr) {}
       }
       
-      toast({ title: "Erfolgreich angemeldet" });
+      // 1. Benutzer im Context setzen (schreibt auch den Cookie)
       setUser(result.user);
       
-      // Force hard redirect to ensure middleware picks up the new session cookie immediately
+      // 2. Feedback geben
+      toast({ title: "Erfolgreich angemeldet", description: "Sie werden weitergeleitet..." });
+      
+      // 3. Hard Redirect erzwingen, damit die Middleware den Cookie sicher erkennt
+      // router.push ist im Dev-Mode oft zu schnell für die Cookie-Verarbeitung
       setTimeout(() => {
         window.location.href = '/dashboard';
-      }, 100);
+      }, 500);
 
     } catch (err: any) {
       setAuthError(err.message || "Ein Systemfehler ist aufgetreten.");
@@ -112,10 +111,13 @@ function LoginForm() {
     }
   };
 
-  if (!mounted || isCheckingSystem || (isUserLoading && !user)) {
+  if (!mounted || isCheckingSystem) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 animate-spin text-primary" />
+          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest animate-pulse">System wird geladen...</p>
+        </div>
       </div>
     );
   }

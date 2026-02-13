@@ -58,7 +58,9 @@ import {
   Trash,
   Paperclip,
   ImageIcon,
-  FileUp
+  FileUp,
+  Search,
+  Check
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -89,6 +91,14 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
 
 // TipTap Imports
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -110,6 +120,7 @@ export default function PolicyDetailPage() {
   const { user } = usePlatformAuth();
   const { dataSource, activeTenantId } = useSettings();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaPickerInputRef = useRef<HTMLInputElement>(null);
   
   const [mounted, setMounted] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -117,6 +128,9 @@ export default function PolicyDetailPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [changelog, setChangelog] = useState('');
+
+  // UI States for Media Picker
+  const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
 
   // AI State
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -140,7 +154,15 @@ export default function PolicyDetailPage() {
     [versions, id]
   );
   const activeVersion = policyVersions[0];
-  const policyAttachments = mediaFiles?.filter(m => m.entityId === id && m.module === 'PolicyHub') || [];
+  const policyAttachments = useMemo(() => 
+    mediaFiles?.filter(m => m.entityId === id && m.module === 'PolicyHub') || [], 
+    [mediaFiles, id]
+  );
+  const imageAttachments = useMemo(() => 
+    policyAttachments.filter(m => m.fileType.startsWith('image/')), 
+    [policyAttachments]
+  );
+  
   const hasBookStack = bsConfigs?.some(c => c.enabled);
   const tenant = useMemo(() => tenants?.find(t => t.id === policy?.tenantId), [tenants, policy]);
 
@@ -161,15 +183,32 @@ export default function PolicyDetailPage() {
       Image.configure({
         inline: true,
         allowBase64: true,
+        HTMLAttributes: {
+          class: 'rounded-lg shadow-md border max-w-full h-auto cursor-pointer hover:ring-2 hover:ring-primary transition-all',
+        },
       }),
       Table.configure({
         resizable: true,
+        HTMLAttributes: {
+          class: 'border-collapse table-auto w-full border border-slate-200 rounded-lg overflow-hidden',
+        },
       }),
       TableRow,
-      TableHeader,
-      TableCell,
+      TableHeader.configure({
+        HTMLAttributes: {
+          class: 'bg-slate-50 font-bold border-b border-slate-200',
+        },
+      }),
+      TableCell.configure({
+        HTMLAttributes: {
+          class: 'p-3 border border-slate-200 text-sm',
+        },
+      }),
       Link.configure({
         openOnClick: false,
+        HTMLAttributes: {
+          class: 'text-primary underline font-medium',
+        },
       }),
       TextAlign.configure({
         types: ['heading', 'paragraph'],
@@ -326,6 +365,13 @@ export default function PolicyDetailPage() {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleInsertImage = (url: string) => {
+    if (editor) {
+      editor.chain().focus().setImage({ src: url }).run();
+      setIsMediaPickerOpen(false);
+    }
   };
 
   if (!mounted) return null;
@@ -497,6 +543,7 @@ export default function PolicyDetailPage() {
                           <div className="flex items-center gap-0.5 px-2 border-r">
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive({ textAlign: 'left' }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().setTextAlign('left').run()}><AlignLeft className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Linksbündig</TooltipContent></Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive({ textAlign: 'center' }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().setTextAlign('center').run()}><AlignCenter className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Zentriert</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive({ textAlign: 'right' }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().setTextAlign('right').run()}><AlignRight className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Rechtsbündig</TooltipContent></Tooltip>
                           </div>
 
                           {/* Lists */}
@@ -505,7 +552,7 @@ export default function PolicyDetailPage() {
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('orderedList') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Nummerierung</TooltipContent></Tooltip>
                           </div>
 
-                          {/* Tables - Modern Dropdown */}
+                          {/* Tables */}
                           <div className="flex items-center gap-0.5 px-2 border-r">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -530,9 +577,16 @@ export default function PolicyDetailPage() {
                             </DropdownMenu>
                           </div>
 
-                          {/* Media & Others */}
+                          {/* Media Picker */}
                           <div className="flex items-center gap-0.5 pl-2">
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { const url = window.prompt('Bild URL eingeben (oder Anhang nutzen)'); if (url) editor.chain().focus().setImage({ src: url }).run(); }}><LuImage className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Bild einfügen</TooltipContent></Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-indigo-600" onClick={() => setIsMediaPickerOpen(true)}>
+                                  <LuImage className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent className="text-[10px] font-bold">Bilder einfügen/verwalten</TooltipContent>
+                            </Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().setHorizontalRule().run()}><Minus className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Trennlinie</TooltipContent></Tooltip>
                           </div>
                         </TooltipProvider>
@@ -708,6 +762,98 @@ export default function PolicyDetailPage() {
           </Tabs>
         </div>
       </div>
+
+      {/* Media Picker Dialog */}
+      <Dialog open={isMediaPickerOpen} onOpenChange={setIsMediaPickerOpen}>
+        <DialogContent className="max-w-4xl w-[95vw] h-[80vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-white">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400 border border-white/10">
+                  <LuImage className="w-6 h-6" />
+                </div>
+                <div>
+                  <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Medien-Bibliothek</DialogTitle>
+                  <DialogDescription className="text-[10px] text-white/50 font-bold uppercase mt-0.5">Bilder auswählen oder neue Dateien hochladen</DialogDescription>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setIsMediaPickerOpen(false)} className="text-white/50 hover:text-white">
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 flex overflow-hidden">
+            <aside className="w-64 border-r bg-slate-50/50 p-6 space-y-6 hidden md:block">
+              <div className="space-y-4">
+                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Schnell-Upload</Label>
+                <div 
+                  className="p-8 border-2 border-dashed rounded-xl bg-white flex flex-col items-center justify-center text-center gap-3 cursor-pointer hover:border-primary/50 transition-all group"
+                  onClick={() => mediaPickerInputRef.current?.click()}
+                >
+                  <input type="file" ref={mediaPickerInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+                  <FileUp className={cn("w-8 h-8 text-slate-300 group-hover:text-primary transition-colors", isUploading && "animate-bounce")} />
+                  <p className="text-[10px] font-bold text-slate-600">Bild hochladen</p>
+                </div>
+              </div>
+              <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-2">
+                <p className="text-[10px] font-bold text-blue-800 flex items-center gap-2 uppercase">
+                  <Info className="w-3 h-3" /> Tipp
+                </p>
+                <p className="text-[9px] text-blue-600 leading-relaxed font-medium">
+                  Bilder werden automatisch am Dokument gespeichert und können jederzeit wiederverwendet werden.
+                </p>
+              </div>
+            </aside>
+
+            <main className="flex-1 flex flex-col min-h-0 bg-white">
+              <div className="p-4 border-b flex items-center justify-between shrink-0">
+                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Verfügbare Grafiken ({imageAttachments.length})</h4>
+                <div className="md:hidden">
+                  <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold" onClick={() => mediaPickerInputRef.current?.click()}>
+                    {isUploading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />} Upload
+                  </Button>
+                </div>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="p-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {imageAttachments.map(img => (
+                    <div 
+                      key={img.id} 
+                      className="group relative aspect-square rounded-xl border border-slate-100 overflow-hidden cursor-pointer shadow-sm hover:ring-2 hover:ring-primary hover:border-transparent transition-all"
+                      onClick={() => handleInsertImage(img.fileUrl)}
+                    >
+                      <img src={img.fileUrl} alt={img.fileName} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2 text-center">
+                        <div className="space-y-2">
+                          <Check className="w-6 h-6 text-white mx-auto" />
+                          <p className="text-[8px] font-black uppercase text-white truncate max-w-[100px]">{img.fileName}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {imageAttachments.length === 0 && !isUploading && (
+                    <div className="col-span-full py-20 text-center opacity-30 space-y-4">
+                      <ImageIcon className="w-16 h-16 mx-auto text-slate-200" />
+                      <p className="text-xs font-black uppercase tracking-widest">Noch keine Bilder hochgeladen</p>
+                    </div>
+                  )}
+                  {isUploading && (
+                    <div className="aspect-square rounded-xl border border-dashed flex flex-col items-center justify-center gap-2 bg-slate-50 animate-pulse">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      <span className="text-[8px] font-black uppercase text-slate-400">Verarbeitung...</span>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </main>
+          </div>
+
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
+            <Button variant="ghost" onClick={() => setIsMediaPickerOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Schließen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

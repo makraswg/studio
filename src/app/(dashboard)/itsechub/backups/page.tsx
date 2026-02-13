@@ -79,7 +79,7 @@ export default function BackupMonitorPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
+    <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-orange-500/10 text-orange-600 flex items-center justify-center rounded-xl border border-orange-500/10 shadow-sm">

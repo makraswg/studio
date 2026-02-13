@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -83,7 +84,7 @@ export default function IamAuditPage() {
   const sodConflicts = auditResult?.findings?.filter((f: any) => f.isSodConflict) || [];
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="p-4 md:p-8 space-y-6 pb-10">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
@@ -279,7 +280,7 @@ export default function IamAuditPage() {
                         )}>
                           <p className={cn(
                             "text-[9px] font-black uppercase flex items-center gap-1.5 mb-1.5 tracking-widest",
-                            f.isSodConflict ? "text-red-700 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"
+                            f.isSodConflict ? "text-red-700 dark:text-red-400" : "text-emerald-700 dark:text-red-400"
                           )}>
                             <Zap className="w-3 h-3 fill-current" /> KI Empfehlung
                           </p>

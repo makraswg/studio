@@ -163,7 +163,7 @@ export default function ProcessMapPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="p-4 md:p-8 space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
@@ -323,7 +323,7 @@ export default function ProcessMapPage() {
 
                         <div className="pt-4 border-t">
                           <Button 
-                            className="w-full h-10 rounded-xl bg-slate-900 hover:bg-black text-white text-[10px] font-bold uppercase tracking-widest gap-2 shadow-lg transition-all active:scale-95"
+                            className="w-full h-10 rounded-xl bg-slate-900 hover:bg-black text-white text-[10px] font-bold uppercase tracking-widest gap-2 shadow-lg transition-all active:scale-[0.98]"
                             onClick={() => router.push(`/processhub/view/${proc.id}`)}
                           >
                             Ansehen <ChevronRight className="w-3.5 h-3.5" />

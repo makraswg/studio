@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -151,7 +152,7 @@ export default function RiskControlsPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="p-4 md:p-8 space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-indigo-500/10 text-indigo-600 flex items-center justify-center rounded-xl border border-indigo-500/10 shadow-sm">
@@ -332,7 +333,7 @@ export default function RiskControlsPage() {
           </ScrollArea>
           <DialogFooter className="p-4 bg-slate-50 border-t flex gap-2">
             <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
-            <Button onClick={handleSave} disabled={isSaving} className="rounded-xl h-11 px-12 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] uppercase shadow-lg gap-2 active:scale-95 transition-all">
+            <Button onClick={handleSave} disabled={isSaving} className="rounded-xl h-11 px-12 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] uppercase shadow-lg gap-2 active:scale-[0.98] transition-all">
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Kontrolle speichern
             </Button>
           </DialogFooter>

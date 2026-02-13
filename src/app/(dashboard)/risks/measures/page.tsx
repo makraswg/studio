@@ -167,7 +167,7 @@ function RiskMeasuresContent() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="p-4 md:p-8 space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-emerald-500/10 text-emerald-600 flex items-center justify-center rounded-xl border border-emerald-500/10 shadow-sm transition-transform hover:scale-105">
